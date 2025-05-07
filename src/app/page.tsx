@@ -1,21 +1,28 @@
-import SearchPairTile from "@/components/main-menu/SearchPairTile";
-import ProfileTile from "@/components/main-menu/ProfileTile";
-import QuestionnaireTile from "@/components/main-menu/QuestionnaireTile";
-import LootboxTile from "@/components/main-menu/LootboxTile";
-import CoupleActivityTile from "@/components/main-menu/CoupleActivityTile";
+'use client';
+import { useSession, signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-export default function Home() {
+export default function WelcomePage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'authenticated') router.replace('/main-menu');
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return <div className="h-screen flex items-center justify-center">Загрузка…</div>;
+  }
   return (
-    <main className="grid w-screen h-screen grid-rows-[46.5vh_7vh_46.5vh]">
-      {/* Верхняя часть */}
-      <div className="grid grid-cols-2 grid-rows-2 gap-x-5 gap-y-2 p-2">
-        <SearchPairTile />
-        <ProfileTile />
-        <QuestionnaireTile />
-      </div>
-
-      <LootboxTile />
-      <CoupleActivityTile />
-    </main>
+    <div className="h-screen flex flex-col items-center justify-center space-y-6">
+      <h1 className="text-3xl font-bold">Привет! Готов?</h1>
+      <button
+        onClick={() => signIn('discord')}
+        className="px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+      >
+        ПОЕХАЛИ
+      </button>
+    </div>
   );
 }

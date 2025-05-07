@@ -1,0 +1,10 @@
+{
+    "application_id": "<1367508484790157332>",
+    "name": "ВМЕСТЕ",
+    "description": "Приложение которое поможет вам развить и сохранить отношения. Либо найти действительно вашего человека",
+    "icon": "icon.png",             
+    "features": ["ACTIVITY_JOIN"],  
+    "layout_modes": ["FULLSCREEN"],
+    "permissions": ["IDENTIFY","RPC_ACTIVITIES_WRITE"]
+  }
+  
