@@ -1,9 +1,6 @@
 // src/lib/auth.ts
 import type { NextAuthOptions } from 'next-auth';
 import DiscordProvider from 'next-auth/providers/discord';
-import type { JWT } from 'next-auth/jwt';
-import type { Session, Account } from 'next-auth';
-import type { DiscordProfile } from 'next-auth/providers/discord';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,7 +12,8 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
   callbacks: {
-    async jwt({ token, account, profile }: { token: JWT; account?: Account; profile?: DiscordProfile }) {
+    async jwt({ token, account, profile }) {
+      // благодаря декларациям TS теперь знает, что profile is DiscordProfile
       if (account && profile) {
         token.name = profile.username;
         token.picture = profile.avatar
@@ -24,11 +22,11 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    async session({ session, token }: { session: Session; token: JWT }) {
+    async session({ session, token }) {
       if (token.picture) {
         session.user = {
           ...session.user,
-          name: token.name as string,
+          name: token.name!,
           image: token.picture,
         };
       }

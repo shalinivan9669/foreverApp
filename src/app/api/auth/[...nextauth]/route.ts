@@ -1,9 +1,7 @@
-// src/app/api/auth/[...nextauth]/route.ts
-import NextAuth, { type NextAuthOptions, type Session, type Account } from 'next-auth';
-import DiscordProvider, { type DiscordProfile } from 'next-auth/providers/discord';
-import type { JWT } from 'next-auth/jwt';
+import NextAuth, { type NextAuthOptions } from "next-auth";
+import DiscordProvider from "next-auth/providers/discord";
 
-const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
@@ -11,24 +9,11 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: 'jwt' },
   callbacks: {
-    async jwt({ token, account, profile }: { token: JWT; account?: Account; profile?: DiscordProfile }) {
-      if (account && profile) {
-        token.name = profile.username;
-        token.picture = profile.avatar
-          ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-          : null;
-      }
-      return token;
-    },
-    async session({ session, token }: { session: Session; token: JWT }) {
-      if (token.picture) {
-        session.user = {
-          ...session.user,
-          name: token.name as string,
-          image: token.picture,
-        };
+    async session({ session, token }) {
+      // добавим в сессию ID пользователя
+      if (session.user) {
+        session.user.id = token.sub!;
       }
       return session;
     },
