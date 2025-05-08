@@ -1,7 +1,14 @@
-import type { NextConfig } from "next";
+// next.config.ts
+import { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    domains: [
+      // сюда может прилетать ваш аватар
+      "cdn.discordapp.com",
+      "images.discordapp.net",
+    ],
+  },
 };
 
 export default nextConfig;

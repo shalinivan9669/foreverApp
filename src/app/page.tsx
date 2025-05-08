@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
+import Image from "next/image";
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -9,7 +10,9 @@ export default function HomePage() {
     return <p className="p-4">Загрузка...</p>;
   }
 
-  if (!session) {
+
+ // если нет сессии или session.user — на вход
+ if (!session?.user) {
     return (
       <div className="flex items-center justify-center h-screen">
         <button
@@ -22,24 +25,31 @@ export default function HomePage() {
     );
   }
 
+ // здесь гарантированно есть session.user
+  const { user } = session;
+
   return (
     <div className="flex flex-col items-center justify-center h-screen space-y-4">
-      <h1 className="text-3xl font-semibold">
-        Привет, {session.user.name}!
-      </h1>
-      {session.user.image && (
-        <img
-          src={session.user.image}
-          alt="Аватар"
-          className="w-24 h-24 rounded-full border-2 border-indigo-600"
-        />
-      )}
-      <button
-        onClick={() => signOut()}
-        className="mt-4 px-4 py-2 border rounded hover:bg-gray-100 transition"
-      >
-        Выйти
-      </button>
-    </div>
+
+     <h1 className="text-3xl font-semibold">
+       Привет, {user.name ?? "Друг"}!
+     </h1>
+     {user.image && (
+       <Image
+         src={user.image}
+         alt="Аватар"
+         width={96}
+         height={96}
+         className="rounded-full border-2 border-indigo-600"
+       />
+     )}
+
+    <button
+      onClick={() => signOut()}
+      className="mt-4 px-4 py-2 border rounded hover:bg-gray-100 transition"
+    >
+      Выйти
+    </button>
+  </div>
   );
 }
