@@ -1,25 +1,22 @@
+// src/context/DiscordUserContext.tsx
 'use client';
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode
-} from 'react';
+
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface DiscordUser {
-  id:       string;
+  id: string;
   username: string;
-  avatar:   string;
+  avatar: string;
 }
 
-interface Ctx {
+interface ContextValue {
   user: DiscordUser | null;
   setUser: (u: DiscordUser) => void;
 }
 
-const DiscordUserContext = createContext<Ctx>({
+const DiscordUserContext = createContext<ContextValue>({
   user: null,
-  setUser: () => {}
+  setUser: () => {},  // заглушка на случай, если провайдера нет
 });
 
 export function DiscordUserProvider({ children }: { children: ReactNode }) {
