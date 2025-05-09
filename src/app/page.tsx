@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
-import { useDiscordUser } from '../../context/DiscordUserContext';
+import { useDiscordUser } from '../context/DiscordUserContext';
 
 export default function DiscordActivityPage() {
   const { user, setUser } = useDiscordUser();
