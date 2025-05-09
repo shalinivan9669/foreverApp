@@ -3,67 +3,101 @@
 import { useEffect, useState } from 'react';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 
+//
+// 1. Определяем интерфейс для данных пользователя
+//
+interface DiscordUser {
+  id: string;
+  username: string;
+  avatar: string;
+  discriminator: string;
+  // при необходимости можно добавить другие поля из API /users/@me
+}
+
 export default function DiscordActivityPage() {
-  const [username, setUsername] = useState<string | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  //
+  // 2. useState с конкретным типом вместо any
+  //
+  const [user, setUser] = useState<DiscordUser | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function init() {
+    async function init(): Promise<void> {
       const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!;
-      const sdk = new DiscordSDK(clientId);
+      const sdk      = new DiscordSDK(clientId);
 
-      // Ждём, когда Discord установит соединение iframe ↔ SDK
       await sdk.ready();
 
-      // Запрашиваем у пользователя право получить basic profile (identify)
+      // запрашиваем разрешение
       const { code } = await sdk.commands.authorize({
         client_id:     clientId,
         response_type: 'code',
-        scope:         ['identify']
+        scope:         ['identify'],
+        prompt:        'none'
       });
 
-      // Обмениваем code на access_token через наш API-роут
-      const tokenResp = await fetch('/api/exchange-code', {
+      // обмениваем code → access_token через прокси
+      const tokenResp = await fetch('/.proxy/api/exchange-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code })
       });
-      const { access_token } = await tokenResp.json();
+      if (!tokenResp.ok) {
+        throw new Error(`Token exchange failed: ${tokenResp.status}`);
+      }
+      const { access_token } = await tokenResp.json() as { access_token: string };
 
-      // Передаём токен в SDK (заканчиваем авторизацию на стороне клиента)
+      // передаём токен в SDK
       await sdk.commands.authenticate({ access_token });
 
-      // Запрашиваем данные профиля у Discord API
+      // получаем профиль пользователя
       const userRes = await fetch('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${access_token}` }
       });
-      const user = await userRes.json();
+      if (!userRes.ok) {
+        throw new Error(`Failed to fetch user profile: ${userRes.status}`);
+      }
+      const userData = (await userRes.json()) as DiscordUser;
 
-      // Сохраняем в стейт
-      setUsername(user.username);
-      setAvatarUrl(`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`);
+      setUser(userData);
     }
 
-    init().catch(console.error);
+    // 3. Ловим ошибку с типом unknown
+    init().catch((e: unknown) => {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      console.error(e);
+    });
   }, []);
 
-  if (!username || !avatarUrl) {
+  if (error) {
+    return (
+      <div style={{ color: 'red', textAlign: 'center', marginTop: '2rem' }}>
+        Ошибка: {error}
+      </div>
+    );
+  }
+  if (!user) {
     return <div style={{ textAlign: 'center', marginTop: '2rem' }}>Loading…</div>;
   }
 
   return (
-    <div style={{
-      display:        'flex',
-      flexDirection:  'column',
-      alignItems:     'center',
-      marginTop:      '2rem'
-    }}>
+    <div
+      style={{
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'center',
+        marginTop:      '2rem'
+      }}
+    >
       <img
-        src={avatarUrl}
+        src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
         alt="Avatar"
-        style={{ width: 128, height: 128, borderRadius: '50%' }}
+        width={128}
+        height={128}
+        style={{ borderRadius: '50%' }}
       />
-      <h2 style={{ marginTop: '1rem' }}>{username}</h2>
+      <h2 style={{ marginTop: '1rem' }}>{user.username}</h2>
     </div>
   );
 }
