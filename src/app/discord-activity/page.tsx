@@ -60,8 +60,8 @@ export default function DiscordActivityPage() {
     });
   }, []);
 
-  if (error) return <div style={{ color:'red', textAlign:'center' }}>Ошибка: {error}</div>;
-  if (!user)  return <div style={{ textAlign:'center' }}>Loading…</div>;
+  if (error) return <div style={{ color:'red', textAlign:'center' }}>111Ошибка: {error}</div>;
+  if (!user)  return <div style={{ textAlign:'center' }}>111Loading…</div>;
 
   return (
     <div style={{
