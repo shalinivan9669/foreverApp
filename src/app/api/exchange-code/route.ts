@@ -1,23 +1,28 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const { code } = await request.json();
+  const { code, redirect_uri } = (await request.json()) as {
+    code: string;
+    redirect_uri: string;
+  };
 
   const params = new URLSearchParams({
-    client_id:   process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
+    client_id:     process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
     client_secret: process.env.DISCORD_CLIENT_SECRET!,
-    grant_type:  'authorization_code',
+    grant_type:    'authorization_code',
     code,
-    redirect_uri: process.env.DISCORD_REDIRECT_URI!
+    redirect_uri
   });
 
   const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params
+    body:    params
   });
 
-  const tokenData = await tokenRes.json();
-  if (!tokenRes.ok) return NextResponse.json(tokenData, { status: tokenRes.status });
-  return NextResponse.json({ access_token: tokenData.access_token });
+  const data = await tokenRes.json();
+  if (!tokenRes.ok) {
+    return NextResponse.json(data, { status: tokenRes.status });
+  }
+  return NextResponse.json({ access_token: data.access_token });
 }
