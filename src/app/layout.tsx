@@ -1,7 +1,15 @@
-'use client';
-import type { ReactNode } from 'react';
+// src/app/layout.tsx
+import './globals.css';
+import { DiscordUserProvider } from '../context/DiscordUserContext';
 
-export default function DiscordActivityLayout({ children }: { children: ReactNode }) {
-  // Ничего лишнего: без next-auth, без хедера/футера
-  return <>{children}</>;
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ru">
+      <body>
+        <DiscordUserProvider>
+          {children}
+        </DiscordUserProvider>
+      </body>
+    </html>
+  );
 }
