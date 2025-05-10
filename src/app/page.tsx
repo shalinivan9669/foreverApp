@@ -50,17 +50,19 @@ export default function DiscordActivityPage() {
         // 1) сохраняем в Zustand
         setUser(u);
   
-        // 2) сохраняем в MongoDB
-        const saveResp = await fetch('/api/users', {
+                
+        // 2) сохраняем в БД «в фоне», через прокси
+        fetch('/.proxy/api/users', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify(u)
-        });
-        if (!saveResp.ok) {
-          console.error('Ошибка при сохранении пользователя в БД:', await saveResp.text());
-        } else {
-          console.log('Пользователь сохранён в БД:', await saveResp.json());
-        }
+        })
+        .then(res => {
+          if (!res.ok) throw new Error(`DB save failed: ${res.status}`);
+          return res.json();
+        })
+        .then(doc => console.log('✅ User saved to DB:', doc))
+        .catch(err => console.error('❌ Error saving user to DB:', err));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(e);
