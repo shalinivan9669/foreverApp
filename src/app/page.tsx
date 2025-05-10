@@ -63,27 +63,27 @@ export default function DiscordActivityPage() {
   }, [setUser]);
 
   // 2) Обработчик кнопки: сначала fire-and-forget запись в БД, потом переход
-  const goToMenu = () => {
-    if (!user) return;
+ 
+const goToMenu = () => {
+  if (!user) return;
 
-    fetch('/.proxy/api/users', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(user)
-    })
-      .then(res => {
-        if (!res.ok) console.error('DB save failed:', res.status);
-        else return res.json();
-      })
-      .then(doc => {
-        if (doc) console.log('✅ User saved to DB:', doc);
-      })
-      .catch(err => console.error('❌ Error saving user to DB:', err))
-      .finally(() => {
-        // обязательно переходим, даже если сохранение упало
-        router.push('/main-menu');
-      });
-  };
+  // 1) логируем визит
+  fetch('/.proxy/api/logs', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ userId: user.id }),
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`Log failed: ${res.status}`);
+    return res.json();
+  })
+  .then(log => console.log('📒 Logged visit:', log))
+  .catch(err => console.error('❌ Logging error:', err))
+  // 2) и сразу переходим в меню
+  .finally(() => {
+    router.push('/main-menu');
+  });
+};
 
   // 3) Рендерим
   if (error) return <div className="text-red-500 text-center mt-8">Ошибка: {error}</div>;
