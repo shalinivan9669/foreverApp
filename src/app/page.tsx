@@ -27,7 +27,10 @@ export default function DiscordActivityPage() {
       const tokenResp = await fetch('/.proxy/api/exchange-code', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ code })
+        body:    JSON.stringify({ code
+          ,
+      redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
+         })
       });
       if (!tokenResp.ok) {
         throw new Error(`Token exchange failed: ${tokenResp.status}`);
