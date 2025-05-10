@@ -1,10 +1,11 @@
+// src/components/main-menu/ProfileTile.tsx
 'use client';
 
 import Link from 'next/link';
-import { useDiscordUser } from '../../context/DiscordUserContext';
+import { useUserStore } from '../../store/useUserStore';
 
 export default function ProfileTile() {
-  const { user } = useDiscordUser();
+  const user = useUserStore((s) => s.user);
 
   return (
     <Link href="/profile">
