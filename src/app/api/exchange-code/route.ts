@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
-  const { code, redirect_uri } = (await request.json()) as {
+export async function POST(req: Request) {
+  const { code, redirect_uri } = (await req.json()) as {
     code: string;
     redirect_uri: string;
   };

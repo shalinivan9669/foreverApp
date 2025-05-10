@@ -1,15 +1,13 @@
-// src/app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
+import { DiscordSDK }          from '@discord/embedded-app-sdk';
 import { useDiscordUser, DiscordUser } from '../context/DiscordUserContext';
-import Link from 'next/link';
- 
+import Link                    from 'next/link';
 
 export default function DiscordActivityPage() {
   const { user, setUser } = useDiscordUser();
-  const [error, setError]  = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -27,13 +25,12 @@ export default function DiscordActivityPage() {
       const tokenResp = await fetch('/.proxy/api/exchange-code', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ code          ,
-         redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
-         })
+        body:    JSON.stringify({ code })   // и redirect_uri, если ты выбрал вариант А
       });
       if (!tokenResp.ok) {
         throw new Error(`Token exchange failed: ${tokenResp.status}`);
       }
+
       const { access_token } = (await tokenResp.json()) as { access_token: string };
       await sdk.commands.authenticate({ access_token });
 
@@ -43,8 +40,9 @@ export default function DiscordActivityPage() {
       if (!userRes.ok) {
         throw new Error(`Failed to fetch profile: ${userRes.status}`);
       }
+
       const u = (await userRes.json()) as DiscordUser;
-      setUser(u);  // <— сохраняем в контекст
+      setUser(u);  // <-- Наконец кладём его в контекст
     }
 
     init().catch((e: unknown) => {

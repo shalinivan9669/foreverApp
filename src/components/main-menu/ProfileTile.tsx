@@ -1,4 +1,3 @@
-// src/components/main-menu/ProfileTile.tsx
 'use client';
 
 import Link from 'next/link';
@@ -16,13 +15,13 @@ export default function ProfileTile() {
         hover:bg-pink-300
       ">
         {user ? (
-         <img
-         src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
-         alt="Avatar"
-         width={128}
-         height={128}
-         style={{ borderRadius: '50%' }}
-       />
+          <img
+            src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+            alt={user.username}
+            width={64}
+            height={64}
+            style={{ borderRadius: '50%' }}
+          />
         ) : (
           <span className="text-gray-500">–</span>
         )}
