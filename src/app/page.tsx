@@ -1,13 +1,14 @@
+// src/app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DiscordSDK }          from '@discord/embedded-app-sdk';
+import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { useUserStore, DiscordUser } from '../store/useUserStore';
-import Link                    from 'next/link';
+import Link from 'next/link';
 
 export default function DiscordActivityPage() {
-  const setUser = useUserStore((s) => s.setUser);
-  const user    = useUserStore((s) => s.user);
+  const setUser     = useUserStore((s) => s.setUser);
+  const user        = useUserStore((s) => s.user);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function DiscordActivityPage() {
         client_id:     clientId,
         response_type: 'code',
         scope:         ['identify'],
-        prompt:        'none',
+        prompt:        'none'
       });
 
       const tokenResp = await fetch('/.proxy/api/exchange-code', {
@@ -34,6 +35,7 @@ export default function DiscordActivityPage() {
       if (!tokenResp.ok) {
         throw new Error(`Token exchange failed: ${tokenResp.status}`);
       }
+
       const { access_token } = (await tokenResp.json()) as { access_token: string };
       await sdk.commands.authenticate({ access_token });
 
@@ -44,7 +46,8 @@ export default function DiscordActivityPage() {
         throw new Error(`Failed to fetch profile: ${userRes.status}`);
       }
       const u = (await userRes.json()) as DiscordUser;
-      setUser(u);  // <- сохраняем в глобальный стор
+
+      setUser(u);  // <-- сохраняем в Zustand
     }
 
     init().catch((e: unknown) => {
@@ -60,11 +63,11 @@ export default function DiscordActivityPage() {
       <img
         src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
         alt="Avatar"
-        width={128} height={128}
+        width={128}
+        height={128}
         style={{ borderRadius: '50%' }}
       />
       <h2 className="mt-4 text-lg">{user.username}</h2>
-
       <Link href="/main-menu">
         <button className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
           Перейти в главное меню

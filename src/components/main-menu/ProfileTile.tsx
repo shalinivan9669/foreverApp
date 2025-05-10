@@ -19,7 +19,8 @@ export default function ProfileTile() {
           <img
             src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
             alt={user.username}
-            width={64} height={64}
+            width={64}
+            height={64}
             style={{ borderRadius: '50%' }}
           />
         ) : (
