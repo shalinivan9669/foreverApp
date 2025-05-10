@@ -2,7 +2,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useDiscordUser } from '../../context/DiscordUserContext';
 
 export default function ProfileTile() {
@@ -17,13 +16,13 @@ export default function ProfileTile() {
         hover:bg-pink-300
       ">
         {user ? (
-          <Image
-            src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
-            alt={user.username}
-            width={64}
-            height={64}
-            className="rounded-full"
-          />
+         <img
+         src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+         alt="Avatar"
+         width={128}
+         height={128}
+         style={{ borderRadius: '50%' }}
+       />
         ) : (
           <span className="text-gray-500">–</span>
         )}
