@@ -1,10 +1,9 @@
-// src/app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
+import { DiscordSDK }          from '@discord/embedded-app-sdk';
 import { useUserStore, DiscordUser } from '../store/useUserStore';
-import Link from 'next/link';
+import Link                    from 'next/link';
 
 export default function DiscordActivityPage() {
   const setUser = useUserStore((s) => s.setUser);
@@ -21,29 +20,31 @@ export default function DiscordActivityPage() {
         client_id:     clientId,
         response_type: 'code',
         scope:         ['identify'],
-        prompt:        'none'
+        prompt:        'none',
       });
 
       const tokenResp = await fetch('/.proxy/api/exchange-code', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body: JSON.stringify({
           code,
           redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
         })
       });
-
-      if (!tokenResp.ok) throw new Error(`Token exchange failed: ${tokenResp.status}`);
+      if (!tokenResp.ok) {
+        throw new Error(`Token exchange failed: ${tokenResp.status}`);
+      }
       const { access_token } = (await tokenResp.json()) as { access_token: string };
       await sdk.commands.authenticate({ access_token });
 
       const userRes = await fetch('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${access_token}` }
       });
-      if (!userRes.ok) throw new Error(`Failed to fetch profile: ${userRes.status}`);
+      if (!userRes.ok) {
+        throw new Error(`Failed to fetch profile: ${userRes.status}`);
+      }
       const u = (await userRes.json()) as DiscordUser;
-
-      setUser(u);  // <-- сохраняем в глобальный стор
+      setUser(u);  // <- сохраняем в глобальный стор
     }
 
     init().catch((e: unknown) => {
@@ -59,13 +60,11 @@ export default function DiscordActivityPage() {
       <img
         src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
         alt="Avatar"
-        width={128}
-        height={128}
+        width={128} height={128}
         style={{ borderRadius: '50%' }}
       />
       <h2 className="mt-4 text-lg">{user.username}</h2>
 
-      {/* навигация через Link — без перезагрузок */}
       <Link href="/main-menu">
         <button className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
           Перейти в главное меню
