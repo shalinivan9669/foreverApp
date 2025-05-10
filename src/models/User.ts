@@ -1,14 +1,22 @@
-// src/models/User.ts
-import mongoose, { Document, Model } from 'mongoose';
-import { DiscordUser } from '../store/useUserStore';
+import mongoose from 'mongoose';
 
-interface UserDoc extends DiscordUser, Document {}
+export interface UserType {
+  id:       string;
+  username: string;
+  avatar:   string;
+}
 
-const UserSchema = new mongoose.Schema<UserDoc>({
-  id:       { type: String, required: true, unique: true },
-  username: { type: String, required: true },
-  avatar:   { type: String, required: true },
-}, { timestamps: true });
+// Описываем схему именно по полям UserType
+const userSchema = new mongoose.Schema<UserType>(
+  {
+    id:       { type: String, required: true, unique: true },
+    username: { type: String, required: true },
+    avatar:   { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
-export const User: Model<UserDoc> =
-  mongoose.models.User || mongoose.model<UserDoc>('User', UserSchema);
+// Если модель уже создана (HMR / re-compile), берём её, иначе создаём
+export const User =
+  (mongoose.models.User as mongoose.Model<UserType>) ||
+  mongoose.model<UserType>('User', userSchema);
