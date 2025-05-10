@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { useDiscordUser, DiscordUser } from '../context/DiscordUserContext';
 import Link from 'next/link';
-import Image from 'next/image';
+ 
 
 export default function DiscordActivityPage() {
   const { user, setUser } = useDiscordUser();
@@ -27,9 +27,8 @@ export default function DiscordActivityPage() {
       const tokenResp = await fetch('/.proxy/api/exchange-code', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ code
-          ,
-      redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
+        body:    JSON.stringify({ code          ,
+         redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
          })
       });
       if (!tokenResp.ok) {
@@ -60,12 +59,12 @@ export default function DiscordActivityPage() {
 
   return (
     <div className="flex flex-col items-center mt-8">
-      <Image
+      <img
         src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
         alt="Avatar"
         width={128}
         height={128}
-        className="rounded-full"
+        style={{ borderRadius: '50%' }}
       />
       <h2 className="mt-4 text-lg">{user.username}</h2>
 
