@@ -36,7 +36,13 @@ export default function WelcomePage() {
     <div className="p-4 flex flex-col gap-4">
       <label>
         Пол:
-        <select value={gender} onChange={(e) => setGender(e.target.value as any)} className="ml-2">
+        <select
+          value={gender}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            setGender(e.target.value as 'male' | 'female' | 'other')
+          }
+          className="ml-2"
+        >
           <option value="male">Мужской</option>
           <option value="female">Женский</option>
           <option value="other">Иной</option>
@@ -48,7 +54,13 @@ export default function WelcomePage() {
       </label>
       <label>
         Семейное положение:
-        <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="ml-2">
+        <select
+          value={status}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            setStatus(e.target.value as 'seeking' | 'in_relationship')
+          }
+          className="ml-2"
+        >
           <option value="seeking">Ищу отношения</option>
           <option value="in_relationship">В отношениях</option>
         </select>
