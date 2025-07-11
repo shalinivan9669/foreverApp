@@ -67,22 +67,23 @@ export default function DiscordActivityPage() {
 const goToMenu = () => {
   if (!user) return;
 
-  // 1) логируем визит
+  // логируем визит (fire and forget)
   fetch('/.proxy/api/logs', {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ userId: user.id }),
-  })
-  .then(res => {
-    if (!res.ok) throw new Error(`Log failed: ${res.status}`);
-    return res.json();
-  })
-  .then(log => console.log('📒 Logged visit:', log))
-  .catch(err => console.error('❌ Logging error:', err))
-  // 2) и сразу переходим в меню
-  .finally(() => {
-    router.push('/main-menu');
-  });
+    body: JSON.stringify({ userId: user.id }),
+  }).catch(() => {});
+
+  fetch(`/.proxy/api/users/${user.id}`)
+    .then((res) => (res.ok ? res.json() : null))
+    .then((doc) => {
+      if (doc && doc.personal?.gender && doc.personal.age && doc.personal.relationshipStatus) {
+        router.push('/main-menu');
+      } else {
+        router.push('/welcome');
+      }
+    })
+    .catch(() => router.push('/welcome'));
 };
 
   // 3) Рендерим
