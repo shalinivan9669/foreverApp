@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../../lib/mongodb';
 import { User, UserType } from '../../../../models/User';
 
 export async function GET(
-  _req: Request,
+  _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   await connectToDatabase();
@@ -13,7 +13,7 @@ export async function GET(
 }
 
 export async function PUT(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const body = (await req.json()) as Partial<UserType>;
