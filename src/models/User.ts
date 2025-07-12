@@ -95,7 +95,8 @@ const userSchema = new Schema<UserType>(
 userSchema.index({ 'personal.city': 1 });
 userSchema.index({ 'personal.gender': 1, 'personal.relationshipStatus': 1 });
 userSchema.index({ location: '2dsphere' });
-userSchema.index({ embeddings: { type: 'knnVector', dimensions: EMBEDDING_DIM, similarity: 'cosine' } });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+userSchema.index({ embeddings: { type: 'knnVector', dimensions: EMBEDDING_DIM, similarity: 'cosine' } } as any);
 
 export const User =
   (mongoose.models.User as mongoose.Model<UserType>) ||

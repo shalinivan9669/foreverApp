@@ -3,11 +3,11 @@ import { connectToDatabase } from '../../../../lib/mongodb';
 import { User, UserType } from '../../../../models/User';
 
 interface RouteContext {
-  params?: Promise<{ id?: string }>;
+  params: Promise<{ id: string }>;
 }
 
 export async function GET(_req: NextRequest, ctx: RouteContext) {
-  const { id } = (await ctx.params) ?? {};
+  const { id } = await ctx.params;
   await connectToDatabase();
   const doc = await User.findOne({ id }).lean<UserType | null>();
   if (!doc) return NextResponse.json(null, { status: 404 });
@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
-  const { id } = (await ctx.params) ?? {};
+  const { id } = await ctx.params;
   const body = (await req.json()) as Partial<UserType>;
   await connectToDatabase();
   const update: Record<string, unknown> = {};
