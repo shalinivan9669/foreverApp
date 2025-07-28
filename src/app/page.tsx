@@ -77,7 +77,8 @@ const goToMenu = () => {
   fetch(`/.proxy/api/users/${user.id}`)
     .then((res) => (res.ok ? res.json() : null))
     .then((doc) => {
-      if (doc && doc.personal?.gender && doc.personal.age && doc.personal.relationshipStatus) {
+      const onboarding = doc?.profile?.onboarding;
+      if (onboarding?.seeking || onboarding?.inRelationship) {
         router.push('/main-menu');
       } else {
         router.push('/welcome');
