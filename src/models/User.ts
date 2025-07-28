@@ -27,6 +27,28 @@ export interface UserType {
       computedAt: Date;
     }[];
   };
+  profile?: {
+    onboarding?: {
+      seeking?: {
+        valuedQualities: string[];
+        relationshipPriority:
+          'emotional_intimacy' | 'shared_interests' | 'financial_stability' | 'other';
+        minExperience: 'none' | '1-2_years' | 'more_2_years';
+        dealBreakers: string;
+        firstDateSetting: 'cafe' | 'walk' | 'online' | 'other';
+        weeklyTimeCommitment: '<5h' | '5-10h' | '>10h';
+      };
+      inRelationship?: {
+        satisfactionRating: number;
+        communicationFrequency: 'daily' | 'weekly' | 'less';
+        jointBudgeting: 'shared' | 'separate';
+        conflictResolutionStyle: 'immediate' | 'cool_off' | 'avoid';
+        sharedActivitiesPerMonth: number;
+        mainGrowthArea:
+          'communication' | 'finance' | 'intimacy' | 'domestic' | 'emotional_support';
+      };
+    };
+  };
   createdAt?: Date;
   updatedAt?: Date;
   location?: {
@@ -83,6 +105,32 @@ const userSchema = new Schema<UserType>(
           computedAt:  { type: Date, required: true },
         }
       ],
+    },
+    profile: {
+      onboarding: {
+        seeking: {
+          valuedQualities: { type: [String], validate: (a: string[]) => a.length === 3 },
+          relationshipPriority: {
+            type: String,
+            enum: ['emotional_intimacy','shared_interests','financial_stability','other'],
+          },
+          minExperience: { type: String, enum: ['none','1-2_years','more_2_years'] },
+          dealBreakers: { type: String },
+          firstDateSetting: { type: String, enum: ['cafe','walk','online','other'] },
+          weeklyTimeCommitment: { type: String, enum: ['<5h','5-10h','>10h'] },
+        },
+        inRelationship: {
+          satisfactionRating: { type: Number, min: 1, max: 5 },
+          communicationFrequency: { type: String, enum: ['daily','weekly','less'] },
+          jointBudgeting: { type: String, enum: ['shared','separate'] },
+          conflictResolutionStyle: { type: String, enum: ['immediate','cool_off','avoid'] },
+          sharedActivitiesPerMonth: { type: Number },
+          mainGrowthArea: {
+            type: String,
+            enum: ['communication','finance','intimacy','domestic','emotional_support'],
+          },
+        },
+      },
     },
     location: {
       type:        { type: String, enum: ['Point'] },
