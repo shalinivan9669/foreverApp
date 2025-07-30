@@ -111,6 +111,7 @@ const userSchema = new Schema<UserType>(
           seeking: {
             valuedQualities: {
               type: [String],
+                default: ['', '', ''], 
               validate: (a: string[]) =>
                 Array.isArray(a) && a.length === 3 && a.every((v) => v.trim() !== ''),
             },
