@@ -108,8 +108,12 @@ const userSchema = new Schema<UserType>(
     },
     profile: {
       onboarding: {
-        seeking: {
-          valuedQualities: { type: [String], validate: (a: string[]) => a.length === 3 },
+          seeking: {
+            valuedQualities: {
+              type: [String],
+              validate: (a: string[]) =>
+                Array.isArray(a) && a.length === 3 && a.every((v) => v.trim() !== ''),
+            },
           relationshipPriority: {
             type: String,
             enum: ['emotional_intimacy','shared_interests','financial_stability','other'],
