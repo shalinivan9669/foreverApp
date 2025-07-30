@@ -7,6 +7,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as Partial<UserType>;
   await connectToDatabase();
   const update: Record<string, unknown> = {
+    id: body.id,
     username: body.username,
     avatar: body.avatar,
   };
