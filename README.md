@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Environment Variables
+
+To run the application locally you need to provide the following variables in a `.env.local` file:
+
+- `MONGODB_URI` – connection string for MongoDB.
+- `NEXT_PUBLIC_DISCORD_CLIENT_ID` – Discord application client id.
+- `DISCORD_CLIENT_SECRET` – secret from the Discord application settings.
+- `NEXT_PUBLIC_DISCORD_REDIRECT_URI` – OAuth redirect URI configured in Discord.
+
+Without these values the API routes will fail and onboarding data will not be saved.
