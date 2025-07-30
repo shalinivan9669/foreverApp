@@ -13,7 +13,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const doc = await User.findOneAndUpdate(
     { id },
     { $set: { 'profile.onboarding': payload } },
-    { new: true, runValidators: true }
   ).lean<UserType | null>();
   if (!doc) return NextResponse.json(null, { status: 404 });
   return NextResponse.json(doc);

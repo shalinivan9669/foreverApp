@@ -27,7 +27,6 @@ export async function POST(request: Request) {
       upsert: true,
       new: true,
       setDefaultsOnInsert: true,
-      runValidators: true,
     }
   ).lean<UserType>();
 
