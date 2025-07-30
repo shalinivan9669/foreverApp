@@ -8,6 +8,7 @@ export default function OnboardingWizard() {
   const user = useUserStore((s) => s.user);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // step 1 fields
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
@@ -37,8 +38,9 @@ export default function OnboardingWizard() {
   if (!user) return <div className="text-center mt-4">No user</div>;
 
   const submitStep1 = async () => {
+    setError(null);
     setLoading(true);
-    await fetch('/.proxy/api/users', {
+    const res = await fetch('/.proxy/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -54,6 +56,10 @@ export default function OnboardingWizard() {
       }),
     });
     setLoading(false);
+    if (!res.ok) {
+      setError('Не удалось сохранить профиль. Попробуйте ещё раз.');
+      return;
+    }
     setStep(2);
   };
 
@@ -80,13 +86,18 @@ export default function OnboardingWizard() {
               mainGrowthArea: growthArea,
             },
           };
+    setError(null);
     setLoading(true);
-    await fetch(`/.proxy/api/users/${user.id}/onboarding`, {
+    const res = await fetch(`/.proxy/api/users/${user.id}/onboarding`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     setLoading(false);
+    if (!res.ok) {
+      setError('Не удалось завершить анкету. Попробуйте ещё раз.');
+      return;
+    }
     setStep(3);
   };
 
@@ -106,6 +117,7 @@ export default function OnboardingWizard() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
+      {error && <p className="text-red-600">{error}</p>}
       {step === 1 && (
         <>
           <label>
