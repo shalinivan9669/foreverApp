@@ -3,48 +3,59 @@ import { useEffect, useState } from 'react';
 import { useUserStore }        from '@/store/useUserStore';
 import QuestionCard            from '@/components/QuestionCard';
 import { useRouter }           from 'next/navigation';
-import type { QuestionType } from '@/models/Question';
+import type { QuestionType }   from '@/models/Question';
 
-export default function QuestionnairePage(){
-  const user  = useUserStore(s=>s.user);
-  const router= useRouter();
-  const [qs, setQs] = useState<QuestionType[]>([]);
-  const [ans,setAns]=useState<Record<string,number>>({});
-  const [saving,setSaving]=useState(false);
+export default function QuestionnairePage() {
+  const user    = useUserStore(s => s.user);
+  const router  = useRouter();
+  const [qs, setQs]     = useState<QuestionType[]>([]);
+  const [ans, setAns]   = useState<Record<string, number>>({});
+  const [saving, setSaving] = useState(false);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetch('/api/questions?limit=12')
-      .then(r=>r.json()).then(setQs);
-  },[]);
+      .then(r => r.json())
+      .then(setQs);
+  }, []);
 
-  const answer=(qid:string,val:number)=>{
-    setAns(prev=>({...prev,[qid]:val}));
+  const answer = (qid: string, val: number) => {
+    setAns(prev => ({ ...prev, [qid]: val }));
   };
 
-  const submit= async ()=>{
-    if(!user) return;
+  const submit = async () => {
+    if (!user) return;
     setSaving(true);
-    await fetch('/api/answers/bulk',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        userId:user.id,
-        answers:Object.entries(ans).map(([qid,ui])=>({qid,ui}))
+    await fetch('/api/answers/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        answers: Object.entries(ans).map(([qid, ui]) => ({ qid, ui }))
       })
     });
     setSaving(false);
     router.push('/main-menu');
   };
 
+  // Опционально: блокируем кнопку, пока не ответили на все вопросы
+  const allAnswered = qs.length > 0 && Object.keys(ans).length === qs.length;
+
   return (
     <div className="p-4 flex flex-col gap-4">
-      {qs.map(q=>(
-        <QuestionCard key={q._id} q={q} onAnswer={answer}/>
+      {qs.map(q => (
+        <QuestionCard
+          key={q._id}
+          q={q}
+          selected={ans[q._id]}      // ← передаём текущее значение
+          onAnswer={answer}
+        />
       ))}
-      <button disabled={saving||!Object.keys(ans).length}
-              onClick={submit}
-              className="bg-blue-600 text-white p-2 rounded">
-        Сохранить
+      <button
+        disabled={saving || !allAnswered}
+        onClick={submit}
+        className="bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white p-2 rounded transition"
+      >
+        {saving ? 'Сохраняем...' : 'Сохранить'}
       </button>
     </div>
   );
