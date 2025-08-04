@@ -6,12 +6,12 @@ import { User }                      from '@/models/User'
 import type { QuestionType }         from '@/models/Question'
 import type { QuestionnaireType }    from '@/models/Questionnaire'
 
-/* ---------- GET: анкета + вопросы ---------- */
+/* ---------- GET: получить анкету + вопросы ---------- */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = params.id
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params
 
   await connectToDatabase()
 
@@ -27,20 +27,20 @@ export async function GET(
     .find({ _id: { $in: qn.qids } })
     .lean<QuestionType[]>()
 
-  // Восстанавливаем порядок вопросов по qn.qids
+  // Восстанавливаем исходный порядок
   const ordered = qn.qids.map(qid =>
-    questions.find(q => q?._id === qid) || null
+    questions.find(q => String(q._id) === String(qid)) || null
   )
 
   return NextResponse.json({ ...qn, questions: ordered })
 }
 
-/* ---------- POST: один ответ ---------- */
+/* ---------- POST: сохранить один ответ ---------- */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = params.id
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params
   const { userId, qid, ui } = (await req.json()) as {
     userId: string
     qid:    string
@@ -49,14 +49,14 @@ export async function POST(
 
   await connectToDatabase()
 
-  // Пересчитать векторы через existing endpoint
+  // Пересчитать векторы (bulk-endpoint)
   await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/answers/bulk`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ userId, answers: [{ qid, ui }] }),
   })
 
-  // Зафиксировать прогресс пользователя
+  // Обновляем прогресс пользователя
   await User.updateOne(
     { id: userId },
     { $addToSet: { [`questionnairesProgress.${id}.answered`]: qid } },
