@@ -97,35 +97,40 @@ export async function POST(req: NextRequest) {
     if (num <= -2) pushNeg[axis].push(q.facet);
   }
 
-  /* ------- build $set / $addToSet update -------- */
-  const setLevels: Record<string, unknown> = {};
+  /* ------- build aggregation-pipeline update -------- */
+  const levelExpr: Record<string, unknown> = {};
   AXES.forEach((axis) => {
     const [sum, w] = incLevels[axis];
     if (!w) return;
-    setLevels[`vectors.${axis}.level`] = {
-      $function: {
-        body : '(prev, inc, w) => (prev * 0.75) + (inc / w)',
-        args : [`$vectors.${axis}.level`, sum, w],
-        lang : 'js'
-      }
+    levelExpr[`vectors.${axis}.level`] = {
+      $add: [
+        { $multiply: [`$vectors.${axis}.level`, 0.75] },
+        { $divide: [sum, w] }
+      ]
     };
   });
 
-  const addToSet: Record<string, unknown> = {};
+  const addToSetPos: Record<string, unknown> = {};
+  const addToSetNeg: Record<string, unknown> = {};
 
   AXES.forEach((axis) => {
-    if (pushPos[axis].length) {
-      addToSet[`vectors.${axis}.positives`] = { $each: pushPos[axis] };
-    }
-    if (pushNeg[axis].length) {
-      addToSet[`vectors.${axis}.negatives`] = { $each: pushNeg[axis] };
-    }
+    if (pushPos[axis].length)
+      addToSetPos[`vectors.${axis}.positives`] = { $each: pushPos[axis] };
+    if (pushNeg[axis].length)
+      addToSetNeg[`vectors.${axis}.negatives`] = { $each: pushNeg[axis] };
   });
 
-  const update: Record<string, unknown> = { ...setLevels };
-  if (Object.keys(addToSet).length) update.$addToSet = addToSet;
+ const pipelineUpdate: object[] = [
+    { $set: levelExpr },
+    ...(Object.keys(addToSetPos).length
+        ? [{ $addToSet: addToSetPos }]
+        : []),
+    ...(Object.keys(addToSetNeg).length
+        ? [{ $addToSet: addToSetNeg }]
+        : [])
+  ];
 
-  /* ------- write to DB -------- */
-  await User.updateOne({ id: userId }, update);
+ /* ------- write to DB -------- */
+  await User.updateOne({ id: userId }, pipelineUpdate, { strict: false });
   return NextResponse.json({ ok: true });
 }
