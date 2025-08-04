@@ -6,34 +6,36 @@ import { User }                      from '@/models/User';
 import type { QuestionType }         from '@/models/Question';
 import type { QuestionnaireType }    from '@/models/Questionnaire';
 
-/* ---------- GET: отдать анкету + вопросы ---------- */
+/* ---------- GET: анкета + вопросы ---------- */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Record<string, string | string[]> }
 ) {
+  const id = params.id as string;
+
   await connectToDatabase();
 
   const qn = await Questionnaire
-    .findById(params.id)
+    .findById(id)
     .lean<QuestionnaireType | null>();
 
-  if (!qn) return NextResponse.json(null, { status: 404 });
+  if (!qn)
+    return NextResponse.json(null, { status: 404 });
 
   const questions = await Question
     .find({ _id: { $in: qn.qids } })
     .lean<QuestionType[]>();
 
-  /* упорядочиваем как в qids */
-  const ordered = qn.qids.map((id) => questions.find((q) => q?._id === id));
-
+  const ordered = qn.qids.map((qid) => questions.find((q) => q?._id === qid));
   return NextResponse.json({ ...qn, questions: ordered });
 }
 
-/* ---------- POST: принять один ответ ---------- */
+/* ---------- POST: один ответ ---------- */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Record<string, string | string[]> }
 ) {
+  const id = params.id as string;
   const { userId, qid, ui } = (await req.json()) as {
     userId: string;
     qid: string;
@@ -42,17 +44,17 @@ export async function POST(
 
   await connectToDatabase();
 
-  /* 1) пересылаем в /answers/bulk, чтобы пересчитать vectors */
+  /* пересчитать vectors через существующий endpoint */
   await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/answers/bulk`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ userId, answers: [{ qid, ui }] })
   });
 
-  /* 2) фиксируем, что этот вопрос пройден */
+  /* зафиксировать progress */
   await User.updateOne(
     { id: userId },
-    { $addToSet: { [`questionnairesProgress.${params.id}.answered`]: qid } },
+    { $addToSet: { [`questionnairesProgress.${id}.answered`]: qid } },
     { upsert: true }
   );
 
