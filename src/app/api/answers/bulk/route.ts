@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase }         from '@/lib/mongodb';
 import { Question, QuestionType }    from '@/models/Question';
-import { User }                      from '@/models/User';
+import { User, UserType }            from '@/models/User';
 
-/* ─────────── типы и константы ───────────────────────────────── */
-
+/* ───── типы и константы ────────────────────────────────────── */
 type Axis =
   | 'communication'
   | 'domestic'
@@ -14,123 +13,84 @@ type Axis =
   | 'psyche';
 
 const AXES: Axis[] = [
-  'communication',
-  'domestic',
-  'personalViews',
-  'finance',
-  'sexuality',
-  'psyche'
+  'communication', 'domestic', 'personalViews',
+  'finance', 'sexuality', 'psyche'
 ];
 
-interface Body {
-  userId:  string;
-  answers: { qid: string; ui: number }[];
-}
+interface Body { userId: string; answers: { qid: string; ui: number }[] }
 
-/* ─────────── utils ──────────────────────────────────────────── */
-
-function toNumeric(q: QuestionType, ui: number): number {
-  // ui приходит 1..N
+/* ───── утилита ─────────────────────────────────────────────── */
+function toNumeric(q: QuestionType, ui: number) {
   const idx = Math.max(0, Math.min(ui - 1, q.map.length - 1));
-  return q.map[idx];          // −3…+3
+  return q.map[idx];                       // −3…+3
 }
 
-/* ─────────── handler ────────────────────────────────────────── */
-
+/* ───── handler ─────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
-  /* ------- validate body -------- */
   const { userId, answers } = (await req.json()) as Body;
-  if (!userId || !Array.isArray(answers) || !answers.length) {
+  if (!userId || !answers?.length)
     return NextResponse.json({ error: 'bad' }, { status: 400 });
-  }
 
   await connectToDatabase();
 
-  /* ------- fetch questions in one call -------- */
-  const qids = answers.map((a) => a.qid);
-  const qs   = await Question.find({ _id: { $in: qids } }).lean<QuestionType[]>();
+  /* fetch вопросы одной пачкой */
+  const qids = answers.map(a => a.qid);
+  const qs   = await Question.find({ _id: { $in: qids } })
+                             .lean<QuestionType[]>();
   const qMap: Record<string, QuestionType> = {};
-  qs.forEach((q) => { qMap[q._id] = q; });
+  qs.forEach(q => { qMap[q._id] = q; });
 
-  /* ------- accumulators -------- */
-  const incLevels: Record<Axis, [number, number]> = {
-    communication : [0, 0],
-    domestic      : [0, 0],
-    personalViews : [0, 0],
-    finance       : [0, 0],
-    sexuality     : [0, 0],
-    psyche        : [0, 0]
+  /* аккумуляторы */
+  const addAbs : Record<Axis, number> = {
+    communication:0, domestic:0, personalViews:0,
+    finance:0, sexuality:0, psyche:0
   };
+  const cnt    : Record<Axis, number> = { ...addAbs };
 
-  const pushPos: Record<Axis, string[]> = {
-    communication : [],
-    domestic      : [],
-    personalViews : [],
-    finance       : [],
-    sexuality     : [],
-    psyche        : []
+  const pos : Record<Axis, string[]> = {
+    communication:[], domestic:[], personalViews:[],
+    finance:[], sexuality:[], psyche:[]
   };
+  const neg : Record<Axis, string[]> = JSON.parse(JSON.stringify(pos));
 
-  const pushNeg: Record<Axis, string[]> = {
-    communication : [],
-    domestic      : [],
-    personalViews : [],
-    finance       : [],
-    sexuality     : [],
-    psyche        : []
-  };
-
-  /* ------- iterate answers -------- */
   for (const { qid, ui } of answers) {
-    const q = qMap[qid];
-    if (!q) continue;
-
-    const num  = toNumeric(q, ui);        // −3…+3
+    const q = qMap[qid]; if (!q) continue;
+    const num  = toNumeric(q, ui);
     const axis = q.axis as Axis;
-    const abs  = Math.abs(num) / 3;       // 0…1
 
-    // EMA weight 0.25
-    incLevels[axis][0] += abs * 0.25;     // numerator
-    incLevels[axis][1] += 0.25;           // denominator
+    addAbs[axis] += Math.abs(num) / 3;   // 0‥1
+    cnt[axis]    += 1;
 
-    if (num >=  2) pushPos[axis].push(q.facet);
-    if (num <= -2) pushNeg[axis].push(q.facet);
+    if (num >=  2) pos[axis].push(q.facet);
+    if (num <= -2) neg[axis].push(q.facet);
   }
 
-  /* ------- build aggregation-pipeline update -------- */
-  const levelExpr: Record<string, unknown> = {};
-  AXES.forEach((axis) => {
-    const [sum, w] = incLevels[axis];
-    if (!w) return;
-    levelExpr[`vectors.${axis}.level`] = {
-      $add: [
-        { $multiply: [`$vectors.${axis}.level`, 0.75] },
-        { $divide: [sum, w] }
-      ]
-    };
+  /* читаем текущего пользователя */
+  const doc = await User.findOne({ id: userId }).lean<UserType>();
+  if (!doc) return NextResponse.json({ error: 'no user' }, { status: 404 });
+
+  /* считаем новые уровни */
+  const setLevels: Record<string, number> = {};
+  AXES.forEach(axis => {
+    if (!cnt[axis]) return;
+    const old = doc.vectors[axis].level;
+    const avg = addAbs[axis] / cnt[axis];      // 0‥1
+    setLevels[`vectors.${axis}.level`] =
+      old * 0.75 + avg * 0.25;                 // EMA
   });
 
-  const addToSetPos: Record<string, unknown> = {};
-  const addToSetNeg: Record<string, unknown> = {};
+  /* формируем update */
+  const update: Record<string, unknown> = { $set: setLevels };
+  const addToSet: Record<string, unknown> = {};
 
-  AXES.forEach((axis) => {
-    if (pushPos[axis].length)
-      addToSetPos[`vectors.${axis}.positives`] = { $each: pushPos[axis] };
-    if (pushNeg[axis].length)
-      addToSetNeg[`vectors.${axis}.negatives`] = { $each: pushNeg[axis] };
+  AXES.forEach(axis => {
+    if (pos[axis].length)
+      addToSet[`vectors.${axis}.positives`] = { $each: pos[axis] };
+    if (neg[axis].length)
+      addToSet[`vectors.${axis}.negatives`] = { $each: neg[axis] };
   });
+  if (Object.keys(addToSet).length) update.$addToSet = addToSet;
 
- const pipelineUpdate: object[] = [
-    { $set: levelExpr },
-    ...(Object.keys(addToSetPos).length
-        ? [{ $addToSet: addToSetPos }]
-        : []),
-    ...(Object.keys(addToSetNeg).length
-        ? [{ $addToSet: addToSetNeg }]
-        : [])
-  ];
-
- /* ------- write to DB -------- */
-  await User.updateOne({ id: userId }, pipelineUpdate, { strict: false });
+  await User.updateOne({ id: userId }, update);
   return NextResponse.json({ ok: true });
 }
