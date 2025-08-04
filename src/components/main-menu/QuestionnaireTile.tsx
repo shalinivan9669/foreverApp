@@ -1,11 +1,9 @@
-import Link from "next/link";
+import Link from 'next/link';
 
 export default function QuestionnaireTile() {
   return (
-    <Link
-      href="/questionnaire"
-      className="bg-lime-100 border border-gray-400 flex items-center justify-center"
-    >
+    <Link href="/questionnaires"
+          className="bg-lime-100 border flex items-center justify-center">
       Анкетирование
     </Link>
   );
