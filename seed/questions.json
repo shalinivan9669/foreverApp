@@ -1,0 +1,29 @@
+[
+  {
+    "_id": "comm_q1",
+    "axis": "communication",
+    "facet": "listening",
+    "polarity": "+",
+    "scale": "likert5",
+    "map": [-3, -1, 0, 1, 3],
+    "weight": 0.25,
+    "text": {
+      "ru": "Я внимательно слушаю партнёра",
+      "en": "I listen attentively to my partner"
+    }
+  },
+  {
+    "_id": "dom_q1",
+    "axis": "domestic",
+    "facet": "cooking",
+    "polarity": "+",
+    "scale": "likert5",
+    "map": [-3, -1, 0, 1, 3],
+    "weight": 0.25,
+    "text": {
+      "ru": "Мне нравится готовить",
+      "en": "I enjoy cooking"
+    }
+  }
+  
+]

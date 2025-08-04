@@ -12,7 +12,7 @@ module.exports = {
     ];
   },
 
-  // 2) CSP, чтобы Discord позволил вам грузить ваше приложение в iframe
+  // 2) CSP, чтобы Discord позволил вам грузить ваше приложение в iframe  
   async headers() {
     return [
       {

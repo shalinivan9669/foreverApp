@@ -1,5 +1,13 @@
 {
   "compilerOptions": {
+    // ✅ 1. добавляем
+    "baseUrl": ".",                   
+
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    // … все ваши существующие опции …
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -14,15 +22,18 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "plugins": [{ "name": "next" }]
   },
-  "include": ["next-env.d.ts",   "**/*.tsx", ".next/types/**/*.ts", "types/**/*.d.ts", "**/*.d.ts",  ],
+
+  // ✅ 2. расширяем include, чтобы TS видел /scripts и /seed
+  "include": [
+    "next-env.d.ts",
+    "src/**/*",
+    "scripts/**/*.ts",
+    "seed/**/*.json",
+    ".next/types/**/*.ts",
+    "types/**/*.d.ts",
+    "**/*.d.ts"
+  ],
   "exclude": ["node_modules"]
 }
