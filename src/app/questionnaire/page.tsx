@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react';
 import { useUserStore }        from '@/store/useUserStore';
 import QuestionCard            from '@/components/QuestionCard';
 import { useRouter }           from 'next/navigation';
+import type { QuestionType } from '@/models/Question';
 
 export default function QuestionnairePage(){
   const user  = useUserStore(s=>s.user);
   const router= useRouter();
-  const [qs,setQs]=useState<any[]>([]);
+  const [qs, setQs] = useState<QuestionType[]>([]);
   const [ans,setAns]=useState<Record<string,number>>({});
   const [saving,setSaving]=useState(false);
 
