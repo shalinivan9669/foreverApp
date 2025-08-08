@@ -1,47 +1,68 @@
 'use client';
 
-type Scale = 'likert5' | 'bool';
+import Link from 'next/link';
+import type { QuestionnaireType } from '@/models/Questionnaire';
 
-type QCardQ = {
-  id?: string;                 // новый формат (в сабдокументах)
-  _id?: string;                // старый формат (коллекция questions)
-  text: Record<string, string>;
-  scale: Scale;
-};
+// Берём только то, что нужно карточке
+type CardData = Pick<
+  QuestionnaireType,
+  '_id' | 'title' | 'description' | 'axis' | 'target' | 'difficulty' | 'tags'
+>;
 
-interface Props {
-  q: QCardQ;
-  selected?: number;
-  onAnswer: (qid: string, ui: number) => void; // ui = 1..N
-}
+export default function QuestionnaireCard({ q }: { q: CardData }) {
+  const title = q.title?.ru ?? q.title?.en ?? q._id;
+  const desc  = q.description?.ru ?? q.description?.en ?? '';
 
-export default function QuestionCard({ q, selected, onAnswer }: Props) {
-  // Унифицируем идентификатор вопроса
-  const qid = q._id ?? q.id ?? '';
-
-  // Для нашего бекенда ui должен быть 1..N (а не 0..N-1), чтобы попадать в q.map[ui-1]
-  const options = q.scale === 'likert5' ? [1, 2, 3, 4, 5] : [1, 2];
-
-  const label = (ui: number) =>
-    q.scale === 'bool' ? (ui === 1 ? 'Нет' : 'Да') : String(ui);
+  const axisLabel: Record<string, string> = {
+    communication: 'Коммуникация',
+    domestic: 'Быт',
+    personalViews: 'Взгляды',
+    finance: 'Финансы',
+    sexuality: 'Интим',
+    psyche: 'Психика',
+  };
 
   return (
-    <div className="border rounded p-4">
-      <p className="mb-3">{q.text?.ru ?? q.text?.en ?? ''}</p>
+    <div className="border rounded p-4 bg-white dark:bg-gray-800">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+          {desc && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{desc}</p>}
+        </div>
 
-      <div className="flex gap-2">
-        {options.map((ui) => (
-          <button
-            key={ui}
-            onClick={() => onAnswer(qid, ui)}
-            className={
-              'px-3 py-1 rounded ' +
-              (selected === ui ? 'bg-blue-600 text-white' : 'bg-gray-100')
-            }
-          >
-            {label(ui)}
-          </button>
-        ))}
+        {/* бейджи */}
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">
+            {axisLabel[q.axis] ?? q.axis}
+          </span>
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">
+            {q.target.type === 'couple' ? 'Для пары' : q.target.gender === 'unisex' ? 'Унисекс' : q.target.gender === 'male' ? 'Для мужчин' : 'Для женщин'}
+          </span>
+          {q.difficulty ? (
+            <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">
+              Сложность: {q.difficulty}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {q.tags?.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {q.tags.map((t) => (
+            <span key={t} className="text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600">
+              {t}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <Link
+          href={`/questionnaire/${q._id}`}
+          className="inline-block bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+        >
+          Пройти
+        </Link>
       </div>
     </div>
   );
