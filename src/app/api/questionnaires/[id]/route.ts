@@ -1,67 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { connectToDatabase }         from '@/lib/mongodb'
-import { Questionnaire }             from '@/models/Questionnaire'
-import { Question }                  from '@/models/Question'
-import { User }                      from '@/models/User'
-import type { QuestionType }         from '@/models/Question'
-import type { QuestionnaireType }    from '@/models/Questionnaire'
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Questionnaire, QuestionnaireType, QuestionItem } from '@/models/Questionnaire';
+import { User } from '@/models/User';
 
-/* ---------- GET: получить анкету + вопросы ---------- */
+type Axis = QuestionItem['axis'];
+
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  const { id } = await params
-
-  await connectToDatabase()
-
-  const qn = await Questionnaire
-    .findById(id)
-    .lean<QuestionnaireType | null>()
-
-  if (!qn) {
-    return NextResponse.json(null, { status: 404 })
-  }
-
-  const questions = await Question
-    .find({ _id: { $in: qn.qids } })
-    .lean<QuestionType[]>()
-
-  // Восстанавливаем исходный порядок
-  const ordered = qn.qids.map(qid =>
-    questions.find(q => String(q._id) === String(qid)) || null
-  )
-
-  return NextResponse.json({ ...qn, questions: ordered })
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  await connectToDatabase();
+  const qn = await Questionnaire.findById(params.id).lean<QuestionnaireType | null>();
+  if (!qn) return NextResponse.json(null, { status: 404 });
+  return NextResponse.json(qn);
 }
 
-/* ---------- POST: сохранить один ответ ---------- */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  const { id } = await params
-  const { userId, qid, ui } = (await req.json()) as {
-    userId: string
-    qid:    string
-    ui:     number
-  }
+  { params }: { params: { id: string } }
+) {
+  const { userId, qid, ui } = await req.json() as { userId:string; qid:string; ui:number };
 
-  await connectToDatabase()
+  await connectToDatabase();
 
-  // Пересчитать векторы (bulk-endpoint)
-  await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/answers/bulk`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ userId, answers: [{ qid, ui }] }),
-  })
+  const qn = await Questionnaire.findById(params.id).lean<QuestionnaireType | null>();
+  if (!qn) return NextResponse.json({ error: 'bad qn' }, { status: 404 });
 
-  // Обновляем прогресс пользователя
+  const q = qn.questions.find((x) => x.id === qid) as QuestionItem | undefined;
+  if (!q) return NextResponse.json({ error: 'bad q' }, { status: 400 });
+
+  // нормируем индекс ответа 1..N -> 0..N-1
+  const idx = Math.max(0, Math.min(ui - 1, q.map.length - 1));
+  const num = q.map[idx];                 // -3..+3
+  const axis: Axis = q.axis;
+  const abs = Math.abs(num) / 3;          // 0..1
+
   await User.updateOne(
     { id: userId },
-    { $addToSet: { [`questionnairesProgress.${id}.answered`]: qid } },
-    { upsert: true }
-  )
+    {
+      $inc: { [`vectors.${axis}.level`]: abs * 0.25 },
+      $addToSet: {
+        [`vectors.${axis}.${num >= 2 ? 'positives' : 'negatives'}`]: q.facet,
+      },
+    }
+  );
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true });
 }
