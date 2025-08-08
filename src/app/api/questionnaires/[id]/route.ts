@@ -13,11 +13,10 @@ type QItem = {
   facet: string;
 };
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Record<string, string | string[]> }
-) {
-  const id = String(params.id);
+// GET /api/questionnaires/[id]
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const id = url.pathname.split('/').pop() || '';
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
   await connectToDatabase();
@@ -28,11 +27,10 @@ export async function GET(
   return NextResponse.json(qn);
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Record<string, string | string[]> }
-) {
-  const id = String(params.id);
+// POST /api/questionnaires/[id]
+export async function POST(req: Request) {
+  const url = new URL(req.url);
+  const id = url.pathname.split('/').pop() || '';
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
   const body = (await req.json()) as { userId: string; qid: string; ui: number };
