@@ -13,12 +13,11 @@ type QItem = {
   facet: string;
 };
 
-// GET /api/questionnaires/[id]
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Record<string, string | string[]> }
 ) {
-  const id = params?.id;
+  const id = String(params.id);
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
   await connectToDatabase();
@@ -29,12 +28,11 @@ export async function GET(
   return NextResponse.json(qn);
 }
 
-// POST /api/questionnaires/[id]
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Record<string, string | string[]> }
 ) {
-  const id = params?.id;
+  const id = String(params.id);
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
   const body = (await req.json()) as { userId: string; qid: string; ui: number };
@@ -57,7 +55,7 @@ export async function POST(
   const abs = Math.abs(num) / 3;
 
   await User.updateOne(
-    { id: userId }, // проверь, что у тебя точно поле id, а не _id
+    { id: userId },
     {
       $inc: { [`vectors.${axis}.level`]: abs * 0.25 },
       $addToSet: {
