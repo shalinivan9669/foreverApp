@@ -2,7 +2,7 @@
   "compilerOptions": {
     // ✅ 1. добавляем
     "baseUrl": ".",                   
-
+     "types": ["next", "next/types/global", "next-auth"],
     "paths": {
       "@/*": ["src/*"]
     },
