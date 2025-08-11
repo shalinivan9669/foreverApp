@@ -8,12 +8,18 @@ interface RouteContext {
 
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const { id } = await ctx.params;
-  const payload = (await req.json()) as NonNullable<UserType['profile']>['onboarding'];
+  const body = await req.json(); // { seeking? , inRelationship? }
   await connectToDatabase();
+
+  const set: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    set[`profile.onboarding.${k}`] = v;
+  }
+
   const doc = await User.findOneAndUpdate(
-    { id },
-    { $set: { 'profile.onboarding': payload } },
+    { id }, { $set: set }, { new: true, runValidators: true }
   ).lean<UserType | null>();
+
   if (!doc) return NextResponse.json(null, { status: 404 });
   return NextResponse.json(doc);
 }

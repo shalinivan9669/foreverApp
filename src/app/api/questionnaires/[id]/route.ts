@@ -1,3 +1,4 @@
+// src/app/api/questionnaires/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Questionnaire } from '@/models/Questionnaire';
@@ -48,19 +49,22 @@ export async function POST(req: Request) {
   if (!q) return NextResponse.json({ error: 'bad q' }, { status: 400 });
 
   const idx = Math.max(0, Math.min((ui ?? 1) - 1, q.map.length - 1));
-  const num = q.map[idx];
+  const num = q.map[idx];                 // −3…+3
   const axis = q.axis;
-  const abs = Math.abs(num) / 3;
+  const abs = Math.abs(num) / 3;          // 0..1
 
-  await User.updateOne(
-    { id: userId },
-    {
-      $inc: { [`vectors.${axis}.level`]: abs * 0.25 },
-      $addToSet: {
-        [`vectors.${axis}.${num >= 2 ? 'positives' : 'negatives'}`]: q.facet,
-      },
-    }
-  );
+  // level: EMA-инкремент небольшой
+  const updates: Record<string, unknown> = {
+    $inc: { [`vectors.${axis}.level`]: abs * 0.25 }
+  };
+
+  // фасетки: добавляем только при явных ответах
+  const add: Record<string, unknown> = {};
+  if (num >=  2) add[`vectors.${axis}.positives`] = q.facet;
+  if (num <= -2) add[`vectors.${axis}.negatives`] = q.facet;
+  if (Object.keys(add).length) updates.$addToSet = add;
+
+  await User.updateOne({ id: userId }, updates);
 
   return NextResponse.json({ ok: true });
 }
