@@ -27,8 +27,7 @@ export async function POST(req: NextRequest) {
   const key = keyOf(a, b);
   const members = [a, b].sort() as [string, string];
 
-  // Создать или найти пару (idempotent через unique key)
-  let pair = await Pair.findOneAndUpdate(
+  const pair = await Pair.findOneAndUpdate(
     { key },
     {
       $setOnInsert: {
@@ -41,29 +40,21 @@ export async function POST(req: NextRequest) {
     { new: true, upsert: true }
   ).lean();
 
-  // Отметить лайк принятым
   await Like.updateOne({ _id: l._id }, { $set: { status: 'accepted' } });
 
-  // Снять все прочие заявки между A↔B
   await Like.updateMany(
     {
       _id: { $ne: l._id },
-      $or: [
-        { fromId: a, toId: b },
-        { fromId: b, toId: a },
-      ],
+      $or: [{ fromId: a, toId: b }, { fromId: b, toId: a }],
       status: { $in: ['sent', 'viewed'] }
     },
     { $set: { status: 'expired' } }
   );
 
-  // Перевести обоих в in_relationship
   await User.updateMany(
     { id: { $in: [a, b] } },
     { $set: { 'personal.relationshipStatus': 'in_relationship' } }
   );
-
-  // Заглушка: здесь можно дернуть DM/уведомление
 
   return NextResponse.json({ ok: true, pairId: String(pair?._id), members });
 }

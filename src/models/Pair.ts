@@ -7,12 +7,17 @@ export interface ActiveActivity {
   pct?: number; // 0..1
 }
 
+export interface Progress {
+  streak: number;
+  completed: number;
+}
+
 export interface PairType {
-  members: [string, string];    // Discord IDs, отсортированы
-  key: string;                  // "A|B" в лексикографическом порядке
+  members: [string, string]; // Discord IDs, отсортированы
+  key: string;               // "A|B"
   status: 'active' | 'paused' | 'ended';
   activeActivity?: ActiveActivity;
-  progress?: { streak: number; completed: number };
+  progress?: Progress;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -20,9 +25,17 @@ export interface PairType {
 const ActiveActivitySchema = new Schema<ActiveActivity>(
   {
     type: { type: String, enum: ['task', 'reminder', 'challenge', null], default: null },
-    id:   { type: String },
+    id: { type: String },
     step: { type: Number },
-    pct:  { type: Number, min: 0, max: 1, default: 0 },
+    pct: { type: Number, min: 0, max: 1, default: 0 }
+  },
+  { _id: false }
+);
+
+const ProgressSchema = new Schema<Progress>(
+  {
+    streak: { type: Number, default: 0 },
+    completed: { type: Number, default: 0 }
   },
   { _id: false }
 );
@@ -32,22 +45,17 @@ const PairSchema = new Schema<PairType>(
     members: {
       type: [String],
       required: true,
-      validate: (a: unknown[]) => Array.isArray(a) && a.length === 2,
+      validate: (a: unknown[]) => Array.isArray(a) && a.length === 2
     },
-    key:    { type: String, required: true, unique: true },
+    key: { type: String, required: true, unique: true },
     status: { type: String, enum: ['active', 'paused', 'ended'], default: 'active' },
     activeActivity: { type: ActiveActivitySchema, default: undefined },
-    progress: {
-      streak:    { type: Number, default: 0 },
-      completed: { type: Number, default: 0 },
-    } as any,
+    progress: { type: ProgressSchema, default: undefined }
   },
   { timestamps: true }
 );
 
-// Быстрый поиск пары пользователя
 PairSchema.index({ members: 1, status: 1 });
-// Уникальность пары независимо от порядка
 PairSchema.index({ key: 1 }, { unique: true });
 
 export const Pair =

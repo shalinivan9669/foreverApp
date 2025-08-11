@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { User } from '@/models/User';
+import { User, type UserType } from '@/models/User';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
 import { distance, score } from '@/utils/calcMatch';
 
 type Body = {
   fromId: string;
-  toId:   string;
+  toId: string;
   agreements: boolean[];
-  answers:    string[];
+  answers: string[];
 };
 
 const clamp = (s: string, max: number) => String(s ?? '').trim().slice(0, max);
 const keyOf = (a: string, b: string) => [a, b].sort().join('|');
+
+type UserVectors = Pick<UserType, 'vectors'>;
+const pickVec = (u: UserVectors): number[] => [
+  u.vectors.communication.level,
+  u.vectors.domestic.level,
+  u.vectors.personalViews.level,
+  u.vectors.finance.level,
+  u.vectors.sexuality.level,
+  u.vectors.psyche.level
+];
+
+interface MongoErrorLike { code?: number }
 
 export async function POST(req: NextRequest) {
   const b = (await req.json()) as Body;
@@ -35,56 +47,40 @@ export async function POST(req: NextRequest) {
 
   await connectToDatabase();
 
-  // Запрет лайка, если уже пара
   const pairKey = keyOf(b.fromId, b.toId);
   const existPair = await Pair.findOne({ key: pairKey, status: 'active' }, { _id: 1 }).lean();
-  if (existPair) {
-    return NextResponse.json({ error: 'already paired' }, { status: 409 });
-  }
+  if (existPair) return NextResponse.json({ error: 'already paired' }, { status: 409 });
 
-  // Пользователи
   const [from, to] = await Promise.all([
-    User.findOne({ id: b.fromId }).lean(),
-    User.findOne({ id: b.toId   }).lean()
+    User.findOne({ id: b.fromId }).lean<UserType | null>(),
+    User.findOne({ id: b.toId }).lean<UserType | null>()
   ]);
   if (!from || !to) return NextResponse.json({ error: 'user not found' }, { status: 404 });
 
-  // Карточка получателя
   const card = to.profile?.matchCard;
   if (!card?.isActive || !card?.requirements?.length || !card?.questions?.length) {
     return NextResponse.json({ error: 'recipient has no active match card' }, { status: 400 });
   }
 
-  // Скор
-  const vec = (u: any) => [
-    u.vectors.communication.level,
-    u.vectors.domestic.level,
-    u.vectors.personalViews.level,
-    u.vectors.finance.level,
-    u.vectors.sexuality.level,
-    u.vectors.psyche.level
-  ] as number[];
-
-  const d  = distance(vec(from), vec(to));
+  const d = distance(pickVec(from), pickVec(to));
   const sc = score(d);
 
-  // Создаём лайк
   try {
     const doc = await Like.create({
       fromId: b.fromId,
-      toId:   b.toId,
+      toId: b.toId,
       agreements: [true, true, true],
       answers,
       cardSnapshot: {
         requirements: [
           clamp(card.requirements[0], 80),
           clamp(card.requirements[1], 80),
-          clamp(card.requirements[2], 80),
-        ] as [string,string,string],
+          clamp(card.requirements[2], 80)
+        ] as [string, string, string],
         questions: [
           clamp(card.questions[0], 120),
-          clamp(card.questions[1], 120),
-        ] as [string,string],
+          clamp(card.questions[1], 120)
+        ] as [string, string],
         updatedAt: card.updatedAt
       },
       matchScore: sc,
@@ -92,11 +88,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ id: doc._id.toString(), matchScore: sc });
-  } catch (e: any) {
-    if (e?.code === 11000) {
+  } catch (e: unknown) {
+    const err = e as MongoErrorLike;
+    if (err?.code === 11000) {
       return NextResponse.json({ error: 'already sent' }, { status: 409 });
     }
-    console.error(e);
     return NextResponse.json({ error: 'internal' }, { status: 500 });
   }
 }
