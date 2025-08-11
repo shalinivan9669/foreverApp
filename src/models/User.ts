@@ -48,6 +48,13 @@ export interface UserType {
           'communication' | 'finance' | 'intimacy' | 'domestic' | 'emotional_support';
       };
     };
+    matchCard?: {
+      requirements: string[]; // 3 шт, ≤80
+      give: string[];         // 3 шт, ≤80
+      questions: string[];    // 2 шт, ≤120
+      isActive: boolean;
+      updatedAt?: Date;
+    };
   };
   createdAt?: Date;
   updatedAt?: Date;
@@ -64,6 +71,55 @@ const vectorSchema = new Schema(
     level:     { type: Number, required: true, default: 0 },
     positives: { type: [String], default: [] },
     negatives: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+// валидаторы длины
+const arrLen =
+  (n: number) => (a: unknown[]) => Array.isArray(a) && a.length === n;
+const strLimit =
+  (max: number) => (s: unknown) =>
+    typeof s === 'string' && s.trim().length > 0 && s.trim().length <= max;
+
+// схемы под карточку
+const matchCardSchema = new Schema(
+  {
+    requirements: {
+      type: [String],
+      default: ['', '', ''],
+      validate: [
+        { validator: arrLen(3), msg: 'requirements must have length 3' },
+        {
+          validator: (a: string[]) => a.every(strLimit(80)),
+          msg: 'requirements items must be 1..80 chars'
+        }
+      ]
+    },
+    give: {
+      type: [String],
+      default: ['', '', ''],
+      validate: [
+        { validator: arrLen(3), msg: 'give must have length 3' },
+        {
+          validator: (a: string[]) => a.every(strLimit(80)),
+          msg: 'give items must be 1..80 chars'
+        }
+      ]
+    },
+    questions: {
+      type: [String],
+      default: ['', ''],
+      validate: [
+        { validator: arrLen(2), msg: 'questions must have length 2' },
+        {
+          validator: (a: string[]) => a.every(strLimit(120)),
+          msg: 'questions items must be 1..120 chars'
+        }
+      ]
+    },
+    isActive: { type: Boolean, default: true },
+    updatedAt:{ type: Date }
   },
   { _id: false }
 );
@@ -87,9 +143,7 @@ const userSchema = new Schema<UserType>(
       sexuality:      { type: vectorSchema, required: true, default: () => ({}) },
       psyche:         { type: vectorSchema, required: true, default: () => ({}) },
     },
-    embeddings: {
-      type: Schema.Types.Mixed,
-    },
+    embeddings: { type: Schema.Types.Mixed },
     preferences: {
       desiredAgeRange: {
         min: { type: Number, required: true, default: 18 },
@@ -108,13 +162,13 @@ const userSchema = new Schema<UserType>(
     },
     profile: {
       onboarding: {
-          seeking: {
-            valuedQualities: {
-              type: [String],
-                default: ['', '', ''], 
-              validate: (a: string[]) =>
-                Array.isArray(a) && a.length === 3 && a.every((v) => v.trim() !== ''),
-            },
+        seeking: {
+          valuedQualities: {
+            type: [String],
+            default: ['', '', ''],
+            validate: (a: string[]) =>
+              Array.isArray(a) && a.length === 3 && a.every((v) => v.trim() !== ''),
+          },
           relationshipPriority: {
             type: String,
             enum: ['emotional_intimacy','shared_interests','financial_stability','other'],
@@ -136,6 +190,7 @@ const userSchema = new Schema<UserType>(
           },
         },
       },
+      matchCard: { type: matchCardSchema }
     },
     location: {
       type:        { type: String, enum: ['Point'] },
