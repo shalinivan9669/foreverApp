@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';   // ← useMemo убран
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
 import CandidateCard from '@/components/CandidateCard';
@@ -22,7 +22,7 @@ export default function SearchPage() {
   const [selected, setSelected] = useState<{ id: string; username: string; avatar: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // гварды: есть пара → в активность; нет карточки → создать
+  // гварды
   useEffect(() => {
     if (!user) return;
     Promise.all([
