@@ -1,0 +1,132 @@
+import mongoose, { Schema, Types } from 'mongoose';
+
+export type Axis =
+  | 'communication'
+  | 'domestic'
+  | 'personalViews'
+  | 'finance'
+  | 'sexuality'
+  | 'psyche';
+
+export interface CheckIn {
+  id: string;
+  scale: 'likert5' | 'bool';
+  map: number[];                    // [-3,-1,0,1,3] / [-3,3]
+  text: { ru: string; en: string };
+  successThreshold?: number;        // 0..1
+  weight?: number;                  // 0..1
+}
+
+export interface Effect {
+  axis: Axis;
+  baseDelta: number;                // 0..1
+  facetsAdd?: string[];
+  facetsRemove?: string[];
+  riskFacetsGuard?: string[];
+}
+
+export interface ActivityTemplateType {
+  _id: string;
+  intent: 'improve' | 'celebrate';
+  archetype: 'micro_habit' | 'dialogue' | 'ritual' | 'date' | 'game' | 'education' | 'task';
+  axis: Axis[];                     // целевые оси
+  facetsTarget?: string[];
+
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  intensity: 1 | 2 | 3;
+
+  timeEstimateMin?: number;
+  costEstimate?: number;
+  location?: 'home' | 'outdoor' | 'online' | 'any';
+  requiresConsent?: boolean;
+
+  title: Record<string, string>;
+  description: Record<string, string>;
+  steps?: { ru: string[]; en: string[] };
+  materials?: string[];
+
+  checkIns: CheckIn[];
+  effect: Effect[];
+
+  preconditions?: {
+    minPairLevel?: Partial<Record<Axis, number>>;
+    maxFatigue?: number;
+    blockedIfRiskFacets?: string[];
+    needsComplementarity?: boolean;
+  };
+
+  cooldownDays?: number;
+}
+
+/* ── subdocs ─────────────────────────────────────────────── */
+export const CheckInSchema = new Schema<CheckIn>(
+  {
+    id: { type: String, required: true },
+    scale: { type: String, enum: ['likert5', 'bool'], required: true },
+    map: { type: [Number], required: true },
+    text: { type: Schema.Types.Mixed, required: true },
+    successThreshold: { type: Number },
+    weight: { type: Number },
+  },
+  { _id: false }
+);
+
+export const EffectSchema = new Schema<Effect>(
+  {
+    axis: {
+      type: String,
+      enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
+      required: true
+    },
+    baseDelta: { type: Number, required: true },
+    facetsAdd: { type: [String], default: [] },
+    facetsRemove: { type: [String], default: [] },
+    riskFacetsGuard: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+/* ── root schema ─────────────────────────────────────────── */
+const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
+  {
+    _id: { type: String, required: true },
+
+    intent: { type: String, enum: ['improve','celebrate'], required: true },
+    archetype: {
+      type: String,
+      enum: ['micro_habit','dialogue','ritual','date','game','education','task'],
+      required: true
+    },
+
+    axis: {
+      type: [String],
+      enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
+      required: true
+    },
+    facetsTarget: { type: [String], default: [] },
+
+    difficulty: { type: Number, enum: [1,2,3,4,5], required: true },
+    intensity:  { type: Number, enum: [1,2,3],     required: true },
+
+    timeEstimateMin: { type: Number },
+    costEstimate:    { type: Number },
+    location: { type: String, enum: ['home','outdoor','online','any'], default: 'any' },
+    requiresConsent: { type: Boolean, default: false },
+
+    title:       { type: Schema.Types.Mixed, required: true },
+    description: { type: Schema.Types.Mixed, required: true },
+    steps:       { type: Schema.Types.Mixed },
+    materials:   { type: [String], default: [] },
+
+    checkIns: { type: [CheckInSchema], required: true },
+    effect:   { type: [EffectSchema],  required: true },
+
+    preconditions: { type: Schema.Types.Mixed },
+    cooldownDays:  { type: Number },
+  },
+  { collection: 'activity_templates', timestamps: true }
+);
+
+export const ActivityTemplate =
+  (mongoose.models.ActivityTemplate as mongoose.Model<ActivityTemplateType>) ||
+  mongoose.model<ActivityTemplateType>('ActivityTemplate', ActivityTemplateSchema);
