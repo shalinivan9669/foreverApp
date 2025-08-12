@@ -1,26 +1,36 @@
 // src/components/LikeModal.tsx
 'use client';
 
-/* eslint-disable @next/next/no-img-element */
-
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/utils/api';
 
+/* eslint-disable @next/next/no-img-element */
+
 type Card = { requirements: [string, string, string]; questions: [string, string] };
+type Candidate = { id: string; username: string; avatar: string };
 
 type Props = {
   open: boolean;
   onClose: () => void;
   fromId: string;
-  candidate: { id: string; username: string; avatar?: string } | null;
+  candidate: Candidate | null;
   onSent?: (payload: { matchScore: number }) => void;
 };
 
-/** Безопасный URL аватара + запасной вариант, чтобы Discord WebView не падал */
+// helpers
 const avatarUrl = (id: string, avatar?: string) =>
   avatar
     ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
-    : `https://cdn.discordapp.com/embed/avatars/${Number(id) % 5}.png`;
+    : `https://cdn.discordapp.com/embed/avatars/0.png`;
+
+const isStringArray = (v: unknown, len: number): v is string[] =>
+  Array.isArray(v) && v.length === len && v.every(x => typeof x === 'string');
+
+const isCard = (v: unknown): v is Card => {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as { requirements?: unknown; questions?: unknown };
+  return isStringArray(obj.requirements, 3) && isStringArray(obj.questions, 2);
+};
 
 export default function LikeModal({ open, onClose, fromId, candidate, onSent }: Props) {
   const [card, setCard] = useState<Card | null>(null);
@@ -31,17 +41,10 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
 
   const abortRef = useRef<AbortController | null>(null);
 
-  // Заголовок модалки
-  const title = useMemo(
-    () => (candidate ? `Лайк ${candidate.username}` : 'Лайк'),
-    [candidate]
-  );
-
-  // Подгружаем карточку кандидата
+  // загрузка карточки
   useEffect(() => {
     if (!open || !candidate) return;
 
-    // сброс локальных состояний
     setErr(null);
     setAgree([false, false, false]);
     setAns(['', '']);
@@ -51,51 +54,82 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
     const ac = new AbortController();
     abortRef.current = ac;
 
-    fetch(api(`/api/match/card/${candidate.id}`), { signal: ac.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!ac.signal.aborted) setCard(data);
-      })
-      .catch(() => {
-        if (!ac.signal.aborted) setCard(null);
-      });
+    (async () => {
+      try {
+        const res = await fetch(api(`/api/match/card/${candidate.id}`), { signal: ac.signal });
+        if (!res.ok) {
+          setErr('Не удалось получить условия пользователя.');
+          return;
+        }
+        const data = (await res.json()) as unknown;
+        if (isCard(data)) setCard(data);
+        else setErr('Некорректная структура карточки.');
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setErr('Ошибка сети при загрузке карточки.');
+      }
+    })();
 
     return () => ac.abort();
   }, [open, candidate]);
 
-  // Закрытие по Esc
+  // ESC для закрытия
   useEffect(() => {
-    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKey);
+    if (open) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open || !candidate) return null;
+  // ⬇️ Хуки выше; никаких ранних return до них
+  const canSend = useMemo(() => {
+    if (!open || !candidate) return false;
+    if (!card) return false;
+    if (!agree.every(Boolean)) return false;
+    const a0 = ans[0].trim();
+    const a1 = ans[1].trim();
+    return a0.length > 0 && a1.length > 0 && a0.length <= 280 && a1.length <= 280;
+  }, [open, candidate, card, agree, ans]);
 
-  const canSend =
-    !!card &&
-    agree.every(Boolean) &&
-    ans[0].trim().length > 0 &&
-    ans[1].trim().length > 0 &&
-    ans[0].length <= 280 &&
-    ans[1].length <= 280;
+  const send = async () => {
+    if (!card || !candidate || !canSend) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(api('/api/match/like'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromId,
+          toId: candidate.id,
+          agreements: [true, true, true] as [true, true, true],
+          answers: [ans[0], ans[1]] as [string, string],
+        }),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        setErr(d?.error || 'Не удалось отправить лайк.');
+        return;
+      }
+      const d = (await res.json()) as { matchScore: number };
+      onSent?.({ matchScore: d.matchScore });
+      onClose();
+    } catch {
+      setErr('Ошибка сети при отправке.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open || !candidate) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      role="dialog"
       aria-modal="true"
-      aria-labelledby="like-modal-title"
-      onMouseDown={(e) => {
-        // клик по фону закрывает
-        if (e.target === e.currentTarget) onClose();
-      }}
+      role="dialog"
     >
       <div className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-xl">
-        {/* Header */}
         <div className="p-4 border-b flex items-center gap-3">
           <img
             src={avatarUrl(candidate.id, candidate.avatar)}
@@ -103,15 +137,8 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
             height={40}
             className="rounded-full"
             alt={candidate.username}
-            referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = avatarUrl(candidate.id);
-            }}
           />
-          <div id="like-modal-title" className="font-medium truncate">
-            {title}
-          </div>
+          <div className="font-medium truncate">Лайк @{candidate.username}</div>
           <button
             onClick={onClose}
             className="ml-auto text-gray-500 hover:text-black"
@@ -121,10 +148,11 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-4 space-y-4">
           {!card ? (
-            <p className="text-sm text-gray-600">Загрузка условий…</p>
+            <div className="text-sm text-gray-600">
+              {err ? <span className="text-red-600">{err}</span> : 'Загрузка условий…'}
+            </div>
           ) : (
             <>
               <section>
@@ -137,9 +165,13 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
                           type="checkbox"
                           checked={agree[i]}
                           onChange={(e) => {
-                            const a = [...agree] as [boolean, boolean, boolean];
-                            a[i] = e.target.checked;
-                            setAgree(a);
+                            const next: [boolean, boolean, boolean] = [...agree] as [
+                              boolean,
+                              boolean,
+                              boolean
+                            ];
+                            next[i] = e.target.checked;
+                            setAgree(next);
                           }}
                         />
                         <span>{r}</span>
@@ -149,17 +181,17 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
                 </ul>
               </section>
 
-              <section className="space-y-2">
-                <h3 className="font-medium mb-2">Ответьте на вопросы</h3>
+              <section className="space-y-3">
+                <h3 className="font-medium">Ответьте на вопросы</h3>
                 {card.questions.map((q, i) => (
                   <div key={i} className="space-y-1">
                     <div className="text-sm text-gray-500">{q}</div>
                     <textarea
                       value={ans[i]}
                       onChange={(e) => {
-                        const a = [...ans] as [string, string];
-                        a[i] = e.target.value.slice(0, 280);
-                        setAns(a);
+                        const next: [string, string] = [...ans] as [string, string];
+                        next[i] = e.target.value.slice(0, 280);
+                        setAns(next);
                       }}
                       maxLength={280}
                       rows={3}
@@ -169,49 +201,20 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
                   </div>
                 ))}
               </section>
+
+              {err && <p className="text-red-600">{err}</p>}
             </>
           )}
-          {err && <p className="text-red-600 text-sm">{err}</p>}
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t flex gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-          >
+          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">
             Отмена
           </button>
           <button
-            onClick={async () => {
-              if (!card || !canSend) return;
-              try {
-                setBusy(true);
-                setErr(null);
-                const res = await fetch(api('/api/match/like'), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    fromId: fromId,
-                    toId: candidate.id,
-                    agreements: [true, true, true],
-                    answers: ans,
-                  }),
-                });
-                if (!res.ok) {
-                  const d = await res.json().catch(() => ({}));
-                  setErr(d?.error || 'Не удалось отправить.');
-                  return;
-                }
-                const d = (await res.json()) as { matchScore: number };
-                onSent?.({ matchScore: d.matchScore });
-                onClose();
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onClick={send}
             disabled={!canSend || busy}
-            className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60 hover:bg-blue-700"
+            className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
           >
             {busy ? 'Отправляем…' : 'Отправить заявку'}
           </button>
