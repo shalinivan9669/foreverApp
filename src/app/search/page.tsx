@@ -7,6 +7,7 @@ import CandidateCard from '@/components/CandidateCard';
 import LikeModal from '@/components/LikeModal';
 import { api } from '@/utils/api';
 import MatchTabs from '@/components/MatchTabs';
+import BackBar from '@/components/ui/BackBar';
 
 interface Candidate {
   id: string;
@@ -53,6 +54,7 @@ export default function SearchPage() {
 
   return (
     <div className="p-4 flex flex-col gap-2">
+       <BackBar title="Анкетирование" fallbackHref="/main-menu" />
         <MatchTabs />
       {list.map(c => (
         <CandidateCard key={c.id} c={c} onLike={setSelected} />
