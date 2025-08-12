@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/utils/api';
 import { useUserStore } from '@/store/useUserStore';
+import MatchTabs from '@/components/MatchTabs';
 
 /* eslint-disable @next/next/no-img-element */
 type Item = {
@@ -33,6 +34,7 @@ export default function InboxPage() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
+      <MatchTabs />
       <h1 className="text-xl font-semibold mb-4">Заявки</h1>
       {loading && <p>Загрузка…</p>}
       {!loading && items.length === 0 && <p>Пока нет заявок.</p>}

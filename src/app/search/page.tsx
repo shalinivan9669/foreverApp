@@ -6,6 +6,7 @@ import { useUserStore } from '@/store/useUserStore';
 import CandidateCard from '@/components/CandidateCard';
 import LikeModal from '@/components/LikeModal';
 import { api } from '@/utils/api';
+import MatchTabs from '@/components/MatchTabs';
 
 interface Candidate {
   id: string;
@@ -52,6 +53,7 @@ export default function SearchPage() {
 
   return (
     <div className="p-4 flex flex-col gap-2">
+        <MatchTabs />
       {list.map(c => (
         <CandidateCard key={c.id} c={c} onLike={setSelected} />
       ))}
