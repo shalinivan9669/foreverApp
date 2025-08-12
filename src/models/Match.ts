@@ -1,106 +1,49 @@
-// src/models/Like.ts
+// src/models/Match.ts
 import mongoose, { Schema, Types } from 'mongoose';
 
-export type LikeStatus =
-  | 'sent'
-  | 'viewed'
-  | 'awaiting_initiator'
-  | 'mutual_ready'
-  | 'paired'
-  | 'rejected'
-  | 'expired';
-
-export interface CardSnapshot {
-  requirements: [string, string, string];
-  questions: [string, string];
-  updatedAt?: Date;
+/** Один кандидат в ленте */
+export interface MatchCandidate {
+  id: string;                 // discord id кандидата
+  score: number;              // 0..100
+  reasons?: string[];         // короткие пояснения: "совпадение по ...", "комплементарность ..."
 }
 
-export interface RecipientResponse {
-  agreements: [boolean, boolean, boolean];
-  answers: [string, string];
-  initiatorCardSnapshot: CardSnapshot;
-  at: Date;
-}
-
-export interface Decision {
-  accepted: boolean;
-  at: Date;
-}
-
-export interface LikeType {
+/** Документ кэша рекомендаций для пользователя */
+export interface MatchType {
   _id: Types.ObjectId;
-  fromId: string;
-  toId: string;
-  matchScore: number;
-
-  /** ↓ то, что пишет инициатор при лайке (как в твоём роуте) */
-  agreements: [boolean, boolean, boolean];
-  answers: [string, string];
-  cardSnapshot: CardSnapshot;               // снапшот карточки получателя (to)
-
-  /** ↓ снапшот карточки инициатора (может понадобиться позже) */
-  fromCardSnapshot?: CardSnapshot;
-
-  recipientResponse?: RecipientResponse;
-  recipientDecision?: Decision;
-  initiatorDecision?: Decision;
-
-  status: LikeStatus;
+  userId: string;             // для кого посчитан кэш (discord id)
+  items: MatchCandidate[];    // отсортированный список кандидатов
   createdAt?: Date;
   updatedAt?: Date;
+  /** Поле для TTL-очистки. Ставим время истечения кэша. */
+  expireAt?: Date;
 }
 
-const CardSchema = new Schema<CardSnapshot>(
+const CandidateSchema = new Schema<MatchCandidate>(
   {
-    requirements: { type: [String], required: true },
-    questions:    { type: [String], required: true },
-    updatedAt:    { type: Date },
+    id: { type: String, required: true },
+    score: { type: Number, required: true, min: 0, max: 100 },
+    reasons: { type: [String], default: [] },
   },
   { _id: false }
 );
 
-const DecisionSchema = new Schema<Decision>(
+const MatchSchema = new Schema<MatchType>(
   {
-    accepted: { type: Boolean, required: true },
-    at:       { type: Date, required: true },
+    userId: { type: String, required: true, index: true },
+    items: { type: [CandidateSchema], default: [] },
+    // TTL: документ автоматически удалится спустя время (см. индекс ниже)
+    expireAt: { type: Date, default: () => new Date(Date.now() + 24 * 3600 * 1000) },
   },
-  { _id: false }
+  { collection: 'matches', timestamps: true }
 );
 
-const LikeSchema = new Schema<LikeType>(
-  {
-    fromId: { type: String, required: true, index: true },
-    toId:   { type: String, required: true, index: true },
-    matchScore: { type: Number, required: true },
+// один актуальный кэш на пользователя (при желании можно убирать unique)
+MatchSchema.index({ userId: 1 }, { unique: true });
 
-    // то, что реально создаёт /api/match/like
-    agreements: {
-      type: [Boolean],
-      required: true,
-      validate: (v: boolean[]) => Array.isArray(v) && v.length === 3,
-    },
-    answers: {
-      type: [String],
-      required: true,
-      validate: (v: string[]) => Array.isArray(v) && v.length === 2,
-    },
-    cardSnapshot: { type: CardSchema, required: true },
+// TTL-индекс (24 часа). Если хочешь другой срок — поменяй seconds.
+MatchSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 
-    // делаем не обязательным, чтобы не падать сейчас
-    fromCardSnapshot: { type: CardSchema },
-
-    recipientResponse: { type: Schema.Types.Mixed },
-    recipientDecision: { type: DecisionSchema },
-    initiatorDecision: { type: DecisionSchema },
-
-    status: { type: String, required: true, index: true },
-  },
-  { timestamps: true }
-);
-
-LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });
-
-export const Like =
-  (mongoose.models.Like as mongoose.Model<LikeType>) ||
-  mongoose.model<LikeType>('Like', LikeSchema);
+export const Match =
+  (mongoose.models.Match as mongoose.Model<MatchType>) ||
+  mongoose.model<MatchType>('Match', MatchSchema);

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Like, LikeType, LikeStatus } from '@/models/Like';
-import { User, UserType } from '@/models/User';
 import { Types } from 'mongoose';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Like, type LikeType, type LikeStatus } from '@/models/Like';
+import { User, type UserType } from '@/models/User';
 
 type LikeLean = LikeType & { _id: Types.ObjectId; updatedAt?: Date; createdAt?: Date };
 
@@ -11,15 +11,26 @@ type DTO = {
   status: LikeStatus;
   matchScore: number;
   updatedAt?: string;
+
   from: { id: string; username: string; avatar: string };
   to:   { id: string; username: string; avatar: string };
-  fromCardSnapshot: LikeType['fromCardSnapshot'];
+
+  // то, что инициатор заполнил по карточке получателя
+  agreements: [boolean, boolean, boolean];
+  answers: [string, string];
+  cardSnapshot: LikeType['cardSnapshot'];
+
+  // оставляем поле на случай старых документов/отладок
+  fromCardSnapshot?: LikeType['fromCardSnapshot'];
+
+  // если получатель тоже отвечал на карточку инициатора
   recipientResponse: null | {
     agreements: [boolean, boolean, boolean];
     answers: [string, string];
-    initiatorCardSnapshot: LikeType['fromCardSnapshot'];
+    initiatorCardSnapshot: NonNullable<LikeType['recipientResponse']>['initiatorCardSnapshot'];
     at: string;
   };
+
   decisions: {
     initiator: null | { accepted: boolean; at: string };
     recipient: null | { accepted: boolean; at: string };
@@ -48,9 +59,16 @@ export async function GET(req: NextRequest) {
     status: l.status,
     matchScore: l.matchScore,
     updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
+
     from: { id: l.fromId, username: fromU?.username ?? l.fromId, avatar: fromU?.avatar ?? '' },
     to:   { id: l.toId,   username: toU?.username   ?? l.toId,   avatar: toU?.avatar   ?? '' },
+
+    agreements: l.agreements,
+    answers:    l.answers,
+    cardSnapshot: l.cardSnapshot,
+
     fromCardSnapshot: l.fromCardSnapshot,
+
     recipientResponse: l.recipientResponse
       ? {
           agreements: l.recipientResponse.agreements,
@@ -59,18 +77,13 @@ export async function GET(req: NextRequest) {
           at: new Date(l.recipientResponse.at).toISOString(),
         }
       : null,
+
     decisions: {
       initiator: l.initiatorDecision
-        ? {
-            accepted: l.initiatorDecision.accepted,
-            at: new Date(l.initiatorDecision.at).toISOString(),
-          }
+        ? { accepted: l.initiatorDecision.accepted, at: new Date(l.initiatorDecision.at).toISOString() }
         : null,
       recipient: l.recipientDecision
-        ? {
-            accepted: l.recipientDecision.accepted,
-            at: new Date(l.recipientDecision.at).toISOString(),
-          }
+        ? { accepted: l.recipientDecision.accepted, at: new Date(l.recipientDecision.at).toISOString() }
         : null,
     },
   };
