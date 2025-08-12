@@ -1,5 +1,5 @@
 import mongoose, { Schema, Types } from 'mongoose';
-import { Axis, CheckIn, Effect, CheckInSchema, EffectSchema } from './ActivityTemplate';
+import { Axis, CheckInTpl as CheckIn, EffectTpl as Effect, CheckInSchema, EffectSchema } from './ActivityTemplate';
 
 export interface Answer {
   checkInId: string;
