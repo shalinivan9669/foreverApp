@@ -13,6 +13,26 @@ import { PairActivity } from '@/models/PairActivity';
 
 type LeanUser = UserType & { _id: Types.ObjectId };
 
+// подпорка для «доп. полей» в шаблоне без any
+type TemplateExtra = {
+  fatigueDeltaOnComplete?: number;
+  readinessDeltaOnComplete?: number;
+};
+
+// авто-правило дельт, если их нет в шаблоне
+function autoDeltas(intent: 'improve' | 'celebrate', intensity: 1 | 2 | 3) {
+  if (intent === 'celebrate') {
+    return {
+      fatigueDeltaOnComplete: -0.08 * intensity,
+      readinessDeltaOnComplete: +0.10 * intensity,
+    };
+  }
+  return {
+    fatigueDeltaOnComplete: +0.06 * intensity,
+    readinessDeltaOnComplete: +0.04 * intensity,
+  };
+}
+
 export async function POST(req: NextRequest) {
   const { userId } = (await req.json()) as { userId?: string };
   if (!userId) {
@@ -21,7 +41,6 @@ export async function POST(req: NextRequest) {
 
   await connectToDatabase();
 
-  // Ищем активную пару пользователя
   const pair = await Pair.findOne({
     members: userId,
     status: 'active',
@@ -31,19 +50,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no active pair' }, { status: 404 });
   }
 
-  // Определяем приоритетную ось по рискам паспорта
-  const topRisk = (pair.passport?.riskZones ?? [])
+  // строго типизируем элемент зоны риска
+  type RiskItem = { axis: Axis; severity: 1 | 2 | 3 };
+  const risks = (pair.passport?.riskZones ?? []) as unknown as RiskItem[];
+  const topRisk: RiskItem | undefined = risks
     .slice()
-    .sort((a, b) => (b.severity ?? 0) - (a.severity ?? 0))[0];
+    .sort((a, b) => b.severity - a.severity)[0];
 
   if (!topRisk) {
     return NextResponse.json({ error: 'no risks in passport' }, { status: 400 });
   }
 
-  const axis = topRisk.axis as Axis;
-  const difficulty = topRisk.severity as 1 | 2 | 3;
+  const axis: Axis = topRisk.axis;
+  const difficulty: 1 | 2 | 3 = topRisk.severity;
 
-  // Берём подходящий шаблон активности по оси/сложности
   const candidates = await ActivityTemplate.aggregate<ActivityTemplateType>([
     { $match: { axis, difficulty } },
     { $sample: { size: 1 } },
@@ -60,7 +80,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no templates for axis' }, { status: 404 });
   }
 
-  // Подтягиваем ObjectId пользователей по discord-id из pair.members
   const users = await User.find({ id: { $in: pair.members } })
     .lean<LeanUser[]>()
     .exec();
@@ -69,18 +88,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'users missing' }, { status: 400 });
   }
 
-  // Приведём порядок участников ровно как в pair.members
   const [uA, uB] = pair.members.map(
     (discordId) => users.find((u) => u.id === discordId)!
   );
-
   const members: [Types.ObjectId, Types.ObjectId] = [uA._id, uB._id];
 
-  // Окно выполнения и дедлайн
   const offeredAt = new Date();
   const dueAt = new Date(offeredAt.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-  // Создаём экземпляр активности для пары
+  // берём дельты из шаблона (если есть), иначе авто-правило
+  const extra = tpl as unknown as TemplateExtra;
+  const fallback = autoDeltas(tpl.intent, tpl.intensity);
+
   const act = await PairActivity.create({
     pairId: new Types.ObjectId(pair._id),
     members,
@@ -104,10 +123,13 @@ export async function POST(req: NextRequest) {
     materials: tpl.materials ?? [],
     offeredAt,
     dueAt,
-    // состояние
     status: 'offered',
     checkIns: tpl.checkIns,
     effect: tpl.effect,
+    fatigueDeltaOnComplete:
+      extra.fatigueDeltaOnComplete ?? fallback.fatigueDeltaOnComplete,
+    readinessDeltaOnComplete:
+      extra.readinessDeltaOnComplete ?? fallback.readinessDeltaOnComplete,
     createdBy: 'system',
   });
 
