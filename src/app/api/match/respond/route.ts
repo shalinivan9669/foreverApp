@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like } from '@/models/Like';
 import { User } from '@/models/User';
-import { api } from '@/utils/api'; // не нужен тут, но пусть будет единообразие
 
 type Body = {
   likeId: string;
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `invalid status ${like.status}` }, { status: 400 });
   }
 
-  // тянем карточку инициатора (fromId)
+  // карточка инициатора (fromId)
   const initiator = await User.findOne({ id: like.fromId }).lean();
   const mc = initiator?.profile?.matchCard;
   if (!mc?.isActive || mc.requirements?.length !== 3 || mc.questions?.length !== 2) {
