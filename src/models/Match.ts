@@ -1,35 +1,106 @@
+// src/models/Like.ts
 import mongoose, { Schema, Types } from 'mongoose';
 
-export interface MatchCandidate {
-  candidateId: Types.ObjectId;
-  score: number;
+export type LikeStatus =
+  | 'sent'
+  | 'viewed'
+  | 'awaiting_initiator'
+  | 'mutual_ready'
+  | 'paired'
+  | 'rejected'
+  | 'expired';
+
+export interface CardSnapshot {
+  requirements: [string, string, string];
+  questions: [string, string];
+  updatedAt?: Date;
 }
 
-export interface MatchType {
-  userId: Types.ObjectId;
-  candidates: MatchCandidate[];
-  computedAt: Date;
+export interface RecipientResponse {
+  agreements: [boolean, boolean, boolean];
+  answers: [string, string];
+  initiatorCardSnapshot: CardSnapshot;
+  at: Date;
 }
 
-const candidateSchema = new Schema<MatchCandidate>(
+export interface Decision {
+  accepted: boolean;
+  at: Date;
+}
+
+export interface LikeType {
+  _id: Types.ObjectId;
+  fromId: string;
+  toId: string;
+  matchScore: number;
+
+  /** ↓ то, что пишет инициатор при лайке (как в твоём роуте) */
+  agreements: [boolean, boolean, boolean];
+  answers: [string, string];
+  cardSnapshot: CardSnapshot;               // снапшот карточки получателя (to)
+
+  /** ↓ снапшот карточки инициатора (может понадобиться позже) */
+  fromCardSnapshot?: CardSnapshot;
+
+  recipientResponse?: RecipientResponse;
+  recipientDecision?: Decision;
+  initiatorDecision?: Decision;
+
+  status: LikeStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+const CardSchema = new Schema<CardSnapshot>(
   {
-    candidateId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    score:       { type: Number, required: true },
+    requirements: { type: [String], required: true },
+    questions:    { type: [String], required: true },
+    updatedAt:    { type: Date },
   },
   { _id: false }
 );
 
-const matchSchema = new Schema<MatchType>(
+const DecisionSchema = new Schema<Decision>(
   {
-    userId:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    candidates:{ type: [candidateSchema], default: [] },
-    computedAt:{ type: Date, required: true },
+    accepted: { type: Boolean, required: true },
+    at:       { type: Date, required: true },
   },
-  { timestamps: false }
+  { _id: false }
 );
 
-matchSchema.index({ computedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
+const LikeSchema = new Schema<LikeType>(
+  {
+    fromId: { type: String, required: true, index: true },
+    toId:   { type: String, required: true, index: true },
+    matchScore: { type: Number, required: true },
 
-export const Match =
-  (mongoose.models.Match as mongoose.Model<MatchType>) ||
-  mongoose.model<MatchType>('Match', matchSchema);
+    // то, что реально создаёт /api/match/like
+    agreements: {
+      type: [Boolean],
+      required: true,
+      validate: (v: boolean[]) => Array.isArray(v) && v.length === 3,
+    },
+    answers: {
+      type: [String],
+      required: true,
+      validate: (v: string[]) => Array.isArray(v) && v.length === 2,
+    },
+    cardSnapshot: { type: CardSchema, required: true },
+
+    // делаем не обязательным, чтобы не падать сейчас
+    fromCardSnapshot: { type: CardSchema },
+
+    recipientResponse: { type: Schema.Types.Mixed },
+    recipientDecision: { type: DecisionSchema },
+    initiatorDecision: { type: DecisionSchema },
+
+    status: { type: String, required: true, index: true },
+  },
+  { timestamps: true }
+);
+
+LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });
+
+export const Like =
+  (mongoose.models.Like as mongoose.Model<LikeType>) ||
+  mongoose.model<LikeType>('Like', LikeSchema);
