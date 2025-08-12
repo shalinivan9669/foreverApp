@@ -1,4 +1,4 @@
-import mongoose, { Schema, Types } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
 export type Axis =
   | 'communication'
@@ -8,28 +8,29 @@ export type Axis =
   | 'sexuality'
   | 'psyche';
 
-export interface CheckIn {
+export interface CheckInTpl {
   id: string;
   scale: 'likert5' | 'bool';
-  map: number[];                    // [-3,-1,0,1,3] / [-3,3]
+  map: number[];                       // [-3,-1,0,1,3] / [-3,3]
   text: { ru: string; en: string };
-  successThreshold?: number;        // 0..1
-  weight?: number;                  // 0..1
+  successThreshold?: number;           // 0..1
+  weight?: number;                     // 0..1
 }
 
-export interface Effect {
+export interface EffectTpl {
   axis: Axis;
-  baseDelta: number;                // 0..1
+  baseDelta: number;                   // 0..1
   facetsAdd?: string[];
   facetsRemove?: string[];
   riskFacetsGuard?: string[];
+  target?: 'A' | 'B' | 'both';         // <- добавили, по умолчанию both
 }
 
 export interface ActivityTemplateType {
   _id: string;
   intent: 'improve' | 'celebrate';
   archetype: 'micro_habit' | 'dialogue' | 'ritual' | 'date' | 'game' | 'education' | 'task';
-  axis: Axis[];                     // целевые оси
+  axis: Axis[];                        // обычно одна ось
   facetsTarget?: string[];
 
   difficulty: 1 | 2 | 3 | 4 | 5;
@@ -45,8 +46,8 @@ export interface ActivityTemplateType {
   steps?: { ru: string[]; en: string[] };
   materials?: string[];
 
-  checkIns: CheckIn[];
-  effect: Effect[];
+  checkIns: CheckInTpl[];
+  effect: EffectTpl[];
 
   preconditions?: {
     minPairLevel?: Partial<Record<Axis, number>>;
@@ -58,58 +59,58 @@ export interface ActivityTemplateType {
   cooldownDays?: number;
 }
 
-/* ── subdocs ─────────────────────────────────────────────── */
-export const CheckInSchema = new Schema<CheckIn>(
+/* subdocs */
+const CheckInSchema = new Schema<CheckInTpl>(
   {
     id: { type: String, required: true },
     scale: { type: String, enum: ['likert5', 'bool'], required: true },
     map: { type: [Number], required: true },
     text: { type: Schema.Types.Mixed, required: true },
-    successThreshold: { type: Number },
-    weight: { type: Number },
+    successThreshold: Number,
+    weight: Number,
   },
   { _id: false }
 );
 
-export const EffectSchema = new Schema<Effect>(
+const EffectSchema = new Schema<EffectTpl>(
   {
     axis: {
       type: String,
       enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
-      required: true
+      required: true,
     },
     baseDelta: { type: Number, required: true },
     facetsAdd: { type: [String], default: [] },
     facetsRemove: { type: [String], default: [] },
     riskFacetsGuard: { type: [String], default: [] },
+    target: { type: String, enum: ['A','B','both'], default: 'both' },
   },
   { _id: false }
 );
 
-/* ── root schema ─────────────────────────────────────────── */
+/* root */
 const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
   {
     _id: { type: String, required: true },
-
     intent: { type: String, enum: ['improve','celebrate'], required: true },
     archetype: {
       type: String,
       enum: ['micro_habit','dialogue','ritual','date','game','education','task'],
-      required: true
+      required: true,
     },
 
     axis: {
       type: [String],
       enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
-      required: true
+      required: true,
     },
     facetsTarget: { type: [String], default: [] },
 
     difficulty: { type: Number, enum: [1,2,3,4,5], required: true },
     intensity:  { type: Number, enum: [1,2,3],     required: true },
 
-    timeEstimateMin: { type: Number },
-    costEstimate:    { type: Number },
+    timeEstimateMin: Number,
+    costEstimate: Number,
     location: { type: String, enum: ['home','outdoor','online','any'], default: 'any' },
     requiresConsent: { type: Boolean, default: false },
 
@@ -122,7 +123,7 @@ const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
     effect:   { type: [EffectSchema],  required: true },
 
     preconditions: { type: Schema.Types.Mixed },
-    cooldownDays:  { type: Number },
+    cooldownDays:  Number,
   },
   { collection: 'activity_templates', timestamps: true }
 );
@@ -130,3 +131,5 @@ const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
 export const ActivityTemplate =
   (mongoose.models.ActivityTemplate as mongoose.Model<ActivityTemplateType>) ||
   mongoose.model<ActivityTemplateType>('ActivityTemplate', ActivityTemplateSchema);
+
+export { CheckInSchema, EffectSchema };
