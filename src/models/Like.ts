@@ -1,15 +1,13 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, Types } from 'mongoose';
 
 export type LikeStatus =
-  | 'sent'               // A→B отправил, ждём B
-  | 'viewed'             // B открыл
-  | 'awaiting_initiator' // B ответил A, ждём финальное решение A
-  | 'accepted'           // A подтвердил → создаём пару
-  | 'rejected'           // кто-то отказал
-  | 'expired';           // аннулировано
-
-type Tri = [boolean, boolean, boolean];
-type Duo = [string, string];
+  | 'sent'                  // инициатор отправил
+  | 'viewed'                // получатель открыл
+  | 'awaiting_initiator'    // получатель согласился и ответил, ждём инициатора
+  | 'mutual_ready'          // оба согласны, можно создать пару
+  | 'paired'                // пара создана
+  | 'rejected'
+  | 'expired';
 
 export interface CardSnapshot {
   requirements: [string, string, string];
@@ -18,26 +16,32 @@ export interface CardSnapshot {
 }
 
 export interface RecipientResponse {
-  agreements: Tri;                   // B согласия с условиями A
-  answers: Duo;                      // ответы B на вопросы A
-  initiatorCardSnapshot: CardSnapshot; // слепок карточки A на момент ответа
+  agreements: [boolean, boolean, boolean];
+  answers: [string, string];
+  initiatorCardSnapshot: CardSnapshot;
+  at: Date;
+}
+
+export interface Decision {
+  accepted: boolean;
   at: Date;
 }
 
 export interface LikeType {
+  _id: Types.ObjectId;
   fromId: string;
   toId: string;
-  agreements: Tri;        // согласия A с условиями B
-  answers: Duo;           // ответы A на вопросы B
-  cardSnapshot: CardSnapshot; // слепок карточки B на момент лайка
-  recipientResponse?: RecipientResponse;
-  matchScore: number;     // базовый скор
+  matchScore: number;
+  fromCardSnapshot: CardSnapshot;
+  recipientResponse?: RecipientResponse;    // ответы получателя
+  recipientDecision?: Decision;             // фиксируем согласие получателя
+  initiatorDecision?: Decision;             // решение инициатора
   status: LikeStatus;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-const cardSnapshot = new Schema<CardSnapshot>(
+const CardSchema = new Schema<CardSnapshot>(
   {
     requirements: { type: [String], required: true },
     questions: { type: [String], required: true },
@@ -46,42 +50,30 @@ const cardSnapshot = new Schema<CardSnapshot>(
   { _id: false }
 );
 
-const recipientResponse = new Schema<RecipientResponse>(
+const DecisionSchema = new Schema<Decision>(
   {
-    agreements: { type: [Boolean], required: true },
-    answers: { type: [String], required: true },
-    initiatorCardSnapshot: { type: cardSnapshot, required: true },
+    accepted: { type: Boolean, required: true },
     at: { type: Date, required: true },
   },
   { _id: false }
 );
 
-const likeSchema = new Schema<LikeType>(
+const LikeSchema = new Schema<LikeType>(
   {
     fromId: { type: String, required: true, index: true },
     toId: { type: String, required: true, index: true },
-    agreements: { type: [Boolean], required: true },
-    answers: { type: [String], required: true },
-    cardSnapshot: { type: cardSnapshot, required: true },
-    recipientResponse: { type: recipientResponse, required: false },
     matchScore: { type: Number, required: true },
-    status: {
-      type: String,
-      enum: ['sent', 'viewed', 'awaiting_initiator', 'accepted', 'rejected', 'expired'],
-      required: true,
-    },
+    fromCardSnapshot: { type: CardSchema, required: true },
+    recipientResponse: { type: Schema.Types.Mixed },
+    recipientDecision: { type: DecisionSchema },
+    initiatorDecision: { type: DecisionSchema },
+    status: { type: String, required: true, index: true },
   },
-  { timestamps: true, collection: 'likes' }
+  { timestamps: true }
 );
 
-// индексы
-likeSchema.index({ toId: 1, status: 1, createdAt: -1 });
-// запрет повторной активной заявки A→B
-likeSchema.index(
-  { fromId: 1, toId: 1, status: 1 },
-  { unique: true, partialFilterExpression: { status: 'sent' } }
-);
+LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });
 
 export const Like =
   (mongoose.models.Like as mongoose.Model<LikeType>) ||
-  mongoose.model<LikeType>('Like', likeSchema);
+  mongoose.model<LikeType>('Like', LikeSchema);

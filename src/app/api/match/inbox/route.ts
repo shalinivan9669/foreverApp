@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Like, LikeType } from '@/models/Like';
+import { Like, LikeType, LikeStatus } from '@/models/Like';
 import { User, UserType } from '@/models/User';
 import { Types } from 'mongoose';
 
 type Row = {
   id: string;
   direction: 'incoming' | 'outgoing';
-  status: LikeType['status'];
+  status: LikeStatus;
   matchScore: number;
   updatedAt?: string;
   peer: { id: string; username: string; avatar: string };
+  canCreatePair: boolean;
 };
 
 type LikeLean = LikeType & { _id: Types.ObjectId; updatedAt?: Date; createdAt?: Date };
@@ -22,18 +23,21 @@ export async function GET(req: NextRequest) {
 
   await connectToDatabase();
 
+  // входящие (я получатель)
   const incoming = await Like.find({
     toId: userId,
-    status: { $in: ['sent', 'viewed', 'awaiting_initiator'] },
+    status: { $in: ['sent', 'viewed', 'awaiting_initiator', 'mutual_ready'] },
   }).lean<LikeLean[]>();
 
+  // исходящие (я инициатор)
   const outgoing = await Like.find({
     fromId: userId,
-    status: 'awaiting_initiator',
+    status: { $in: ['awaiting_initiator', 'mutual_ready'] },
   }).lean<LikeLean[]>();
 
   const all: LikeLean[] = [...incoming, ...outgoing];
 
+  // подтянем карточки собеседников
   const peerIds = new Set<string>();
   for (const l of all) {
     const dir: 'incoming' | 'outgoing' = l.toId === userId ? 'incoming' : 'outgoing';
@@ -52,21 +56,19 @@ export async function GET(req: NextRequest) {
       const direction: 'incoming' | 'outgoing' = l.toId === userId ? 'incoming' : 'outgoing';
       const peerId = direction === 'incoming' ? l.fromId : l.toId;
       const u = uMap.get(peerId);
-      const updatedAtISO = l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined;
-
-      const row: Row = {
+      return {
         id: l._id.toHexString(),
         direction,
         status: l.status,
         matchScore: l.matchScore,
-        updatedAt: updatedAtISO,
+        updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
         peer: {
           id: peerId,
           username: u?.username ?? peerId,
           avatar: u?.avatar ?? '',
         },
+        canCreatePair: l.status === 'mutual_ready',
       };
-      return row;
     })
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
 
