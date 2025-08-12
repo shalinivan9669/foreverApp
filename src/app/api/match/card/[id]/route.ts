@@ -1,42 +1,43 @@
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/match/card/[id]/route.ts
+import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/models/User';
 
-type Card = { requirements: [string, string, string]; questions: [string, string] };
+type CardDTO =
+  | { requirements: [string, string, string]; questions: [string, string] }
+  | null;
 
-const clamp = (s: unknown, n: number) => String(s ?? '').trim().slice(0, n);
-
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const id = params?.id;
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
   await connectToDatabase();
 
-  const u = await User.findOne({ id }).lean();
-  if (!u) return NextResponse.json({ error: 'user not found' }, { status: 404 });
+  const u = await User.findOne({ id })
+    .select({
+      'profile.matchCard.isActive': 1,
+      'profile.matchCard.requirements': 1,
+      'profile.matchCard.questions': 1,
+      _id: 0,
+    })
+    .lean();
 
-  const card = u.profile?.matchCard;
-  if (!card?.isActive) {
+  if (!u || !u.profile?.matchCard?.isActive) {
     return NextResponse.json({ error: 'no active match card' }, { status: 404 });
   }
-  const reqs = card.requirements ?? [];
-  const qs   = card.questions ?? [];
 
-  if (reqs.length < 3 || qs.length < 2) {
-    return NextResponse.json({ error: 'card incomplete' }, { status: 422 });
-  }
+  const reqs = u.profile.matchCard.requirements ?? [];
+  const qs = u.profile.matchCard.questions ?? [];
 
-  const payload: Card = {
-    requirements: [
-      clamp(reqs[0], 160),
-      clamp(reqs[1], 160),
-      clamp(reqs[2], 160),
-    ] as [string, string, string],
-    questions: [
-      clamp(qs[0], 200),
-      clamp(qs[1], 200),
-    ] as [string, string],
-  };
+  const dto: CardDTO =
+    reqs.length === 3 && qs.length === 2
+      ? { requirements: [reqs[0], reqs[1], reqs[2]], questions: [qs[0], qs[1]] }
+      : null;
 
-  return NextResponse.json(payload);
+  if (!dto) return NextResponse.json({ error: 'bad card' }, { status: 500 });
+
+  return NextResponse.json(dto);
 }
