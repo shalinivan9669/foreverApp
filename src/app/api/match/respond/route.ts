@@ -1,63 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like } from '@/models/Like';
-import { User } from '@/models/User';
 
 type Body = {
-  likeId: string;
-  userId: string; // toId
-  agreements: [boolean, boolean, boolean];
-  answers: [string, string];
+  userId?: string;              // кто отвечает (получатель лайка)
+  likeId?: string;              // id лайка
+  agreements?: boolean[];       // [true,true,true]
+  answers?: string[];           // [ans1, ans2]
 };
 
-const clamp = (s: string, max: number) => String(s ?? '').trim().slice(0, max);
+const clamp = (s: unknown, max: number) =>
+  String(s ?? '').trim().slice(0, max) as string;
 
 export async function POST(req: NextRequest) {
-  const { likeId, userId, agreements, answers } = (await req.json()) as Body;
-  if (!likeId || !userId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
-  if (agreements?.length !== 3 || agreements.some(x => x !== true))
+  const b = (await req.json()) as Body;
+
+  // валидация тела запроса
+  if (!b.userId || !b.likeId) {
+    return NextResponse.json({ error: 'missing userId or likeId' }, { status: 400 });
+  }
+  if (!Array.isArray(b.agreements) || b.agreements.length !== 3 || b.agreements.some(v => v !== true)) {
     return NextResponse.json({ error: 'agreements must be [true,true,true]' }, { status: 400 });
-  if (answers?.length !== 2)
+  }
+  if (!Array.isArray(b.answers) || b.answers.length !== 2) {
     return NextResponse.json({ error: 'answers must have length 2' }, { status: 400 });
+  }
+
+  const answers: [string, string] = [
+    clamp(b.answers[0], 280),
+    clamp(b.answers[1], 280),
+  ];
 
   await connectToDatabase();
-  const like = await Like.findById(likeId);
-  if (!like) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  if (like.toId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  if (!['sent', 'viewed'].includes(like.status))
-    return NextResponse.json({ error: `invalid status ${like.status}` }, { status: 400 });
 
-  const initiator = await User.findOne({ id: like.fromId }).lean();
-  const mc = initiator?.profile?.matchCard;
-  if (!mc?.isActive || mc.requirements?.length !== 3 || mc.questions?.length !== 2)
-    return NextResponse.json({ error: 'initiator has no active match card' }, { status: 400 });
+  // читаем лайк
+  if (!Types.ObjectId.isValid(b.likeId)) {
+    return NextResponse.json({ error: 'invalid likeId' }, { status: 400 });
+  }
 
-  const now = new Date();
+  const likeDoc = await Like.findById(b.likeId);
+  if (!likeDoc) {
+    return NextResponse.json({ error: 'like not found' }, { status: 404 });
+  }
 
-  await Like.updateOne(
-    { _id: like._id, toId: userId },
-    {
-      $set: {
-        recipientResponse: {
-          agreements: [true, true, true],
-          answers: [clamp(answers[0], 280), clamp(answers[1], 280)],
-          initiatorCardSnapshot: {
-            requirements: [
-              clamp(mc.requirements[0], 80),
-              clamp(mc.requirements[1], 80),
-              clamp(mc.requirements[2], 80),
-            ],
-            questions: [clamp(mc.questions[0], 120), clamp(mc.questions[1], 120)],
-            updatedAt: mc.updatedAt,
-          },
-          at: now,
-        },
-        recipientDecision: { accepted: true, at: now },
-        status: 'awaiting_initiator',
-        updatedAt: now,
-      },
-    }
-  );
+  // защищаемся: отвечать может только получатель
+  if (likeDoc.toId !== b.userId) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  // статус должен позволять ответ (ещё не отвечал и не финализирован)
+  if (!['sent', 'viewed'].includes(likeDoc.status)) {
+    return NextResponse.json({ error: `invalid status: ${likeDoc.status}` }, { status: 400 });
+  }
+  if (likeDoc.recipientResponse) {
+    return NextResponse.json({ error: 'already responded' }, { status: 409 });
+  }
+
+  // снапшот карточки инициатора должен быть (по схеме обязателен, но проверим)
+  if (!likeDoc.fromCardSnapshot) {
+    return NextResponse.json({ error: 'corrupt like: missing snapshot' }, { status: 500 });
+  }
+
+  // фиксируем ответ получателя и переводим лайк в ожидание решения инициатора
+  likeDoc.recipientResponse = {
+    agreements: [true, true, true],
+    answers,
+    initiatorCardSnapshot: likeDoc.fromCardSnapshot, // после guard точно не undefined
+    at: new Date(),
+  };
+  likeDoc.status = 'awaiting_initiator';
+
+  // (опционально) зафиксируем, что получатель согласен продолжить
+  likeDoc.recipientDecision = { accepted: true, at: new Date() };
+
+  await likeDoc.save();
 
   return NextResponse.json({ ok: true });
 }
