@@ -5,6 +5,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { api } from '@/utils/api';
 import ActivityCard from '@/components/activities/ActivityCard';
 import CheckInModal from '@/components/activities/CheckInModal';
+import BackBar from '@/components/ui/BackBar';
 
 /* Типы, совместимые с PairActivity */
 type I18nText = Record<string, string>;
@@ -107,6 +108,7 @@ export default function CoupleActivityPage() {
 
   return (
     <main className="p-4 max-w-3xl mx-auto space-y-4">
+       <BackBar  title="Активности пары" fallbackHref="/main-menu" />
       <h1 className="text-2xl font-bold">Активности пары</h1>
 
       <div className="flex gap-2">{tabBtn('active','Активная')}{tabBtn('suggested','Предложено')}{tabBtn('history','История')}</div>

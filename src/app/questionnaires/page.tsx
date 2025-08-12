@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import QuestionnaireCard from '@/components/QuestionnaireCard';
 import type { QuestionnaireType } from '@/models/Questionnaire';
+import BackBar from '@/components/ui/BackBar';
 
 type Axis =
   | 'communication'
@@ -33,6 +34,7 @@ export default function QuestionnairesPage() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
+        <BackBar title="Анкетирование" fallbackHref="/main-menu" />
       <h1 className="text-xl font-semibold mb-4">Анкетирование</h1>
 
       {/* Фильтры */}
