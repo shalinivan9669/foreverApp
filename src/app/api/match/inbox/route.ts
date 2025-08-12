@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, LikeType } from '@/models/Like';
 import { User, UserType } from '@/models/User';
+import { Types } from 'mongoose';
 
 type Row = {
   id: string;
@@ -11,6 +12,8 @@ type Row = {
   updatedAt?: string;
   peer: { id: string; username: string; avatar: string };
 };
+
+type LikeLean = LikeType & { _id: Types.ObjectId; updatedAt?: Date; createdAt?: Date };
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,14 +25,14 @@ export async function GET(req: NextRequest) {
   const incoming = await Like.find({
     toId: userId,
     status: { $in: ['sent', 'viewed', 'awaiting_initiator'] },
-  }).lean<LikeType[]>();
+  }).lean<LikeLean[]>();
 
   const outgoing = await Like.find({
     fromId: userId,
     status: 'awaiting_initiator',
-  }).lean<LikeType[]>();
+  }).lean<LikeLean[]>();
 
-  const all = [...incoming, ...outgoing];
+  const all: LikeLean[] = [...incoming, ...outgoing];
 
   const peerIds = new Set<string>();
   for (const l of all) {
@@ -49,18 +52,21 @@ export async function GET(req: NextRequest) {
       const direction: 'incoming' | 'outgoing' = l.toId === userId ? 'incoming' : 'outgoing';
       const peerId = direction === 'incoming' ? l.fromId : l.toId;
       const u = uMap.get(peerId);
-      return {
-        id: String((l as any)._id),
-        direction, // литеральный union
+      const updatedAtISO = l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined;
+
+      const row: Row = {
+        id: l._id.toHexString(),
+        direction,
         status: l.status,
         matchScore: l.matchScore,
-        updatedAt: (l as any).updatedAt ? new Date((l as any).updatedAt as any).toISOString() : undefined,
+        updatedAt: updatedAtISO,
         peer: {
           id: peerId,
           username: u?.username ?? peerId,
           avatar: u?.avatar ?? '',
         },
-      } satisfies Row;
+      };
+      return row;
     })
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
 
