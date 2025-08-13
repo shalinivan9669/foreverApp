@@ -4,7 +4,7 @@ export default function LootboxTile() {
   return (
     <Link
       href="/lootboxes"
-      className="bg-yellow-100 border border-gray-400 flex items-center justify-center"
+      className="bg-red-600 border border-gray-400 flex items-center justify-center"
     >
       ЛУТБОКСЫ
     </Link>
