@@ -1,3 +1,4 @@
+// src/app/match/like/[id]/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -22,6 +23,8 @@ type CardSnapshot = {
   updatedAt?: string;
 };
 
+type DecisionDTO = { accepted: boolean; at: string };
+
 type LikeDTO = {
   id: string;
   status: Status;
@@ -31,15 +34,12 @@ type LikeDTO = {
   from: { id: string; username: string; avatar: string };
   to:   { id: string; username: string; avatar: string };
 
-  // инициатор заполнил это по карточке получателя
   agreements: [boolean, boolean, boolean];
   answers: [string, string];
   cardSnapshot: CardSnapshot;
 
-  // опционально для обратной совместимости/отладок
   fromCardSnapshot?: CardSnapshot;
 
-  // когда получатель ответил на карточку инициатора
   recipientResponse: null | {
     agreements: [boolean, boolean, boolean];
     answers: [string, string];
@@ -48,15 +48,19 @@ type LikeDTO = {
   };
 
   decisions: {
-    initiator: null | { accepted: boolean; at: string };
-    recipient: null | { accepted: boolean; at: string };
+    initiator: DecisionDTO | null;
+    recipient: DecisionDTO | null;
   };
 };
+
+type PostBody =
+  | { userId: string; likeId: string }                           // accept / reject / pairs.create
+  | { userId: string; likeId: string; accepted?: boolean };       // допускаем поле accepted для универсальности
 
 export default function LikeDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const user = useUserStore(s => s.user);
+  const user = useUserStore((s) => s.user);
 
   const [like, setLike] = useState<LikeDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +75,7 @@ export default function LikeDetailsPage() {
       try {
         const res = await fetch(api(`/api/match/like/${id}`));
         if (!res.ok) {
-          const b = await res.json().catch(() => ({}));
+          const b = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(b?.error || `HTTP ${res.status}`);
         }
         const data = (await res.json()) as LikeDTO;
@@ -82,7 +86,9 @@ export default function LikeDetailsPage() {
         if (on) setLoading(false);
       }
     })();
-    return () => { on = false; };
+    return () => {
+      on = false;
+    };
   }, [id]);
 
   const iAmInitiator = useMemo(() => {
@@ -90,26 +96,19 @@ export default function LikeDetailsPage() {
     return like.from.id === user.id;
   }, [user, like]);
 
-  // какой снапшот карточки показываем пользователю
-  // инициатор видит карточку получателя (cardSnapshot),
-  // получатель — карточку инициатора (fromCardSnapshot ИЛИ из recipientResponse.initiatorCardSnapshot)
   const visibleSnapshot: CardSnapshot | null = useMemo(() => {
     if (!like || !user) return null;
     if (iAmInitiator) return like.cardSnapshot;
-    // получатель:
-    return like.fromCardSnapshot
-      ?? like.recipientResponse?.initiatorCardSnapshot
-      ?? null;
+    return like.fromCardSnapshot ?? like.recipientResponse?.initiatorCardSnapshot ?? null;
   }, [like, user, iAmInitiator]);
 
-  const canAcceptReject = useMemo(() => {
-    // право финального решения — у инициатора, когда получатель уже ответил
-    return iAmInitiator && like?.status === 'awaiting_initiator';
-  }, [iAmInitiator, like]);
-
+  const canAcceptReject = useMemo(
+    () => iAmInitiator && like?.status === 'awaiting_initiator',
+    [iAmInitiator, like]
+  );
   const canCreatePair = useMemo(() => like?.status === 'mutual_ready', [like]);
 
-  async function post(endpoint: string, body: any) {
+  async function post(endpoint: string, body: PostBody): Promise<void> {
     setBusy(true);
     setErr(null);
     try {
@@ -119,11 +118,10 @@ export default function LikeDetailsPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
+        const b = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(b?.error || `HTTP ${res.status}`);
       }
-      // перезагрузим карточку
-      const fresh = await fetch(api(`/api/match/like/${id}`)).then(r => r.json()) as LikeDTO;
+      const fresh = (await fetch(api(`/api/match/like/${id}`)).then((r) => r.json())) as LikeDTO;
       setLike(fresh);
     } catch (e) {
       setErr((e as Error).message || 'Ошибка');
@@ -158,21 +156,28 @@ export default function LikeDetailsPage() {
 
   return (
     <main className="max-w-3xl mx-auto p-4 space-y-4">
-      <button onClick={() => router.back()} className="text-sm text-gray-600 hover:underline">← Назад</button>
+      <button onClick={() => router.back()} className="text-sm text-gray-600 hover:underline">
+        ← Назад
+      </button>
 
       <header className="flex items-center gap-3">
         <img
           src={`https://cdn.discordapp.com/avatars/${like.from.id}/${like.from.avatar}.png`}
-          width={36} height={36} className="rounded-full" alt={like.from.username}
+          width={36}
+          height={36}
+          className="rounded-full"
+          alt={like.from.username}
         />
         <span className="text-sm text-gray-500">→</span>
         <img
           src={`https://cdn.discordapp.com/avatars/${like.to.id}/${like.to.avatar}.png`}
-          width={36} height={36} className="rounded-full" alt={like.to.username}
+          width={36}
+          height={36}
+          className="rounded-full"
+          alt={like.to.username}
         />
         <div className="ml-auto text-sm text-gray-600">
-          Скор: {Math.round(like.matchScore)}%
-          {like.updatedAt ? ` · ${formatWhen(like.updatedAt)}` : ''}
+          Скор: {Math.round(like.matchScore)}%{like.updatedAt ? ` · ${formatWhen(like.updatedAt)}` : ''}
         </div>
       </header>
 
@@ -185,13 +190,17 @@ export default function LikeDetailsPage() {
             <div className="mb-2">
               <div className="text-xs text-gray-500 mb-1">Условия</div>
               <ul className="list-disc ml-4 text-sm">
-                {visibleSnapshot.requirements.map((r, i) => <li key={i}>{r}</li>)}
+                {visibleSnapshot.requirements.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
               </ul>
             </div>
             <div className="space-y-2">
               <div className="text-xs text-gray-500">Вопросы</div>
               {visibleSnapshot.questions.map((q, i) => (
-                <div key={i} className="p-2 bg-gray-50 rounded text-sm">{q}</div>
+                <div key={i} className="p-2 bg-gray-50 rounded text-sm">
+                  {q}
+                </div>
               ))}
             </div>
           </>
@@ -220,7 +229,9 @@ export default function LikeDetailsPage() {
             <>
               <div className="text-xs text-gray-500 mb-1">Согласие</div>
               <div className="text-sm">
-                {like.recipientResponse.agreements.map((v, i) => <span key={i}>{v ? '✅' : '❌'} </span>)}
+                {like.recipientResponse.agreements.map((v, i) => (
+                  <span key={i}>{v ? '✅' : '❌'} </span>
+                ))}
               </div>
               <div className="mt-2 space-y-2">
                 <div className="text-xs text-gray-500">Ответы</div>
