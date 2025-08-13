@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Like, LikeType, LikeStatus } from '@/models/Like';
-import { User, UserType } from '@/models/User';
-import { Types } from 'mongoose';
+import { Like, type LikeType, type LikeStatus } from '@/models/Like';
+import { User, type UserType } from '@/models/User';
+import { distance, score } from '@/utils/calcMatch';
+
+type Direction = 'incoming' | 'outgoing';
 
 type Row = {
   id: string;
-  direction: 'incoming' | 'outgoing';
+  direction: Direction;
   status: LikeStatus;
   matchScore: number;
   updatedAt?: string;
@@ -14,63 +16,76 @@ type Row = {
   canCreatePair: boolean;
 };
 
-type LikeLean = LikeType & { _id: Types.ObjectId; updatedAt?: Date; createdAt?: Date };
+const vec = (u: Pick<UserType, 'vectors'>) => [
+  u.vectors.communication.level,
+  u.vectors.domestic.level,
+  u.vectors.personalViews.level,
+  u.vectors.finance.level,
+  u.vectors.sexuality.level,
+  u.vectors.psyche.level,
+];
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId') ?? '';
+  const userId = req.nextUrl.searchParams.get('userId') || '';
   if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 });
 
   await connectToDatabase();
 
-  // входящие (я получатель)
-  const incoming = await Like.find({
-    toId: userId,
-    status: { $in: ['sent', 'viewed', 'awaiting_initiator', 'mutual_ready'] },
-  }).lean<LikeLean[]>();
+  // текущий пользователь (для возможного пересчёта matchScore)
+  const me = await User.findOne({ id: userId })
+    .select({ id: 1, username: 1, avatar: 1, vectors: 1 })
+    .lean<UserType | null>();
+  if (!me) return NextResponse.json({ error: 'user not found' }, { status: 404 });
 
-  // исходящие (я инициатор)
-  const outgoing = await Like.find({
-    fromId: userId,
-    status: { $in: ['awaiting_initiator', 'mutual_ready'] },
-  }).lean<LikeLean[]>();
+  // все лайки, где я инициатор или получатель
+  const likes = await Like.find({
+    $or: [{ fromId: userId }, { toId: userId }],
+  })
+    .sort({ updatedAt: -1 })
+    .lean<LikeType[]>();
 
-  const all: LikeLean[] = [...incoming, ...outgoing];
+  if (!likes.length) return NextResponse.json([]);
 
-  // подтянем карточки собеседников
-  const peerIds = new Set<string>();
-  for (const l of all) {
-    const dir: 'incoming' | 'outgoing' = l.toId === userId ? 'incoming' : 'outgoing';
-    const peerId = dir === 'incoming' ? l.fromId : l.toId;
-    peerIds.add(peerId);
-  }
-
-  const users = await User.find({ id: { $in: Array.from(peerIds) } })
-    .select({ id: 1, username: 1, avatar: 1 })
+  // подтянем карточки всех собеседников разом
+  const peerIds = Array.from(
+    new Set(likes.map(l => (l.fromId === userId ? l.toId : l.fromId)))
+  );
+  const peers = await User.find({ id: { $in: peerIds } })
+    .select({ id: 1, username: 1, avatar: 1, vectors: 1 })
     .lean<UserType[]>();
+  const peerMap = new Map(peers.map(p => [p.id, p]));
 
-  const uMap = new Map(users.map(u => [u.id, u]));
+  const meVec = vec(me);
 
-  const rows: Row[] = all
-    .map((l) => {
-      const direction: 'incoming' | 'outgoing' = l.toId === userId ? 'incoming' : 'outgoing';
-      const peerId = direction === 'incoming' ? l.fromId : l.toId;
-      const u = uMap.get(peerId);
-      return {
-        id: l._id.toHexString(),
-        direction,
-        status: l.status,
-        matchScore: l.matchScore,
-        updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
-        peer: {
-          id: peerId,
-          username: u?.username ?? peerId,
-          avatar: u?.avatar ?? '',
-        },
-        canCreatePair: l.status === 'mutual_ready',
-      };
-    })
-    .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+  const rows: Row[] = likes.map(l => {
+    const direction: Direction = l.fromId === userId ? 'outgoing' : 'incoming';
+    const peerId = direction === 'outgoing' ? l.toId : l.fromId;
+    const peer = peerMap.get(peerId);
+
+    // берём сохранённый score, а если что — пересчитываем
+    let s = l.matchScore ?? 0;
+    if ((!s || Number.isNaN(s)) && peer) {
+      s = score(distance(meVec, vec(peer)));
+    }
+
+    return {
+      id: String((l as any)._id),
+      direction,
+      status: l.status as LikeStatus,
+      matchScore: Math.max(0, Math.min(100, Math.round(s))),
+      updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
+      peer: {
+        id: peer?.id ?? peerId,
+        username: peer?.username ?? peerId,
+        // avatar — hash; фронт сам склеит URL
+        avatar: peer?.avatar ?? '',
+      },
+      canCreatePair: l.status === 'mutual_ready',
+    };
+  });
+
+  // уже отсортировано в запросе, но на всякий случай
+  rows.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
 
   return NextResponse.json(rows);
 }
