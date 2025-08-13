@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
     if (!updated) return json({ error: 'invalid state' }, 409);
     return json({ ok: true, status: updated.status });
   } catch {
-    return json({ error: 'internal' }, 500);
+    return json({ error: 'internal' }, 500) 
+    ;  
   }
 }
