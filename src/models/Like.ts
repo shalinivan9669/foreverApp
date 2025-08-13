@@ -1,11 +1,11 @@
 import mongoose, { Schema, Types } from 'mongoose';
 
 export type LikeStatus =
-  | 'sent'                  // инициатор отправил
-  | 'viewed'                // получатель открыл
-  | 'awaiting_initiator'    // получатель согласился и ответил, ждём инициатора
-  | 'mutual_ready'          // оба согласны, можно создать пару
-  | 'paired'                // пара создана
+  | 'sent'
+  | 'viewed'
+  | 'awaiting_initiator'
+  | 'mutual_ready'
+  | 'paired'
   | 'rejected'
   | 'expired';
 
@@ -33,10 +33,10 @@ export interface LikeType {
   toId: string;
   matchScore: number;
 
-  /** новая схема — снимок карточки, с которой согласился инициатор */
+  /** новая схема */
   fromCardSnapshot?: CardSnapshot;
 
-  /** ответы получателя (на карточку инициатора) */
+  /** ответы получателя на карточку инициатора */
   recipientResponse?: RecipientResponse;
 
   /** решения сторон */
@@ -47,7 +47,7 @@ export interface LikeType {
   createdAt?: Date;
   updatedAt?: Date;
 
-  /** ↓↓↓ устаревшие поля, оставлены для совместимости со старой БД */
+  /** устаревшие поля — только для обратной совместимости */
   agreements?: [boolean, boolean, boolean];
   answers?: [string, string];
   cardSnapshot?: CardSnapshot;
@@ -95,7 +95,7 @@ const LikeSchema = new Schema<LikeType>(
 
     status: { type: String, required: true, index: true },
 
-    // ↓↓↓ устаревшие поля — НЕ обязательные, чтобы валидация не падала
+    // устаревшие поля — делаем необязательными
     agreements: { type: [Boolean], required: false, select: false },
     answers: { type: [String], required: false, select: false },
     cardSnapshot: { type: CardSchema, required: false, select: false },
@@ -103,15 +103,17 @@ const LikeSchema = new Schema<LikeType>(
   { timestamps: true }
 );
 
-// индекс как был
 LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });
 
-// миграционная защита: если в старом документе было cardSnapshot — переложим в fromCardSnapshot
+/** Мягкая миграция: если в документе есть legacy `cardSnapshot`, а нового нет — копируем. */
+type LegacyDoc = mongoose.HydratedDocument<
+  LikeType & { cardSnapshot?: CardSnapshot }
+>;
+
 LikeSchema.pre('validate', function (next) {
-  const self = this as unknown as LikeType & { cardSnapshot?: CardSnapshot };
-  if (!self.fromCardSnapshot && self.cardSnapshot) {
-    // @ts-ignore
-    this.fromCardSnapshot = self.cardSnapshot;
+  const doc = this as LegacyDoc;
+  if (!doc.fromCardSnapshot && doc.cardSnapshot) {
+    doc.fromCardSnapshot = doc.cardSnapshot;
   }
   next();
 });
