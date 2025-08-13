@@ -57,7 +57,7 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fromId,
+          userId: fromId, 
           toId: candidate.id,
           agreements: [true, true, true],
           answers: ans,
