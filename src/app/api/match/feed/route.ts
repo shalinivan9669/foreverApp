@@ -1,20 +1,29 @@
+// src/app/api/match/feed/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
+import { distance, score } from '@/utils/calcMatch';
 
 type CandidateDTO = {
   id: string;
   username: string;
+  /** Discord avatar hash; фронт сам соберёт URL */
   avatar: string;
-  // добавь сюда поля, которые уже отдаёшь во фиде (matchScore и т.п.), если нужно
+  /** 0..100 */
+  score: number;
 };
 
-const avatarUrl = (id: string, avatar?: string) =>
-  avatar
-    ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
-    : `https://cdn.discordapp.com/embed/avatars/0.png`;
+// извлекаем уровни векторов в фиксированном порядке
+const pickVec = (u: Pick<UserType, 'vectors'>): number[] => [
+  u.vectors.communication.level,
+  u.vectors.domestic.level,
+  u.vectors.personalViews.level,
+  u.vectors.finance.level,
+  u.vectors.sexuality.level,
+  u.vectors.psyche.level,
+];
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId') || '';
@@ -24,47 +33,51 @@ export async function GET(req: NextRequest) {
 
   await connectToDatabase();
 
-  // все, кого уже лайкнул текущий пользователь и лайк ещё "активен"
-  // (не rejected/expired). таких людей нужно исключить из поиска
-  const likedTo = await Like.find({
-    fromId: userId,
-    status: { $nin: ['rejected', 'expired'] },
-  })
-    .distinct('toId')
-    .exec();
+  // Текущий пользователь
+  const me = await User.findOne({ id: userId }).lean<UserType | null>();
+  if (!me) return NextResponse.json({ error: 'user not found' }, { status: 404 });
 
-  // всех активных/пауза-партнёров тоже исключаем
-  const pairs = await Pair.find({
-    members: userId,
-    status: { $in: ['active', 'paused'] },
-  })
-    .select({ members: 1 })
-    .lean();
+  // Кого уже лайкнул текущий пользователь
+  const likedIds: string[] = await Like.find({ fromId: userId }).distinct('toId');
+
+  // С кем уже есть активная/приостановленная пара — тоже исключаем
+  const pairDocs = await Pair.find(
+    { members: userId, status: { $in: ['active', 'paused'] } },
+    { members: 1 }
+  ).lean<{ members: string[] }[]>();
 
   const pairedIds = new Set<string>();
-  for (const p of pairs) {
-    for (const m of p.members as string[]) {
-      if (m !== userId) pairedIds.add(m);
-    }
+  for (const p of pairDocs) {
+    for (const m of p.members) if (m !== userId) pairedIds.add(m);
   }
 
-  const exclude = new Set<string>([userId, ...likedTo, ...pairedIds]);
+  const excluded = new Set<string>([userId, ...likedIds, ...pairedIds]);
 
-  // Базовый запрос к пользователям.
-  // Если у тебя есть доп. фильтры (isSeeking, локаль и т.д.) — оставь их.
-  const docs = await User.find({
-    id: { $nin: Array.from(exclude) },
-    // пример: 'profile.matchCard.isActive': true,
-  })
-    .select({ id: 1, username: 1, avatar: 1 })
-    .limit(50) // выставь своё ограничение
-    .lean<UserType[]>();
+  // Кандидаты: только с активной карточкой
+  const candidates = await User.find(
+    {
+      id: { $nin: Array.from(excluded) },
+      'profile.matchCard.isActive': true,
+    },
+    // берём только нужные поля
+    { id: 1, username: 1, avatar: 1, vectors: 1 }
+  ).lean<UserType[]>();
 
-  const data: CandidateDTO[] = docs.map((u) => ({
-    id: u.id,
-    username: u.username ?? u.id,
-    avatar: avatarUrl(u.id, u.avatar),
-  }));
+  const myVec = pickVec(me);
 
-  return NextResponse.json(data);
+  const list: CandidateDTO[] = candidates.map((u) => {
+    const s = score(distance(myVec, pickVec(u)));
+    return {
+      id: u.id,
+      username: u.username ?? u.id,
+      // ВАЖНО: возвращаем именно hash, без полного URL — фронт сам склеит
+      avatar: u.avatar ?? '',
+      score: s,
+    };
+  });
+
+  // сортируем по убыванию и ограничиваем размер
+  list.sort((a, b) => b.score - a.score);
+
+  return NextResponse.json(list.slice(0, 50));
 }

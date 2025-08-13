@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/utils/api';
 
 /* eslint-disable @next/next/no-img-element */
@@ -12,24 +12,13 @@ type Props = {
   onClose: () => void;
   fromId: string;
   candidate: { id: string; username: string; avatar: string } | null;
-  onSent?: (payload: { matchScore: number }) => void;
+  onSent?: (payload: { matchScore: number; toId: string }) => void;
 };
 
 const avatarUrl = (id: string, avatar?: string) =>
   avatar
     ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
-    : `https://cdn.discordapp.com/embed/avatars/1.png`;
-
-const isCard = (v: unknown): v is Card => {
-  if (!v || typeof v !== 'object') return false;
-  const c = v as Record<string, unknown>;
-  return (
-    Array.isArray(c.requirements) &&
-    (c.requirements as unknown[]).length === 3 &&
-    Array.isArray(c.questions) &&
-    (c.questions as unknown[]).length === 2
-  );
-};
+    : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
 export default function LikeModal({ open, onClose, fromId, candidate, onSent }: Props) {
   const [card, setCard] = useState<Card | null>(null);
@@ -38,67 +27,54 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // грузим карточку кандидата
   useEffect(() => {
-    let alive = true;
     if (!open || !candidate) return;
     setErr(null);
     setAgree([false, false, false]);
     setAns(['', '']);
-
     fetch(api(`/api/match/card/${candidate.id}`))
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => {
-        if (!alive) return;
-        setCard(isCard(d) ? d : null);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setCard(null);
-      });
-
-    return () => {
-      alive = false;
-    };
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setCard)
+      .catch(() => setCard(null));
   }, [open, candidate]);
+
+  const canSend = useMemo(() => {
+    if (!card) return false;
+    if (!agree.every(Boolean)) return false;
+    const a0 = ans[0].trim();
+    const a1 = ans[1].trim();
+    return a0.length > 0 && a0.length <= 280 && a1.length > 0 && a1.length <= 280;
+  }, [card, agree, ans]);
 
   if (!open || !candidate) return null;
 
-  const canSend =
-    !!card &&
-    agree.every(Boolean) &&
-    ans[0].trim().length > 0 &&
-    ans[1].trim().length > 0 &&
-    ans[0].length <= 280 &&
-    ans[1].length <= 280;
-
   const send = async () => {
-    if (!card || !canSend) return;
+    if (!card || !canSend || busy) return;
     setBusy(true);
     setErr(null);
-
-    const res = await fetch(api('/api/match/like'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fromId,
-        toId: candidate.id,
-        agreements: [true, true, true],
-        answers: ans,
-      }),
-    });
-
-    setBusy(false);
-
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({} as { error?: string }));
-      setErr(d?.error || 'Не удалось отправить.');
-      return;
+    try {
+      const res = await fetch(api('/api/match/like'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromId,
+          toId: candidate.id,
+          agreements: [true, true, true],
+          answers: ans,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d?.error || 'Не удалось отправить.');
+      }
+      const d = (await res.json()) as { matchScore: number };
+      onSent?.({ matchScore: d.matchScore, toId: candidate.id });
+      onClose();
+    } catch (e) {
+      setErr((e as Error).message || 'Ошибка');
+    } finally {
+      setBusy(false);
     }
-
-    const d = (await res.json()) as { matchScore: number };
-    onSent?.({ matchScore: d.matchScore });
-    onClose();
   };
 
   return (
@@ -113,7 +89,9 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
             alt={candidate.username}
           />
           <div className="font-medium">Лайк {candidate.username}</div>
-          <button onClick={onClose} className="ml-auto text-gray-500 hover:text-black">✕</button>
+          <button onClick={onClose} className="ml-auto text-gray-500 hover:text-black">
+            ✕
+          </button>
         </div>
 
         <div className="p-4 space-y-4">
@@ -130,7 +108,7 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
                         <input
                           type="checkbox"
                           checked={agree[i]}
-                          onChange={e => {
+                          onChange={(e) => {
                             const a = [...agree] as [boolean, boolean, boolean];
                             a[i] = e.target.checked;
                             setAgree(a);
@@ -150,7 +128,7 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
                     <div className="text-sm text-gray-500">{q}</div>
                     <textarea
                       value={ans[i]}
-                      onChange={e => {
+                      onChange={(e) => {
                         const a = [...ans] as [string, string];
                         a[i] = e.target.value.slice(0, 280);
                         setAns(a);
@@ -169,7 +147,9 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
         </div>
 
         <div className="p-4 border-t flex gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Отмена</button>
+          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">
+            Отмена
+          </button>
           <button
             onClick={send}
             disabled={!canSend || busy}

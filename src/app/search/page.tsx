@@ -17,7 +17,7 @@ interface Candidate {
 }
 
 export default function SearchPage() {
-  const user = useUserStore(s => s.user);
+  const user = useUserStore((s) => s.user);
   const router = useRouter();
 
   const [list, setList] = useState<Candidate[]>([]);
@@ -29,8 +29,8 @@ export default function SearchPage() {
   useEffect(() => {
     if (!user) return;
     Promise.all([
-      fetch(api(`/api/pairs/me?userId=${user.id}`)).then(r => (r.ok ? r.json() : null)),
-      fetch(api(`/api/match/card?userId=${user.id}`)).then(r => (r.ok ? r.json() : null)),
+      fetch(api(`/api/pairs/me?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
+      fetch(api(`/api/match/card?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([pair, card]) => {
         if (pair) router.replace('/couple-activity');
@@ -39,24 +39,17 @@ export default function SearchPage() {
       .catch(() => {});
   }, [user, router]);
 
-  // загрузка фида
+  // загрузка ленты
   useEffect(() => {
     if (!user) return;
     setLoading(true);
+    setError(null);
     fetch(api(`/api/match/feed?userId=${user.id}`))
-      .then(r => (r.ok ? r.json() : Promise.reject(r)))
-      .then((data: Candidate[]) => setList(data))
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((items: Candidate[]) => setList(items ?? []))
       .catch(async (r: Response) => setError((await r.json().catch(() => ({})))?.error || 'Ошибка'))
       .finally(() => setLoading(false));
   }, [user]);
-
-  // после отправки лайка — сразу убираем кандидата из списка
-  const handleSent = () => {
-    if (!selected) return;
-    const goneId = selected.id;
-    setList(prev => prev.filter(x => x.id !== goneId));
-    setSelected(null);
-  };
 
   if (!user) return <>No user</>;
   if (loading) return <div className="p-4">Загрузка…</div>;
@@ -67,7 +60,7 @@ export default function SearchPage() {
       <BackBar title="Поиск пары" fallbackHref="/main-menu" />
       <MatchTabs />
 
-      {list.map(c => (
+      {list.map((c) => (
         <CandidateCard key={c.id} c={c} onLike={setSelected} />
       ))}
       {!list.length && <p className="text-center">Нет кандидатов</p>}
@@ -77,7 +70,12 @@ export default function SearchPage() {
         onClose={() => setSelected(null)}
         fromId={user.id}
         candidate={selected}
-        onSent={handleSent}
+        onSent={({ toId }) => {
+          // 1) убираем из текущего списка
+          setList((xs) => xs.filter((x) => x.id !== toId));
+          // 2) переходим в «Потенциальные партнёры» (инбокс)
+          router.push('/match/inbox');
+        }}
       />
     </div>
   );
