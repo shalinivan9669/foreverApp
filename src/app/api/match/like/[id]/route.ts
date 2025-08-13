@@ -1,3 +1,4 @@
+// src/app/api/match/like/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -15,15 +16,15 @@ type DTO = {
   from: { id: string; username: string; avatar: string };
   to:   { id: string; username: string; avatar: string };
 
-  // то, что инициатор заполнил по карточке получателя
-  agreements: [boolean, boolean, boolean];
-  answers: [string, string];
-  cardSnapshot: LikeType['cardSnapshot'];
+  /** legacy-поля инициатора — теперь опциональны */
+  agreements?: [boolean, boolean, boolean];
+  answers?: [string, string];
+  cardSnapshot?: LikeType['cardSnapshot'];
 
-  // оставляем поле на случай старых документов/отладок
+  /** новое поле — снимок карточки получателя при отправке лайка инициатором */
   fromCardSnapshot?: LikeType['fromCardSnapshot'];
 
-  // если получатель тоже отвечал на карточку инициатора
+  /** ответы получателя на карточку инициатора (если уже ответил) */
   recipientResponse: null | {
     agreements: [boolean, boolean, boolean];
     answers: [string, string];
@@ -36,6 +37,11 @@ type DTO = {
     recipient: null | { accepted: boolean; at: string };
   };
 };
+
+const avatarUrl = (id: string, avatar?: string) =>
+  avatar
+    ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.pathname.split('/').pop() || '';
@@ -50,9 +56,9 @@ export async function GET(req: NextRequest) {
     .select({ id: 1, username: 1, avatar: 1 })
     .lean<UserType[]>();
 
-  const map = new Map(users.map(u => [u.id, u]));
-  const fromU = map.get(l.fromId);
-  const toU   = map.get(l.toId);
+  const byId = new Map(users.map(u => [u.id, u]));
+  const fromU = byId.get(l.fromId);
+  const toU   = byId.get(l.toId);
 
   const dto: DTO = {
     id: l._id.toHexString(),
@@ -60,13 +66,15 @@ export async function GET(req: NextRequest) {
     matchScore: l.matchScore,
     updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
 
-    from: { id: l.fromId, username: fromU?.username ?? l.fromId, avatar: fromU?.avatar ?? '' },
-    to:   { id: l.toId,   username: toU?.username   ?? l.toId,   avatar: toU?.avatar   ?? '' },
+    from: { id: l.fromId, username: fromU?.username ?? l.fromId, avatar: avatarUrl(l.fromId, fromU?.avatar) },
+    to:   { id: l.toId,   username: toU?.username   ?? l.toId,   avatar: avatarUrl(l.toId,   toU?.avatar) },
 
+    // legacy-поля — могут отсутствовать
     agreements: l.agreements,
     answers:    l.answers,
     cardSnapshot: l.cardSnapshot,
 
+    // новое поле
     fromCardSnapshot: l.fromCardSnapshot,
 
     recipientResponse: l.recipientResponse
