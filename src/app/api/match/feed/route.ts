@@ -1,67 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase }         from '@/lib/mongodb';
-import { User, UserType }            from '@/models/User';
-import { distance, score }           from '@/utils/calcMatch';
+import { connectToDatabase } from '@/lib/mongodb';
+import { User, type UserType } from '@/models/User';
+import { Like } from '@/models/Like';
+import { Pair } from '@/models/Pair';
 
-interface CandidateDTO {
+type CandidateDTO = {
   id: string;
   username: string;
   avatar: string;
-  score: number;
-}
+  // добавь сюда поля, которые уже отдаёшь во фиде (matchScore и т.п.), если нужно
+};
+
+const avatarUrl = (id: string, avatar?: string) =>
+  avatar
+    ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
+    : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('userId');
-  if (!id) return NextResponse.json({ error: 'missing' }, { status: 400 });
+  const userId = req.nextUrl.searchParams.get('userId') || '';
+  if (!userId) {
+    return NextResponse.json({ error: 'missing userId' }, { status: 400 });
+  }
 
   await connectToDatabase();
 
-  const me = await User.findOne({ id }).lean<UserType | null>();
-  if (!me)
-    return NextResponse.json({ error: 'me' }, { status: 404 });
+  // все, кого уже лайкнул текущий пользователь и лайк ещё "активен"
+  // (не rejected/expired). таких людей нужно исключить из поиска
+  const likedTo = await Like.find({
+    fromId: userId,
+    status: { $nin: ['rejected', 'expired'] },
+  })
+    .distinct('toId')
+    .exec();
 
-  /* фильтр по демографии */
-  const filter: Record<string, unknown> = {
-    'personal.gender': { $ne: me.personal.gender },
-    'personal.relationshipStatus': 'seeking',
-    'personal.age': {
-      $gte: me.preferences.desiredAgeRange.min,
-      $lte: me.preferences.desiredAgeRange.max
+  // всех активных/пауза-партнёров тоже исключаем
+  const pairs = await Pair.find({
+    members: userId,
+    status: { $in: ['active', 'paused'] },
+  })
+    .select({ members: 1 })
+    .lean();
+
+  const pairedIds = new Set<string>();
+  for (const p of pairs) {
+    for (const m of p.members as string[]) {
+      if (m !== userId) pairedIds.add(m);
     }
-  };
+  }
 
-  const candidates = await User.find(filter).limit(300).lean<UserType[]>();
+  const exclude = new Set<string>([userId, ...likedTo, ...pairedIds]);
 
-  const vecMe = [
-    me.vectors.communication.level,
-    me.vectors.domestic.level,
-    me.vectors.personalViews.level,
-    me.vectors.finance.level,
-    me.vectors.sexuality.level,
-    me.vectors.psyche.level
-  ];
+  // Базовый запрос к пользователям.
+  // Если у тебя есть доп. фильтры (isSeeking, локаль и т.д.) — оставь их.
+  const docs = await User.find({
+    id: { $nin: Array.from(exclude) },
+    // пример: 'profile.matchCard.isActive': true,
+  })
+    .select({ id: 1, username: 1, avatar: 1 })
+    .limit(50) // выставь своё ограничение
+    .lean<UserType[]>();
 
-  const scored: CandidateDTO[] = candidates
-    .map((c) => {
-      const vecC = [
-        c.vectors.communication.level,
-        c.vectors.domestic.level,
-        c.vectors.personalViews.level,
-        c.vectors.finance.level,
-        c.vectors.sexuality.level,
-        c.vectors.psyche.level
-      ];
-      const d = distance(vecMe, vecC);
-      return {
-        id: c.id,
-        avatar: c.avatar,
-        username: c.username,
-        score: score(d)
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 20);
+  const data: CandidateDTO[] = docs.map((u) => ({
+    id: u.id,
+    username: u.username ?? u.id,
+    avatar: avatarUrl(u.id, u.avatar),
+  }));
 
-  return NextResponse.json(scored);
+  return NextResponse.json(data);
 }

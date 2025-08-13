@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';   // ← useMemo убран
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
 import CandidateCard from '@/components/CandidateCard';
@@ -19,17 +19,18 @@ interface Candidate {
 export default function SearchPage() {
   const user = useUserStore(s => s.user);
   const router = useRouter();
+
   const [list, setList] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ id: string; username: string; avatar: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // гварды
+  // редиректы-гварды
   useEffect(() => {
     if (!user) return;
     Promise.all([
       fetch(api(`/api/pairs/me?userId=${user.id}`)).then(r => (r.ok ? r.json() : null)),
-      fetch(api(`/api/match/card?userId=${user.id}`)).then(r => (r.ok ? r.json() : null))
+      fetch(api(`/api/match/card?userId=${user.id}`)).then(r => (r.ok ? r.json() : null)),
     ])
       .then(([pair, card]) => {
         if (pair) router.replace('/couple-activity');
@@ -38,15 +39,24 @@ export default function SearchPage() {
       .catch(() => {});
   }, [user, router]);
 
+  // загрузка фида
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     fetch(api(`/api/match/feed?userId=${user.id}`))
       .then(r => (r.ok ? r.json() : Promise.reject(r)))
-      .then(setList)
+      .then((data: Candidate[]) => setList(data))
       .catch(async (r: Response) => setError((await r.json().catch(() => ({})))?.error || 'Ошибка'))
       .finally(() => setLoading(false));
   }, [user]);
+
+  // после отправки лайка — сразу убираем кандидата из списка
+  const handleSent = () => {
+    if (!selected) return;
+    const goneId = selected.id;
+    setList(prev => prev.filter(x => x.id !== goneId));
+    setSelected(null);
+  };
 
   if (!user) return <>No user</>;
   if (loading) return <div className="p-4">Загрузка…</div>;
@@ -54,8 +64,9 @@ export default function SearchPage() {
 
   return (
     <div className="p-4 flex flex-col gap-2">
-       <BackBar title="Анкетирование" fallbackHref="/main-menu" />
-        <MatchTabs />
+      <BackBar title="Поиск пары" fallbackHref="/main-menu" />
+      <MatchTabs />
+
       {list.map(c => (
         <CandidateCard key={c.id} c={c} onLike={setSelected} />
       ))}
@@ -66,7 +77,7 @@ export default function SearchPage() {
         onClose={() => setSelected(null)}
         fromId={user.id}
         candidate={selected}
-        onSent={() => {}}
+        onSent={handleSent}
       />
     </div>
   );
