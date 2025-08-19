@@ -1,12 +1,44 @@
+// src/app/api/match/confirm/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
-import { User } from '@/models/User';
+import { User, type UserType } from '@/models/User';
+import type { Axis } from '@/models/ActivityTemplate';
 
-const keyOf = (a: string, b: string) => [a, b].sort().join('|');
+const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
+const HIGH = 2.0, LOW = 0.75, DELTA = 2.0;
+const inter = (a: string[] = [], b: string[] = []) => a.filter(x => b.includes(x));
 
-type Body = { likeId: string; userId: string }; // userId должен быть инициатором (fromId)
+function buildPassport(a: UserType, b: UserType) {
+  const strongSides:   { axis: Axis; facets: string[] }[] = [];
+  const riskZones:     { axis: Axis; facets: string[]; severity: 1|2|3 }[] = [];
+  const complementMap: { axis: Axis; A_covers_B: string[]; B_covers_A: string[] }[] = [];
+  const levelDelta:    { axis: Axis; delta: number }[] = [];
+
+  for (const axis of AXES) {
+    const A = a.vectors[axis]; const B = b.vectors[axis];
+    const bothHigh = A.level >= HIGH && B.level >= HIGH;
+    const bothLow  = A.level <= LOW  && B.level <= LOW;
+    const delta    = Math.abs(A.level - B.level);
+
+    const pp = inter(A.positives, B.positives);
+    const nn = inter(A.negatives, B.negatives);
+    const AcoversB = inter(A.positives, B.negatives);
+    const BcoversA = inter(B.positives, A.negatives);
+
+    if (pp.length || bothHigh) strongSides.push({ axis, facets: pp });
+    if (nn.length || bothLow || delta > DELTA) {
+      const severity: 1|2|3 = delta > DELTA + 1 ? 3 : (bothLow || nn.length >= 2 ? 2 : 1);
+      riskZones.push({ axis, facets: nn.length ? nn : [], severity });
+    }
+    if (AcoversB.length || BcoversA.length) complementMap.push({ axis, A_covers_B: AcoversB, B_covers_A: BcoversA });
+    if (delta > 0.01) levelDelta.push({ axis, delta });
+  }
+  return { strongSides, riskZones, complementMap, levelDelta };
+}
+
+type Body = { likeId: string; userId: string };
 
 export async function POST(req: NextRequest) {
   const { likeId, userId } = (await req.json()) as Body;
@@ -16,43 +48,43 @@ export async function POST(req: NextRequest) {
   const like = await Like.findById(likeId);
   if (!like) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (like.fromId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  if (like.status !== 'awaiting_initiator' || !like.recipientResponse) {
+  if (like.status !== 'awaiting_initiator' || !like.recipientResponse)
     return NextResponse.json({ error: 'not ready' }, { status: 400 });
-  }
 
-  const a = like.fromId;
-  const b = like.toId;
-  const key = keyOf(a, b);
-  const members = [a, b].sort() as [string, string];
+  const [u, v] = await Promise.all([
+    User.findOne({ id: like.fromId }).lean<UserType | null>(),
+    User.findOne({ id: like.toId   }).lean<UserType | null>(),
+  ]);
+  if (!u || !v) return NextResponse.json({ error: 'users missing' }, { status: 404 });
 
+  const members = [u.id, v.id].sort() as [string, string];
+  const key = `${members[0]}|${members[1]}`;
+
+  // создаём/находим пару
   const pair = await Pair.findOneAndUpdate(
     { key },
-    {
-      $setOnInsert: {
-        key,
-        members,
-        status: 'active',
-        progress: { streak: 0, completed: 0 },
-      },
-    },
+    { $setOnInsert: { key, members, status: 'active', progress: { streak: 0, completed: 0 } } },
     { new: true, upsert: true }
-  ).lean();
+  );
 
+  // если паспорта нет — построим
+  if (!pair.passport) {
+    pair.passport = buildPassport(u, v);
+    await pair.save();
+  }
+
+  // обновим лайк
   await Like.updateOne({ _id: like._id }, { $set: { status: 'accepted', updatedAt: new Date() } });
 
+  // погасим конкурирующие лайки
   await Like.updateMany(
     {
       _id: { $ne: like._id },
-      $or: [{ fromId: a, toId: b }, { fromId: b, toId: a }],
+      $or: [{ fromId: like.fromId, toId: like.toId }, { fromId: like.toId, toId: like.fromId }],
       status: { $in: ['sent', 'viewed', 'awaiting_initiator'] },
     },
     { $set: { status: 'expired' } }
   );
 
-  await User.updateMany(
-    { id: { $in: [a, b] } },
-    { $set: { 'personal.relationshipStatus': 'in_relationship' } }
-  );
-
-  return NextResponse.json({ ok: true, pairId: String(pair?._id), members });
+  return NextResponse.json({ ok: true, pairId: String(pair._id), members });
 }

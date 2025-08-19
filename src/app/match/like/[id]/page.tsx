@@ -142,7 +142,7 @@ export default function LikeDetailsPage() {
 
   const onCreatePair = async () => {
     if (!user || !like) return;
-    await post('/api/pairs/create', { userId: user.id, likeId: like.id });
+    await post('/api/match/confirm', { userId: user.id, likeId: like.id });
     router.replace('/couple-activity');
   };
 

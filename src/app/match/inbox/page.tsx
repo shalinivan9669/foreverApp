@@ -163,7 +163,7 @@ export default function InboxPage() {
 
   const createPair = useCallback(async (likeId: string) => {
     if (!user) return;
-    const res = await fetch(api('/api/pairs/create'), {
+       const res = await fetch(api('/api/match/confirm'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ likeId, userId: user.id }),

@@ -1,38 +1,58 @@
+// src/app/api/pairs/[id]/activities/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
 
-interface Ctx { params: Promise<{ id: string }> }
+type Bucket = 'current' | 'suggested' | 'history';
 
-const GROUPS = {
-  current:   ['accepted', 'in_progress', 'awaiting_checkin'] as const,
-  suggested: ['offered'] as const,
-  history:   ['completed_success', 'completed_partial', 'failed', 'cancelled', 'expired'] as const,
-};
+function buildQuery(pairId: string, s?: string) {
+  const q: Record<string, unknown> = { pairId: new Types.ObjectId(pairId) };
+
+  if (!s) return { q, limit: 50 };
+
+  const bucket = s as Bucket;
+  if (bucket === 'suggested') {
+    q.status = 'offered';
+    return { q, limit: 50 };
+  }
+  if (bucket === 'current') {
+    q.status = { $in: ['accepted', 'in_progress', 'awaiting_checkin'] };
+    return { q, limit: 1 }; // текущая — одна
+  }
+  if (bucket === 'history') {
+    q.status = {
+      $in: [
+        'completed_success',
+        'completed_partial',
+        'failed',
+        'cancelled',
+        'expired',
+      ],
+    };
+    return { q, limit: 50 };
+  }
+
+  // если прилетел реальный статус — тоже поддержим
+  q.status = s;
+  return { q, limit: 50 };
+}
+
+interface Ctx { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const { searchParams } = new URL(req.url);
-  const s = (searchParams.get('s') || '') as keyof typeof GROUPS;
-  const lim = Number(searchParams.get('limit') ?? 20);
+  const s = searchParams.get('s') || undefined;
 
   await connectToDatabase();
 
-  const q: Record<string, unknown> = { pairId: new Types.ObjectId(id) };
-  if (s && GROUPS[s]) q.status = { $in: GROUPS[s] };
-
-  const list = await PairActivity
-    .find(q)
+  const { q, limit } = buildQuery(id, s);
+  const list = await PairActivity.find(q)
     .sort({ createdAt: -1 })
-    .limit(lim)
+    .limit(limit)
     .lean();
 
-  // Для вкладки "active/current" возвращаем最多 одну самую свежую
-  if (s === 'current') {
-    const cur = list.find(d => GROUPS.current.includes(d.status as (typeof GROUPS)['current'][number]));
-    return NextResponse.json({ items: cur ? [cur] : [] });
-  }
-
-  return NextResponse.json({ items: list });
+  // фронт ожидает массив
+  return NextResponse.json(list);
 }
