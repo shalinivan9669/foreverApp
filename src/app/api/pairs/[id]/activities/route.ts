@@ -1,34 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { PairActivity, type PairActivityType } from '@/models/PairActivity';
+import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
 
 interface Ctx { params: Promise<{ id: string }> }
 
-type SGroup = 'current' | 'suggested' | 'history' | 'all';
-
-const GROUPS: Record<Exclude<SGroup,'all'>, PairActivityType['status'][]> = {
-  current: ['accepted','in_progress','awaiting_checkin'],
-  suggested: ['offered'],
-  history: ['completed_success','completed_partial','failed','cancelled','expired'],
+const GROUPS = {
+  current:   ['accepted', 'in_progress', 'awaiting_checkin'] as const,
+  suggested: ['offered'] as const,
+  history:   ['completed_success', 'completed_partial', 'failed', 'cancelled', 'expired'] as const,
 };
 
-// GET /api/pairs/:id/activities?s=current|suggested|history|all&limit=20
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  const url = new URL(req.url);
-  const s = (url.searchParams.get('s') ?? 'current') as SGroup;
-  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit') ?? '20')));
-
-  if (!Types.ObjectId.isValid(id)) {
-    return NextResponse.json({ error: 'bad id' }, { status: 400 });
-  }
+  const { searchParams } = new URL(req.url);
+  const s = (searchParams.get('s') || '') as keyof typeof GROUPS;
+  const lim = Number(searchParams.get('limit') ?? 20);
 
   await connectToDatabase();
 
   const q: Record<string, unknown> = { pairId: new Types.ObjectId(id) };
-  if (s !== 'all') q.status = { $in: GROUPS[s] };
+  if (s && GROUPS[s]) q.status = { $in: GROUPS[s] };
 
-  const items = await PairActivity.find(q).sort({ createdAt: -1 }).limit(limit).lean();
-  return NextResponse.json({ items });
+  const list = await PairActivity
+    .find(q)
+    .sort({ createdAt: -1 })
+    .limit(lim)
+    .lean();
+
+  // Для вкладки "active/current" возвращаем最多 одну самую свежую
+  if (s === 'current') {
+    const cur = list.find(d => GROUPS.current.includes(d.status as (typeof GROUPS)['current'][number]));
+    return NextResponse.json({ items: cur ? [cur] : [] });
+  }
+
+  return NextResponse.json({ items: list });
 }
