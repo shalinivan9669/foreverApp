@@ -39,32 +39,60 @@ export default function CoupleActivityPage() {
 
   const locale = 'ru';
 
-  // загрузка pairId
-  useEffect(() => {
-    if (!user) return;
-    let on = true;
-    fetch(api(`/api/pairs/me?userId=${user.id}`))
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (on && d?.pair) setPairId(d.pair._id as string); });
-    return () => { on = false; };
-  }, [user]);
+ // загрузка pairId
+useEffect(() => {
+  if (!user) return;
+  let on = true;
+  fetch(api(`/api/pairs/me?userId=${user.id}`))
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => {
+      if (!on) return;
+      // API /api/pairs/me возвращает сам документ пары (или {pair: ...}) — поддержим оба варианта
+      const id = d?.pair?._id ?? d?._id ?? null;
+      if (id) setPairId(String(id));
+    })
+    .catch(() => {});
+  return () => {
+    on = false;
+  };
+}, [user]);
+
 
   // загрузка активностей
-  useEffect(() => {
-    if (!pairId) return;
-    let on = true;
-    (async () => {
-      setLoading(true);
-      const load = (s: string) => fetch(api(`/api/pairs/${pairId}/activities?s=${s}`)).then(r => r.ok ? r.json() : { items: [] });
-      const [cur, sug, hist] = await Promise.all([ load('current'), load('suggested'), load('history') ]);
-      if (!on) return;
-      setActive(cur.items?.[0] ?? null);
-      setSuggested(sug.items ?? []);
-      setHistory(hist.items ?? []);
-      setLoading(false);
-    })();
-    return () => { on = false; };
-  }, [pairId, tab]);
+  // загрузка активностей
+useEffect(() => {
+  if (!pairId) return;
+  let on = true;
+
+  (async () => {
+    setLoading(true);
+
+    // Нормализуем ответ: API сейчас отдаёт массив, а фронт ранее ожидал {items:[]}
+    const grab = async (s: string) => {
+      const res = await fetch(api(`/api/pairs/${pairId}/activities?s=${s}`));
+      if (!res.ok) return [] as Activity[];
+      const d = await res.json();
+      return Array.isArray(d) ? (d as Activity[]) : (Array.isArray(d?.items) ? (d.items as Activity[]) : []);
+    };
+
+    const [cur, sug, hist] = await Promise.all([
+      grab('current'),
+      grab('suggested'),
+      grab('history'),
+    ]);
+
+    if (!on) return;
+    setActive(cur[0] ?? null);
+    setSuggested(sug);
+    setHistory(hist);
+    setLoading(false);
+  })();
+
+  return () => {
+    on = false;
+  };
+}, [pairId, tab]);
+
 
   const refresh = () => setTab(t => t); // триггерит useEffect
 
