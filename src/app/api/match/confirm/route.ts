@@ -49,16 +49,10 @@ export async function POST(req: NextRequest) {
   const like = await Like.findById(likeId);
   if (!like) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  // подтверждать пару может ТОЛЬКО инициатор
+  // подтверждать может только инициатор и только из состояния mutual_ready
   if (like.fromId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-
-  // должны иметься ответы получателя
-  if (!like.recipientResponse) return NextResponse.json({ error: 'not ready' }, { status: 400 });
-
-  // разрешаем вызывать как из 'awaiting_initiator', так и из 'mutual_ready'
-  if (like.status !== 'awaiting_initiator' && like.status !== 'mutual_ready') {
-    return NextResponse.json({ error: `invalid status ${like.status}` }, { status: 400 });
-  }
+  if (like.status !== 'mutual_ready' || !like.recipientResponse)
+    return NextResponse.json({ error: 'not ready' }, { status: 400 });
 
   const [u, v] = await Promise.all([
     User.findOne({ id: like.fromId }).lean<UserType | null>(),
@@ -69,40 +63,29 @@ export async function POST(req: NextRequest) {
   const members = [u.id, v.id].sort() as [string, string];
   const key = `${members[0]}|${members[1]}`;
 
-  // создаём/находим пару и при необходимости записываем паспорт
-  const passport = buildPassport(u, v);
-
+  // Всегда приводим пару к active; создаём при отсутствии
   const pair = await Pair.findOneAndUpdate(
     { key },
     {
-      $setOnInsert: {
-        key,
-        members,
-        status: 'active',
-        progress: { streak: 0, completed: 0 },
-        passport,
-        fatigue:   { score: 0, updatedAt: new Date() },
-        readiness: { score: 0, updatedAt: new Date() },
-      },
-      $set: { passport }, // если пары не было с паспортом — проставим
+      $setOnInsert: { key, members, progress: { streak: 0, completed: 0 } },
+      $set: { status: 'active' }
     },
     { new: true, upsert: true }
-  ).lean();
-
-  // помечаем лайк как принятый
-  const now = new Date();
-  await Like.updateOne(
-    { _id: like._id },
-    {
-      $set: {
-        status: 'accepted',
-        initiatorDecision: { accepted: true, at: now },
-        updatedAt: now,
-      },
-    }
   );
 
-  // гасим конкурирующие лайки между этими пользователями
+  // паспорт — если отсутствует
+  if (!pair.passport) {
+    pair.passport = buildPassport(u, v);
+    await pair.save();
+  }
+
+  // лайк -> paired (а не accepted)
+  await Like.updateOne(
+    { _id: like._id },
+    { $set: { status: 'paired', updatedAt: new Date() } }
+  );
+
+  // конкурирующие лайки — истечь
   await Like.updateMany(
     {
       _id: { $ne: like._id },
@@ -112,11 +95,11 @@ export async function POST(req: NextRequest) {
     { $set: { status: 'expired' } }
   );
 
-  // обновим статус отношений у пользователей (не критично, но полезно)
+  // опционально: обновим статус отношений пользователей
   await User.updateMany(
     { id: { $in: members } },
     { $set: { 'personal.relationshipStatus': 'in_relationship' } }
   );
 
-  return NextResponse.json({ ok: true, pairId: String(pair?._id), members });
+  return NextResponse.json({ ok: true, pairId: String(pair._id), members });
 }

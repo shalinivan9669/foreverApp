@@ -108,7 +108,10 @@ export default function LikeDetailsPage() {
     () => iAmInitiator && like?.status === 'awaiting_initiator',
     [iAmInitiator, like]
   );
-  const canCreatePair = useMemo(() => like?.status === 'mutual_ready', [like]);
+const canCreatePair = useMemo(
+  () => iAmInitiator && like?.status === 'mutual_ready',
+  [iAmInitiator, like]
+);
 
   async function post(endpoint: string, body: PostBody): Promise<void> {
     setBusy(true);
