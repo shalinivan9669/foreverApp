@@ -31,12 +31,14 @@ type LikeDTO = {
   matchScore: number;
   updatedAt?: string;
 
+  // В API уже приходят готовые avatar-URL
   from: { id: string; username: string; avatar: string };
   to:   { id: string; username: string; avatar: string };
 
-  agreements: [boolean, boolean, boolean];
-  answers: [string, string];
-  cardSnapshot: CardSnapshot;
+  // эти поля в ответе могут отсутствовать в legacy-лайках — делаем опциональными
+  agreements?: [boolean, boolean, boolean];
+  answers?: [string, string];
+  cardSnapshot?: CardSnapshot;
 
   fromCardSnapshot?: CardSnapshot;
 
@@ -54,8 +56,8 @@ type LikeDTO = {
 };
 
 type PostBody =
-  | { userId: string; likeId: string }                           // accept / reject / pairs.create
-  | { userId: string; likeId: string; accepted?: boolean };       // допускаем поле accepted для универсальности
+  | { userId: string; likeId: string }
+  | { userId: string; likeId: string; accepted?: boolean };
 
 export default function LikeDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -98,7 +100,7 @@ export default function LikeDetailsPage() {
 
   const visibleSnapshot: CardSnapshot | null = useMemo(() => {
     if (!like || !user) return null;
-    if (iAmInitiator) return like.cardSnapshot;
+    if (iAmInitiator) return like.cardSnapshot ?? null;
     return like.fromCardSnapshot ?? like.recipientResponse?.initiatorCardSnapshot ?? null;
   }, [like, user, iAmInitiator]);
 
@@ -162,7 +164,7 @@ export default function LikeDetailsPage() {
 
       <header className="flex items-center gap-3">
         <img
-          src={`https://cdn.discordapp.com/avatars/${like.from.id}/${like.from.avatar}.png`}
+          src={like.from.avatar}
           width={36}
           height={36}
           className="rounded-full"
@@ -170,7 +172,7 @@ export default function LikeDetailsPage() {
         />
         <span className="text-sm text-gray-500">→</span>
         <img
-          src={`https://cdn.discordapp.com/avatars/${like.to.id}/${like.to.avatar}.png`}
+          src={like.to.avatar}
           width={36}
           height={36}
           className="rounded-full"
