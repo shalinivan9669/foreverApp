@@ -116,14 +116,20 @@ useEffect(() => {
 
   const onComplete = (a: Activity) => setCheckInFor(a);
 
-  const onSubmitCheckIn = async (id: string, answers: Array<{checkInId:string; ui:number}>) => {
-    await fetch(api(`/api/activities/${id}/complete`), {
-      method: 'POST',
-      body: JSON.stringify({ answers })
-    });
-    setCheckInFor(null);
-    refresh();
-  };
+const onSubmitCheckIn = async (
+  id: string,
+  answers: Array<{ checkInId: string; ui: number }>
+) => {
+  await fetch(api(`/api/activities/${id}/checkin`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // TODO: подставить 'A' или 'B' по текущему пользователю относительно pair.members
+    body: JSON.stringify({ by: 'A', answers }),
+  });
+  setCheckInFor(null);
+  refresh();
+};
+
 
   const tabBtn = (t: Tab, text: string) => (
     <button
