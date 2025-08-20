@@ -1,10 +1,12 @@
 // src/app/api/match/confirm/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
-import type { Axis } from '@/models/ActivityTemplate';
+import { ActivityTemplate, type Axis, type ActivityTemplateType } from '@/models/ActivityTemplate';
+import { PairActivity } from '@/models/PairActivity';
 
 const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
 const HIGH = 2.0, LOW = 0.75, DELTA = 2.0;
@@ -38,6 +40,57 @@ function buildPassport(a: UserType, b: UserType) {
   return { strongSides, riskZones, complementMap, levelDelta };
 }
 
+async function seedSuggestionsForPair(pairId: Types.ObjectId) {
+  // если уже есть предложенные — не дублируем
+  const offeredExists = await PairActivity.exists({ pairId, status: 'offered' });
+  if (offeredExists) return;
+
+  const pair = await Pair.findById(pairId).lean();
+  if (!pair?.passport?.riskZones?.length) return;
+
+  const topRisk = pair.passport.riskZones.slice().sort((a,b)=>b.severity-a.severity)[0] as { axis: Axis; severity: 1|2|3 };
+  const difficulty = topRisk.severity;
+
+  const templates = await ActivityTemplate.aggregate<ActivityTemplateType>([
+    { $match: { axis: topRisk.axis, difficulty: { $in: [difficulty, Math.max(1,difficulty-1), Math.min(5,difficulty+1)] } } },
+    { $sample: { size: 3 } }
+  ]);
+
+  if (!templates.length) return;
+
+  const users = await User.find({ id: { $in: pair.members } }).lean<(UserType & { _id: Types.ObjectId })[]>();
+  const [uA, uB] = pair.members.map(did => users.find(u => u.id === did)!);
+  const members: [Types.ObjectId, Types.ObjectId] = [uA._id, uB._id];
+
+  const now = new Date();
+  await Promise.all(templates.map(tpl => PairActivity.create({
+    pairId,
+    members,
+    intent: tpl.intent,
+    archetype: tpl.archetype,
+    axis: tpl.axis,
+    facetsTarget: tpl.facetsTarget ?? [],
+    title: tpl.title,
+    description: tpl.description,
+    why: { ru:`Работа с риском по оси ${topRisk.axis}`, en:`Work on ${topRisk.axis} risk` },
+    mode: 'together',
+    sync: 'sync',
+    difficulty: tpl.difficulty,
+    intensity: tpl.intensity,
+    timeEstimateMin: tpl.timeEstimateMin,
+    costEstimate: tpl.costEstimate,
+    location: tpl.location ?? 'any',
+    materials: tpl.materials ?? [],
+    offeredAt: now,
+    dueAt: new Date(now.getTime() + 3*24*3600*1000),
+    requiresConsent: tpl.requiresConsent,
+    status: 'offered',
+    checkIns: tpl.checkIns,
+    effect: tpl.effect,
+    createdBy: 'system',
+  })));
+}
+
 type Body = { likeId: string; userId: string };
 
 export async function POST(req: NextRequest) {
@@ -49,7 +102,7 @@ export async function POST(req: NextRequest) {
   const like = await Like.findById(likeId);
   if (!like) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  // подтверждать может только инициатор и только из состояния mutual_ready
+  // только инициатор и статус mutual_ready
   if (like.fromId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   if (like.status !== 'mutual_ready' || !like.recipientResponse)
     return NextResponse.json({ error: 'not ready' }, { status: 400 });
@@ -63,43 +116,32 @@ export async function POST(req: NextRequest) {
   const members = [u.id, v.id].sort() as [string, string];
   const key = `${members[0]}|${members[1]}`;
 
-  // Всегда приводим пару к active; создаём при отсутствии
+  // создаём/активируем пару
   const pair = await Pair.findOneAndUpdate(
     { key },
-    {
-      $setOnInsert: { key, members, progress: { streak: 0, completed: 0 } },
-      $set: { status: 'active' }
-    },
+    { $setOnInsert: { key, members, progress: { streak: 0, completed: 0 } }, $set: { status: 'active' } },
     { new: true, upsert: true }
   );
 
-  // паспорт — если отсутствует
   if (!pair.passport) {
     pair.passport = buildPassport(u, v);
     await pair.save();
   }
 
-  // лайк -> paired (а не accepted)
-  await Like.updateOne(
-    { _id: like._id },
-    { $set: { status: 'paired', updatedAt: new Date() } }
-  );
+  // лайк -> paired
+  await Like.updateOne({ _id: like._id }, { $set: { status: 'paired', updatedAt: new Date() } });
 
-  // конкурирующие лайки — истечь
+  // погасить конкурирующие
   await Like.updateMany(
-    {
-      _id: { $ne: like._id },
-      $or: [{ fromId: like.fromId, toId: like.toId }, { fromId: like.toId, toId: like.fromId }],
-      status: { $in: ['sent', 'viewed', 'awaiting_initiator', 'mutual_ready'] },
-    },
+    { _id: { $ne: like._id }, $or: [{ fromId: like.fromId, toId: like.toId }, { fromId: like.toId, toId: like.fromId }], status: { $in: ['sent','viewed','awaiting_initiator','mutual_ready'] } },
     { $set: { status: 'expired' } }
   );
 
-  // опционально: обновим статус отношений пользователей
-  await User.updateMany(
-    { id: { $in: members } },
-    { $set: { 'personal.relationshipStatus': 'in_relationship' } }
-  );
+  // статус пользователей
+  await User.updateMany({ id: { $in: members } }, { $set: { 'personal.relationshipStatus': 'in_relationship' } });
+
+  // 👉 автосоздание предложенных активностей
+  await seedSuggestionsForPair(pair._id as Types.ObjectId);
 
   return NextResponse.json({ ok: true, pairId: String(pair._id), members });
 }

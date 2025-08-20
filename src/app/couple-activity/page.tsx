@@ -96,9 +96,9 @@ useEffect(() => {
 
   const refresh = () => setTab(t => t); // триггерит useEffect
 
-  const onSuggestNext = async () => {
-    if (!user) return;
-    await fetch(api('/api/activities/next'), { method: 'POST', body: JSON.stringify({ userId: user.id }) });
+    const onSuggestNext = async () => {
+    if (!pairId) return;
+    await fetch(api(`/api/pairs/${pairId}/suggest`), { method: 'POST' });
     refresh();
   };
 
