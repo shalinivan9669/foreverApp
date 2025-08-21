@@ -48,11 +48,13 @@ async function seedSuggestionsForPair(pairId: Types.ObjectId) {
   const pair = await Pair.findById(pairId).lean();
   if (!pair?.passport?.riskZones?.length) return;
 
-  const topRisk = pair.passport.riskZones.slice().sort((a,b)=>b.severity-a.severity)[0] as { axis: Axis; severity: 1|2|3 };
+  const topRisk = pair.passport.riskZones
+    .slice()
+    .sort((a, b) => b.severity - a.severity)[0] as { axis: Axis; severity: 1|2|3 };
   const difficulty = topRisk.severity;
 
   const templates = await ActivityTemplate.aggregate<ActivityTemplateType>([
-    { $match: { axis: topRisk.axis, difficulty: { $in: [difficulty, Math.max(1,difficulty-1), Math.min(5,difficulty+1)] } } },
+    { $match: { axis: topRisk.axis, difficulty: { $in: [difficulty, Math.max(1, difficulty - 1), Math.min(5, difficulty + 1)] } } },
     { $sample: { size: 3 } }
   ]);
 
@@ -72,7 +74,7 @@ async function seedSuggestionsForPair(pairId: Types.ObjectId) {
     facetsTarget: tpl.facetsTarget ?? [],
     title: tpl.title,
     description: tpl.description,
-    why: { ru:`Работа с риском по оси ${topRisk.axis}`, en:`Work on ${topRisk.axis} risk` },
+    why: { ru: `Работа с риском по оси ${topRisk.axis}`, en: `Work on ${topRisk.axis} risk` },
     mode: 'together',
     sync: 'sync',
     difficulty: tpl.difficulty,
@@ -82,7 +84,7 @@ async function seedSuggestionsForPair(pairId: Types.ObjectId) {
     location: tpl.location ?? 'any',
     materials: tpl.materials ?? [],
     offeredAt: now,
-    dueAt: new Date(now.getTime() + 3*24*3600*1000),
+    dueAt: new Date(now.getTime() + 3 * 24 * 3600 * 1000),
     requiresConsent: tpl.requiresConsent,
     status: 'offered',
     checkIns: tpl.checkIns,
@@ -123,7 +125,13 @@ export async function POST(req: NextRequest) {
     { new: true, upsert: true }
   );
 
-  if (!pair.passport) {
+  // 🔧 КРИТИЧЕСКОЕ: пересобираем паспорт, если его нет ИЛИ в нём пустые riskZones
+  const needPassport =
+    !pair.passport ||
+    !Array.isArray(pair.passport.riskZones) ||
+    pair.passport.riskZones.length === 0;
+
+  if (needPassport) {
     pair.passport = buildPassport(u, v);
     await pair.save();
   }
@@ -133,7 +141,11 @@ export async function POST(req: NextRequest) {
 
   // погасить конкурирующие
   await Like.updateMany(
-    { _id: { $ne: like._id }, $or: [{ fromId: like.fromId, toId: like.toId }, { fromId: like.toId, toId: like.fromId }], status: { $in: ['sent','viewed','awaiting_initiator','mutual_ready'] } },
+    {
+      _id: { $ne: like._id },
+      $or: [{ fromId: like.fromId, toId: like.toId }, { fromId: like.toId, toId: like.fromId }],
+      status: { $in: ['sent','viewed','awaiting_initiator','mutual_ready'] }
+    },
     { $set: { status: 'expired' } }
   );
 
