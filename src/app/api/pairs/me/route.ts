@@ -1,3 +1,4 @@
+// src/app/api/pairs/me/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
@@ -8,6 +9,19 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 });
 
   await connectToDatabase();
-  const pair = await Pair.findOne({ members: userId, status: 'active' }).lean();
-  return NextResponse.json(pair ?? null);
+
+  // сначала активная/пауза
+  let pair = await Pair.findOne({
+    members: userId,
+    status: { $in: ['active', 'paused'] },
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // на всякий случай fallback — любая последняя пара
+  if (!pair) {
+    pair = await Pair.findOne({ members: userId }).sort({ createdAt: -1 }).lean();
+  }
+
+  return NextResponse.json({ pair: pair ?? null });
 }

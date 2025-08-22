@@ -28,7 +28,7 @@ export default function SearchPairTile() {
 
   return (
     <Link
-      href={hasActive ? '/couple-activity' : '/search'}
+      href={hasActive ? '/couple-activity' : '/pair'}
       aria-label={hasActive ? 'Работа в паре' : 'Поиск пары'}
       className="
         group relative row-span-2 col-start-1
