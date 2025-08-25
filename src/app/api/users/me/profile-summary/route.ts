@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   // Фильтры/предпочтения
-  const prefs = user.preferences ?? ({} as any);
+const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
   const filters = {
     age: [prefs?.desiredAgeRange?.min ?? 18, prefs?.desiredAgeRange?.max ?? 99],
     radiusKm: prefs?.maxDistanceKm ?? 50,
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
     },
     activity: {
       current: null as null, // персональные активности пока не реализованы
-      suggested: [] as any[], // заглушка
+      suggested: [] as unknown[], // заглушка
       historyCount: 0,
     },
     matching: {
@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
       outboxCount,
       filters,
     },
-    insights: [] as any[], // заглушка (добавим, когда появится модель Insight)
+    insights: [] as unknown[], // заглушка (добавим, когда появится модель Insight)
     featureFlags: {
       PERSONAL_ACTIVITIES: Boolean(user.featureFlags?.PERSONAL_ACTIVITIES),
     },

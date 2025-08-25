@@ -1,11 +1,18 @@
-// src/components/common/Skeleton.tsx
 'use client';
 
-export default function Skeleton({ lines = 5 }: { lines?: number }) {
+type Props = {
+  className?: string;
+  lines?: number;
+};
+
+export default function Skeleton({ className = '', lines = 1 }: Props) {
+  if (lines <= 1) {
+    return <div className={`animate-pulse bg-zinc-200/60 rounded ${className}`} />;
+  }
   return (
-    <div className="space-y-2">
+    <div className={className}>
       {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-4 bg-gray-100 rounded" />
+        <div key={i} className="animate-pulse bg-zinc-200/60 rounded h-4 mb-2 last:mb-0" />
       ))}
     </div>
   );
