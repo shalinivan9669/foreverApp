@@ -24,35 +24,59 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ id: string; username: string; avatar: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false); // грузим ленту только если не редиректим
 
-  // редиректы-гварды
+  // гвард: активная пара / наличие карточки
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      fetch(api(`/api/pairs/me?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
-      fetch(api(`/api/match/card?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
-    ])
-      .then(([pair, card]) => {
-        if (pair) router.replace('/couple-activity');
-        else if (!card) router.replace('/match-card/create');
-      })
-      .catch(() => {});
+    let on = true;
+
+    (async () => {
+      const [pairPayload, card] = await Promise.all([
+        fetch(api(`/api/pairs/me?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
+        fetch(api(`/api/match/card?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
+      ]);
+
+      // поддерживаем оба формата: {pair: ...} и плоский doc/null
+      const p = pairPayload && typeof pairPayload === 'object'
+        ? ('pair' in pairPayload ? pairPayload.pair : pairPayload)
+        : null;
+
+      const isActive = !!(p && p._id && p.status === 'active');
+
+      if (!on) return;
+
+      if (isActive) {
+        router.replace('/couple-activity');
+        return;
+      }
+
+      if (!card) {
+        router.replace('/match-card/create');
+        return;
+      }
+
+      setReady(true);
+    })().catch(() => setReady(true));
+
+    return () => { on = false; };
   }, [user, router]);
 
-  // загрузка ленты
+  // загрузка ленты кандидатов
   useEffect(() => {
-    if (!user) return;
+    if (!user || !ready) return;
     setLoading(true);
     setError(null);
+
     fetch(api(`/api/match/feed?userId=${user.id}`))
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
       .then((items: Candidate[]) => setList(items ?? []))
       .catch(async (r: Response) => setError((await r.json().catch(() => ({})))?.error || 'Ошибка'))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, ready]);
 
   if (!user) return <>No user</>;
-  if (loading) return <div className="p-4">Загрузка…</div>;
+  if (!ready && loading) return <div className="p-4">Загрузка…</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
   return (
@@ -71,9 +95,7 @@ export default function SearchPage() {
         fromId={user.id}
         candidate={selected}
         onSent={({ toId }) => {
-          // 1) убираем из текущего списка
           setList((xs) => xs.filter((x) => x.id !== toId));
-          // 2) переходим в «Потенциальные партнёры» (инбокс)
           router.push('/match/inbox');
         }}
       />

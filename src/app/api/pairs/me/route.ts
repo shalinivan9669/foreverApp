@@ -1,4 +1,3 @@
-// src/app/api/pairs/me/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
@@ -10,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   await connectToDatabase();
 
-  // сначала активная/пауза
+  // 1) активная или на паузе — приоритетно
   let pair = await Pair.findOne({
     members: userId,
     status: { $in: ['active', 'paused'] },
@@ -18,10 +17,20 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean();
 
-  // на всякий случай fallback — любая последняя пара
+  // 2) fallback — любая последняя (для истории)
   if (!pair) {
     pair = await Pair.findOne({ members: userId }).sort({ createdAt: -1 }).lean();
   }
 
-  return NextResponse.json({ pair: pair ?? null });
+  // ✅ не ломаем формат, но добавляем явные флаги
+  const status = pair?.status ?? null;
+  const hasActive = status === 'active';
+  const hasAny = !!pair;
+
+  return NextResponse.json({
+    pair: pair ?? null,
+    hasActive,
+    hasAny,
+    status, // 'active' | 'paused' | 'ended' | null
+  });
 }
