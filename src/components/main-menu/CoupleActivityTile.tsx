@@ -5,7 +5,7 @@ export default function CoupleActivityTile() {
   return (
     <Link
       href="/couple-activity"
-      className="bg-yellow-200 border border-gray-400 flex items-center justify-center"
+      className="bg-yellow-200 text-black border border-gray-400 flex items-center justify-center"
     >
       АКТИВНОСТЬ ПАРЫ
     </Link>

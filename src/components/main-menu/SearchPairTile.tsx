@@ -66,7 +66,7 @@ export default function SearchPairTile() {
           )}
         </div>
 
-        <div className="text-lg font-semibold">
+        <div className="text-lg text-black font-semibold">
           {hasActive ? 'Профиль пары' : 'Поиск пары'}
         </div>
 
