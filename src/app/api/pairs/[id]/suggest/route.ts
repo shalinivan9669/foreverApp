@@ -21,10 +21,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const rz = pair.passport.riskZones.slice().sort((a,b)=>b.severity-a.severity)[0];
   const difficulty = Math.min(5, Math.max(1, rz.severity + (fatigue>0.6?-1:0) + (fatigue<0.3?1:0)));
 
-  const docs = await ActivityTemplate.aggregate([
+  // Dedup: avoid offering the same template twice in a row
+  const lastOffered = await PairActivity.findOne({ pairId: pair._id, status: 'offered' })
+    .sort({ createdAt: -1 })
+    .lean<{ stateMeta?: { templateId?: string } }>();
+  const lastTplId = lastOffered?.stateMeta?.templateId;
+
+  const tplCandidates = await ActivityTemplate.aggregate([
     { $match: { axis: rz.axis, difficulty: { $in: [difficulty, Math.max(1,difficulty-1), Math.min(5,difficulty+1)] } } },
-    { $sample: { size: 3 } }
+    { $sample: { size: 5 } }
   ]);
+  const docs = tplCandidates
+    .filter((t: { _id: string }) => t._id !== lastTplId)
+    .slice(0, 3);
 
   // инстанс «offered» на основе шаблонов
   const users = await User.find({ id: { $in: pair.members } }).lean<UserType[] & { _id: Types.ObjectId }[]>();
@@ -51,6 +60,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     dueAt: new Date(now.getTime() + 3*24*3600*1000),
     requiresConsent: tpl.requiresConsent,
     status: 'offered',
+    stateMeta: { templateId: (tpl as { _id: string })._id },
     checkIns: tpl.checkIns,
     effect: tpl.effect,
     fatigueDeltaOnComplete: tpl.intent==='improve' ? 0.08 : -0.05,

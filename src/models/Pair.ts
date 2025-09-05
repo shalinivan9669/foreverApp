@@ -23,6 +23,7 @@ export interface PairType {
     riskZones:   { axis: string; facets: string[]; severity: 1|2|3 }[];
     complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
     levelDelta:  { axis: string; delta: number }[];
+    lastDiagnosticsAt?: Date;
   };
   fatigue?:   { score: number; updatedAt: Date };
   readiness?: { score: number; updatedAt: Date };
@@ -59,11 +60,12 @@ const PairSchema = new Schema<PairType>(
     activeActivity: { type: ActiveActivitySchema, required: false },
     progress:       { type: ProgressSchema,     required: false },
 
-    passport: {
+  passport: {
       strongSides:   [{ axis: String, facets: [String] }],
       riskZones:     [{ axis: String, facets: [String], severity: { type: Number, enum: [1,2,3] } }],
       complementMap: [{ axis: String, A_covers_B: [String], B_covers_A: [String] }],
       levelDelta:    [{ axis: String, delta: Number }],
+      lastDiagnosticsAt: { type: Date },
     },
 
     fatigue:   { score: { type: Number, default: 0 }, updatedAt: { type: Date, default: Date.now } },

@@ -36,6 +36,8 @@ export default function CoupleActivityPage() {
   const [suggested, setSuggested] = useState<Activity[]>([]);
   const [history, setHistory] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   const locale = 'ru';
 
@@ -97,9 +99,18 @@ useEffect(() => {
   const refresh = () => setTab(t => t); // триггерит useEffect
 
     const onSuggestNext = async () => {
-    if (!pairId) return;
-    await fetch(api(`/api/pairs/${pairId}/suggest`), { method: 'POST' });
-    refresh();
+    if (!pairId || suggestBusy) return;
+    setSuggestBusy(true);
+    setSuggestError(null);
+    try {
+      const res = await fetch(api(`/api/pairs/${pairId}/suggest`), { method: 'POST' });
+      if (!res.ok) throw new Error('Не удалось предложить активности');
+      refresh();
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setSuggestBusy(false);
+    }
   };
 
   const onAccept = async (id: string) => {
