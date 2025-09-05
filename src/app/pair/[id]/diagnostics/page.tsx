@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/utils/api';
 
@@ -17,7 +17,6 @@ type Passport = {
 
 export default function PairDiagnosticsPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const pairId = params?.id;
 
   const [passport, setPassport] = useState<Passport | null>(null);
@@ -35,7 +34,7 @@ export default function PairDiagnosticsPage() {
     return () => { on = false; };
   }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!pairId) return;
     setLoading(true);
     setError(null);
@@ -49,9 +48,9 @@ export default function PairDiagnosticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pairId]);
 
-  useEffect(() => { refresh(); }, [pairId]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const fmtDate = (s?: string) => s ? new Date(s).toLocaleString() : '—';
 
@@ -127,4 +126,3 @@ export default function PairDiagnosticsPage() {
     </main>
   );
 }
-

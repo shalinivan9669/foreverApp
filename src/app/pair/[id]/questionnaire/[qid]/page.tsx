@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/utils/api';
 import { useUserStore } from '@/store/useUserStore';
@@ -124,4 +124,3 @@ export default function PairQuestionnaireRunner() {
     </main>
   );
 }
-
