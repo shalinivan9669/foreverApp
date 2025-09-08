@@ -1,69 +1,116 @@
-// src/app/api/questionnaires/[id]/route.ts
-import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Questionnaire } from '@/models/Questionnaire';
-import { User } from '@/models/User';
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToDatabase }         from '@/lib/mongodb';
+import { Question, type QuestionType } from '@/models/Question';
+import { User, type UserType }         from '@/models/User';
 
-type QItem = {
-  id?: string;
-  _id?: string;
-  text: Record<string, string>;
-  scale: 'likert5' | 'bool';
-  map: number[];
-  axis: string;
-  facet: string;
-};
+/* ───── типы и константы ────────────────────────────────────── */
+type Axis =
+  | 'communication'
+  | 'domestic'
+  | 'personalViews'
+  | 'finance'
+  | 'sexuality'
+  | 'psyche';
 
-// GET /api/questionnaires/[id]
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const id = url.pathname.split('/').pop() || '';
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
+const AXES: Axis[] = [
+  'communication', 'domestic', 'personalViews',
+  'finance', 'sexuality', 'psyche'
+];
 
-  await connectToDatabase();
+interface Body { userId: string; answers: { qid: string; ui: number }[] }
 
-  const qn = await Questionnaire.findById(id).lean();
-  if (!qn) return NextResponse.json(null, { status: 404 });
+/* ───── utils ─────────────────────────────────────────────── */
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-  return NextResponse.json(qn);
+function toNumeric(q: QuestionType, ui: number) {
+  const idx = Math.max(0, Math.min((ui ?? 1) - 1, q.map.length - 1));
+  return q.map[idx];                       // −3…+3
 }
 
-// POST /api/questionnaires/[id]
-export async function POST(req: Request) {
-  const url = new URL(req.url);
-  const id = url.pathname.split('/').pop() || '';
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
+type WithPossibleId = { id?: unknown };
+function hasStringId(obj: unknown): obj is { id: string } {
+  return typeof obj === 'object'
+    && obj !== null
+    && 'id' in (obj as Record<string, unknown>)
+    && typeof (obj as WithPossibleId).id === 'string';
+}
 
-  const body = (await req.json()) as { userId: string; qid: string; ui: number };
-  const { userId, qid, ui } = body || {};
-  if (!userId || !qid || typeof ui !== 'number') {
-    return NextResponse.json({ error: 'bad body' }, { status: 400 });
+/* ───── handler ───────────────────────────────────────────── */
+export async function POST(req: NextRequest) {
+  const { userId, answers } = (await req.json()) as Body;
+  if (!userId || !Array.isArray(answers) || answers.length === 0) {
+    return NextResponse.json({ error: 'bad' }, { status: 400 });
   }
 
   await connectToDatabase();
 
-  const qn = await Questionnaire.findById(id).lean<{ questions: QItem[] }>();
-  if (!qn) return NextResponse.json({ error: 'bad qn' }, { status: 404 });
+  /* fetch вопросы одной пачкой */
+  const qids = answers.map(a => a.qid);
+  const qs   = await Question.find({ _id: { $in: qids } }).lean<QuestionType[]>();
 
-  const q = qn.questions.find(x => (x.id ?? String(x._id)) === qid);
-  if (!q) return NextResponse.json({ error: 'bad q' }, { status: 400 });
+  const qMap: Record<string, QuestionType> = {};
+  for (const q of qs) {
+    qMap[String((q as unknown as { _id: unknown })._id)] = q;
+    if (hasStringId(q)) qMap[q.id] = q;
+  }
 
-  const idx = Math.max(0, Math.min((ui ?? 1) - 1, q.map.length - 1));
-  const num = q.map[idx];                 // −3…+3
-  const axis = q.axis;
- const step = (num / 3);           
+  /* аккумуляторы */
+  const addSigned : Record<Axis, number> = {
+    communication:0, domestic:0, personalViews:0,
+    finance:0, sexuality:0, psyche:0
+  };
+  const cnt    : Record<Axis, number> = { ...addSigned };
 
-  // level: EMA-инкремент небольшой
- const updates: Record<string, unknown> = {
-  $inc: { [`vectors.${axis}.level`]: step * 0.25 } // ↓/↑ в зависимости от ответа
-};
-  // фасетки: добавляем только при явных ответах
-  const add: Record<string, unknown> = {};
-  if (num >=  2) add[`vectors.${axis}.positives`] = q.facet;
-  if (num <= -2) add[`vectors.${axis}.negatives`] = q.facet;
-  if (Object.keys(add).length) updates.$addToSet = add;
+  const pos : Record<Axis, string[]> = {
+    communication:[], domestic:[], personalViews:[],
+    finance:[], sexuality:[], psyche:[]
+  };
+  const neg : Record<Axis, string[]> = JSON.parse(JSON.stringify(pos));
 
-  await User.updateOne({ id: userId }, updates);
+  for (const { qid, ui } of answers) {
+    const q = qMap[qid]; if (!q || typeof ui !== 'number') continue;
+    const num  = toNumeric(q, ui);   // −3…+3
+    const axis = q.axis as Axis;
 
+    addSigned[axis] += (num / 3);    // −1…1
+    cnt[axis]       += 1;
+
+    if (num >=  2) pos[axis].push(q.facet);
+    if (num <= -2) neg[axis].push(q.facet);
+  }
+
+  /* читаем текущего пользователя */
+  const doc = await User.findOne({ id: userId }).lean<UserType | null>();
+  if (!doc) return NextResponse.json({ error: 'no user' }, { status: 404 });
+
+  /* считаем новые уровни (подписанный шаг; 0..1) */
+  const setLevels: Record<string, number> = {};
+  AXES.forEach(axis => {
+    if (!cnt[axis]) return;
+    const prev = Number(doc.vectors?.[axis]?.level ?? 0);
+    const avgSigned = addSigned[axis] / cnt[axis]; // −1..1
+    const next = clamp01(prev + avgSigned * 0.25);
+    setLevels[`vectors.${axis}.level`] = next;
+  });
+
+  /* формируем update */
+  const addToSet: Record<string, unknown> = {};
+  AXES.forEach(axis => {
+    if (pos[axis].length)
+      addToSet[`vectors.${axis}.positives`] = { $each: pos[axis] };
+    if (neg[axis].length)
+      addToSet[`vectors.${axis}.negatives`] = { $each: neg[axis] };
+  });
+
+  const update: {
+    $set: Record<string, unknown>;
+    $addToSet?: Record<string, unknown>;
+  } = { $set: setLevels };
+
+  if (Object.keys(addToSet).length) {
+    update.$addToSet = addToSet;
+  }
+
+  await User.updateOne({ id: userId }, update);
   return NextResponse.json({ ok: true });
 }
