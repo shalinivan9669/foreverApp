@@ -51,13 +51,12 @@ export async function POST(req: Request) {
   const idx = Math.max(0, Math.min((ui ?? 1) - 1, q.map.length - 1));
   const num = q.map[idx];                 // −3…+3
   const axis = q.axis;
-  const abs = Math.abs(num) / 3;          // 0..1
+ const step = (num / 3);           
 
   // level: EMA-инкремент небольшой
-  const updates: Record<string, unknown> = {
-    $inc: { [`vectors.${axis}.level`]: abs * 0.25 }
-  };
-
+ const updates: Record<string, unknown> = {
+  $inc: { [`vectors.${axis}.level`]: step * 0.25 } // ↓/↑ в зависимости от ответа
+};
   // фасетки: добавляем только при явных ответах
   const add: Record<string, unknown> = {};
   if (num >=  2) add[`vectors.${axis}.positives`] = q.facet;
