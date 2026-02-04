@@ -1,0 +1,3 @@
+# Search Evidence: billing/entitlement/stripe/subscription/premium/payment
+cmd: rg -n "(billing|entitlement|stripe|subscription|premium|paywall|payment)" src
+result: NO_MATCHES

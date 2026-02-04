@@ -1,0 +1,127 @@
+# Repo Tree Snapshot (curated, key paths)
+.
++- docs/
+¦  +- ADR/
+¦  L- _evidence/
++- public/
++- scripts/
+¦  L- seedQuestions.ts
++- seed/
+¦  L- questions.json
++- src/
+¦  +- app/
+¦  ¦  +- (auth)/profile/page.tsx
+¦  ¦  +- api/
+¦  ¦  ¦  +- activities/next/route.ts
+¦  ¦  ¦  +- activities/[id]/accept/route.ts
+¦  ¦  ¦  +- activities/[id]/cancel/route.ts
+¦  ¦  ¦  +- activities/[id]/checkin/route.ts
+¦  ¦  ¦  +- activities/[id]/complete/route.ts
+¦  ¦  ¦  +- activity-templates/route.ts
+¦  ¦  ¦  +- answers/bulk/route.ts
+¦  ¦  ¦  +- exchange-code/route.ts
+¦  ¦  ¦  +- logs/route.ts
+¦  ¦  ¦  +- match/accept/route.ts
+¦  ¦  ¦  +- match/card/route.ts
+¦  ¦  ¦  +- match/card/[id]/route.ts
+¦  ¦  ¦  +- match/confirm/route.ts
+¦  ¦  ¦  +- match/feed/route.ts
+¦  ¦  ¦  +- match/inbox/route.ts
+¦  ¦  ¦  +- match/like/route.ts
+¦  ¦  ¦  +- match/like/[id]/route.ts
+¦  ¦  ¦  +- match/reject/route.ts
+¦  ¦  ¦  +- match/respond/route.ts
+¦  ¦  ¦  +- pairs/create/route.ts
+¦  ¦  ¦  +- pairs/me/route.ts
+¦  ¦  ¦  +- pairs/status/route.ts
+¦  ¦  ¦  +- pairs/[id]/activities/route.ts
+¦  ¦  ¦  +- pairs/[id]/activities/from-template/route.ts
+¦  ¦  ¦  +- pairs/[id]/activities/suggest/route.ts
+¦  ¦  ¦  +- pairs/[id]/diagnostics/route.ts
+¦  ¦  ¦  +- pairs/[id]/pause/route.ts
+¦  ¦  ¦  +- pairs/[id]/resume/route.ts
+¦  ¦  ¦  +- pairs/[id]/suggest/route.ts
+¦  ¦  ¦  +- pairs/[id]/summary/route.ts
+¦  ¦  ¦  +- pairs/[id]/questionnaires/[qid]/start/route.ts
+¦  ¦  ¦  +- pairs/[id]/questionnaires/[qid]/answer/route.ts
+¦  ¦  ¦  +- questionnaires/route.ts
+¦  ¦  ¦  +- questionnaires/[id]/route.ts
+¦  ¦  ¦  +- questions/route.ts
+¦  ¦  ¦  +- users/route.ts
+¦  ¦  ¦  +- users/[id]/route.ts
+¦  ¦  ¦  +- users/[id]/onboarding/route.ts
+¦  ¦  ¦  L- users/me/profile-summary/route.ts
+¦  ¦  +- couple-activity/page.tsx
+¦  ¦  +- main-menu/page.tsx
+¦  ¦  +- match/inbox/page.tsx
+¦  ¦  +- match/like/[id]/page.tsx
+¦  ¦  +- match-card/create/page.tsx
+¦  ¦  +- pair/page.tsx
+¦  ¦  +- pair/[id]/diagnostics/page.tsx
+¦  ¦  +- pair/[id]/questionnaire/[qid]/page.tsx
+¦  ¦  +- profile/(tabs)/activities/page.tsx
+¦  ¦  +- profile/(tabs)/history/page.tsx
+¦  ¦  +- profile/(tabs)/matching/page.tsx
+¦  ¦  +- profile/(tabs)/profile/page.tsx
+¦  ¦  +- profile/(tabs)/settings/page.tsx
+¦  ¦  +- questionnaire/page.tsx
+¦  ¦  +- questionnaire/[id]/page.tsx
+¦  ¦  +- questionnaires/page.tsx
+¦  ¦  +- search/page.tsx
+¦  ¦  +- welcome/page.tsx
+¦  ¦  +- layout.tsx
+¦  ¦  +- globals.css
+¦  ¦  L- page.tsx
+¦  +- components/
+¦  ¦  +- activities/ActivityCard.tsx
+¦  ¦  +- activities/CheckInModal.tsx
+¦  ¦  +- activities/UserActivitiesPlaceholder.tsx
+¦  ¦  +- activities/UserActivityCard.tsx
+¦  ¦  +- charts/AxisRadar.tsx
+¦  ¦  +- common/EmptyState.tsx
+¦  ¦  +- common/ErrorCard.tsx
+¦  ¦  +- common/Skeleton.tsx
+¦  ¦  +- main-menu/CoupleActivityTile.tsx
+¦  ¦  +- main-menu/LootboxTile.tsx
+¦  ¦  +- main-menu/ProfileTile.tsx
+¦  ¦  +- main-menu/QuestionnaireTile.tsx
+¦  ¦  +- main-menu/SearchPairTile.tsx
+¦  ¦  +- profile/InsightsList.tsx
+¦  ¦  +- profile/PreferencesCard.tsx
+¦  ¦  +- profile/SummaryTiles.tsx
+¦  ¦  +- profile/UserHeader.tsx
+¦  ¦  +- ui/BackBar.tsx
+¦  ¦  +- CandidateCard.tsx
+¦  ¦  +- LikeModal.tsx
+¦  ¦  +- MatchTabs.tsx
+¦  ¦  +- OnboardingWizard.tsx
+¦  ¦  +- QuestionCard.tsx
+¦  ¦  L- QuestionnaireCard.tsx
+¦  +- lib/mongodb.ts
+¦  +- models/ActivityTemplate.ts
+¦  +- models/Insight.ts
+¦  +- models/Like.ts
+¦  +- models/Log.ts
+¦  +- models/Match.ts
+¦  +- models/Pair.ts
+¦  +- models/PairActivity.ts
+¦  +- models/PairQuestionnaireAnswer.ts
+¦  +- models/PairQuestionnaireSession.ts
+¦  +- models/Question.ts
+¦  +- models/Questionnaire.ts
+¦  +- models/RelationshipActivity.ts
+¦  +- models/User.ts
+¦  +- store/useUserStore.ts
+¦  L- utils/
+¦     +- activities.ts
+¦     +- api.ts
+¦     +- calcMatch.ts
+¦     L- passport.ts
++- eslint.config.mjs
++- next-auth.d.ts
++- next.config.ts
++- package-lock.json
++- package.json
++- postcss.config.mjs
++- README.md
+L- tsconfig.json
