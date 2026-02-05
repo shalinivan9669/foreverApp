@@ -16,6 +16,10 @@ export interface QuestionnaireType {
   _id: string;
   title:       Record<string,string>;
   description?:Record<string,string>;
+  meta?: {
+    isStarter?: boolean;
+    [key: string]: unknown;
+  };
   target: {
     type:   'individual'|'couple';
     gender: 'unisex'|'male'|'female';
@@ -44,6 +48,7 @@ const QuestionnaireSchema = new Schema<QuestionnaireType>({
   _id:        { type:String, required:true },
   title:      { type:Schema.Types.Mixed, required:true },
   description:{ type:Schema.Types.Mixed },
+  meta:       { type:Schema.Types.Mixed },
   target: {
     type  : { type:String, default:'individual' },
     gender: { type:String, default:'unisex'    },

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { signJwt } from '@/lib/jwt';
 
 export async function POST(req: Request) {
   const { code, redirect_uri } = (await req.json()) as {
@@ -24,5 +25,41 @@ export async function POST(req: Request) {
   if (!tokenRes.ok) {
     return NextResponse.json(data, { status: tokenRes.status });
   }
-  return NextResponse.json({ access_token: data.access_token });
+
+  const accessToken = data.access_token as string | undefined;
+  if (!accessToken) {
+    return NextResponse.json({ error: 'missing access_token' }, { status: 500 });
+  }
+
+  // Fetch Discord user once, then issue our own session JWT
+  const userRes = await fetch('https://discord.com/api/users/@me', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const userData = await userRes.json();
+  if (!userRes.ok) {
+    return NextResponse.json({ error: 'discord user lookup failed', details: userData }, { status: 502 });
+  }
+
+  const userId = userData?.id as string | undefined;
+  if (!userId) {
+    return NextResponse.json({ error: 'missing discord user id' }, { status: 502 });
+  }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: 'JWT_SECRET not set' }, { status: 500 });
+  }
+
+  const token = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days
+  const res = NextResponse.json({ access_token: accessToken });
+  res.cookies.set({
+    name: 'session',
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  });
+  return res;
 }

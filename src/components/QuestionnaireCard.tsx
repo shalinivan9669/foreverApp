@@ -1,69 +1,189 @@
 'use client';
 
 import Link from 'next/link';
-import type { QuestionnaireType } from '@/models/Questionnaire';
 
-// Берём только то, что нужно карточке
-type CardData = Pick<
-  QuestionnaireType,
-  '_id' | 'title' | 'description' | 'axis' | 'target' | 'difficulty' | 'tags'
->;
+type Axis =
+  | 'communication'
+  | 'domestic'
+  | 'personalViews'
+  | 'finance'
+  | 'sexuality'
+  | 'psyche';
 
-export default function QuestionnaireCard({ q }: { q: CardData }) {
-  const title = q.title?.ru ?? q.title?.en ?? q._id;
-  const desc  = q.description?.ru ?? q.description?.en ?? '';
+type QuestionnaireCardDTO = {
+  id: string;
+  vector: Axis;
+  audience: 'pair' | 'solo' | 'universal';
+  title: string;
+  subtitle: string;
+  tagsPublic: string[];
+  tagsHiddenCount: number;
+  questionCount: number;
+  estMinutesMin: number;
+  estMinutesMax: number;
+  level: 1 | 2 | 3 | 4 | 5;
+  rewardCoins?: number;
+  insightsCount?: number;
+  status: 'new' | 'in_progress' | 'completed' | 'required' | 'locked';
+  progressPct?: number;
+  lockReason?: string;
+  cta: 'start' | 'continue' | 'result' | 'locked';
+  isStarter?: boolean;
+  pairId?: string | null;
+};
 
-  const axisLabel: Record<string, string> = {
-    communication: 'Коммуникация',
-    domestic: 'Быт',
-    personalViews: 'Взгляды',
-    finance: 'Финансы',
-    sexuality: 'Интим',
-    psyche: 'Психика',
-  };
+const vectorStripe: Record<Axis, string> = {
+  communication: 'bg-sky-500',
+  domestic: 'bg-amber-500',
+  personalViews: 'bg-violet-500',
+  finance: 'bg-emerald-500',
+  sexuality: 'bg-rose-500',
+  psyche: 'bg-indigo-500',
+};
+
+const vectorLabel: Record<Axis, string> = {
+  communication: '????????????',
+  domestic: '???',
+  personalViews: '???????',
+  finance: '???????',
+  sexuality: '?????',
+  psyche: '???????',
+};
+
+const audienceLabel = {
+  pair: '????',
+  solo: '????',
+  universal: '???????',
+} as const;
+
+const statusBadge = (q: QuestionnaireCardDTO) => {
+  if (q.status === 'required') return '? ???????????';
+  if (q.status === 'locked') return '?? ??????????';
+  if (q.status === 'completed') return '? ????????';
+  if (q.status === 'in_progress') return '? ? ????????';
+  return null;
+};
+
+const ctaLabel = (q: QuestionnaireCardDTO) => {
+  if (q.cta === 'locked') return '??????????';
+  if (q.cta === 'result') return '??????? ?????????';
+  if (q.cta === 'continue') return '??????????';
+  if (q.isStarter) return '?????? ????????? ??????';
+  return '??????';
+};
+
+const hrefFor = (q: QuestionnaireCardDTO) => {
+  if (q.audience === 'pair' && q.pairId) return `/pair/${q.pairId}/questionnaire/${q.id}`;
+  return `/questionnaire/${q.id}`;
+};
+
+export default function QuestionnaireCard({ q }: { q: QuestionnaireCardDTO }) {
+  const badge = statusBadge(q);
+  const href = hrefFor(q);
 
   return (
-    <div className="border rounded p-4 bg-white dark:bg-gray-800">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-          {desc && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{desc}</p>}
-        </div>
+    <Link
+      href={href}
+      onClick={(e) => {
+        if (q.status === 'locked') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      className={
+        'relative block rounded-lg border bg-white p-4 transition ' +
+        'hover:-translate-y-0.5 hover:shadow-sm ' +
+        (q.status === 'locked' ? 'opacity-75' : '') +
+        (q.isStarter ? ' border-blue-200 bg-blue-50/40' : '')
+      }
+      aria-disabled={q.status === 'locked'}
+    >
+      <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-lg ${vectorStripe[q.vector]}`} />
 
-        {/* бейджи */}
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">
-            {axisLabel[q.axis] ?? q.axis}
-          </span>
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">
-            {q.target.type === 'couple' ? 'Для пары' : q.target.gender === 'unisex' ? 'Унисекс' : q.target.gender === 'male' ? 'Для мужчин' : 'Для женщин'}
-          </span>
-          {q.difficulty ? (
-            <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700">
-              Сложность: {q.difficulty}
-            </span>
-          ) : null}
+      {/* ??????? ?????? */}
+      <div className="flex items-start justify-between gap-3 pl-3">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span className="inline-flex h-2 w-2 rounded-full bg-gray-300" />
+          <span>{vectorLabel[q.vector]}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{audienceLabel[q.audience]}</span>
+          {badge && <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{badge}</span>}
         </div>
       </div>
 
-      {q.tags?.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {q.tags.map((t) => (
-            <span key={t} className="text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600">
-              {t}
-            </span>
-          ))}
-        </div>
-      ) : null}
+      {/* ????????? */}
+      <div className="mt-3 pl-3">
+        <h3 className="text-base font-semibold text-gray-900 leading-snug max-h-12 overflow-hidden">
+          {q.title}
+        </h3>
+        <p className="text-sm text-gray-600 mt-1 leading-5 max-h-10 overflow-hidden">
+          {q.subtitle}
+        </p>
+      </div>
 
-      <div className="mt-4">
-        <Link
-          href={`/questionnaire/${q._id}`}
-          className="inline-block bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+      {/* ??????? */}
+      <div className="mt-3 pl-3 text-sm text-gray-700 flex flex-wrap gap-x-3 gap-y-1">
+        <span>? {q.estMinutesMin}?{q.estMinutesMax} ???</span>
+        <span>? {q.questionCount}</span>
+        <span>? ??????? {q.level}</span>
+        {typeof q.rewardCoins === 'number' && <span>?? {q.rewardCoins}</span>}
+        {typeof q.insightsCount === 'number' && <span>?? {q.insightsCount}</span>}
+      </div>
+
+      {/* ???? */}
+      <div className="mt-3 pl-3 flex flex-wrap gap-2">
+        {q.tagsPublic.map((t) => (
+          <span key={t} className="text-[11px] px-2 py-0.5 rounded border border-gray-200">
+            {t}
+          </span>
+        ))}
+        {q.tagsHiddenCount > 0 && (
+          <span className="text-[11px] px-2 py-0.5 rounded border border-gray-200">
+            +{q.tagsHiddenCount}
+          </span>
+        )}
+      </div>
+
+      {/* ???: ???????? + CTA */}
+      <div className="mt-4 pl-3 flex items-center justify-between gap-3">
+        {q.status === 'in_progress' && (
+          <div className="flex-1">
+            <div className="h-2 bg-gray-100 rounded">
+              <div
+                className="h-2 bg-blue-600 rounded"
+                style={{ width: `${Math.min(100, q.progressPct ?? 0)}%` }}
+              />
+            </div>
+            <div className="text-xs text-gray-500 mt-1">???????? {q.progressPct ?? 0}%</div>
+          </div>
+        )}
+        {q.status === 'completed' && (
+          <div className="text-xs text-gray-500">?????? ?</div>
+        )}
+
+        <button
+          onClick={(e) => {
+            if (q.status === 'locked') {
+              e.preventDefault();
+              return;
+            }
+            e.stopPropagation();
+          }}
+          className={
+            'px-3 py-1.5 rounded text-sm ' +
+            (q.status === 'locked'
+              ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700')
+          }
         >
-          Пройти
-        </Link>
+          {ctaLabel(q)}
+        </button>
       </div>
-    </div>
+
+      {q.status === 'locked' && q.lockReason && (
+        <div className="mt-2 pl-3 text-xs text-gray-500">{q.lockReason}</div>
+      )}
+    </Link>
   );
 }
