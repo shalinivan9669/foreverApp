@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function UserHeader({ user, pair }: {
   user: { _id: string; handle: string; avatar: string | null; status: 'solo:new'|'solo:history'|'paired' };
@@ -9,7 +10,7 @@ export default function UserHeader({ user, pair }: {
 }) {
   return (
     <header className="border rounded p-4 flex items-center gap-3">
-      <img
+      <Image
         src={user.avatar ?? 'https://cdn.discordapp.com/embed/avatars/0.png'}
         alt={user.handle}
         width={48}

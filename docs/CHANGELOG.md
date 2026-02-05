@@ -17,3 +17,8 @@
 ## 2026-02-05
 - Updated Next.js and React to patched versions to address Vercel security block.
 - Files: `package.json`, `package-lock.json`, `docs/CHANGELOG.md`
+
+## 2026-02-05
+- Added a spinner loader while user/avatar data loads on the landing screen.
+- Switched avatar images to `next/image` with remote patterns configured.
+- Files: `src/app/page.tsx`, `src/components/profile/UserHeader.tsx`, `src/components/ui/Spinner.tsx`, `next.config.ts`, `docs/CHANGELOG.md`

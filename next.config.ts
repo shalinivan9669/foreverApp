@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'cdn.discordapp.com' },
+      { protocol: 'https', hostname: 'media.discordapp.net' },
+    ],
+  },
+
   // 1) Прокси /.proxy/* → /api/* для того, чтобы внутри iframe
   //    вы могли писать fetch('/.proxy/api/...') и Next.js попадал в ваш
   //    код API Route под app/api/...

@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter }          from 'next/navigation';
+import Image                 from 'next/image';
 import { DiscordSDK }         from '@discord/embedded-app-sdk';
 import { useUserStore, DiscordUser } from '../store/useUserStore';
+import Spinner               from '@/components/ui/Spinner';
 
 export default function DiscordActivityPage() {
   const setUser = useUserStore((s) => s.setUser);
   const user    = useUserStore((s) => s.user);
   const [error, setError] = useState<string | null>(null);
+  const [avatarLoaded, setAvatarLoaded] = useState(false);
   const router = useRouter();
 
   // 1) Авторизуем пользователя в Discord, кладём в Zustand
@@ -64,49 +67,65 @@ export default function DiscordActivityPage() {
 
   // 2) Обработчик кнопки: сначала fire-and-forget запись в БД, потом переход
  
-const goToMenu = () => {
-  if (!user) return;
+  const goToMenu = () => {
+    if (!user) return;
 
-  // логируем визит (fire and forget)
-  fetch('/.proxy/api/logs', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: user.id }),
-  }).catch(() => {});
+    // Log visit (fire and forget)
+    fetch('/.proxy/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    }).catch(() => {});
 
-  fetch(`/.proxy/api/users/${user.id}`)
-    .then((res) => (res.ok ? res.json() : null))
-    .then((doc) => {
-      const onboarding = doc?.profile?.onboarding;
-      if (onboarding?.seeking || onboarding?.inRelationship) {
-        router.push('/main-menu');
-      } else {
-        router.push('/welcome');
-      }
-    })
-    .catch(() => router.push('/welcome'));
-};
+    fetch(`/.proxy/api/users/${user.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((doc) => {
+        const onboarding = doc?.profile?.onboarding;
+        if (onboarding?.seeking || onboarding?.inRelationship) {
+          router.push('/main-menu');
+        } else {
+          router.push('/welcome');
+        }
+      })
+      .catch(() => router.push('/welcome'));
+  };
 
-  // 3) Рендерим
-  if (error) return <div className="text-red-500 text-center mt-8">Ошибка: {error}</div>;
-  if (!user)  return <div className="text-center mt-8">Loading…</div>;
+
+  // 3) Render
+  if (error) return <div className="text-red-500 text-center mt-8">Error: {error}</div>;
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center mt-16">
+        <Spinner size={36} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center mt-8">
-      <img
-        src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
-        alt="Avatar"
-        width={128}
-        height={128}
-        style={{ borderRadius: '50%' }}
-      />
+      <div className="relative h-32 w-32">
+        {!avatarLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Spinner size={28} />
+          </div>
+        )}
+        <Image
+          src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+          alt="Avatar"
+          width={128}
+          height={128}
+          className="rounded-full"
+          onLoad={() => setAvatarLoaded(true)}
+          priority
+        />
+      </div>
       <h2 className="mt-4 text-lg">{user.username}</h2>
 
       <button
         onClick={goToMenu}
         className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
       >
-        Перейти в главное меню
+        Go to main menu
       </button>
     </div>
   );
