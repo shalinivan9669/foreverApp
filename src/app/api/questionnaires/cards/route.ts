@@ -52,6 +52,10 @@ type QDoc = {
   questionCount: number;
 };
 
+type Session = { _id: Types.ObjectId; questionnaireId: string; status: 'in_progress' | 'completed' };
+type InProgressSession = Session & { status: 'in_progress' };
+type CompletedSession = Session & { status: 'completed' };
+
 const SYSTEM_TAGS = new Set(['baseline', 'multi-axis', 'starter']);
 
 const axisLabel: Record<Axis, string> = {
@@ -91,6 +95,9 @@ const audienceFrom = (q: QDoc): Audience => {
   return 'solo';
 };
 
+const isInProgress = (s: Session): s is InProgressSession => s.status === 'in_progress';
+const isCompleted = (s: Session): s is CompletedSession => s.status === 'completed';
+
 const getSessionUserId = (req: NextRequest): string | null => {
   const token = req.cookies.get('session')?.value;
   if (!token) return null;
@@ -124,19 +131,19 @@ export async function GET(req: NextRequest) {
     },
   ]);
 
-  const sessionsByQid = new Map<string, { inProgress?: { _id: Types.ObjectId; status: 'in_progress' | 'completed' }; completed?: { _id: Types.ObjectId; status: 'completed' } }>();
+  const sessionsByQid = new Map<string, { inProgress?: InProgressSession; completed?: CompletedSession }>();
   if (pairId) {
     const sessions = await PairQuestionnaireSession.find({
       pairId: new Types.ObjectId(pairId),
       status: { $in: ['in_progress', 'completed'] },
     })
       .sort({ updatedAt: -1, createdAt: -1 })
-      .lean<{ _id: Types.ObjectId; questionnaireId: string; status: 'in_progress' | 'completed' }[]>();
+      .lean<Session[]>();
 
     for (const s of sessions) {
       const entry = sessionsByQid.get(s.questionnaireId) ?? {};
-      if (s.status === 'in_progress' && !entry.inProgress) entry.inProgress = s;
-      if (s.status === 'completed' && !entry.completed) entry.completed = s;
+      if (isInProgress(s) && !entry.inProgress) entry.inProgress = s;
+      if (isCompleted(s) && !entry.completed) entry.completed = s;
       sessionsByQid.set(s.questionnaireId, entry);
     }
   }

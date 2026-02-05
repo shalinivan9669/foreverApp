@@ -29,3 +29,7 @@
 - Updated questionnaires UI to use new DTO and card design.
 - Added questionnaire cards UI/data-flow docs.
 - Files: `src/lib/jwt.ts`, `src/app/api/exchange-code/route.ts`, `src/app/api/questionnaires/cards/route.ts`, `src/models/Questionnaire.ts`, `src/app/questionnaires/page.tsx`, `src/components/QuestionnaireCard.tsx`, `docs/ui/questionnaire-cards.md`, `docs/data/questionnaire-flow.md`, `docs/README.md`, `docs/CHANGELOG.md`
+Date: 2026-02-05
+Summary:
+- Fixed questionnaire session narrowing to satisfy TypeScript for cards API.
+Files: src/app/api/questionnaires/cards/route.ts
