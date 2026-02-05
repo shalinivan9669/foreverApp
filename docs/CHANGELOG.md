@@ -68,3 +68,13 @@ Date: 2026-02-05
 Summary:
 - Remove any-typed route context for match card GET.
 Files: src/app/api/match/card/[id]/route.ts
+
+Date: 2026-02-05
+Summary:
+- Added facets/passports as-is inventory doc with evidence tables.
+Files: docs/_inventory/facets-passports-as-is.md, docs/CHANGELOG.md
+
+Date: 2026-02-05
+Summary:
+- Added questionnaire→vectors→profile expected-vs-as-is inventory report.
+Files: docs/_inventory/questionnaire-vectors-profile-expected-vs-as-is.md, docs/CHANGELOG.md
