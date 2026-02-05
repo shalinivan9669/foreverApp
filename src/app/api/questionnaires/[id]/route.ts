@@ -37,8 +37,10 @@ function hasStringId(obj: unknown): obj is { id: string } {
 }
 
 /* ───── handler ───────────────────────────────────────────── */
-export async function GET(_req: NextRequest, context: { params: { id: string } }) {
-  const id = context.params.id;
+export async function GET(_req: NextRequest, context: { params?: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await context.params;
+  const rawId = params?.id;
+  const id = typeof rawId === 'string' ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;
   if (!id) return NextResponse.json({ error: 'bad' }, { status: 400 });
 
   await connectToDatabase();
