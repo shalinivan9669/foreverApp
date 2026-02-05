@@ -42,34 +42,34 @@ const vectorStripe: Record<Axis, string> = {
 };
 
 const vectorLabel: Record<Axis, string> = {
-  communication: '????????????',
-  domestic: '???',
-  personalViews: '???????',
-  finance: '???????',
-  sexuality: '?????',
-  psyche: '???????',
+  communication: 'коммуникация',
+  domestic: 'быт',
+  personalViews: 'взгляды',
+  finance: 'финансы',
+  sexuality: 'интим',
+  psyche: 'психика',
 };
 
 const audienceLabel = {
-  pair: '????',
-  solo: '????',
-  universal: '???????',
+  pair: 'пара',
+  solo: 'соло',
+  universal: 'универсальная',
 } as const;
 
 const statusBadge = (q: QuestionnaireCardDTO) => {
-  if (q.status === 'required') return '? ???????????';
-  if (q.status === 'locked') return '?? ??????????';
-  if (q.status === 'completed') return '? ????????';
-  if (q.status === 'in_progress') return '? ? ????????';
+  if (q.status === 'required') return 'обязательная';
+  if (q.status === 'locked') return 'нужна пара';
+  if (q.status === 'completed') return 'пройдена';
+  if (q.status === 'in_progress') return 'в процессе';
   return null;
 };
 
 const ctaLabel = (q: QuestionnaireCardDTO) => {
-  if (q.cta === 'locked') return '??????????';
-  if (q.cta === 'result') return '??????? ?????????';
-  if (q.cta === 'continue') return '??????????';
-  if (q.isStarter) return '?????? ????????? ??????';
-  return '??????';
+  if (q.cta === 'locked') return 'нужна пара';
+  if (q.cta === 'result') return 'результат';
+  if (q.cta === 'continue') return 'продолжить';
+  if (q.isStarter) return 'начать стартовую';
+  return 'начать';
 };
 
 const hrefFor = (q: QuestionnaireCardDTO) => {
@@ -100,7 +100,7 @@ export default function QuestionnaireCard({ q }: { q: QuestionnaireCardDTO }) {
     >
       <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-lg ${vectorStripe[q.vector]}`} />
 
-      {/* ??????? ?????? */}
+      {/* Заголовок анкеты */}
       <div className="flex items-start justify-between gap-3 pl-3">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <span className="inline-flex h-2 w-2 rounded-full bg-gray-300" />
@@ -112,7 +112,7 @@ export default function QuestionnaireCard({ q }: { q: QuestionnaireCardDTO }) {
         </div>
       </div>
 
-      {/* ????????? */}
+      {/* Подзаголовок */}
       <div className="mt-3 pl-3">
         <h3 className="text-base font-semibold text-gray-900 leading-snug max-h-12 overflow-hidden">
           {q.title}
@@ -122,16 +122,16 @@ export default function QuestionnaireCard({ q }: { q: QuestionnaireCardDTO }) {
         </p>
       </div>
 
-      {/* ??????? */}
+      {/* Сводка */}
       <div className="mt-3 pl-3 text-sm text-gray-700 flex flex-wrap gap-x-3 gap-y-1">
-        <span>? {q.estMinutesMin}?{q.estMinutesMax} ???</span>
-        <span>? {q.questionCount}</span>
-        <span>? ??????? {q.level}</span>
-        {typeof q.rewardCoins === 'number' && <span>?? {q.rewardCoins}</span>}
-        {typeof q.insightsCount === 'number' && <span>?? {q.insightsCount}</span>}
+        <span>{q.estMinutesMin}–{q.estMinutesMax} мин</span>
+        <span>{q.questionCount} вопросов</span>
+        <span>уровень {q.level}</span>
+        {typeof q.rewardCoins === 'number' && <span>{q.rewardCoins} монет</span>}
+        {typeof q.insightsCount === 'number' && <span>{q.insightsCount} инсайтов</span>}
       </div>
 
-      {/* ???? */}
+      {/* Теги */}
       <div className="mt-3 pl-3 flex flex-wrap gap-2">
         {q.tagsPublic.map((t) => (
           <span key={t} className="text-[11px] px-2 py-0.5 rounded border border-gray-200">
@@ -145,7 +145,7 @@ export default function QuestionnaireCard({ q }: { q: QuestionnaireCardDTO }) {
         )}
       </div>
 
-      {/* ???: ???????? + CTA */}
+      {/* Статус: прогресс + CTA */}
       <div className="mt-4 pl-3 flex items-center justify-between gap-3">
         {q.status === 'in_progress' && (
           <div className="flex-1">
@@ -155,11 +155,11 @@ export default function QuestionnaireCard({ q }: { q: QuestionnaireCardDTO }) {
                 style={{ width: `${Math.min(100, q.progressPct ?? 0)}%` }}
               />
             </div>
-            <div className="text-xs text-gray-500 mt-1">???????? {q.progressPct ?? 0}%</div>
+            <div className="text-xs text-gray-500 mt-1">Прогресс {q.progressPct ?? 0}%</div>
           </div>
         )}
         {q.status === 'completed' && (
-          <div className="text-xs text-gray-500">?????? ?</div>
+          <div className="text-xs text-gray-500">Готово</div>
         )}
 
         <button

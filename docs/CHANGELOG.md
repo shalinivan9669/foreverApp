@@ -43,3 +43,8 @@ Date: 2026-02-05
 Summary:
 - Restored readable Russian text in questionnaire flow and UI docs.
 Files: docs/data/questionnaire-flow.md, docs/ui/questionnaire-cards.md
+
+Date: 2026-02-05
+Summary:
+- Restored readable Russian labels in questionnaire cards and list page UI.
+Files: src/components/QuestionnaireCard.tsx, src/app/questionnaires/page.tsx

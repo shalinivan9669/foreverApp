@@ -59,43 +59,43 @@ export default function QuestionnairesPage() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
-      <BackBar title="?????????????" fallbackHref="/main-menu" />
-      <h1 className="text-xl font-semibold mb-4">?????????????</h1>
+      <BackBar title="Анкеты" fallbackHref="/main-menu" />
+      <h1 className="text-xl font-semibold mb-4">Анкеты</h1>
 
-      {/* ??????? */}
+      {/* Фильтры */}
       <div className="flex gap-3 items-center mb-4">
         <label className="flex items-center gap-2">
-          ???:
+          Ось:
           <select
             value={axis}
             onChange={(e) => setAxis(e.target.value as Axis | 'all')}
             className="border rounded px-2 py-1"
           >
-            <option value="all">???</option>
-            <option value="communication">????????????</option>
-            <option value="domestic">???</option>
-            <option value="personalViews">???????</option>
-            <option value="finance">???????</option>
-            <option value="sexuality">?????</option>
-            <option value="psyche">???????</option>
+            <option value="all">все</option>
+            <option value="communication">коммуникация</option>
+            <option value="domestic">быт</option>
+            <option value="personalViews">взгляды</option>
+            <option value="finance">финансы</option>
+            <option value="sexuality">интим</option>
+            <option value="psyche">психика</option>
           </select>
         </label>
 
         <label className="flex items-center gap-2">
-          ???:
+          Аудитория:
           <select
             value={aud}
             onChange={(e) => setAud(e.target.value as 'all' | 'individual' | 'couple')}
             className="border rounded px-2 py-1"
           >
-            <option value="all">???</option>
-            <option value="individual">??????????????</option>
-            <option value="couple">??? ????</option>
+            <option value="all">все</option>
+            <option value="individual">одиночка</option>
+            <option value="couple">для пары</option>
           </select>
         </label>
       </div>
 
-      {/* ?????? ???????? */}
+      {/* Список карточек */}
       <div className="grid md:grid-cols-2 gap-4">
         {filtered.map((q) => (
           <QuestionnaireCard key={q.id} q={q} />
@@ -104,7 +104,7 @@ export default function QuestionnairesPage() {
 
       {!filtered.length && (
         <p className="text-sm text-gray-600 mt-6">
-          ?? ??????? ???????? ????? ???.
+          Нет анкет под выбранные фильтры.
         </p>
       )}
     </div>
