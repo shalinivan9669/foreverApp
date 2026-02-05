@@ -21,6 +21,13 @@ type Body = {
 
 type QItem = QuestionItem & { _id?: string };
 
+type WithPossibleId = { _id?: unknown };
+const hasStringId = (obj: unknown): obj is { _id: string } =>
+  typeof obj === 'object'
+  && obj !== null
+  && '_id' in (obj as Record<string, unknown>)
+  && typeof (obj as WithPossibleId)._id === 'string';
+
 const getSessionUserId = (req: NextRequest): string | null => {
   const token = req.cookies.get('session')?.value;
   if (!token) return null;
@@ -86,7 +93,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const qMap: Record<string, QItem> = {};
   for (const q of questionnaire.questions ?? []) {
     if (q.id) qMap[q.id] = q;
-    if (q._id) qMap[q._id] = q;
+    if (hasStringId(q)) qMap[q._id] = q;
   }
 
   const user = await User.findOne({ id: userId }).lean<UserType | null>();
