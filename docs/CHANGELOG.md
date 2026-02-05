@@ -33,3 +33,13 @@ Date: 2026-02-05
 Summary:
 - Fixed questionnaire session narrowing to satisfy TypeScript for cards API.
 Files: src/app/api/questionnaires/cards/route.ts
+
+Date: 2026-02-05
+Summary:
+- Set session cookie SameSite/Secure to work inside Discord iframe in production.
+Files: src/app/api/exchange-code/route.ts, docs/07-security-privacy.md
+
+Date: 2026-02-05
+Summary:
+- Restored readable Russian text in questionnaire flow and UI docs.
+Files: docs/data/questionnaire-flow.md, docs/ui/questionnaire-cards.md

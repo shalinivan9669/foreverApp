@@ -4,6 +4,7 @@
 3. Ответы парного опросника пишутся в `PairQuestionnaireAnswer` с полями `sessionId`, `questionId`, `by`, `ui`, `at`. Доказательства: `src/models/PairQuestionnaireAnswer.ts:3-24`, `src/app/api/pairs/[id]/questionnaires/[qid]/answer/route.ts:39-47`.
 4. Наблюдаемые проверки доступа: `match/respond` проверяет `like.toId === userId`, `match/accept` проверяет `like.fromId === userId`, `match/reject` проверяет `like.toId === userId`, `pairs/me` фильтрует по `members: userId`. Доказательства: `src/app/api/match/respond/route.ts:60-61`, `src/app/api/match/accept/route.ts:14`, `src/app/api/match/reject/route.ts:15`, `src/app/api/pairs/me/route.ts:13-16`.
 5. Секреты и подключения: `MONGODB_URI` берётся из окружения; OAuth использует `DISCORD_CLIENT_SECRET`. Доказательства: `src/lib/mongodb.ts:4-7`, `src/app/api/exchange-code/route.ts:9-12`.
+6. Session cookie РІ prod С‚Р°Рє РєР°Рє РїСЂРёР»РѕР¶РµРЅРёРµ РѕС‚РєСЂС‹РІР°РµС‚СЃСЏ РІ iframe Discord, РІС‹РґР°С‘С‚СЃСЏ СЃ `SameSite=None; Secure`, РІ dev — `SameSite=Lax` РґР»СЏ localhost. Р”РѕРєР°Р·Р°С‚РµР»СЊСЃС‚РІР°: `src/app/api/exchange-code/route.ts:55-66`.
 
 **Evidence**
 | Факт | Тип | Источник (path:line) | Цитата (?2 строки) |
