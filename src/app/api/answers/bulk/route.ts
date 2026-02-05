@@ -42,12 +42,10 @@ export async function POST(req: NextRequest) {
 
   const qMap: Record<string, QuestionType> = {};
   for (const q of qs) {
-    // подстрахуемся — ключами делаем и _id, и возможный q.id
+    // safeguard by _id key only
     qMap[String(q._id)] = q;
-    if ((q as any).id) qMap[String((q as any).id)] = q;
   }
 
-  // аккумуляторы по осям
   const addSigned: Record<Axis, number> = {
     communication: 0, domestic: 0, personalViews: 0,
     finance: 0, sexuality: 0, psyche: 0
@@ -90,14 +88,16 @@ export async function POST(req: NextRequest) {
   }
 
   // формируем update
-  const update: Record<string, unknown> = { $set: setLevels };
-  const addToSet: Record<string, unknown> = {};
+  type AddToSet = Record<string, { $each: string[] }>;
+  type Update = { $set: Record<string, number>; $addToSet?: AddToSet };
+  const update: Update = { $set: setLevels };
+  const addToSet: AddToSet = {};
 
   for (const axis of AXES) {
     if (pos[axis].length) addToSet[`vectors.${axis}.positives`] = { $each: pos[axis] };
     if (neg[axis].length) addToSet[`vectors.${axis}.negatives`] = { $each: neg[axis] };
   }
-  if (Object.keys(addToSet).length) (update as any).$addToSet = addToSet;
+  if (Object.keys(addToSet).length) update.$addToSet = addToSet;
 
   await User.updateOne({ id: userId }, update);
   return NextResponse.json({ ok: true });
