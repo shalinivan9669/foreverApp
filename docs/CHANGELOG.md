@@ -58,3 +58,13 @@ Date: 2026-02-05
 Summary:
 - Fixed GET handler signature for Next.js 15 params typing.
 Files: src/app/api/questionnaires/[id]/route.ts
+
+Date: 2026-02-05
+Summary:
+- Allow /api/questionnaires/[id] POST to accept single answer payload.
+Files: src/app/api/questionnaires/[id]/route.ts, docs/04-api-contracts.md
+
+Date: 2026-02-05
+Summary:
+- Remove any-typed route context for match card GET.
+Files: src/app/api/match/card/[id]/route.ts

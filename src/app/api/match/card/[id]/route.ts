@@ -1,6 +1,5 @@
 // src/app/api/match/card/[id]/route.ts
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/models/User';
 
@@ -8,9 +7,12 @@ type CardDTO =
   | { requirements: [string, string, string]; questions: [string, string] }
   | null;
 
-export async function GET(_req: Request, ctx: any) {
-  // Next 15 валидатор принимает any для context; достаём params вручную
-  const id: string | undefined = ctx?.params?.id;
+interface Ctx {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(_req: NextRequest, ctx: Ctx) {
+  const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
   await connectToDatabase();

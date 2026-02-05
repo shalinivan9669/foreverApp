@@ -18,7 +18,10 @@ const AXES: Axis[] = [
   'finance', 'sexuality', 'psyche'
 ];
 
-interface Body { userId: string; answers: { qid: string; ui: number }[] }
+type AnswerItem = { qid: string; ui: number };
+type Body =
+  | { userId: string; answers: AnswerItem[] }
+  | { userId: string; qid: string; ui: number };
 
 /* ───── utils ─────────────────────────────────────────────── */
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -50,7 +53,15 @@ export async function GET(_req: NextRequest, context: { params: Promise<Record<s
 }
 
 export async function POST(req: NextRequest) {
-  const { userId, answers } = (await req.json()) as Body;
+  const body = (await req.json()) as Body;
+  const userId = 'userId' in body ? body.userId : '';
+  const answers: AnswerItem[] =
+    'answers' in body
+      ? body.answers
+      : 'qid' in body && typeof body.qid === 'string'
+        ? [{ qid: body.qid, ui: body.ui }]
+        : [];
+
   if (!userId || !Array.isArray(answers) || answers.length === 0) {
     return NextResponse.json({ error: 'bad' }, { status: 400 });
   }
