@@ -48,3 +48,8 @@ Date: 2026-02-05
 Summary:
 - Restored readable Russian labels in questionnaire cards and list page UI.
 Files: src/components/QuestionnaireCard.tsx, src/app/questionnaires/page.tsx
+
+Date: 2026-02-05
+Summary:
+- Added GET /api/questionnaires/[id] to return questionnaire data.
+Files: src/app/api/questionnaires/[id]/route.ts, docs/04-api-contracts.md

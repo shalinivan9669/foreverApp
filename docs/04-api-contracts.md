@@ -53,7 +53,8 @@
 |---|---|---|---|---|
 | `/api/questions` | GET | query: `axis`, `limit` (`src/app/api/questions/route.ts:7-12`) | list[] of questions (`src/app/api/questions/route.ts:29-30`) | query-only params (`src/app/api/questions/route.ts:7-12`) |
 | `/api/questionnaires` | GET | query: `target` (`src/app/api/questionnaires/route.ts:6-12`) | list[] (`src/app/api/questionnaires/route.ts:14-15`) | query-only params (`src/app/api/questionnaires/route.ts:6-12`) |
-| `/api/questionnaires/[id]` | POST | body: `{ userId, answers[] }` (`src/app/api/questionnaires/[id]/route.ts:39-42`) | `{ ok: true }` (`src/app/api/questionnaires/[id]/route.ts:115`) | userId in body (`src/app/api/questionnaires/[id]/route.ts:40-42`) |
+| `/api/questionnaires/[id]` | GET | path: `id` | questionnaire document (`src/app/api/questionnaires/[id]/route.ts:37-44`) | path param only |
+| `/api/questionnaires/[id]` | POST | body: `{ userId, answers[] }` (`src/app/api/questionnaires/[id]/route.ts:49-52`) | `{ ok: true }` (`src/app/api/questionnaires/[id]/route.ts:125`) | userId in body (`src/app/api/questionnaires/[id]/route.ts:50-52`) |
 | `/api/answers/bulk` | POST | body: `{ userId, answers[] }` (`src/app/api/answers/bulk/route.ts:31-34`) | `{ ok: true }` (`src/app/api/answers/bulk/route.ts:102-103`) | userId in body (`src/app/api/answers/bulk/route.ts:32-34`) |
 
 **Users & System**

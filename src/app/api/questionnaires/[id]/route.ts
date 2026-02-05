@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase }         from '@/lib/mongodb';
 import { Question, type QuestionType } from '@/models/Question';
+import { Questionnaire, type QuestionnaireType } from '@/models/Questionnaire';
 import { User, type UserType }         from '@/models/User';
 
 /* ───── типы и константы ────────────────────────────────────── */
@@ -36,6 +37,16 @@ function hasStringId(obj: unknown): obj is { id: string } {
 }
 
 /* ───── handler ───────────────────────────────────────────── */
+export async function GET(_req: NextRequest, context: { params: { id: string } }) {
+  const id = context.params.id;
+  if (!id) return NextResponse.json({ error: 'bad' }, { status: 400 });
+
+  await connectToDatabase();
+  const doc = await Questionnaire.findOne({ _id: id }).lean<QuestionnaireType | null>();
+  if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  return NextResponse.json(doc);
+}
+
 export async function POST(req: NextRequest) {
   const { userId, answers } = (await req.json()) as Body;
   if (!userId || !Array.isArray(answers) || answers.length === 0) {
