@@ -37,7 +37,7 @@ function hasStringId(obj: unknown): obj is { id: string } {
 }
 
 /* ───── handler ───────────────────────────────────────────── */
-export async function GET(_req: NextRequest, context: { params?: Promise<Record<string, string | string[] | undefined>> }) {
+export async function GET(_req: NextRequest, context: { params: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await context.params;
   const rawId = params?.id;
   const id = typeof rawId === 'string' ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;

@@ -53,3 +53,8 @@ Date: 2026-02-05
 Summary:
 - Added GET /api/questionnaires/[id] to return questionnaire data.
 Files: src/app/api/questionnaires/[id]/route.ts, docs/04-api-contracts.md
+
+Date: 2026-02-05
+Summary:
+- Fixed GET handler signature for Next.js 15 params typing.
+Files: src/app/api/questionnaires/[id]/route.ts
