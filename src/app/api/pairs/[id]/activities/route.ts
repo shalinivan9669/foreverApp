@@ -1,9 +1,12 @@
 // src/app/api/pairs/[id]/activities/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
+import { jsonOk } from '@/lib/api/response';
+import { parseParams, parseQuery } from '@/lib/api/validate';
 
 type Bucket = 'current' | 'suggested' | 'history';
 
@@ -41,14 +44,28 @@ function buildQuery(pairId: string, s?: string) {
 
 interface Ctx { params: Promise<{ id: string }> }
 
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const querySchema = z
+  .object({
+    s: z.string().optional(),
+  })
+  .passthrough();
+
 export async function GET(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { id } = await ctx.params;
-  const { searchParams } = new URL(req.url);
-  const s = searchParams.get('s') || undefined;
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
+
+  const query = parseQuery(req, querySchema);
+  if (!query.ok) return query.response;
+  const { s } = query.data;
 
   const pairGuard = await requirePairMember(id, currentUserId);
   if (!pairGuard.ok) return pairGuard.response;
@@ -60,5 +77,5 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .lean();
 
   // фронт ожидает массив
-  return NextResponse.json(list);
+  return jsonOk(list);
 }

@@ -1,6 +1,7 @@
-﻿// POST /api/pairs/[id]/questionnaires/[qid]/answer
-import { NextRequest, NextResponse } from 'next/server';
+// POST /api/pairs/[id]/questionnaires/[qid]/answer
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
@@ -9,6 +10,8 @@ import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { buildVectorUpdate, type VectorQuestion, type VectorAnswer } from '@/utils/vectorUpdates';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson, parseParams } from '@/lib/api/validate';
 
 interface Ctx { params: Promise<{ id: string; qid: string }> }
 
@@ -27,18 +30,31 @@ const hasStringId = (obj: unknown): obj is { _id: string } =>
   && '_id' in (obj as Record<string, unknown>)
   && typeof (obj as WithPossibleId)._id === 'string';
 
+const paramsSchema = z.object({
+  id: z.string().min(1),
+  qid: z.string().min(1),
+});
+
+const bodySchema = z
+  .object({
+    sessionId: z.string().optional(),
+    questionId: z.string().min(1),
+    ui: z.number(),
+  })
+  .strict();
+
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 
-  const { id, qid } = await ctx.params;
-  if (!id || !qid) return NextResponse.json({ error: 'missing id/qid' }, { status: 400 });
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id, qid } = params.data;
 
-  const { sessionId, questionId, ui } = (await req.json()) as Body;
-  if (!questionId || typeof ui !== 'number') {
-    return NextResponse.json({ error: 'bad body' }, { status: 400 });
-  }
+  const bodyResult = await parseJson(req, bodySchema);
+  if (!bodyResult.ok) return bodyResult.response;
+  const { sessionId, questionId, ui } = bodyResult.data as Body;
 
   const pairGuard = await requirePairMember(id, userId);
   if (!pairGuard.ok) return pairGuard.response;
@@ -46,7 +62,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   await connectToDatabase();
 
-  // Find or ensure session exists and in progress
   const sess = sessionId
     ? await PairQuestionnaireSession.findOne({
         _id: new Types.ObjectId(sessionId),
@@ -62,7 +77,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         .sort({ createdAt: -1 })
         .lean();
 
-  if (!sess) return NextResponse.json({ error: 'no active session' }, { status: 404 });
+  if (!sess) return jsonError(404, 'PAIR_QUESTIONNAIRE_SESSION_NOT_FOUND', 'no active session');
 
   await PairQuestionnaireAnswer.updateOne(
     { sessionId: new Types.ObjectId(sess._id), questionId, by },
@@ -76,7 +91,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }).lean<{ questionId: string; ui: number }[]>();
 
   const questionnaire = await Questionnaire.findOne({ _id: qid }).lean<QuestionnaireType | null>();
-  if (!questionnaire) return NextResponse.json({ error: 'questionnaire not found' }, { status: 404 });
+  if (!questionnaire) {
+    return jsonError(404, 'QUESTIONNAIRE_NOT_FOUND', 'questionnaire not found');
+  }
 
   const qMap: Record<string, QItem> = {};
   for (const q of questionnaire.questions ?? []) {
@@ -85,9 +102,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const user = await User.findOne({ id: userId }).lean<UserType | null>();
-  if (!user) return NextResponse.json({ error: 'user missing' }, { status: 404 });
+  if (!user) return jsonError(404, 'USER_NOT_FOUND', 'user missing');
 
-  const vectorAnswers: VectorAnswer[] = answers.map(a => ({ qid: a.questionId, ui: a.ui }));
+  const vectorAnswers: VectorAnswer[] = answers.map((answer) => ({ qid: answer.questionId, ui: answer.ui }));
   const { setLevels, addToSet } = buildVectorUpdate(
     user,
     vectorAnswers,
@@ -105,5 +122,5 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   await User.updateOne({ id: userId }, update);
 
-  return NextResponse.json({ ok: true });
+  return jsonOk({});
 }

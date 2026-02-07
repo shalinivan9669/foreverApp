@@ -1,10 +1,13 @@
 // GET /api/pairs/[id]/diagnostics
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
+import { z } from 'zod';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseParams, parseQuery } from '@/lib/api/validate';
 
 type Axis = 'communication' | 'domestic' | 'personalViews' | 'finance' | 'sexuality' | 'psyche';
 const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
@@ -41,13 +44,21 @@ function buildPassport(a: UserType, b: UserType) {
 
 interface Ctx { params: Promise<{ id: string }> }
 
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
+
 export async function GET(req: NextRequest, ctx: Ctx) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { id } = await ctx.params;
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
 
   const pairGuard = await requirePairMember(id, currentUserId);
   if (!pairGuard.ok) return pairGuard.response;
@@ -58,7 +69,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     User.findOne({ id: pair.members[0] }).lean<UserType | null>(),
     User.findOne({ id: pair.members[1] }).lean<UserType | null>(),
   ]);
-  if (!ua || !ub) return NextResponse.json({ error: 'users missing' }, { status: 404 });
+  if (!ua || !ub) return jsonError(404, 'USER_NOT_FOUND', 'users missing');
 
   const passport = buildPassport(ua, ub);
   const lastDiagnosticsAt = new Date();
@@ -68,6 +79,6 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     { $set: { 'passport.strongSides': passport.strongSides, 'passport.riskZones': passport.riskZones, 'passport.complementMap': passport.complementMap, 'passport.levelDelta': passport.levelDelta, 'passport.lastDiagnosticsAt': lastDiagnosticsAt } }
   );
 
-  return NextResponse.json({ pairId: id, passport: { ...passport, lastDiagnosticsAt } });
+  return jsonOk({ pairId: id, passport: { ...passport, lastDiagnosticsAt } });
 }
 

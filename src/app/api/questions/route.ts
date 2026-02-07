@@ -1,31 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase }         from '@/lib/mongodb';
-import { Question }                  from '@/models/Question';
-import type { QuestionType }         from '@/models/Question';
-import type { PipelineStage }        from 'mongoose';   // ← правильный импорт
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { connectToDatabase } from '@/lib/mongodb';
+import { Question } from '@/models/Question';
+import type { QuestionType } from '@/models/Question';
+import type { PipelineStage } from 'mongoose';
+import { jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
+
+const querySchema = z
+  .object({
+    axis: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .passthrough();
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
+  const query = parseQuery(req, querySchema);
+  if (!query.ok) return query.response;
 
-  const axis  = searchParams.get('axis');
-  const limit = Number(searchParams.get('limit') ?? '10');
+  const axis = query.data.axis;
+  const limit = query.data.limit ?? 10;
 
   await connectToDatabase();
 
-  /* ────── строим пайплайн ────── */
   const pipeline: PipelineStage[] = [];
-
   if (axis) {
-    pipeline.push({
-      $match: { axis }
-    } as PipelineStage);
+    pipeline.push({ $match: { axis } } as PipelineStage);
   }
+  pipeline.push({ $sample: { size: limit } } as PipelineStage);
 
-  pipeline.push({
-    $sample: { size: limit }
-  } as PipelineStage);
-
-  /* ────── выполняем aggregate ─── */
   const docs = await Question.aggregate<QuestionType>(pipeline);
-  return NextResponse.json(docs);
+  return jsonOk(docs);
 }

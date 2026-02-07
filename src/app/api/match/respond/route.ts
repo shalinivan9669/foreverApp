@@ -1,19 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { Like, type LikeType, type LikeStatus } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonForbidden } from '@/lib/auth/errors';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson, parseQuery } from '@/lib/api/validate';
 
 type Body = {
   userId?: string; // legacy client field, ignored
   likeId?: string;
-  agreements?: boolean[];
-  answers?: string[];
+  agreements: [true, true, true];
+  answers: [string, string];
 };
 
-const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
-const clamp = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
+const querySchema = z
+  .object({
+    id: z.string().optional(),
+  })
+  .passthrough();
+
+const bodySchema = z
+  .object({
+    userId: z.string().optional(),
+    likeId: z.string().optional(),
+    agreements: z.tuple([z.literal(true), z.literal(true), z.literal(true)]),
+    answers: z.tuple([z.string(), z.string()]),
+  })
+  .strict();
+
+const clamp = (s: string | null | undefined, max: number) =>
+  String(s ?? '').trim().slice(0, max);
 
 function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'] | undefined {
   const c = u?.profile?.matchCard;
@@ -35,20 +53,19 @@ function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'
 
 export async function POST(req: NextRequest) {
   try {
+    const query = parseQuery(req, querySchema);
+    if (!query.ok) return query.response;
+
     const auth = requireSession(req);
     if (!auth.ok) return auth.response;
     const currentUserId = auth.data.userId;
 
-    const body = (await req.json().catch(() => ({}))) as Body;
-    const likeId = body.likeId ?? req.nextUrl.searchParams.get('id') ?? '';
+    const bodyResult = await parseJson(req, bodySchema);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data as Body;
+    const likeId = body.likeId ?? query.data.id ?? '';
 
-    if (!likeId) return json({ error: 'missing id' }, 400);
-    if (!Array.isArray(body.agreements) || body.agreements.length !== 3 || body.agreements.some((v) => v !== true)) {
-      return json({ error: 'agreements must be [true,true,true]' }, 400);
-    }
-    if (!Array.isArray(body.answers) || body.answers.length !== 2) {
-      return json({ error: 'answers must have length 2' }, 400);
-    }
+    if (!likeId) return jsonError(400, 'LIKE_ID_MISSING', 'missing id');
 
     const likeGuard = await requireLikeParticipant(likeId, currentUserId);
     if (!likeGuard.ok) return likeGuard.response;
@@ -57,11 +74,13 @@ export async function POST(req: NextRequest) {
     if (role !== 'to') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
 
     const allowed: LikeStatus[] = ['sent', 'viewed'];
-    if (!allowed.includes(like.status)) return json({ error: 'invalid state' }, 409);
+    if (!allowed.includes(like.status)) return jsonError(409, 'LIKE_INVALID_STATE', 'invalid state');
 
     const initiator = await User.findOne({ id: like.fromId }).lean<UserType | null>();
     const initiatorCardSnapshot = buildInitiatorSnapshot(initiator) ?? like.fromCardSnapshot;
-    if (!initiatorCardSnapshot) return json({ error: 'initiator card snapshot missing' }, 400);
+    if (!initiatorCardSnapshot) {
+      return jsonError(400, 'INITIATOR_CARD_SNAPSHOT_MISSING', 'initiator card snapshot missing');
+    }
 
     const updated = await Like.findOneAndUpdate(
       { _id: like._id, toId: currentUserId, status: { $in: allowed } },
@@ -82,9 +101,9 @@ export async function POST(req: NextRequest) {
       { new: true }
     ).lean<LikeType | null>();
 
-    if (!updated) return json({ error: 'invalid state' }, 409);
-    return json({ ok: true, status: updated.status });
+    if (!updated) return jsonError(409, 'LIKE_INVALID_STATE', 'invalid state');
+    return jsonOk({ status: updated.status });
   } catch {
-    return json({ error: 'internal' }, 500);
+    return jsonError(500, 'INTERNAL_ERROR', 'internal');
   }
 }

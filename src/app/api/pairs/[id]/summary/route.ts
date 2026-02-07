@@ -1,21 +1,32 @@
 // src/app/api/pairs/[id]/summary/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
 import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
+import { jsonOk } from '@/lib/api/response';
+import { parseParams, parseQuery } from '@/lib/api/validate';
 
 interface Ctx { params: Promise<{ id: string }> }
 
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
+
 export async function GET(req: NextRequest, ctx: Ctx) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { id } = await ctx.params;
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
 
   const pairGuard = await requirePairMember(id, currentUserId);
   if (!pairGuard.ok) return pairGuard.response;
@@ -44,7 +55,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .sort({ updatedAt: -1 })
     .lean();
 
-  return NextResponse.json({
+  return jsonOk({
     pair,
     currentActivity: current ?? null,
     suggestedCount,

@@ -1,10 +1,13 @@
 // src/app/api/match/inbox/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType, type LikeStatus } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
 
 type Direction = 'incoming' | 'outgoing';
 
@@ -30,6 +33,9 @@ type LikeLean = Pick<
 type UserLean = Pick<UserType, 'id' | 'username' | 'avatar'>;
 
 export async function GET(req: NextRequest) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
 
@@ -46,7 +52,7 @@ export async function GET(req: NextRequest) {
     .exec();
 
   if (likes.length === 0) {
-    return NextResponse.json<Row[]>([]);
+    return jsonOk<Row[]>([]);
   }
 
   // подтянем юзернеймы/аватарки для собеседников
@@ -88,5 +94,5 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json(rows);
+  return jsonOk(rows);
 }

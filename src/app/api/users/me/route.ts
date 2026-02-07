@@ -1,7 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
+
+const userUpdateSchema = z
+  .object({
+    personal: z.object({}).passthrough().optional(),
+    vectors: z.object({}).passthrough().optional(),
+    preferences: z.object({}).passthrough().optional(),
+    embeddings: z.object({}).passthrough().optional(),
+    location: z.object({}).passthrough().optional(),
+  })
+  .strict();
 
 export async function GET(req: NextRequest) {
   const auth = requireSession(req);
@@ -10,8 +23,8 @@ export async function GET(req: NextRequest) {
 
   await connectToDatabase();
   const doc = await User.findOne({ id: userId }).lean<UserType | null>();
-  if (!doc) return NextResponse.json(null, { status: 404 });
-  return NextResponse.json(doc);
+  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
+  return jsonOk(doc);
 }
 
 export async function PUT(req: NextRequest) {
@@ -19,7 +32,9 @@ export async function PUT(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 
-  const body = (await req.json()) as Partial<UserType>;
+  const bodyResult = await parseJson(req, userUpdateSchema);
+  if (!bodyResult.ok) return bodyResult.response;
+  const body = bodyResult.data;
   await connectToDatabase();
 
   const update: Record<string, unknown> = {};
@@ -35,6 +50,6 @@ export async function PUT(req: NextRequest) {
     { new: true, runValidators: true }
   ).lean<UserType | null>();
 
-  if (!doc) return NextResponse.json(null, { status: 404 });
-  return NextResponse.json(doc);
+  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
+  return jsonOk(doc);
 }

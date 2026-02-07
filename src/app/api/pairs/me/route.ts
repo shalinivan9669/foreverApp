@@ -1,9 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
 
 export async function GET(req: NextRequest) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
@@ -28,7 +34,7 @@ export async function GET(req: NextRequest) {
   const hasActive = status === 'active';
   const hasAny = !!pair;
 
-  return NextResponse.json({
+  return jsonOk({
     pair: pair ?? null,
     hasActive,
     hasAny,

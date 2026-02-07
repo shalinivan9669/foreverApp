@@ -1,11 +1,20 @@
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { signJwt } from '@/lib/jwt';
+import { jsonError, jsonOk, type JsonValue } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
+
+const bodySchema = z.object({
+  code: z.string().min(1),
+  redirect_uri: z.string().min(1),
+});
+
+const isJsonObject = (value: JsonValue): value is { [key: string]: JsonValue } =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export async function POST(req: Request) {
-  const { code, redirect_uri } = (await req.json()) as {
-    code: string;
-    redirect_uri: string;
-  };
+  const body = await parseJson(req, bodySchema);
+  if (!body.ok) return body.response;
+  const { code, redirect_uri } = body.data;
 
   const params = new URLSearchParams({
     client_id:     process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
@@ -21,37 +30,53 @@ export async function POST(req: Request) {
     body:    params
   });
 
-  const data = await tokenRes.json();
+  const data = (await tokenRes.json()) as JsonValue;
   if (!tokenRes.ok) {
-    return NextResponse.json(data, { status: tokenRes.status });
+    return jsonError(
+      tokenRes.status,
+      'OAUTH_EXCHANGE_FAILED',
+      'Discord OAuth token exchange failed',
+      data
+    );
   }
 
-  const accessToken = data.access_token as string | undefined;
+  const accessToken =
+    isJsonObject(data) && typeof data.access_token === 'string'
+      ? data.access_token
+      : undefined;
   if (!accessToken) {
-    return NextResponse.json({ error: 'missing access_token' }, { status: 500 });
+    return jsonError(500, 'ACCESS_TOKEN_MISSING', 'missing access_token');
   }
 
   // Fetch Discord user once, then issue our own session JWT
   const userRes = await fetch('https://discord.com/api/users/@me', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  const userData = await userRes.json();
+  const userData = (await userRes.json()) as JsonValue;
   if (!userRes.ok) {
-    return NextResponse.json({ error: 'discord user lookup failed', details: userData }, { status: 502 });
+    return jsonError(
+      502,
+      'DISCORD_USER_LOOKUP_FAILED',
+      'discord user lookup failed',
+      userData
+    );
   }
 
-  const userId = userData?.id as string | undefined;
+  const userId =
+    isJsonObject(userData) && typeof userData.id === 'string'
+      ? userData.id
+      : undefined;
   if (!userId) {
-    return NextResponse.json({ error: 'missing discord user id' }, { status: 502 });
+    return jsonError(502, 'DISCORD_USER_ID_MISSING', 'missing discord user id');
   }
 
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: 'JWT_SECRET not set' }, { status: 500 });
+    return jsonError(500, 'JWT_SECRET_NOT_SET', 'JWT_SECRET not set');
   }
 
   const token = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days
-  const res = NextResponse.json({ access_token: accessToken });
+  const res = jsonOk({ access_token: accessToken });
   const isProd = process.env.NODE_ENV === 'production';
   res.cookies.set({
     name: 'session',

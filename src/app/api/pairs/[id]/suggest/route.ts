@@ -1,24 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { User, UserType } from '@/models/User';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseParams } from '@/lib/api/validate';
 
 interface Ctx { params: Promise<{ id: string }> }
+
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { id } = await ctx.params;
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
+
   const pairGuard = await requirePairMember(id, currentUserId);
   if (!pairGuard.ok) return pairGuard.response;
   const pair = pairGuard.data.pair;
 
-  if (!pair.passport?.riskZones?.length) return NextResponse.json({ error: 'no passport' }, { status: 400 });
+  if (!pair.passport?.riskZones?.length) {
+    return jsonError(400, 'PAIR_PASSPORT_RISK_MISSING', 'no passport');
+  }
 
   const fatigue = pair.fatigue?.score ?? 0;
   // самая актуальная зона риска
@@ -72,5 +84,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     createdBy: 'system',
   })));
 
-  return NextResponse.json(created.map(x => ({ id:String(x._id), title:x.title, difficulty:x.difficulty })));
+  return jsonOk(
+    created.map((x) => ({ id: String(x._id), title: x.title, difficulty: x.difficulty }))
+  );
 }

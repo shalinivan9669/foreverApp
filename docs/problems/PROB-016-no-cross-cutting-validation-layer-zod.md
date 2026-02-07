@@ -50,3 +50,17 @@
 
 ## Done / Outcome
 
+- Introduced shared validation module:
+  - `src/lib/api/validate.ts` (`parseJson`, `parseQuery`, `parseParams`)
+- Added unified validation error contract:
+  - `400` + `{ ok: false, error: { code: 'VALIDATION_ERROR', message, details } }`
+- Rolled validation helpers out to all API handlers:
+  - body JSON parsing moved to `parseJson(...)`
+  - query parsing moved to `parseQuery(...)`
+  - route params parsing moved to `parseParams(...)`
+- Added explicit `zod` dependency in project manifest.
+
+### PASS/FAIL
+- PASS: no route relies on ad-hoc `if (!field)` checks as the only validation layer.
+- PASS: validation failures are normalized through one response format and one error code.
+- PASS: parsing/validation concerns are now cross-cutting and reusable.

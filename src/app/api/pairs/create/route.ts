@@ -1,15 +1,26 @@
 // src/app/api/pairs/create/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like } from '@/models/Like';
 import type { Axis } from '@/models/ActivityTemplate';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
 
 const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
 const HIGH = 2.0, LOW = 0.75, DELTA = 2.0;
 const inter = (a: string[] = [], b: string[] = []) => a.filter(x => b.includes(x));
+
+const bodySchema = z
+  .object({
+    userId: z.string().optional(),
+    partnerId: z.string().optional(),
+    likeId: z.string().optional(),
+  })
+  .strict();
 
 function buildPassport(a: UserType, b: UserType): NonNullable<PairType['passport']> {
   const strongSides: { axis: Axis; facets: string[] }[] = [];
@@ -43,7 +54,9 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const body = (await req.json()) as { userId?: string; partnerId?: string; likeId?: string };
+  const bodyResult = await parseJson(req, bodySchema);
+  if (!bodyResult.ok) return bodyResult.response;
+  const body = bodyResult.data;
   const { partnerId, likeId } = body || {};
 
   await connectToDatabase();
@@ -54,25 +67,25 @@ export async function POST(req: NextRequest) {
   // поддержка старого контракта: пришёл likeId
   if (!partnerId && likeId) {
     const like = await Like.findById(likeId);
-    if (!like) return NextResponse.json({ error: 'like not found' }, { status: 404 });
+    if (!like) return jsonError(404, 'LIKE_NOT_FOUND', 'like not found');
     bId = like.fromId === aId ? like.toId : like.fromId;
   }
 
   if (!aId || !bId) {
-    return NextResponse.json({ error: 'partnerId or likeId is required' }, { status: 400 });
+    return jsonError(400, 'PARTNER_OR_LIKE_REQUIRED', 'partnerId or likeId is required');
   }
 
   const [u, v] = await Promise.all([
     User.findOne({ id: aId }).lean<UserType | null>(),
     User.findOne({ id: bId }).lean<UserType | null>(),
   ]);
-  if (!u || !v) return NextResponse.json({ error: 'users not found' }, { status: 404 });
+  if (!u || !v) return jsonError(404, 'USER_NOT_FOUND', 'users not found');
 
   const members = [u.id, v.id].sort() as [string, string];
   const key = `${members[0]}|${members[1]}`;
 
   const exists = await Pair.findOne({ key, status: { $in: ['active', 'paused'] } }).lean();
-  if (exists) return NextResponse.json({ error: 'pair already exists' }, { status: 409 });
+  if (exists) return jsonError(409, 'PAIR_ALREADY_EXISTS', 'pair already exists');
 
   const passport = buildPassport(u, v);
   const pair = await Pair.create({
@@ -82,5 +95,5 @@ export async function POST(req: NextRequest) {
     readiness: { score: 0, updatedAt: new Date() },
   } as Partial<PairType>);
 
-  return NextResponse.json({ ok: true, pairId: String(pair._id) });
+  return jsonOk({ pairId: String(pair._id) });
 }

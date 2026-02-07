@@ -1,11 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Questionnaire } from '@/models/Questionnaire';
 import { Pair } from '@/models/Pair';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
 
 type Axis =
   | 'communication'
@@ -99,6 +102,9 @@ const isInProgress = (s: Session): s is InProgressSession => s.status === 'in_pr
 const isCompleted = (s: Session): s is CompletedSession => s.status === 'completed';
 
 export async function GET(req: NextRequest) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
@@ -212,5 +218,5 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json(cards);
+  return jsonOk(cards);
 }

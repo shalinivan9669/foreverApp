@@ -1,6 +1,7 @@
 // src/app/api/activities/next/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
@@ -11,6 +12,8 @@ import {
 } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
 
 type LeanUser = UserType & { _id: Types.ObjectId };
 
@@ -35,6 +38,9 @@ function autoDeltas(intent: 'improve' | 'celebrate', intensity: 1 | 2 | 3) {
 }
 
 export async function POST(req: NextRequest) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
@@ -47,7 +53,7 @@ export async function POST(req: NextRequest) {
   }).lean();
 
   if (!pair) {
-    return NextResponse.json({ error: 'no active pair' }, { status: 404 });
+    return jsonError(404, 'PAIR_NOT_FOUND', 'no active pair');
   }
 
   // строго типизируем элемент зоны риска
@@ -58,7 +64,7 @@ export async function POST(req: NextRequest) {
     .sort((a, b) => b.severity - a.severity)[0];
 
   if (!topRisk) {
-    return NextResponse.json({ error: 'no risks in passport' }, { status: 400 });
+    return jsonError(400, 'PAIR_PASSPORT_RISK_MISSING', 'no risks in passport');
   }
 
   const axis: Axis = topRisk.axis;
@@ -77,7 +83,7 @@ export async function POST(req: NextRequest) {
       .exec());
 
   if (!tpl) {
-    return NextResponse.json({ error: 'no templates for axis' }, { status: 404 });
+    return jsonError(404, 'ACTIVITY_TEMPLATE_NOT_FOUND', 'no templates for axis');
   }
 
   const users = await User.find({ id: { $in: pair.members } })
@@ -85,7 +91,7 @@ export async function POST(req: NextRequest) {
     .exec();
 
   if (users.length !== 2) {
-    return NextResponse.json({ error: 'users missing' }, { status: 400 });
+    return jsonError(400, 'PAIR_MEMBERS_MISSING', 'users missing');
   }
 
   const [uA, uB] = pair.members.map(
@@ -133,8 +139,5 @@ export async function POST(req: NextRequest) {
     createdBy: 'system',
   });
 
-  return NextResponse.json({
-    ok: true,
-    activityId: String(act._id),
-  });
+  return jsonOk({ activityId: String(act._id) });
 }

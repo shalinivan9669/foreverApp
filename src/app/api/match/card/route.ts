@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson, parseQuery } from '@/lib/api/validate';
 
 type Body = {
   userId?: string; // legacy client field, ignored
@@ -17,12 +20,24 @@ const sanitize3 = (arr: string[], max: number) =>
 const sanitize2 = (arr: string[], max: number) =>
   (arr ?? []).slice(0, 2).map((s) => clamp(String(s || ''), max));
 
+const bodySchema = z
+  .object({
+    userId: z.string().optional(),
+    requirements: z.array(z.string()).length(3),
+    give: z.array(z.string()).length(3),
+    questions: z.array(z.string()).length(2),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
 export async function POST(req: NextRequest) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const b = (await req.json()) as Body;
+  const body = await parseJson(req, bodySchema);
+  if (!body.ok) return body.response;
+  const b = body.data as Body;
 
   const requirements = sanitize3(b.requirements, 80);
   const give         = sanitize3(b.give, 80);
@@ -32,7 +47,7 @@ export async function POST(req: NextRequest) {
       requirements.some((x) => x.length === 0) ||
       give.some((x) => x.length === 0) ||
       questions.some((x) => x.length === 0)) {
-    return NextResponse.json({ error: 'invalid payload' }, { status: 400 });
+    return jsonError(400, 'MATCH_CARD_INVALID_PAYLOAD', 'invalid payload');
   }
 
   await connectToDatabase();
@@ -51,17 +66,20 @@ export async function POST(req: NextRequest) {
     { new: true, runValidators: true }
   ).lean();
 
-  if (!doc) return NextResponse.json({ error: 'user not found' }, { status: 404 });
+  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
 
-  return NextResponse.json(doc.profile?.matchCard ?? null);
+  return jsonOk(doc.profile?.matchCard ?? null);
 }
 
 export async function GET(req: NextRequest) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
   await connectToDatabase();
   const doc = await User.findOne({ id: currentUserId }, { 'profile.matchCard': 1, _id: 0 }).lean();
-  return NextResponse.json(doc?.profile?.matchCard ?? null);
+  return jsonOk(doc?.profile?.matchCard ?? null);
 }

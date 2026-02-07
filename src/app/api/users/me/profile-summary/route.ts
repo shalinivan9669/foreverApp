@@ -1,11 +1,14 @@
 // src/app/api/users/me/profile-summary/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
 
 type Axis =
   | 'communication'
@@ -37,6 +40,9 @@ type UserExtra = Partial<{
 
 // GET /api/users/me/profile-summary
 export async function GET(req: NextRequest) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
@@ -44,7 +50,7 @@ export async function GET(req: NextRequest) {
   await connectToDatabase();
 
   const user = await User.findOne({ id: userId }).lean<UserType & UserExtra | null>();
-  if (!user) return NextResponse.json({ error: 'no user' }, { status: 404 });
+  if (!user) return jsonError(404, 'USER_NOT_FOUND', 'no user');
 
   // Пара: сначала активная/пауза
   const activeOrPaused = await Pair.findOne({
@@ -155,5 +161,5 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
     },
   };
 
-  return NextResponse.json(payload);
+  return jsonOk(payload);
 }

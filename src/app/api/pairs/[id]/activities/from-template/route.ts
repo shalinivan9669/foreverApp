@@ -1,32 +1,49 @@
 // src/app/api/pairs/[id]/activities/from-template/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { User, type UserType } from '@/models/User';
 import { ActivityTemplate, type ActivityTemplateType } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson, parseParams } from '@/lib/api/validate';
 
 interface Ctx { params: Promise<{ id: string }> }
+
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const bodySchema = z
+  .object({
+    templateId: z.string().min(1),
+  })
+  .strict();
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { id } = await ctx.params;
-  const { templateId } = (await req.json()) as { templateId?: string };
-  if (!templateId) return NextResponse.json({ error: 'missing templateId' }, { status: 400 });
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
+
+  const body = await parseJson(req, bodySchema);
+  if (!body.ok) return body.response;
+  const { templateId } = body.data;
 
   const pairGuard = await requirePairMember(id, currentUserId);
   if (!pairGuard.ok) return pairGuard.response;
   const pair = pairGuard.data.pair;
 
   const tpl = await ActivityTemplate.findById(templateId).lean<ActivityTemplateType | null>();
-  if (!tpl) return NextResponse.json({ error: 'template not found' }, { status: 404 });
+  if (!tpl) return jsonError(404, 'ACTIVITY_TEMPLATE_NOT_FOUND', 'template not found');
 
   const users = await User.find({ id: { $in: pair.members } }).lean<(UserType & { _id: Types.ObjectId })[]>();
-  if (users.length !== 2) return NextResponse.json({ error: 'users missing' }, { status: 400 });
+  if (users.length !== 2) return jsonError(400, 'PAIR_MEMBERS_MISSING', 'users missing');
 
   const [uA, uB] = pair.members.map(did => users.find(u => u.id === did)!);
   const members: [Types.ObjectId, Types.ObjectId] = [uA._id, uB._id];
@@ -58,5 +75,5 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     createdBy: 'user',
   });
 
-  return NextResponse.json({ ok: true, id: String(act._id) });
+  return jsonOk({ id: String(act._id) });
 }

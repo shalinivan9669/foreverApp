@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { jsonError } from '@/lib/api/response';
 
 export type AuthErrorCode =
   | 'AUTH_REQUIRED'
@@ -9,16 +9,11 @@ export type ResourceErrorCode = 'RESOURCE_NOT_FOUND';
 
 type ErrorCode = AuthErrorCode | ResourceErrorCode;
 
-type ErrorPayload = {
-  error: string;
-  code: ErrorCode;
-};
-
 const jsonAuthError = (
   status: 401 | 403 | 404,
-  error: string,
+  message: string,
   code: ErrorCode
-) => NextResponse.json<ErrorPayload>({ error, code }, { status });
+) => jsonError(status, code, message);
 
 export const jsonUnauthorized = (
   code: AuthErrorCode = 'AUTH_REQUIRED',

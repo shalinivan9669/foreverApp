@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
+import { z } from 'zod';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
@@ -8,6 +9,8 @@ import { PairActivity } from '@/models/PairActivity';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonForbidden } from '@/lib/auth/errors';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
 
 const AXES: readonly Axis[] = ['communication', 'domestic', 'personalViews', 'finance', 'sexuality', 'psyche'] as const;
 const HIGH = 2.0;
@@ -107,13 +110,21 @@ async function seedSuggestionsForPair(pairId: Types.ObjectId) {
 
 type Body = { likeId: string; userId?: string }; // userId legacy field is ignored
 
+const bodySchema = z
+  .object({
+    likeId: z.string().min(1),
+    userId: z.string().optional(),
+  })
+  .strict();
+
 export async function POST(req: NextRequest) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { likeId } = (await req.json()) as Body;
-  if (!likeId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
+  const body = await parseJson(req, bodySchema);
+  if (!body.ok) return body.response;
+  const { likeId } = body.data as Body;
 
   const likeGuard = await requireLikeParticipant(likeId, currentUserId);
   if (!likeGuard.ok) return likeGuard.response;
@@ -121,14 +132,14 @@ export async function POST(req: NextRequest) {
   const { like, role } = likeGuard.data;
   if (role !== 'from') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
   if (like.status !== 'mutual_ready' || !like.recipientResponse) {
-    return NextResponse.json({ error: 'not ready' }, { status: 400 });
+    return jsonError(400, 'LIKE_NOT_READY', 'not ready');
   }
 
   const [u, v] = await Promise.all([
     User.findOne({ id: like.fromId }).lean<UserType | null>(),
     User.findOne({ id: like.toId }).lean<UserType | null>(),
   ]);
-  if (!u || !v) return NextResponse.json({ error: 'users missing' }, { status: 404 });
+  if (!u || !v) return jsonError(404, 'USER_NOT_FOUND', 'users missing');
 
   const members = [u.id, v.id].sort() as [string, string];
   const key = `${members[0]}|${members[1]}`;
@@ -164,5 +175,5 @@ export async function POST(req: NextRequest) {
 
   await seedSuggestionsForPair(pair._id as Types.ObjectId);
 
-  return NextResponse.json({ ok: true, pairId: String(pair._id), members });
+  return jsonOk({ pairId: String(pair._id), members });
 }

@@ -49,3 +49,16 @@
 
 ## Done / Outcome
 
+- Introduced a single response envelope for all `src/app/api/**/route.ts` handlers:
+  - Success: `{ ok: true, data, meta? }`
+  - Error: `{ ok: false, error: { code, message, details? } }`
+- Added centralized response helpers:
+  - `src/lib/api/response.ts` (`jsonOk`, `jsonError`)
+- Updated auth and resource error helpers to use the same envelope:
+  - `src/lib/auth/errors.ts`
+- Completed rollout across all API routes: no raw `NextResponse.json(...)` remains in handlers.
+
+### PASS/FAIL
+- PASS: every `/api/*` handler now returns `ok: true|false` envelope.
+- PASS: free-form string-only error payloads replaced with `{ code, message, details? }`.
+- PASS: HTTP status semantics preserved for `400/401/403/404/409/500`.

@@ -1,11 +1,14 @@
 // src/app/api/match/feed/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
 import { distance, score } from '@/utils/calcMatch';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
 
 type CandidateDTO = {
   id: string;
@@ -27,6 +30,14 @@ const pickVec = (u: Pick<UserType, 'vectors'>): number[] => [
 ];
 
 export async function GET(req: NextRequest) {
+  const query = parseQuery(
+    req,
+    z.object({
+      userId: z.string().optional(),
+    }).passthrough()
+  );
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
 
@@ -36,7 +47,7 @@ export async function GET(req: NextRequest) {
 
   // Текущий пользователь
   const me = await User.findOne({ id: userId }).lean<UserType | null>();
-  if (!me) return NextResponse.json({ error: 'user not found' }, { status: 404 });
+  if (!me) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
 
   // Кого уже лайкнул текущий пользователь
   const likedIds: string[] = await Like.find({ fromId: userId }).distinct('toId');
@@ -80,5 +91,5 @@ export async function GET(req: NextRequest) {
   // сортируем по убыванию и ограничиваем размер
   list.sort((a, b) => b.score - a.score);
 
-  return NextResponse.json(list.slice(0, 50));
+  return jsonOk(list.slice(0, 50));
 }

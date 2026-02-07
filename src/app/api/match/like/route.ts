@@ -1,9 +1,12 @@
 // src/app/api/match/like/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
 
 export const runtime = 'nodejs';
 
@@ -15,8 +18,18 @@ type Body = {
   answers?: string[];           // [string,string]
 };
 
-const json = (d: unknown, s = 200) => NextResponse.json(d, { status: s });
-const clamp = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
+const bodySchema = z
+  .object({
+    userId: z.string().optional(),
+    fromId: z.string().optional(),
+    toId: z.string().min(1),
+    agreements: z.tuple([z.literal(true), z.literal(true), z.literal(true)]),
+    answers: z.tuple([z.string(), z.string()]),
+  })
+  .strict();
+
+const clamp = (s: string | null | undefined, max: number) =>
+  String(s ?? '').trim().slice(0, max);
 
 function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'] | undefined {
   const c = u?.profile?.matchCard;
@@ -41,25 +54,20 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const fromId = auth.data.userId;
 
-  const body = (await req.json().catch(() => ({}))) as Body;
+  const parsedBody = await parseJson(req, bodySchema);
+  if (!parsedBody.ok) return parsedBody.response;
 
-  const toId   = body.toId ?? '';
-
-  if (!toId)   return json({ error: 'missing toId' }, 400);
-
-  if (!Array.isArray(body.agreements) || body.agreements.length !== 3 || body.agreements.some(v => v !== true)) {
-    return json({ error: 'agreements must be [true,true,true]' }, 400);
-  }
-  if (!Array.isArray(body.answers) || body.answers.length !== 2) {
-    return json({ error: 'answers must have length 2' }, 400);
-  }
+  const body: Body = parsedBody.data;
+  const toId = body.toId ?? '';
 
   await connectToDatabase();
 
   // снимок карточки инициатора
   const initiator = await User.findOne({ id: fromId }).lean<UserType | null>();
   const fromCardSnapshot = buildInitiatorSnapshot(initiator);
-  if (!fromCardSnapshot) return json({ error: 'initiator card snapshot missing' }, 400);
+  if (!fromCardSnapshot) {
+    return jsonError(400, 'INITIATOR_CARD_SNAPSHOT_MISSING', 'initiator card snapshot missing');
+  }
 
   // базовый скор, при желании подставишь свою формулу
   const matchScore = Math.max(0, Math.min(100, 75));
@@ -72,5 +80,5 @@ export async function POST(req: NextRequest) {
     status: 'sent',
   });
 
-  return json({ id: String(like._id), matchScore }, 200);
+  return jsonOk({ id: String(like._id), matchScore });
 }

@@ -1,8 +1,11 @@
 // src/app/api/match/card/[id]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseParams, parseQuery } from '@/lib/api/validate';
 
 type CardDTO =
   | { requirements: [string, string, string]; questions: [string, string] }
@@ -12,12 +15,20 @@ interface Ctx {
   params: Promise<{ id: string }>;
 }
 
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
+
 export async function GET(req: NextRequest, ctx: Ctx) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
+
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
 
-  const { id } = await ctx.params;
-  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
 
   await connectToDatabase();
 
@@ -31,7 +42,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .lean();
 
   if (!u || !u.profile?.matchCard?.isActive) {
-    return NextResponse.json({ error: 'no active match card' }, { status: 404 });
+    return jsonError(404, 'MATCH_CARD_NOT_FOUND', 'no active match card');
   }
 
   const reqs = u.profile.matchCard.requirements ?? [];
@@ -45,7 +56,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         }
       : null;
 
-  if (!dto) return NextResponse.json({ error: 'bad card' }, { status: 500 });
+  if (!dto) return jsonError(500, 'MATCH_CARD_INVALID', 'bad card');
 
-  return NextResponse.json(dto);
+  return jsonOk(dto);
 }

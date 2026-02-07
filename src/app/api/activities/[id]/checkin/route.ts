@@ -1,18 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { successScore } from '@/utils/activities';
 import { requireSession } from '@/lib/auth/guards';
 import { requireActivityMember } from '@/lib/auth/resourceGuards';
+import { jsonOk } from '@/lib/api/response';
+import { parseJson, parseParams } from '@/lib/api/validate';
 
 interface Ctx { params: Promise<{ id: string }> }
+
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const bodySchema = z.object({
+  answers: z
+    .array(
+      z.object({
+        checkInId: z.string().min(1),
+        ui: z.number(),
+      })
+    )
+    .min(1),
+});
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { id } = await ctx.params;
-  const { answers } = (await req.json()) as { answers:{checkInId:string; ui:number}[] };
-  if (!answers?.length) return NextResponse.json({ error:'bad body' }, { status:400 });
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
+
+  const body = await parseJson(req, bodySchema);
+  if (!body.ok) return body.response;
+  const { answers } = body.data;
 
   const activityGuard = await requireActivityMember(id, currentUserId);
   if (!activityGuard.ok) return activityGuard.response;
@@ -29,5 +51,5 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   act.successScore = sc;
   await act.save();
 
-  return NextResponse.json({ ok:true, success: sc });
+  return jsonOk({ success: sc });
 }

@@ -1,15 +1,31 @@
 // src/app/api/users/route.ts
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '../../../lib/mongodb';
 import { User, UserType }    from '../../../models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonOk } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
+
+const userUpdateSchema = z
+  .object({
+    username: z.string().optional(),
+    avatar: z.string().optional(),
+    personal: z.object({}).passthrough().optional(),
+    vectors: z.object({}).passthrough().optional(),
+    preferences: z.object({}).passthrough().optional(),
+    embeddings: z.object({}).passthrough().optional(),
+    location: z.object({}).passthrough().optional(),
+  })
+  .strict();
 
 export async function POST(request: Request) {
   const auth = requireSession(request);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const body = (await request.json()) as Partial<UserType>;
+  const bodyResult = await parseJson(request, userUpdateSchema);
+  if (!bodyResult.ok) return bodyResult.response;
+  const body = bodyResult.data as Partial<UserType>;
   await connectToDatabase();
 
   const updateFields: Record<string, unknown> = {
@@ -35,5 +51,5 @@ export async function POST(request: Request) {
     }
   ).lean<UserType>();
 
-  return NextResponse.json(doc);
+  return jsonOk(doc);
 }

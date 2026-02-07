@@ -1,22 +1,36 @@
 // src/app/api/activity-templates/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
+import { jsonOk } from '@/lib/api/response';
+import { parseQuery } from '@/lib/api/validate';
+
+const querySchema = z
+  .object({
+    axis: z.string().optional(),
+    intent: z.string().optional(),
+    difficulty: z.coerce.number().int().min(1).max(3).optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+  })
+  .passthrough();
 
 export async function GET(req: NextRequest) {
+  const query = parseQuery(req, querySchema);
+  if (!query.ok) return query.response;
+
   await connectToDatabase();
 
-  const { searchParams } = new URL(req.url);
-  const axis = searchParams.get('axis') || undefined;
-  const intent = searchParams.get('intent') || undefined;
-  const difficulty = searchParams.get('difficulty') || undefined;
-  const limit = Number(searchParams.get('limit') ?? 50);
+  const { axis, intent, difficulty, limit } = query.data;
 
   const q: Record<string, unknown> = {};
   if (axis) q.axis = axis;
   if (intent) q.intent = intent;
-  if (difficulty) q.difficulty = Number(difficulty);
+  if (difficulty) q.difficulty = difficulty;
 
-  const list = await ActivityTemplate.find(q).sort({ updatedAt: -1 }).limit(limit).lean();
-  return NextResponse.json(list);
+  const list = await ActivityTemplate.find(q)
+    .sort({ updatedAt: -1 })
+    .limit(limit ?? 50)
+    .lean();
+  return jsonOk(list);
 }

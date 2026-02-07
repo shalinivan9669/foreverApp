@@ -1,17 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonForbidden } from '@/lib/auth/errors';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
+import { jsonError, jsonOk } from '@/lib/api/response';
+import { parseJson } from '@/lib/api/validate';
 
 type Body = { likeId: string; userId?: string }; // userId legacy field is ignored
+
+const bodySchema = z
+  .object({
+    likeId: z.string().min(1),
+    userId: z.string().optional(),
+  })
+  .strict();
 
 export async function POST(req: NextRequest) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
-  const { likeId } = (await req.json()) as Body;
-  if (!likeId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
+  const body = await parseJson(req, bodySchema);
+  if (!body.ok) return body.response;
+  const { likeId } = body.data as Body;
 
   const likeGuard = await requireLikeParticipant(likeId, currentUserId);
   if (!likeGuard.ok) return likeGuard.response;
@@ -20,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (role !== 'from') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
 
   if (like.status !== 'awaiting_initiator')
-    return NextResponse.json({ error: `invalid status ${like.status}` }, { status: 400 });
+    return jsonError(400, 'LIKE_INVALID_STATUS', `invalid status ${like.status}`);
 
   const now = new Date();
   like.initiatorDecision = { accepted: true, at: now };
@@ -28,5 +39,5 @@ export async function POST(req: NextRequest) {
   like.updatedAt = now;
   await like.save();
 
-  return NextResponse.json({ ok: true });
+  return jsonOk({});
 }
