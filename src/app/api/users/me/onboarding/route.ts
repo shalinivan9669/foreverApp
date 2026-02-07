@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../../lib/mongodb';
-import { User, UserType } from '../../../../../models/User';
+import { connectToDatabase } from '@/lib/mongodb';
+import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 
-interface RouteContext {
-  params: Promise<{ id: string }>;
-}
-
-export async function PATCH(req: NextRequest, ctx: RouteContext) {
+export async function PATCH(req: NextRequest) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
 
-  const { id } = await ctx.params;
-  const body = await req.json(); // { seeking? , inRelationship? }
+  const body = (await req.json()) as Record<string, unknown>;
   await connectToDatabase();
 
   const set: Record<string, unknown> = {};
@@ -21,7 +17,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   }
 
   const doc = await User.findOneAndUpdate(
-    { id }, { $set: set }, { new: true, runValidators: true }
+    { id: userId },
+    { $set: set },
+    { new: true, runValidators: true }
   ).lean<UserType | null>();
 
   if (!doc) return NextResponse.json(null, { status: 404 });

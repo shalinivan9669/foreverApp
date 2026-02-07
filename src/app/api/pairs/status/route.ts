@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { User, UserType } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId') ?? '';
-  if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 });
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
 
   await connectToDatabase();
 

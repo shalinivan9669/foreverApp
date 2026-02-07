@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
+import { requireSession } from '@/lib/auth/guards';
 
 type Bucket = 'current' | 'suggested' | 'history';
 
@@ -41,6 +42,9 @@ function buildQuery(pairId: string, s?: string) {
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   const { searchParams } = new URL(req.url);
   const s = searchParams.get('s') || undefined;

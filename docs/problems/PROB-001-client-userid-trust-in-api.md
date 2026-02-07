@@ -57,4 +57,12 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
-
+- 2026-02-07 (Iteration 2 / self-scoped contract hardening):
+  - Self-scoped private endpoints переведены на session subject (`requireSession(...).data.userId`) без доверия к `userId` из query/body: `match/feed`, `match/inbox`, `match/card` (GET/POST), `match/like`, `match/respond`, `match/accept`, `match/reject`, `match/confirm`, `pairs/me`, `pairs/status`, `activities/next`, `answers/bulk`, `questionnaires/[id] POST`, `users/me/profile-summary`, `logs`, `users POST`, `pairs/create`.
+  - Клиентские вызовы очищены от передачи `?userId=` и `userId` в body для self-scoped API (`src/app/search/page.tsx`, `src/app/match/inbox/page.tsx`, `src/app/match/like/[id]/page.tsx`, `src/app/match-card/create/page.tsx`, `src/app/questionnaire/page.tsx`, `src/app/questionnaire/[id]/page.tsx`, `src/app/pair/page.tsx`, `src/app/couple-activity/page.tsx`, `src/app/(auth)/profile/page.tsx`, `src/app/profile/(tabs)/matching/page.tsx`, `src/components/LikeModal.tsx`, `src/components/main-menu/SearchPairTile.tsx`).
+  - Для self user-profile flow добавлены `/api/users/me` и `/api/users/me/onboarding`; клиент переведен на `/api/users/me*` вместо `/api/users/[id]` для собственных данных (`src/app/page.tsx`, `src/components/OnboardingWizard.tsx`).
+  - Выбран подход backward compatibility: legacy `userId`/`fromId` поля в body игнорируются и не используются как основание доступа.
+  - Acceptance criteria:
+    - Нет self-scoped эндпоинтов с обязательным `userId` в query/body: `PASS`.
+    - Self-scoped эндпоинты требуют валидную session и отдают `401` без нее: `PASS` (через `requireSession`).
+    - В коде нет новых self-scoped вызовов `fetch(api(...userId=...))`: `PASS`.

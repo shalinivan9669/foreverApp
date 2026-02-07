@@ -5,10 +5,14 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { PairActivity } from '@/models/PairActivity';
 import { Like } from '@/models/Like';
+import { requireSession } from '@/lib/auth/guards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export async function GET(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 

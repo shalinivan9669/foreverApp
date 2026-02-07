@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 type Body = {
-  userId: string;
+  userId?: string; // legacy client field, ignored
   requirements: string[]; // 3
   give: string[];         // 3
   questions: string[];    // 2
@@ -17,9 +18,11 @@ const sanitize2 = (arr: string[], max: number) =>
   (arr ?? []).slice(0, 2).map((s) => clamp(String(s || ''), max));
 
 export async function POST(req: NextRequest) {
-  const b = (await req.json()) as Body;
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
-  if (!b?.userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 });
+  const b = (await req.json()) as Body;
 
   const requirements = sanitize3(b.requirements, 80);
   const give         = sanitize3(b.give, 80);
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
   };
 
   const doc = await User.findOneAndUpdate(
-    { id: b.userId },
+    { id: currentUserId },
     { $set: set },
     { new: true, runValidators: true }
   ).lean();
@@ -54,12 +57,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  // получить свою карточку: /api/match/card?userId=...
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 });
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   await connectToDatabase();
-  const doc = await User.findOne({ id: userId }, { 'profile.matchCard': 1, _id: 0 }).lean();
+  const doc = await User.findOne({ id: currentUserId }, { 'profile.matchCard': 1, _id: 0 }).lean();
   return NextResponse.json(doc?.profile?.matchCard ?? null);
 }

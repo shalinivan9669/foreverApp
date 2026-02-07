@@ -4,9 +4,10 @@ import mongoose from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType, type LikeStatus } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 type Body = {
-  userId?: string;            // получатель лайка
+  userId?: string;            // legacy client field, ignored
   likeId?: string;            // ObjectId лайка
   agreements?: boolean[];     // [true,true,true]
   answers?: string[];         // [string,string]
@@ -38,11 +39,13 @@ function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'
 /* handler */
 export async function POST(req: NextRequest) {
   try {
+    const auth = requireSession(req);
+    if (!auth.ok) return auth.response;
+    const currentUserId = auth.data.userId;
+
     const body = (await req.json().catch(() => ({}))) as Body;
     const likeId = body.likeId ?? req.nextUrl.searchParams.get('id') ?? '';
-    const userId = body.userId;
 
-    if (!userId) return json({ error: 'missing userId' }, 400);
     if (!likeId) return json({ error: 'missing id' }, 400);
     if (!isObjId(likeId)) return json({ error: 'invalid likeId' }, 400);
     if (!Array.isArray(body.agreements) || body.agreements.length !== 3 || body.agreements.some(v => v !== true)) {
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
     // читаем лайк для проверки и сборки снапшота
     const like = await Like.findById(likeId).lean<LikeType | null>();
     if (!like) return json({ error: 'like not found' }, 404);
-    if (like.toId !== userId) return json({ error: 'forbidden' }, 403);
+    if (like.toId !== currentUserId) return json({ error: 'forbidden' }, 403);
 
     const allowed: LikeStatus[] = ['sent', 'viewed'];
     if (!allowed.includes(like.status)) return json({ error: 'invalid state' }, 409);
@@ -69,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     // атомарное обновление
     const updated = await Like.findOneAndUpdate(
-      { _id: likeId, toId: userId, status: { $in: allowed } },
+      { _id: likeId, toId: currentUserId, status: { $in: allowed } },
       {
         $set: {
           recipientResponse: {

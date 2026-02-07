@@ -6,10 +6,14 @@ import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { ActivityTemplate, type ActivityTemplateType } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
+import { requireSession } from '@/lib/auth/guards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   const { templateId } = (await req.json()) as { templateId?: string };
   if (!templateId) return NextResponse.json({ error: 'missing templateId' }, { status: 400 });

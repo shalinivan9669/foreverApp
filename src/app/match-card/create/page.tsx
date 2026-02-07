@@ -19,7 +19,7 @@ export default function MatchCardCreatePage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(api(`/api/match/card?userId=${user.id}`))
+    fetch(api('/api/match/card'))
       .then(r => (r.ok ? r.json() : null))
       .then(card => {
         if (card?.requirements?.length === 3) router.replace('/search');
@@ -39,7 +39,7 @@ export default function MatchCardCreatePage() {
     const res = await fetch(api('/api/match/card'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, requirements, give, questions, isActive: true })
+      body: JSON.stringify({ requirements, give, questions, isActive: true })
     });
     setLoading(false);
     if (!res.ok) {

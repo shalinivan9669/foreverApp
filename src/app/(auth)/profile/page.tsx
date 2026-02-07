@@ -45,7 +45,7 @@ export default function ProfileOverviewPage() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    fetch(api(`/api/users/me/profile-summary?userId=${user.id}`))
+    fetch(api('/api/users/me/profile-summary'))
       .then(r => r.json() as Promise<ProfileSummary>)
       .then(setData)
       .finally(() => setLoading(false));

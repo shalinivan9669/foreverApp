@@ -56,8 +56,8 @@ type LikeDTO = {
 };
 
 type PostBody =
-  | { userId: string; likeId: string }
-  | { userId: string; likeId: string; accepted?: boolean };
+  | { likeId: string }
+  | { likeId: string; accepted?: boolean };
 
 export default function LikeDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -137,17 +137,17 @@ const canCreatePair = useMemo(
 
   const onAccept = () => {
     if (!user || !like) return;
-    post('/api/match/accept', { userId: user.id, likeId: like.id });
+    post('/api/match/accept', { likeId: like.id });
   };
 
   const onReject = () => {
     if (!user || !like) return;
-    post('/api/match/reject', { userId: user.id, likeId: like.id });
+    post('/api/match/reject', { likeId: like.id });
   };
 
   const onCreatePair = async () => {
     if (!user || !like) return;
-    await post('/api/match/confirm', { userId: user.id, likeId: like.id });
+    await post('/api/match/confirm', { likeId: like.id });
     router.replace('/couple-activity');
   };
 

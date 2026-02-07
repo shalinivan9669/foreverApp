@@ -10,6 +10,7 @@ import {
   type Axis,
 } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
+import { requireSession } from '@/lib/auth/guards';
 
 type LeanUser = UserType & { _id: Types.ObjectId };
 
@@ -34,10 +35,9 @@ function autoDeltas(intent: 'improve' | 'celebrate', intensity: 1 | 2 | 3) {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = (await req.json()) as { userId?: string };
-  if (!userId) {
-    return NextResponse.json({ error: 'missing userId' }, { status: 400 });
-  }
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
 
   await connectToDatabase();
 

@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like } from '@/models/Like';
+import { requireSession } from '@/lib/auth/guards';
 
 type Axis =
   | 'communication'
@@ -34,11 +35,11 @@ type UserExtra = Partial<{
   passport: { values?: string[]; boundaries?: string[] };
 }>;
 
-// GET /api/users/me/profile-summary?userId=...
+// GET /api/users/me/profile-summary
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 });
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
 
   await connectToDatabase();
 

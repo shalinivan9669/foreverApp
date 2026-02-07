@@ -54,4 +54,7 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
-
+- 2026-02-07 (Iteration 1 / MVP):
+  - Добавлены единые auth-модули: `src/lib/auth/session.ts`, `src/lib/auth/guards.ts`, `src/lib/auth/errors.ts`.
+  - Приватные роуты `activities/*`, `pairs/*`, `match/*`, `users/*`, `answers/bulk`, `questionnaires/cards`, `questionnaires/[id] POST`, `logs` переведены на `requireSession`.
+  - Удалены дубли локального session-парсинга в роутерах (`getSessionUserId`).

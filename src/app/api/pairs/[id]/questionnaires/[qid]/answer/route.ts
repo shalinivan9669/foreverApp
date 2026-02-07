@@ -7,7 +7,7 @@ import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { Questionnaire, type QuestionItem, type QuestionnaireType } from '@/models/Questionnaire';
 import { User, type UserType } from '@/models/User';
-import { verifyJwt } from '@/lib/jwt';
+import { requireSession } from '@/lib/auth/guards';
 import { buildVectorUpdate, type VectorQuestion, type VectorAnswer } from '@/utils/vectorUpdates';
 
 interface Ctx { params: Promise<{ id: string; qid: string }> }
@@ -28,21 +28,13 @@ const hasStringId = (obj: unknown): obj is { _id: string } =>
   && '_id' in (obj as Record<string, unknown>)
   && typeof (obj as WithPossibleId)._id === 'string';
 
-const getSessionUserId = (req: NextRequest): string | null => {
-  const token = req.cookies.get('session')?.value;
-  if (!token) return null;
-  const secret = process.env.JWT_SECRET;
-  if (!secret) return null;
-  const payload = verifyJwt(token, secret);
-  return payload?.sub ?? null;
-};
-
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { id, qid } = await ctx.params;
   if (!id || !qid) return NextResponse.json({ error: 'missing id/qid' }, { status: 400 });
 
-  const userId = getSessionUserId(req);
-  if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
 
   const { sessionId, questionId, ui } = (await req.json()) as Body;
   if (!questionId || typeof ui !== 'number') {

@@ -50,7 +50,7 @@ export default function Runner() {
     await fetch(api(`/api/questionnaires/${id}`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, qid, ui }),
+      body: JSON.stringify({ qid, ui }),
     });
 
     if (idx < (qn.questions?.length ?? 0) - 1) {

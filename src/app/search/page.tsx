@@ -33,8 +33,8 @@ export default function SearchPage() {
 
     (async () => {
       const [pairPayload, card] = await Promise.all([
-        fetch(api(`/api/pairs/me?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
-        fetch(api(`/api/match/card?userId=${user.id}`)).then((r) => (r.ok ? r.json() : null)),
+        fetch(api('/api/pairs/me')).then((r) => (r.ok ? r.json() : null)),
+        fetch(api('/api/match/card')).then((r) => (r.ok ? r.json() : null)),
       ]);
 
       // поддерживаем оба формата: {pair: ...} и плоский doc/null
@@ -68,7 +68,7 @@ export default function SearchPage() {
     setLoading(true);
     setError(null);
 
-    fetch(api(`/api/match/feed?userId=${user.id}`))
+    fetch(api('/api/match/feed'))
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
       .then((items: Candidate[]) => setList(items ?? []))
       .catch(async (r: Response) => setError((await r.json().catch(() => ({})))?.error || 'Ошибка'))
@@ -92,7 +92,6 @@ export default function SearchPage() {
       <LikeModal
         open={!!selected}
         onClose={() => setSelected(null)}
-        fromId={user.id}
         candidate={selected}
         onSent={({ toId }) => {
           setList((xs) => xs.filter((x) => x.id !== toId));

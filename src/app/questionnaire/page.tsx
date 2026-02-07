@@ -29,7 +29,6 @@ export default function QuestionnairePage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId: user.id,
         answers: Object.entries(ans).map(([qid, ui]) => ({ qid, ui }))
       })
     });

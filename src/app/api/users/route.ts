@@ -2,8 +2,13 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '../../../lib/mongodb';
 import { User, UserType }    from '../../../models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 export async function POST(request: Request) {
+  const auth = requireSession(request);
+  if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
+
   const body = (await request.json()) as Partial<UserType>;
   await connectToDatabase();
 
@@ -18,10 +23,10 @@ export async function POST(request: Request) {
   if (body.location) updateFields.location = body.location;
 
   const doc = await User.findOneAndUpdate(
-    { id: body.id },
+    { id: currentUserId },
     {
       $set: updateFields,
-      $setOnInsert: { id: body.id },
+      $setOnInsert: { id: currentUserId },
     },
     {
       upsert: true,

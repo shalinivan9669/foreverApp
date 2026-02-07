@@ -110,7 +110,7 @@ export default function InboxPage() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(api(`/api/match/inbox?userId=${user.id}`), { signal: ac.signal });
+      const res = await fetch(api('/api/match/inbox'), { signal: ac.signal });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -151,7 +151,7 @@ export default function InboxPage() {
     const res = await fetch(api(endpoint), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, likeId }),
+      body: JSON.stringify({ likeId }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -166,7 +166,7 @@ export default function InboxPage() {
        const res = await fetch(api('/api/match/confirm'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ likeId, userId: user.id }),
+      body: JSON.stringify({ likeId }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -371,7 +371,6 @@ function RespondModal(props: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId: user.id,
         likeId,                    // <-- критично: передаём likeId
         agreements: [true, true, true],
         answers: ans,

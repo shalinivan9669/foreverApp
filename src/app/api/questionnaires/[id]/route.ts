@@ -4,12 +4,13 @@ import { Question, type QuestionType } from '@/models/Question';
 import { Questionnaire, type QuestionnaireType } from '@/models/Questionnaire';
 import { User, type UserType }         from '@/models/User';
 import { buildVectorUpdate, type VectorQuestion } from '@/utils/vectorUpdates';
+import { requireSession } from '@/lib/auth/guards';
 
 /* ── типы и константы ─────────────────────────────────────────────────────────────────── */
 type AnswerItem = { qid: string; ui: number };
 type Body =
-  | { userId: string; answers: AnswerItem[] }
-  | { userId: string; qid: string; ui: number };
+  | { userId?: string; answers: AnswerItem[] }
+  | { userId?: string; qid: string; ui: number };
 
 /* ── utils ─────────────────────────────────────────────────────────────────────────────── */
 type WithPossibleId = { id?: unknown };
@@ -34,8 +35,11 @@ export async function GET(_req: NextRequest, context: { params: Promise<Record<s
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
+
   const body = (await req.json()) as Body;
-  const userId = 'userId' in body ? body.userId : '';
   const answers: AnswerItem[] =
     'answers' in body
       ? body.answers
@@ -43,7 +47,7 @@ export async function POST(req: NextRequest) {
         ? [{ qid: body.qid, ui: body.ui }]
         : [];
 
-  if (!userId || !Array.isArray(answers) || answers.length === 0) {
+  if (!Array.isArray(answers) || answers.length === 0) {
     return NextResponse.json({ error: 'bad' }, { status: 400 });
   }
 

@@ -15,7 +15,7 @@ export default function ProfileMatchingTab() {
     let on = true;
     if (!user) return;
     setLoading(true);
-    fetch(api(`/api/users/me/profile-summary?userId=${user.id}`))
+    fetch(api('/api/users/me/profile-summary'))
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!on || !d) return;

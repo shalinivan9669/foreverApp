@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 type CardDTO =
   | { requirements: [string, string, string]; questions: [string, string] }
@@ -11,7 +12,10 @@ interface Ctx {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export async function GET(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 

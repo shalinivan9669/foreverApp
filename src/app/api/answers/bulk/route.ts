@@ -3,12 +3,20 @@ import { connectToDatabase }         from '@/lib/mongodb';
 import { Question, type QuestionType } from '@/models/Question';
 import { User, type UserType }         from '@/models/User';
 import { buildVectorUpdate, type VectorQuestion } from '@/utils/vectorUpdates';
+import { requireSession } from '@/lib/auth/guards';
 
-interface Body { userId: string; answers: { qid: string; ui: number }[] }
+interface Body {
+  userId?: string; // legacy client field, ignored
+  answers: { qid: string; ui: number }[];
+}
 
 export async function POST(req: NextRequest) {
-  const { userId, answers } = (await req.json()) as Body;
-  if (!userId || !Array.isArray(answers) || answers.length === 0) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
+
+  const { answers } = (await req.json()) as Body;
+  if (!Array.isArray(answers) || answers.length === 0) {
     return NextResponse.json({ error: 'bad' }, { status: 400 });
   }
 

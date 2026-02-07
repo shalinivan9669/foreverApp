@@ -7,6 +7,7 @@ import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { ActivityTemplate, type Axis, type ActivityTemplateType } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
+import { requireSession } from '@/lib/auth/guards';
 
 const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
 const HIGH = 2.0, LOW = 0.75, DELTA = 2.0;
@@ -93,11 +94,15 @@ async function seedSuggestionsForPair(pairId: Types.ObjectId) {
   })));
 }
 
-type Body = { likeId: string; userId: string };
+type Body = { likeId: string; userId?: string }; // userId legacy field is ignored
 
 export async function POST(req: NextRequest) {
-  const { likeId, userId } = (await req.json()) as Body;
-  if (!likeId || !userId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
+
+  const { likeId } = (await req.json()) as Body;
+  if (!likeId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
 
   await connectToDatabase();
 
@@ -105,7 +110,7 @@ export async function POST(req: NextRequest) {
   if (!like) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   // только инициатор и статус mutual_ready
-  if (like.fromId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (like.fromId !== currentUserId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   if (like.status !== 'mutual_ready' || !like.recipientResponse)
     return NextResponse.json({ error: 'not ready' }, { status: 400 });
 

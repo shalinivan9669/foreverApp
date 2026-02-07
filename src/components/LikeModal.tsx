@@ -10,7 +10,6 @@ type Card = { requirements: [string, string, string]; questions: [string, string
 type Props = {
   open: boolean;
   onClose: () => void;
-  fromId: string;
   candidate: { id: string; username: string; avatar: string } | null;
   onSent?: (payload: { matchScore: number; toId: string }) => void;
 };
@@ -20,7 +19,7 @@ const avatarUrl = (id: string, avatar?: string) =>
     ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
     : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
-export default function LikeModal({ open, onClose, fromId, candidate, onSent }: Props) {
+export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
   const [card, setCard] = useState<Card | null>(null);
   const [agree, setAgree] = useState<[boolean, boolean, boolean]>([false, false, false]);
   const [ans, setAns] = useState<[string, string]>(['', '']);
@@ -57,7 +56,6 @@ export default function LikeModal({ open, onClose, fromId, candidate, onSent }: 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: fromId, 
           toId: candidate.id,
           agreements: [true, true, true],
           answers: ans,

@@ -44,7 +44,6 @@ export default function OnboardingWizard() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: user.id,
         username: user.username,
         avatar: user.avatar,
         personal: {
@@ -88,7 +87,7 @@ export default function OnboardingWizard() {
           };
     setError(null);
     setLoading(true);
-    const res = await fetch(`/.proxy/api/users/${user.id}/onboarding`, {
+    const res = await fetch('/.proxy/api/users/me/onboarding', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

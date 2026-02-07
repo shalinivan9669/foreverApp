@@ -57,7 +57,7 @@ export default function PairProfilePage() {
   useEffect(() => {
     if (!user) return;
     let on = true;
-    fetch(api(`/api/pairs/me?userId=${user.id}`))
+    fetch(api('/api/pairs/me'))
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!on) return;

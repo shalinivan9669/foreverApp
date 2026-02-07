@@ -5,10 +5,14 @@ import { User, UserType } from '@/models/User';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
+import { requireSession } from '@/lib/auth/guards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   await connectToDatabase();
 

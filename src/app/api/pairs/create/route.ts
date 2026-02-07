@@ -5,6 +5,7 @@ import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like } from '@/models/Like';
 import type { Axis } from '@/models/ActivityTemplate';
+import { requireSession } from '@/lib/auth/guards';
 
 const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
 const HIGH = 2.0, LOW = 0.75, DELTA = 2.0;
@@ -38,24 +39,27 @@ function buildPassport(a: UserType, b: UserType): NonNullable<PairType['passport
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
+
   const body = (await req.json()) as { userId?: string; partnerId?: string; likeId?: string };
-  const { userId, partnerId, likeId } = body || {};
+  const { partnerId, likeId } = body || {};
 
   await connectToDatabase();
 
-  let aId = userId ?? '';
+  const aId = currentUserId;
   let bId = partnerId ?? '';
 
   // поддержка старого контракта: пришёл likeId
   if (!partnerId && likeId) {
     const like = await Like.findById(likeId);
     if (!like) return NextResponse.json({ error: 'like not found' }, { status: 404 });
-    if (!aId) aId = like.fromId;
     bId = like.fromId === aId ? like.toId : like.fromId;
   }
 
   if (!aId || !bId) {
-    return NextResponse.json({ error: 'userId and partnerId are required' }, { status: 400 });
+    return NextResponse.json({ error: 'partnerId or likeId is required' }, { status: 400 });
   }
 
   const [u, v] = await Promise.all([

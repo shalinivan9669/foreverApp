@@ -5,10 +5,14 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
+import { requireSession } from '@/lib/auth/guards';
 
 interface Ctx { params: Promise<{ id: string; qid: string }> }
 
-export async function POST(_req: NextRequest, ctx: Ctx) {
+export async function POST(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id, qid } = await ctx.params;
   if (!id || !qid) return NextResponse.json({ error: 'missing id/qid' }, { status: 400 });
 

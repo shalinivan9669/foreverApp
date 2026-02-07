@@ -73,11 +73,9 @@ export default function DiscordActivityPage() {
     // Log visit (fire and forget)
     fetch('/.proxy/api/logs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
     }).catch(() => {});
 
-    fetch(`/.proxy/api/users/${user.id}`)
+    fetch('/.proxy/api/users/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((doc) => {
         const onboarding = doc?.profile?.onboarding;

@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType, type LikeStatus } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 type Direction = 'incoming' | 'outgoing';
 
@@ -29,10 +30,10 @@ type LikeLean = Pick<
 type UserLean = Pick<UserType, 'id' | 'username' | 'avatar'>;
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId') ?? '';
-  if (!userId) {
-    return NextResponse.json({ error: 'missing userId' }, { status: 400 });
-  }
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
+  const userId = auth.data.userId;
 
   await connectToDatabase();
 

@@ -19,7 +19,7 @@ export default function SearchPairTile() {
   useEffect(() => {
     let on = true;
     if (!user) return;
-    fetch(api(`/api/pairs/status?userId=${user.id}`))
+    fetch(api('/api/pairs/status'))
       .then((r) => (r.ok ? r.json() : { hasActive: false }))
       .then((data: PairStatus) => {
         if (on) setStatus(data);

@@ -5,6 +5,7 @@ import { User, type UserType } from '@/models/User';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
 import { distance, score } from '@/utils/calcMatch';
+import { requireSession } from '@/lib/auth/guards';
 
 type CandidateDTO = {
   id: string;
@@ -26,10 +27,10 @@ const pickVec = (u: Pick<UserType, 'vectors'>): number[] => [
 ];
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId') || '';
-  if (!userId) {
-    return NextResponse.json({ error: 'missing userId' }, { status: 400 });
-  }
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
+  const userId = auth.data.userId;
 
   await connectToDatabase();
 

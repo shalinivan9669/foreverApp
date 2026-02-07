@@ -5,7 +5,7 @@ import { Questionnaire } from '@/models/Questionnaire';
 import { Pair } from '@/models/Pair';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
-import { verifyJwt } from '@/lib/jwt';
+import { requireSession } from '@/lib/auth/guards';
 
 type Axis =
   | 'communication'
@@ -98,18 +98,10 @@ const audienceFrom = (q: QDoc): Audience => {
 const isInProgress = (s: Session): s is InProgressSession => s.status === 'in_progress';
 const isCompleted = (s: Session): s is CompletedSession => s.status === 'completed';
 
-const getSessionUserId = (req: NextRequest): string | null => {
-  const token = req.cookies.get('session')?.value;
-  if (!token) return null;
-  const secret = process.env.JWT_SECRET;
-  if (!secret) return null;
-  const payload = verifyJwt(token, secret);
-  return payload?.sub ?? null;
-};
-
 export async function GET(req: NextRequest) {
-  const userId = getSessionUserId(req);
-  if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const userId = auth.data.userId;
 
   await connectToDatabase();
 

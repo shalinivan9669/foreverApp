@@ -4,6 +4,7 @@
   import { connectToDatabase } from '@/lib/mongodb';
   import { Like, type LikeType, type LikeStatus } from '@/models/Like';
   import { User, type UserType } from '@/models/User';
+  import { requireSession } from '@/lib/auth/guards';
 
   type LikeLean = LikeType & { _id: Types.ObjectId; updatedAt?: Date; createdAt?: Date };
 
@@ -44,6 +45,9 @@
       : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
   export async function GET(req: NextRequest) {
+    const auth = requireSession(req);
+    if (!auth.ok) return auth.response;
+
     const id = req.nextUrl.pathname.split('/').pop() || '';
     if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 

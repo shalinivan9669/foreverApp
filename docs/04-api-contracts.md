@@ -1,4 +1,15 @@
 **Как Сейчас (Обзор)**
+**Auth MVP (2026-02-07)**
+1. В проект добавлен единый session auth entrypoint:
+   - `src/lib/auth/session.ts` (`readSessionUser`)
+   - `src/lib/auth/guards.ts` (`requireSession`)
+   - `src/lib/auth/errors.ts` (`jsonUnauthorized`, `jsonForbidden`)
+2. Приватные API-роуты в `activities/*`, `pairs/*`, `match/*`, `users/*`, `answers/bulk`, `questionnaires/cards`, `questionnaires/[id] POST`, `logs` теперь требуют валидную session cookie.
+3. При отсутствии/невалидности session возвращается `401` с кодом:
+   - `AUTH_REQUIRED` (cookie отсутствует)
+   - `AUTH_INVALID_SESSION` (битая/невалидная сессия)
+
+**Как Сейчас (Обзор)**
 1. Все API реализованы через App Router `route.ts` и возвращают `NextResponse.json(...)`. Доказательства: `src/app/api/activities/next/route.ts:36,136-139`, `src/app/api/match/feed/route.ts:28,82`, `src/app/api/users/[id]/route.ts:9-14`.
 2. Входы используют комбинацию `ctx.params` (path), `searchParams` (query) и JSON тела запросов. Доказательства: `src/app/api/pairs/[id]/summary/route.ts:11-13`, `src/app/api/match/feed/route.ts:28-31`, `src/app/api/answers/bulk/route.ts:31-34`.
 3. Формат ответов не унифицирован: встречаются `{ ok: true }`, `{ error: '...' }`, массивы документов и объектные DTO. Доказательства: `src/app/api/activities/[id]/accept/route.ts:14-18`, `src/app/api/match/like/route.ts:73`, `src/app/api/match/feed/route.ts:82`, `src/app/api/match/like/[id]/route.ts:63-99`.
@@ -91,3 +102,32 @@
 - Ввести единый response envelope (`{ ok, data, error }`) и унифицированные error codes (сейчас форматы ответа разнородные).
 - Вынести валидацию входов в общий слой (zod) и добавить идемпотентность для мутаций (accept/cancel/checkin/complete, match/respond/confirm).
 - Проверить наличие централизованного auth middleware/guard; при отсутствии — добавить минимальную проверку по сессии/токену.
+
+## Update 2026-02-07 (PROB-001 Iteration 2)
+
+`userId` больше не является входным параметром self-scoped API. Субъект запроса определяется только по session (`requireSession`).
+
+| Endpoint | Old self contract | New self contract |
+|---|---|---|
+| `/api/match/feed` GET | `?userId=...` | без query; user из session |
+| `/api/match/inbox` GET | `?userId=...` | без query; user из session |
+| `/api/match/card` GET | `?userId=...` | без query; user из session |
+| `/api/match/card` POST | `{ userId, ... }` | `{ requirements, give, questions, isActive? }`, user из session |
+| `/api/match/like` POST | `{ userId/fromId, toId, ... }` | `{ toId, agreements, answers }`, from=user из session |
+| `/api/match/respond` POST | `{ userId, likeId, ... }` | `{ likeId, agreements, answers }`, user из session |
+| `/api/match/accept` POST | `{ likeId, userId }` | `{ likeId }`, user из session |
+| `/api/match/reject` POST | `{ likeId, userId }` | `{ likeId }`, user из session |
+| `/api/match/confirm` POST | `{ likeId, userId }` | `{ likeId }`, user из session |
+| `/api/pairs/me` GET | `?userId=...` | без query; user из session |
+| `/api/pairs/status` GET | `?userId=...` | без query; user из session |
+| `/api/activities/next` POST | `{ userId }` | `{}` (или пустое body), user из session |
+| `/api/answers/bulk` POST | `{ userId, answers[] }` | `{ answers[] }`, user из session |
+| `/api/questionnaires/[id]` POST | `{ userId, qid/ui }` | `{ qid, ui }` или `{ answers[] }`, user из session |
+| `/api/users/me/profile-summary` GET | `?userId=...` | без query; user из session |
+| `/api/logs` POST | `{ userId }` | `{}` (или пустое body), user из session |
+| `/api/users` POST | `{ id, ... }` | `{ ... }`, `id` берется из session |
+
+Новые self endpoints:
+- `GET /api/users/me`
+- `PUT /api/users/me`
+- `PATCH /api/users/me/onboarding`

@@ -3,10 +3,14 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
 import { Pair } from '@/models/Pair';
 import { applyEffects, successScore, clamp } from '@/utils/activities';
+import { requireSession } from '@/lib/auth/guards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
-export async function POST(_req: NextRequest, ctx: Ctx) {
+export async function POST(req: NextRequest, ctx: Ctx) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await ctx.params;
   await connectToDatabase();
 

@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
 
 export const runtime = 'nodejs';
 
 type Body = {
-  userId?: string;              // инициатор (alias of fromId)
-  fromId?: string;              // поддерживаем старое имя
+  userId?: string;              // legacy client field, ignored
+  fromId?: string;              // legacy client field, ignored
   toId?: string;                // получатель
   agreements?: boolean[];       // [true,true,true]
   answers?: string[];           // [string,string]
@@ -36,13 +37,14 @@ function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const fromId = auth.data.userId;
+
   const body = (await req.json().catch(() => ({}))) as Body;
 
-  // поддерживаем оба имени поля
-  const fromId = body.userId ?? body.fromId ?? '';
   const toId   = body.toId ?? '';
 
-  if (!fromId) return json({ error: 'missing userId' }, 400);
   if (!toId)   return json({ error: 'missing toId' }, 400);
 
   if (!Array.isArray(body.agreements) || body.agreements.length !== 3 || body.agreements.some(v => v !== true)) {
