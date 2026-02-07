@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { PairActivity } from '@/models/PairActivity';
 import { successScore } from '@/utils/activities';
 import { requireSession } from '@/lib/auth/guards';
+import { requireActivityMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
-  const { by, answers } = (await req.json()) as { by:'A'|'B'; answers:{checkInId:string; ui:number}[] };
-  if (!by || !answers?.length) return NextResponse.json({ error:'bad body' }, { status:400 });
+  const { answers } = (await req.json()) as { answers:{checkInId:string; ui:number}[] };
+  if (!answers?.length) return NextResponse.json({ error:'bad body' }, { status:400 });
 
-  await connectToDatabase();
-  const act = await PairActivity.findById(id);
-  if (!act) return NextResponse.json({ error:'not found' }, { status:404 });
+  const activityGuard = await requireActivityMember(id, currentUserId);
+  if (!activityGuard.ok) return activityGuard.response;
+
+  const by = activityGuard.data.by;
+  const act = activityGuard.data.activity;
 
   const now = new Date();
   act.answers = act.answers || [];

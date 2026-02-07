@@ -37,3 +37,15 @@
 - Разделение `401`/`403`:
   - `401` при отсутствии/невалидности session (через `requireSession`).
   - `403` для авторизованного пользователя без прав на конкретный ресурс (resource guards в PROB-003).
+
+## Update 2026-02-07 (PROB-003 Iteration 1-2)
+
+- Реализованы централизованные resource guards:
+  - `requirePairMember(pairId, currentUserId)`
+  - `requireActivityMember(activityId, currentUserId)`
+  - `requireLikeParticipant(likeId, currentUserId)`
+- Защищенные роуты pair/activity/like переведены на guard-проверки доступа к ресурсу.
+- Контракт ошибок зафиксирован:
+  - `401` — нет валидной session.
+  - `403` — session валидна, но пользователь не участник ресурса.
+  - `404` — целевой ресурс отсутствует.

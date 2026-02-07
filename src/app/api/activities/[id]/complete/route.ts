@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { PairActivity } from '@/models/PairActivity';
-import { Pair } from '@/models/Pair';
 import { applyEffects, successScore, clamp } from '@/utils/activities';
 import { requireSession } from '@/lib/auth/guards';
+import { requireActivityMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
-  await connectToDatabase();
+  const activityGuard = await requireActivityMember(id, currentUserId);
+  if (!activityGuard.ok) return activityGuard.response;
 
-  const act = await PairActivity.findById(id);
-  if (!act) return NextResponse.json({ error:'not found' }, { status:404 });
-
-  const pair = await Pair.findById(act.pairId);
-  if (!pair) return NextResponse.json({ error:'pair not found' }, { status:404 });
+  const act = activityGuard.data.activity;
+  const pair = activityGuard.data.pair;
 
   const sc = successScore(act.checkIns, act.answers || []);
   act.successScore = sc;

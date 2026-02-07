@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Pair } from '@/models/Pair';
 import { User, UserType } from '@/models/User';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
-  await connectToDatabase();
+  const pairGuard = await requirePairMember(id, currentUserId);
+  if (!pairGuard.ok) return pairGuard.response;
+  const pair = pairGuard.data.pair;
 
-  const pair = await Pair.findById(id);
-  if (!pair) return NextResponse.json({ error: 'no pair' }, { status: 404 });
   if (!pair.passport?.riskZones?.length) return NextResponse.json({ error: 'no passport' }, { status: 400 });
 
   const fatigue = pair.fatigue?.score ?? 0;

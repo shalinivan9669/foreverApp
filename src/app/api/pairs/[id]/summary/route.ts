@@ -2,26 +2,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Pair } from '@/models/Pair';
 import { PairActivity } from '@/models/PairActivity';
 import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
+  const pairGuard = await requirePairMember(id, currentUserId);
+  if (!pairGuard.ok) return pairGuard.response;
+
   await connectToDatabase();
-
-  const pair = await Pair.findById(id).lean();
-  if (!pair) return NextResponse.json({ error: 'not found' }, { status: 404 });
-
-  const pairId = new Types.ObjectId(id);
+  const pair = pairGuard.data.pair;
+  const pairId = pair._id as Types.ObjectId;
 
   // текущая активность
   const current = await PairActivity.findOne({

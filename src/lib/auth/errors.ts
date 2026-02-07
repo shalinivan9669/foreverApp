@@ -5,15 +5,19 @@ export type AuthErrorCode =
   | 'AUTH_INVALID_SESSION'
   | 'AUTH_FORBIDDEN';
 
+export type ResourceErrorCode = 'RESOURCE_NOT_FOUND';
+
+type ErrorCode = AuthErrorCode | ResourceErrorCode;
+
 type ErrorPayload = {
   error: string;
-  code: AuthErrorCode;
+  code: ErrorCode;
 };
 
 const jsonAuthError = (
-  status: 401 | 403,
+  status: 401 | 403 | 404,
   error: string,
-  code: AuthErrorCode
+  code: ErrorCode
 ) => NextResponse.json<ErrorPayload>({ error, code }, { status });
 
 export const jsonUnauthorized = (
@@ -26,3 +30,7 @@ export const jsonForbidden = (
   error = 'forbidden'
 ) => jsonAuthError(403, error, code);
 
+export const jsonNotFound = (
+  code: ResourceErrorCode = 'RESOURCE_NOT_FOUND',
+  error = 'not found'
+) => jsonAuthError(404, error, code);

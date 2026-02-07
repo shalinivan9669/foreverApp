@@ -1,12 +1,9 @@
   // src/app/api/match/like/[id]/route.ts
   import { NextRequest, NextResponse } from 'next/server';
-  import { Types } from 'mongoose';
-  import { connectToDatabase } from '@/lib/mongodb';
-  import { Like, type LikeType, type LikeStatus } from '@/models/Like';
+  import { type LikeType, type LikeStatus } from '@/models/Like';
   import { User, type UserType } from '@/models/User';
   import { requireSession } from '@/lib/auth/guards';
-
-  type LikeLean = LikeType & { _id: Types.ObjectId; updatedAt?: Date; createdAt?: Date };
+  import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 
   type DTO = {
     id: string;
@@ -44,17 +41,19 @@
       ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
       : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
-  export async function GET(req: NextRequest) {
+  interface Ctx { params: Promise<{ id: string }> }
+
+  export async function GET(req: NextRequest, ctx: Ctx) {
     const auth = requireSession(req);
     if (!auth.ok) return auth.response;
+    const currentUserId = auth.data.userId;
 
-    const id = req.nextUrl.pathname.split('/').pop() || '';
+    const { id } = await ctx.params;
     if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
-    await connectToDatabase();
-
-    const l = await Like.findById(id).lean<LikeLean | null>();
-    if (!l) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    const likeGuard = await requireLikeParticipant(id, currentUserId);
+    if (!likeGuard.ok) return likeGuard.response;
+    const l = likeGuard.data.like;
 
     const users = await User.find({ id: { $in: [l.fromId, l.toId] } })
       .select({ id: 1, username: 1, avatar: 1 })
@@ -65,7 +64,7 @@
     const toU   = byId.get(l.toId);
 
     const dto: DTO = {
-      id: l._id.toHexString(),
+      id: String(l._id),
       status: l.status,
       matchScore: l.matchScore,
       updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,

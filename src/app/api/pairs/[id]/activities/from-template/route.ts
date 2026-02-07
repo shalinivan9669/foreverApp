@@ -1,27 +1,26 @@
 // src/app/api/pairs/[id]/activities/from-template/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { ActivityTemplate, type ActivityTemplateType } from '@/models/ActivityTemplate';
 import { PairActivity } from '@/models/PairActivity';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
   const { templateId } = (await req.json()) as { templateId?: string };
   if (!templateId) return NextResponse.json({ error: 'missing templateId' }, { status: 400 });
 
-  await connectToDatabase();
-
-  const pair = await Pair.findById(id).lean();
-  if (!pair) return NextResponse.json({ error: 'pair not found' }, { status: 404 });
+  const pairGuard = await requirePairMember(id, currentUserId);
+  if (!pairGuard.ok) return pairGuard.response;
+  const pair = pairGuard.data.pair;
 
   const tpl = await ActivityTemplate.findById(templateId).lean<ActivityTemplateType | null>();
   if (!tpl) return NextResponse.json({ error: 'template not found' }, { status: 404 });

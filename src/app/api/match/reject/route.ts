@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonForbidden } from '@/lib/auth/errors';
+import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 
 type Body = { likeId: string; userId?: string }; // userId legacy field is ignored
 
@@ -13,19 +13,19 @@ export async function POST(req: NextRequest) {
   const { likeId } = (await req.json()) as Body;
   if (!likeId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
 
-  await connectToDatabase();
+  const likeGuard = await requireLikeParticipant(likeId, currentUserId);
+  if (!likeGuard.ok) return likeGuard.response;
 
-  const l = await Like.findById(likeId);
-  if (!l) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  if (l.toId !== currentUserId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  if (l.status === 'rejected') return NextResponse.json({ ok: true, already: true });
+  const { like, role } = likeGuard.data;
+  if (role !== 'to') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
+  if (like.status === 'rejected') return NextResponse.json({ ok: true, already: true });
 
-  if (l.status !== 'sent' && l.status !== 'viewed') {
-    return NextResponse.json({ error: `invalid status ${l.status}` }, { status: 400 });
+  if (like.status !== 'sent' && like.status !== 'viewed') {
+    return NextResponse.json({ error: `invalid status ${like.status}` }, { status: 400 });
   }
 
-  l.status = 'rejected';
-  await l.save();
+  like.status = 'rejected';
+  await like.save();
 
   return NextResponse.json({ ok: true });
 }

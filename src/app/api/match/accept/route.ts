@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonForbidden } from '@/lib/auth/errors';
+import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 
 type Body = { likeId: string; userId?: string }; // userId legacy field is ignored
 
@@ -13,24 +13,20 @@ export async function POST(req: NextRequest) {
   const { likeId } = (await req.json()) as Body;
   if (!likeId) return NextResponse.json({ error: 'bad body' }, { status: 400 });
 
-  await connectToDatabase();
-  const like = await Like.findById(likeId);
-  if (!like) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  if (like.fromId !== currentUserId) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const likeGuard = await requireLikeParticipant(likeId, currentUserId);
+  if (!likeGuard.ok) return likeGuard.response;
+
+  const { like, role } = likeGuard.data;
+  if (role !== 'from') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
+
   if (like.status !== 'awaiting_initiator')
     return NextResponse.json({ error: `invalid status ${like.status}` }, { status: 400 });
 
   const now = new Date();
-  await Like.updateOne(
-    { _id: like._id, fromId: currentUserId },
-    {
-      $set: {
-        initiatorDecision: { accepted: true, at: now },
-        status: 'mutual_ready',
-        updatedAt: now,
-      },
-    }
-  );
+  like.initiatorDecision = { accepted: true, at: now };
+  like.status = 'mutual_ready';
+  like.updatedAt = now;
+  await like.save();
 
   return NextResponse.json({ ok: true });
 }

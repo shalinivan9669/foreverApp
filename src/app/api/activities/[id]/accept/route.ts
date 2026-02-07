@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { PairActivity } from '@/models/PairActivity';
 import { requireSession } from '@/lib/auth/guards';
+import { requireActivityMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string }> }
 
 export async function POST(req: Request, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
-  await connectToDatabase();
+  const activityGuard = await requireActivityMember(id, currentUserId);
+  if (!activityGuard.ok) return activityGuard.response;
 
-  const doc = await PairActivity.findById(id);
-  if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const doc = activityGuard.data.activity;
 
   doc.status = 'accepted';
   doc.acceptedAt = new Date();

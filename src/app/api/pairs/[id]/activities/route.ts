@@ -1,9 +1,9 @@
 // src/app/api/pairs/[id]/activities/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 
 type Bucket = 'current' | 'suggested' | 'history';
 
@@ -44,14 +44,16 @@ interface Ctx { params: Promise<{ id: string }> }
 export async function GET(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
   const { searchParams } = new URL(req.url);
   const s = searchParams.get('s') || undefined;
 
-  await connectToDatabase();
+  const pairGuard = await requirePairMember(id, currentUserId);
+  if (!pairGuard.ok) return pairGuard.response;
 
-  const { q, limit } = buildQuery(id, s);
+  const { q, limit } = buildQuery(String(pairGuard.data.pair._id), s);
   const list = await PairActivity.find(q)
     .sort({ createdAt: -1 })
     .limit(limit)

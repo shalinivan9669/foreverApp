@@ -2,12 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Pair } from '@/models/Pair';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { Questionnaire, type QuestionItem, type QuestionnaireType } from '@/models/Questionnaire';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { buildVectorUpdate, type VectorQuestion, type VectorAnswer } from '@/utils/vectorUpdates';
 
 interface Ctx { params: Promise<{ id: string; qid: string }> }
@@ -16,7 +16,6 @@ type Body = {
   sessionId?: string;
   questionId: string;
   ui: number;
-  by?: 'A' | 'B';
 };
 
 type QItem = QuestionItem & { _id?: string };
@@ -29,26 +28,23 @@ const hasStringId = (obj: unknown): obj is { _id: string } =>
   && typeof (obj as WithPossibleId)._id === 'string';
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const { id, qid } = await ctx.params;
-  if (!id || !qid) return NextResponse.json({ error: 'missing id/qid' }, { status: 400 });
-
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
+
+  const { id, qid } = await ctx.params;
+  if (!id || !qid) return NextResponse.json({ error: 'missing id/qid' }, { status: 400 });
 
   const { sessionId, questionId, ui } = (await req.json()) as Body;
   if (!questionId || typeof ui !== 'number') {
     return NextResponse.json({ error: 'bad body' }, { status: 400 });
   }
 
+  const pairGuard = await requirePairMember(id, userId);
+  if (!pairGuard.ok) return pairGuard.response;
+  const by = pairGuard.data.by;
+
   await connectToDatabase();
-
-  const pair = await Pair.findById(id).lean();
-  if (!pair) return NextResponse.json({ error: 'pair not found' }, { status: 404 });
-
-  const members = pair.members ?? [];
-  const by: 'A' | 'B' | null = members[0] === userId ? 'A' : members[1] === userId ? 'B' : null;
-  if (!by) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
   // Find or ensure session exists and in progress
   const sess = sessionId

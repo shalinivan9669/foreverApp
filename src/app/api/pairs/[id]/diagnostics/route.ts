@@ -1,10 +1,10 @@
 // GET /api/pairs/[id]/diagnostics
 import { NextRequest, NextResponse } from 'next/server';
-import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 
 type Axis = 'communication' | 'domestic' | 'personalViews' | 'finance' | 'sexuality' | 'psyche';
 const AXES: readonly Axis[] = ['communication','domestic','personalViews','finance','sexuality','psyche'] as const;
@@ -44,15 +44,16 @@ interface Ctx { params: Promise<{ id: string }> }
 export async function GET(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id } = await ctx.params;
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 
+  const pairGuard = await requirePairMember(id, currentUserId);
+  if (!pairGuard.ok) return pairGuard.response;
+
   await connectToDatabase();
-
-  const pair = await Pair.findById(id).lean();
-  if (!pair) return NextResponse.json({ error: 'pair not found' }, { status: 404 });
-
+  const pair = pairGuard.data.pair;
   const [ua, ub] = await Promise.all([
     User.findOne({ id: pair.members[0] }).lean<UserType | null>(),
     User.findOne({ id: pair.members[1] }).lean<UserType | null>(),
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const lastDiagnosticsAt = new Date();
 
   await Pair.updateOne(
-    { _id: new Types.ObjectId(id) },
+    { _id: pair._id },
     { $set: { 'passport.strongSides': passport.strongSides, 'passport.riskZones': passport.riskZones, 'passport.complementMap': passport.complementMap, 'passport.levelDelta': passport.levelDelta, 'passport.lastDiagnosticsAt': lastDiagnosticsAt } }
   );
 

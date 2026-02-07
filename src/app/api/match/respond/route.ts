@@ -1,21 +1,18 @@
-// src/app/api/match/respond/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
-import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType, type LikeStatus } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
+import { jsonForbidden } from '@/lib/auth/errors';
+import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 
 type Body = {
-  userId?: string;            // legacy client field, ignored
-  likeId?: string;            // ObjectId лайка
-  agreements?: boolean[];     // [true,true,true]
-  answers?: string[];         // [string,string]
+  userId?: string; // legacy client field, ignored
+  likeId?: string;
+  agreements?: boolean[];
+  answers?: string[];
 };
 
-/* utils */
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
-const isObjId = (s?: string) => !!s && mongoose.Types.ObjectId.isValid(s);
 const clamp = (s: unknown, max: number) => String(s ?? '').trim().slice(0, max);
 
 function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'] | undefined {
@@ -36,7 +33,6 @@ function buildInitiatorSnapshot(u: UserType | null): LikeType['fromCardSnapshot'
   };
 }
 
-/* handler */
 export async function POST(req: NextRequest) {
   try {
     const auth = requireSession(req);
@@ -47,32 +43,28 @@ export async function POST(req: NextRequest) {
     const likeId = body.likeId ?? req.nextUrl.searchParams.get('id') ?? '';
 
     if (!likeId) return json({ error: 'missing id' }, 400);
-    if (!isObjId(likeId)) return json({ error: 'invalid likeId' }, 400);
-    if (!Array.isArray(body.agreements) || body.agreements.length !== 3 || body.agreements.some(v => v !== true)) {
+    if (!Array.isArray(body.agreements) || body.agreements.length !== 3 || body.agreements.some((v) => v !== true)) {
       return json({ error: 'agreements must be [true,true,true]' }, 400);
     }
     if (!Array.isArray(body.answers) || body.answers.length !== 2) {
       return json({ error: 'answers must have length 2' }, 400);
     }
 
-    await connectToDatabase();
+    const likeGuard = await requireLikeParticipant(likeId, currentUserId);
+    if (!likeGuard.ok) return likeGuard.response;
 
-    // читаем лайк для проверки и сборки снапшота
-    const like = await Like.findById(likeId).lean<LikeType | null>();
-    if (!like) return json({ error: 'like not found' }, 404);
-    if (like.toId !== currentUserId) return json({ error: 'forbidden' }, 403);
+    const { like, role } = likeGuard.data;
+    if (role !== 'to') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
 
     const allowed: LikeStatus[] = ['sent', 'viewed'];
     if (!allowed.includes(like.status)) return json({ error: 'invalid state' }, 409);
 
     const initiator = await User.findOne({ id: like.fromId }).lean<UserType | null>();
-    const initiatorCardSnapshot =
-      buildInitiatorSnapshot(initiator) ?? like.fromCardSnapshot;
+    const initiatorCardSnapshot = buildInitiatorSnapshot(initiator) ?? like.fromCardSnapshot;
     if (!initiatorCardSnapshot) return json({ error: 'initiator card snapshot missing' }, 400);
 
-    // атомарное обновление
     const updated = await Like.findOneAndUpdate(
-      { _id: likeId, toId: currentUserId, status: { $in: allowed } },
+      { _id: like._id, toId: currentUserId, status: { $in: allowed } },
       {
         $set: {
           recipientResponse: {

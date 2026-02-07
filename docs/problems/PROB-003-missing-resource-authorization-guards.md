@@ -51,4 +51,23 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+- 2026-02-07 (Iteration 1-2 / centralized resource authz):
+  - Добавлен единый слой resource-level guards: `src/lib/auth/resourceGuards.ts`:
+    - `requirePairMember(pairId, currentUserId) -> { pair, by: 'A'|'B' }`
+    - `requireActivityMember(activityId, currentUserId) -> { activity, pair, by }`
+    - `requireLikeParticipant(likeId, currentUserId) -> { like, role: 'from'|'to' }`
+  - Добавлен `jsonNotFound(...)` в `src/lib/auth/errors.ts` для унификации `404` ответов из guard-слоя.
+  - Guard-слой подключен во все целевые маршруты:
+    - Pair-scoped: `pairs/[id]/summary`, `diagnostics`, `activities`, `activities/suggest`, `activities/from-template`, `suggest`, `pause`, `resume`, `questionnaires/[qid]/start`, `questionnaires/[qid]/answer`.
+    - Activity-scoped: `activities/[id]/accept`, `cancel`, `checkin`, `complete`.
+    - Like-scoped: `match/like/[id]`, `match/respond`, `match/accept`, `match/reject`, `match/confirm`.
+  - Для pair-questionnaire role `A|B` теперь вычисляется только сервером через `requirePairMember(...).data.by`; зависимость от клиентского `by` убрана.
+  - Единая матрица ошибок для защищенных роутов:
+    - `401` — только когда `requireSession` не проходит.
+    - `403` — валидная сессия, но пользователь не имеет доступа к чужому ресурсу.
+    - `404` — ресурс не существует.
 
+Acceptance criteria:
+- Нельзя прочитать/изменить чужой `Pair`, `PairActivity`, `PairQuestionnaireSession` с валидной, но чужой сессией: `PASS`.
+- Все защищенные роуты возвращают `403` при чужом ресурсе: `PASS`.
+- В роутерах нет прямых `findById` без authz-проверки для приватных сущностей из scope PROB-003: `PASS`.

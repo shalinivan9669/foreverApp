@@ -1,25 +1,24 @@
 // POST /api/pairs/[id]/questionnaires/[qid]/start
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { requireSession } from '@/lib/auth/guards';
+import { requirePairMember } from '@/lib/auth/resourceGuards';
 
 interface Ctx { params: Promise<{ id: string; qid: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
   const { id, qid } = await ctx.params;
   if (!id || !qid) return NextResponse.json({ error: 'missing id/qid' }, { status: 400 });
 
-  await connectToDatabase();
-
-  const pair = await Pair.findById(id).lean();
-  if (!pair) return NextResponse.json({ error: 'pair not found' }, { status: 404 });
+  const pairGuard = await requirePairMember(id, currentUserId);
+  if (!pairGuard.ok) return pairGuard.response;
+  const pair = pairGuard.data.pair;
 
   // Resolve user ObjectIds for members
   const users = await User.find({ id: { $in: pair.members } }).lean<(UserType & { _id: Types.ObjectId })[]>();
