@@ -176,3 +176,42 @@
 - Fixed client pages that used array operators (`filter`/`map`) on raw API JSON by switching to `fetchEnvelope` and explicit `Array.isArray` fallback.
 - Added a minimal GET /lootboxes UI route (src/app/lootboxes/page.tsx) to prevent main-menu prefetch/navigation 404.
 
+## Update 2026-02-07 (Core Refactor: Domain Services + Idempotency)
+
+### Thin controller contract for critical mutations
+Critical mutation handlers now follow:
+1. `requireSession`
+2. `parseJson/parseParams/parseQuery`
+3. `withIdempotency(...)`
+4. domain service call (`src/domain/services/*`)
+5. unified envelope response
+
+### Idempotency-Key contract
+- Header: `Idempotency-Key` (UUID)
+- Scope key: `(userId, route, key)` (unique)
+- Request fingerprint: method + route + normalized request body hash
+- Storage: `idempotency_records` collection (`src/models/IdempotencyRecord.ts`)
+- TTL: 172800 seconds (48 hours)
+
+Replay behavior:
+- Same `(userId, route, key)` + same request hash: replay stored envelope
+- Same key with different request hash: `409 IDEMPOTENCY_KEY_REUSE_CONFLICT`
+- Key exists but first request is still running: `409 IDEMPOTENCY_IN_PROGRESS`
+
+Validation behavior:
+- Missing key: `422 IDEMPOTENCY_KEY_REQUIRED`
+- Invalid UUID key: `422 IDEMPOTENCY_KEY_INVALID`
+
+### Standardized error codes in migrated flow
+- `VALIDATION_ERROR` (`400`)
+- `AUTH_REQUIRED` (`401`)
+- `AUTH_INVALID_SESSION` (`401`)
+- `ACCESS_DENIED` (`403`)
+- `NOT_FOUND` (`404`)
+- `STATE_CONFLICT` (`409`)
+- `IDEMPOTENCY_KEY_REUSE_CONFLICT` (`409`)
+- `IDEMPOTENCY_IN_PROGRESS` (`409`)
+- `IDEMPOTENCY_KEY_REQUIRED` (`422`)
+- `IDEMPOTENCY_KEY_INVALID` (`422`)
+- `INTERNAL` (`500`)
+

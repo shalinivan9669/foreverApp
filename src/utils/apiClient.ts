@@ -28,8 +28,54 @@ type EnvelopeLike<T> = {
   };
 };
 
-export async function fetchEnvelope<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+export type FetchEnvelopeOptions = {
+  idempotency?: boolean;
+};
+
+const fallbackUuid = (): string =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const rand = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
+    return value.toString(16);
+  });
+
+const generateIdempotencyKey = (): string => {
+  if (
+    typeof globalThis.crypto !== 'undefined' &&
+    typeof globalThis.crypto.randomUUID === 'function'
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+  return fallbackUuid();
+};
+
+const withIdempotencyHeader = (
+  init: RequestInit | undefined,
+  options: FetchEnvelopeOptions | undefined
+): RequestInit | undefined => {
+  if (!options?.idempotency) return init;
+
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'POST' && method !== 'PATCH') return init;
+
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Idempotency-Key')) {
+    headers.set('Idempotency-Key', generateIdempotencyKey());
+  }
+
+  return {
+    ...init,
+    headers,
+  };
+};
+
+export async function fetchEnvelope<T>(
+  url: string,
+  init?: RequestInit,
+  options?: FetchEnvelopeOptions
+): Promise<T> {
+  const requestInit = withIdempotencyHeader(init, options);
+  const res = await fetch(url, requestInit);
 
   let payload: EnvelopeLike<T>;
   try {

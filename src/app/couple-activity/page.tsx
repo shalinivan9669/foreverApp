@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useUserStore } from '@/store/useUserStore';
 import { api } from '@/utils/api';
+import { fetchEnvelope } from '@/utils/apiClient';
 import ActivityCard from '@/components/activities/ActivityCard';
 import CheckInModal from '@/components/activities/CheckInModal';
 import BackBar from '@/components/ui/BackBar';
 
-/* Типы, совместимые с PairActivity */
+/* РўРёРїС‹, СЃРѕРІРјРµСЃС‚РёРјС‹Рµ СЃ PairActivity */
 type I18nText = Record<string, string>;
 type CheckIn = { id: string; scale: 'likert5'|'bool'; map: number[]; text: I18nText; weight?: number };
 type Activity = {
@@ -47,7 +48,7 @@ export default function CoupleActivityPage() {
     if (suggestError) console.debug('suggestError', suggestError);
   }, [suggestError]);
 
- // загрузка pairId
+ // Р·Р°РіСЂСѓР·РєР° pairId
 useEffect(() => {
   if (!user) return;
   let on = true;
@@ -55,7 +56,7 @@ useEffect(() => {
     .then(r => (r.ok ? r.json() : null))
     .then(d => {
       if (!on) return;
-      // API /api/pairs/me возвращает сам документ пары (или {pair: ...}) — поддержим оба варианта
+      // API /api/pairs/me РІРѕР·РІСЂР°С‰Р°РµС‚ СЃР°Рј РґРѕРєСѓРјРµРЅС‚ РїР°СЂС‹ (РёР»Рё {pair: ...}) вЂ” РїРѕРґРґРµСЂР¶РёРј РѕР±Р° РІР°СЂРёР°РЅС‚Р°
       const id = d?.pair?._id ?? d?._id ?? null;
       if (id) setPairId(String(id));
     })
@@ -66,8 +67,8 @@ useEffect(() => {
 }, [user]);
 
 
-  // загрузка активностей
-  // загрузка активностей
+  // Р·Р°РіСЂСѓР·РєР° Р°РєС‚РёРІРЅРѕСЃС‚РµР№
+  // Р·Р°РіСЂСѓР·РєР° Р°РєС‚РёРІРЅРѕСЃС‚РµР№
 useEffect(() => {
   if (!pairId) return;
   let on = true;
@@ -75,7 +76,7 @@ useEffect(() => {
   (async () => {
     setLoading(true);
 
-    // Нормализуем ответ: API сейчас отдаёт массив, а фронт ранее ожидал {items:[]}
+    // РќРѕСЂРјР°Р»РёР·СѓРµРј РѕС‚РІРµС‚: API СЃРµР№С‡Р°СЃ РѕС‚РґР°С‘С‚ РјР°СЃСЃРёРІ, Р° С„СЂРѕРЅС‚ СЂР°РЅРµРµ РѕР¶РёРґР°Р» {items:[]}
     const grab = async (s: string) => {
       const res = await fetch(api(`/api/pairs/${pairId}/activities?s=${s}`));
       if (!res.ok) return [] as Activity[];
@@ -102,7 +103,7 @@ useEffect(() => {
 }, [pairId, tab]);
 
 
-  const refresh = () => setTab(t => t); // триггерит useEffect
+  const refresh = () => setTab(t => t); // С‚СЂРёРіРіРµСЂРёС‚ useEffect
 
     const onSuggestNext = async () => {
     if (!pairId || suggestBusy) return;
@@ -110,22 +111,30 @@ useEffect(() => {
     setSuggestError(null);
     try {
       const res = await fetch(api(`/api/pairs/${pairId}/suggest`), { method: 'POST' });
-      if (!res.ok) throw new Error('Не удалось предложить активности');
+      if (!res.ok) throw new Error('РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРµРґР»РѕР¶РёС‚СЊ Р°РєС‚РёРІРЅРѕСЃС‚Рё');
       refresh();
     } catch (e) {
-      setSuggestError(e instanceof Error ? e.message : 'Ошибка');
+      setSuggestError(e instanceof Error ? e.message : 'РћС€РёР±РєР°');
     } finally {
       setSuggestBusy(false);
     }
   };
 
   const onAccept = async (id: string) => {
-    await fetch(api(`/api/activities/${id}/accept`), { method: 'POST' });
+    await fetchEnvelope<Record<string, never>>(
+      api(`/api/activities/${id}/accept`),
+      { method: 'POST' },
+      { idempotency: true }
+    );
     refresh();
   };
 
   const onCancel = async (id: string) => {
-    await fetch(api(`/api/activities/${id}/cancel`), { method: 'POST' });
+    await fetchEnvelope<Record<string, never>>(
+      api(`/api/activities/${id}/cancel`),
+      { method: 'POST' },
+      { idempotency: true }
+    );
     refresh();
   };
 
@@ -137,12 +146,15 @@ const onSubmitCheckIn = async (
   id: string,
   answers: Array<{ checkInId: string; ui: number }>
 ) => {
-  await fetch(api(`/api/activities/${id}/checkin`), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    // TODO: подставить 'A' или 'B' по текущему пользователю относительно pair.members
-    body: JSON.stringify({ by: 'A', answers }),
-  });
+  await fetchEnvelope<{ success: number }>(
+    api(`/api/activities/${id}/checkin`),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ by: 'A', answers }),
+    },
+    { idempotency: true }
+  );
   setCheckInFor(null);
   refresh();
 };
@@ -159,12 +171,12 @@ const onSubmitCheckIn = async (
 
   return (
     <main className="p-4 max-w-3xl mx-auto space-y-4">
-       <BackBar  title="Активности пары" fallbackHref="/main-menu" />
-      <h1 className="text-2xl font-bold">Активности пары</h1>
+       <BackBar  title="РђРєС‚РёРІРЅРѕСЃС‚Рё РїР°СЂС‹" fallbackHref="/main-menu" />
+      <h1 className="text-2xl font-bold">РђРєС‚РёРІРЅРѕСЃС‚Рё РїР°СЂС‹</h1>
 
-      <div className="flex gap-2">{tabBtn('active','Активная')}{tabBtn('suggested','Предложено')}{tabBtn('history','История')}</div>
+      <div className="flex gap-2">{tabBtn('active','РђРєС‚РёРІРЅР°СЏ')}{tabBtn('suggested','РџСЂРµРґР»РѕР¶РµРЅРѕ')}{tabBtn('history','РСЃС‚РѕСЂРёСЏ')}</div>
 
-      {loading && <div className="text-sm text-gray-500">Загрузка…</div>}
+      {loading && <div className="text-sm text-gray-500">Р—Р°РіСЂСѓР·РєР°вЂ¦</div>}
 
       {!loading && tab === 'active' && (
         <div>
@@ -181,10 +193,10 @@ const onSubmitCheckIn = async (
           ) : (
             <div className="rounded border p-4 flex items-center justify-between">
               <div>
-                <div className="font-medium">Нет активной активности</div>
-                <div className="text-sm text-gray-500">Предложим подходящее задание</div>
+                <div className="font-medium">РќРµС‚ Р°РєС‚РёРІРЅРѕР№ Р°РєС‚РёРІРЅРѕСЃС‚Рё</div>
+                <div className="text-sm text-gray-500">РџСЂРµРґР»РѕР¶РёРј РїРѕРґС…РѕРґСЏС‰РµРµ Р·Р°РґР°РЅРёРµ</div>
               </div>
-              <button onClick={onSuggestNext} className="px-3 py-2 rounded bg-black text-white">Предложить</button>
+              <button onClick={onSuggestNext} className="px-3 py-2 rounded bg-black text-white">РџСЂРµРґР»РѕР¶РёС‚СЊ</button>
             </div>
           )}
         </div>
@@ -193,9 +205,9 @@ const onSubmitCheckIn = async (
       {!loading && tab === 'suggested' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button onClick={onSuggestNext} className="px-3 py-2 rounded bg-black text-white">Ещё варианты</button>
+            <button onClick={onSuggestNext} className="px-3 py-2 rounded bg-black text-white">Р•С‰С‘ РІР°СЂРёР°РЅС‚С‹</button>
           </div>
-          {suggested.length === 0 && <div className="text-sm text-gray-500">Пока пусто</div>}
+          {suggested.length === 0 && <div className="text-sm text-gray-500">РџРѕРєР° РїСѓСЃС‚Рѕ</div>}
           {suggested.map(s => (
             <ActivityCard
               key={s._id}
@@ -213,7 +225,7 @@ const onSubmitCheckIn = async (
 
       {!loading && tab === 'history' && (
         <div className="space-y-3">
-          {history.length === 0 && <div className="text-sm text-gray-500">Истории пока нет</div>}
+          {history.length === 0 && <div className="text-sm text-gray-500">РСЃС‚РѕСЂРёРё РїРѕРєР° РЅРµС‚</div>}
           {history.map(h => (
             <ActivityCard
               key={h._id}

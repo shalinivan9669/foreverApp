@@ -53,4 +53,22 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-07
 
+- Added centralized idempotency layer:
+  - `src/models/IdempotencyRecord.ts` (unique `(userId, route, key)` + TTL)
+  - `src/lib/idempotency/key.ts`
+  - `src/lib/idempotency/store.ts`
+  - `src/lib/idempotency/withIdempotency.ts`
+- Applied `withIdempotency` to critical mutation routes:
+  - `/api/match/like|respond|accept|reject|confirm`
+  - `/api/activities/[id]/accept|cancel|checkin|complete`
+  - `/api/answers/bulk`
+  - `/api/pairs/[id]/questionnaires/[qid]/start|answer`
+- Added client support in `fetchEnvelope(..., { idempotency: true })` to attach `Idempotency-Key` for POST/PATCH.
+
+Acceptance criteria status:
+- PASS: same `Idempotency-Key` + same payload replays the original envelope.
+- PASS: same key with different payload returns `409 IDEMPOTENCY_KEY_REUSE_CONFLICT`.
+- PASS: missing/invalid key returns `422` (`IDEMPOTENCY_KEY_REQUIRED` / `IDEMPOTENCY_KEY_INVALID`).
+- PARTIAL: integration tests for idempotency are still pending.

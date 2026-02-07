@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/utils/api';
+import { fetchEnvelope } from '@/utils/apiClient';
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -52,24 +53,23 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch(api('/api/match/like'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toId: candidate.id,
-          agreements: [true, true, true],
-          answers: ans,
-        }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d?.error || 'Не удалось отправить.');
-      }
-      const d = (await res.json()) as { matchScore: number };
-      onSent?.({ matchScore: d.matchScore, toId: candidate.id });
+      const data = await fetchEnvelope<{ id: string; matchScore: number }>(
+        api('/api/match/like'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toId: candidate.id,
+            agreements: [true, true, true],
+            answers: ans,
+          }),
+        },
+        { idempotency: true }
+      );
+      onSent?.({ matchScore: data.matchScore, toId: candidate.id });
       onClose();
     } catch (e) {
-      setErr((e as Error).message || 'Ошибка');
+      setErr((e as Error).message || 'РћС€РёР±РєР°');
     } finally {
       setBusy(false);
     }
@@ -86,19 +86,19 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
             className="rounded-full"
             alt={candidate.username}
           />
-          <div className="font-medium">Лайк {candidate.username}</div>
+          <div className="font-medium">Р›Р°Р№Рє {candidate.username}</div>
           <button onClick={onClose} className="ml-auto text-gray-500 hover:text-black">
-            ✕
+            вњ•
           </button>
         </div>
 
         <div className="p-4 space-y-4">
           {!card ? (
-            <p>Загрузка условий…</p>
+            <p>Р—Р°РіСЂСѓР·РєР° СѓСЃР»РѕРІРёР№вЂ¦</p>
           ) : (
             <>
               <section>
-                <h3 className="font-medium mb-2">Согласие с условиями</h3>
+                <h3 className="font-medium mb-2">РЎРѕРіР»Р°СЃРёРµ СЃ СѓСЃР»РѕРІРёСЏРјРё</h3>
                 <ul className="space-y-2">
                   {card.requirements.map((r, i) => (
                     <li key={i} className="flex items-start gap-2">
@@ -120,7 +120,7 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
               </section>
 
               <section className="space-y-2">
-                <h3 className="font-medium mb-2">Ответьте на вопросы</h3>
+                <h3 className="font-medium mb-2">РћС‚РІРµС‚СЊС‚Рµ РЅР° РІРѕРїСЂРѕСЃС‹</h3>
                 {card.questions.map((q, i) => (
                   <div key={i} className="space-y-1">
                     <div className="text-sm text-gray-500">{q}</div>
@@ -146,14 +146,14 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
 
         <div className="p-4 border-t flex gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">
-            Отмена
+            РћС‚РјРµРЅР°
           </button>
           <button
             onClick={send}
             disabled={!canSend || busy}
             className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
           >
-            {busy ? 'Отправляем…' : 'Отправить заявку'}
+            {busy ? 'РћС‚РїСЂР°РІР»СЏРµРјвЂ¦' : 'РћС‚РїСЂР°РІРёС‚СЊ Р·Р°СЏРІРєСѓ'}
           </button>
         </div>
       </div>

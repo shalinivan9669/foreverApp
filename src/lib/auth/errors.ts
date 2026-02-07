@@ -3,9 +3,9 @@ import { jsonError } from '@/lib/api/response';
 export type AuthErrorCode =
   | 'AUTH_REQUIRED'
   | 'AUTH_INVALID_SESSION'
-  | 'AUTH_FORBIDDEN';
+  | 'ACCESS_DENIED';
 
-export type ResourceErrorCode = 'RESOURCE_NOT_FOUND';
+export type ResourceErrorCode = 'NOT_FOUND';
 
 type ErrorCode = AuthErrorCode | ResourceErrorCode;
 
@@ -21,11 +21,11 @@ export const jsonUnauthorized = (
 ) => jsonAuthError(401, error, code);
 
 export const jsonForbidden = (
-  code: AuthErrorCode = 'AUTH_FORBIDDEN',
+  code: AuthErrorCode = 'ACCESS_DENIED',
   error = 'forbidden'
 ) => jsonAuthError(403, error, code);
 
 export const jsonNotFound = (
-  code: ResourceErrorCode = 'RESOURCE_NOT_FOUND',
+  code: ResourceErrorCode = 'NOT_FOUND',
   error = 'not found'
 ) => jsonAuthError(404, error, code);

@@ -48,4 +48,16 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-07
 
+- Added domain service layer:
+  - `src/domain/services/match.service.ts`
+  - `src/domain/services/activities.service.ts`
+  - `src/domain/services/questionnaires.service.ts`
+- Refactored critical mutation handlers into thin controllers (`auth -> validate -> idempotency -> service`).
+- Moved state/transition logic from route handlers to `src/domain/state/*` machines.
+
+Acceptance criteria status:
+- PASS (scope): migrated mutation handlers are thin and do not contain business transition logic.
+- PASS (scope): resource guards and role resolution executed in services.
+- PARTIAL (global): heavyweight non-scope routes (`activities/next`, `pairs/[id]/suggest`, `pairs/[id]/diagnostics`) remain for follow-up migration.

@@ -144,32 +144,38 @@ export default function InboxPage() {
   const acceptByInitiator = useCallback(async (likeId: string, accepted: boolean) => {
     if (!user) return;
     const endpoint = accepted ? '/api/match/accept' : '/api/match/reject';
-    const res = await fetch(api(endpoint), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ likeId }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(body.error || 'Не удалось сохранить решение');
-      return;
+    try {
+      await fetchEnvelope<Record<string, never> | { already?: true }>(
+        api(endpoint),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ likeId }),
+        },
+        { idempotency: true }
+      );
+      fetchInbox();
+    } catch (e) {
+      alert((e as Error).message || 'Failed to save decision');
     }
-    fetchInbox();
   }, [user, fetchInbox]);
 
   const createPair = useCallback(async (likeId: string) => {
     if (!user) return;
-       const res = await fetch(api('/api/match/confirm'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ likeId }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(body.error || 'Не удалось создать пару');
-      return;
+    try {
+      await fetchEnvelope<{ pairId: string; members: [string, string] }>(
+        api('/api/match/confirm'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ likeId }),
+        },
+        { idempotency: true }
+      );
+      router.replace('/couple-activity');
+    } catch (e) {
+      alert((e as Error).message || 'Failed to create pair');
     }
-    router.replace('/couple-activity');
   }, [router, user]);
 
   /* --- модалка ответа --- */
@@ -340,13 +346,17 @@ function RespondModal(props: {
   useEffect(() => {
     let on = true;
     (async () => {
-      const res = await fetch(api(`/api/match/like/${likeId}`));
-      const d = (await res.json()) as LikeDTO;
-      if (!on) return;
-      setLike(d);
-      setAgree([false, false, false]);
-      setAns(['', '']);
-      setErr(null);
+      try {
+        const data = await fetchEnvelope<LikeDTO>(api(`/api/match/like/${likeId}`));
+        if (!on) return;
+        setLike(data);
+        setAgree([false, false, false]);
+        setAns(['', '']);
+        setErr(null);
+      } catch (e) {
+        if (!on) return;
+        setErr((e as Error).message || 'Failed to submit response');
+      }
     })();
     return () => { on = false; };
   }, [likeId]);
@@ -363,22 +373,26 @@ function RespondModal(props: {
     if (!user || !canSend) return;
     setBusy(true);
     setErr(null);
-    const res = await fetch(api('/api/match/respond'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        likeId,                    // <-- критично: передаём likeId
-        agreements: [true, true, true],
-        answers: ans,
-      }),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setErr(body.error || 'Не удалось отправить ответ');
-      return;
+    try {
+      await fetchEnvelope<{ status: Status }>(
+        api('/api/match/respond'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            likeId,
+            agreements: [true, true, true],
+            answers: ans,
+          }),
+        },
+        { idempotency: true }
+      );
+      onDone();
+    } catch (e) {
+      setErr((e as Error).message || 'Failed to submit response');
+    } finally {
+      setBusy(false);
     }
-    onDone();
   }, [user, canSend, likeId, ans, onDone]);
 
   if (!like) return null;
@@ -459,3 +473,5 @@ function RespondModal(props: {
     </div>
   );
 }
+
+

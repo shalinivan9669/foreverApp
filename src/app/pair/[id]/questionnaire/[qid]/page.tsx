@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/utils/api';
 import { useUserStore } from '@/store/useUserStore';
+import { fetchEnvelope } from '@/utils/apiClient';
 
 type QItem = {
   id?: string;
@@ -51,7 +52,7 @@ export default function PairQuestionnaireRunner() {
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!on || !d) return;
-        setTitle(d?.title?.ru ?? d?.title?.en ?? 'Опросник');
+        setTitle(d?.title?.ru ?? d?.title?.en ?? 'Р В РЎвЂєР В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р В Р вЂ¦Р В РЎвЂР В РЎвЂќ');
         const qs = Array.isArray(d?.questions) ? d.questions as QItem[] : [];
         setQuestions(qs);
       }).catch(() => {});
@@ -62,8 +63,11 @@ export default function PairQuestionnaireRunner() {
   useEffect(() => {
     let on = true;
     if (!pairId || !qnId) return;
-    fetch(api(`/api/pairs/${pairId}/questionnaires/${qnId}/start`), { method: 'POST' })
-      .then(r => r.ok ? r.json() : null)
+    fetchEnvelope<{ sessionId: string; status: 'in_progress'; startedAt: string }>(
+      api(`/api/pairs/${pairId}/questionnaires/${qnId}/start`),
+      { method: 'POST' },
+      { idempotency: true }
+    )
       .then(d => { if (on) setSessionId(d?.sessionId ?? null); })
       .catch(() => {});
     return () => { on = false; };
@@ -78,17 +82,20 @@ export default function PairQuestionnaireRunner() {
     setBusy(true);
     setError(null);
     try {
-      const body = { sessionId, questionId: q.id ?? q._id!, ui, by };
-      const res = await fetch(api(`/api/pairs/${pairId}/questionnaires/${qnId}/answer`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error('Не удалось сохранить ответ');
+      const body = { sessionId, questionId: q.id ?? q._id!, ui };
+      await fetchEnvelope<Record<string, never>>(
+        api(`/api/pairs/${pairId}/questionnaires/${qnId}/answer`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        { idempotency: true }
+      );
       if (idx < questions.length - 1) setIdx(i => i + 1);
       else router.push(`/pair/${pairId}/diagnostics`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
+      setError(e instanceof Error ? e.message : 'Р В РЎвЂєР РЋРІвЂљВ¬Р В РЎвЂР В Р’В±Р В РЎвЂќР В Р’В°');
     } finally {
       setBusy(false);
     }
@@ -104,19 +111,19 @@ export default function PairQuestionnaireRunner() {
   );
   const YesNo = () => (
     <div className="flex gap-2">
-      <button onClick={() => onAnswer(1)} disabled={busy} className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">Нет</button>
-      <button onClick={() => onAnswer(2)} disabled={busy} className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">Да</button>
+      <button onClick={() => onAnswer(1)} disabled={busy} className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">Р В РЎСљР В Р’ВµР РЋРІР‚С™</button>
+      <button onClick={() => onAnswer(2)} disabled={busy} className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">Р В РІР‚СњР В Р’В°</button>
     </div>
   );
 
   return (
     <main className="p-4 max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">{title || 'Опросник'}</h1>
+      <h1 className="text-2xl font-bold">{title || 'Р В РЎвЂєР В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р В Р вЂ¦Р В РЎвЂР В РЎвЂќ'}</h1>
 
-      <div className="text-sm text-gray-600">Вы отвечаете как: <span className="font-medium">{by}</span></div>
+      <div className="text-sm text-gray-600">Р В РІР‚в„ўР РЋРІР‚в„– Р В РЎвЂўР РЋРІР‚С™Р В Р вЂ Р В Р’ВµР РЋРІР‚РЋР В Р’В°Р В Р’ВµР РЋРІР‚С™Р В Р’Вµ Р В РЎвЂќР В Р’В°Р В РЎвЂќ: <span className="font-medium">{by}</span></div>
 
       <div className="border rounded p-4 space-y-3">
-        <div className="text-sm text-gray-500">Вопрос {idx + 1} / {questions.length || 1}</div>
+        <div className="text-sm text-gray-500">Р В РІР‚в„ўР В РЎвЂўР В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“ {idx + 1} / {questions.length || 1}</div>
         <div className="text-lg">{text}</div>
         {scale === 'bool' ? <YesNo/> : <Likert/>}
         {error && <div className="text-sm text-red-600">{error}</div>}

@@ -52,3 +52,38 @@ stateDiagram-v2
 **Гипотезы/Риски/Куда Идём**
 - Ввести явные диаграммы переходов и запреты для статусов `ended`, `suggested`, `expired`, `completed` (сейчас переходы не описаны в коде).
 - Добавить идемпотентность для мутаций статуса (accept/cancel/checkin/complete).
+
+## Update 2026-02-07 (Core Refactor: Centralized Transition Guards)
+
+Centralized pure transition machines added:
+- `src/domain/state/matchMachine.ts` (`matchTransition`)
+- `src/domain/state/activityMachine.ts` (`activityTransition`)
+- `src/domain/state/questionnaireMachine.ts` (`questionnaireTransition`)
+
+All migrated machines now throw:
+- `409 STATE_CONFLICT` for forbidden transitions.
+
+### Match transition map
+- `draft --CREATE--> sent`
+- `sent|viewed --RESPOND(to)--> awaiting_initiator`
+- `awaiting_initiator --ACCEPT(from)--> mutual_ready`
+- `sent|viewed --REJECT(to)--> rejected`
+- `mutual_ready --CONFIRM(from)--> paired`
+
+### Activity transition map
+- `offered --ACCEPT--> accepted`
+- `offered|accepted|in_progress|awaiting_checkin --CANCEL--> cancelled`
+- `accepted|in_progress|awaiting_checkin --CHECKIN--> awaiting_checkin`
+- `accepted|in_progress|awaiting_checkin --COMPLETE--> completed_success|completed_partial|failed`
+
+### Pair questionnaire session transition map
+- `[none] --START--> in_progress`
+- `in_progress --START--> in_progress` (reuse existing active session)
+- `in_progress --ANSWER--> in_progress`
+- `in_progress --COMPLETE--> completed` (reserved path, service-ready)
+
+### Migration scope in this sprint
+- `/api/match/like|respond|accept|reject|confirm`
+- `/api/activities/[id]/accept|cancel|checkin|complete`
+- `/api/answers/bulk`
+- `/api/pairs/[id]/questionnaires/[qid]/start|answer`

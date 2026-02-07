@@ -4,6 +4,7 @@ import { useUserStore }        from '@/store/useUserStore';
 import QuestionCard            from '@/components/QuestionCard';
 import { useRouter }           from 'next/navigation';
 import type { QuestionType }   from '@/models/Question';
+import { fetchEnvelope }       from '@/utils/apiClient';
 
 export default function QuestionnairePage() {
   const user    = useUserStore(s => s.user);
@@ -25,13 +26,17 @@ export default function QuestionnairePage() {
   const submit = async () => {
     if (!user) return;
     setSaving(true);
-    await fetch('/api/answers/bulk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        answers: Object.entries(ans).map(([qid, ui]) => ({ qid, ui }))
-      })
-    });
+    await fetchEnvelope<Record<string, never>>(
+      '/api/answers/bulk',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: Object.entries(ans).map(([qid, ui]) => ({ qid, ui })),
+        }),
+      },
+      { idempotency: true }
+    );
     setSaving(false);
     router.push('/main-menu');
   };

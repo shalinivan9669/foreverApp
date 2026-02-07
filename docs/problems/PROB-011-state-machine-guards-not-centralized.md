@@ -51,4 +51,17 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-07
 
+- Added centralized transition machines:
+  - `src/domain/state/matchMachine.ts`
+  - `src/domain/state/activityMachine.ts`
+  - `src/domain/state/questionnaireMachine.ts`
+- Migrated critical mutation routes to use domain services + machines (`match/*`, `activities/[id]/*`, `answers/bulk`, `pairs/[id]/questionnaires/[qid]/*`).
+- Enforced `STATE_CONFLICT` (`409`) for forbidden transitions in migrated flow.
+
+Acceptance criteria status:
+- PASS (scope): migrated routes no longer mutate status directly in `route.ts`.
+- PASS (scope): invalid transition now returns `409` with `STATE_CONFLICT`.
+- PASS: `docs/03-state-machines.md` updated with centralized transition rules.
+- PARTIAL (global): non-scope routes still need migration to machine-based transitions.

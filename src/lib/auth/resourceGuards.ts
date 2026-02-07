@@ -22,12 +22,12 @@ export const requirePairMember = async (
   await connectToDatabase();
 
   if (!isObjectId(pairId)) {
-    return { ok: false, response: jsonNotFound('RESOURCE_NOT_FOUND', 'pair not found') };
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'pair not found') };
   }
 
   const pair = await Pair.findById(pairId);
   if (!pair) {
-    return { ok: false, response: jsonNotFound('RESOURCE_NOT_FOUND', 'pair not found') };
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'pair not found') };
   }
 
   const by: 'A' | 'B' | null =
@@ -38,7 +38,7 @@ export const requirePairMember = async (
         : null;
 
   if (!by) {
-    return { ok: false, response: jsonForbidden('AUTH_FORBIDDEN', 'forbidden') };
+    return { ok: false, response: jsonForbidden('ACCESS_DENIED', 'forbidden') };
   }
 
   return { ok: true, data: { pair, by } };
@@ -51,12 +51,12 @@ export const requireActivityMember = async (
   await connectToDatabase();
 
   if (!isObjectId(activityId)) {
-    return { ok: false, response: jsonNotFound('RESOURCE_NOT_FOUND', 'activity not found') };
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'activity not found') };
   }
 
   const activity = await PairActivity.findById(activityId);
   if (!activity) {
-    return { ok: false, response: jsonNotFound('RESOURCE_NOT_FOUND', 'activity not found') };
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'activity not found') };
   }
 
   const pairGuard = await requirePairMember(String(activity.pairId), currentUserId);
@@ -81,12 +81,12 @@ export const requireLikeParticipant = async (
   await connectToDatabase();
 
   if (!isObjectId(likeId)) {
-    return { ok: false, response: jsonNotFound('RESOURCE_NOT_FOUND', 'like not found') };
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'like not found') };
   }
 
   const like = await Like.findById(likeId);
   if (!like) {
-    return { ok: false, response: jsonNotFound('RESOURCE_NOT_FOUND', 'like not found') };
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'like not found') };
   }
 
   if (like.fromId === currentUserId) {
@@ -97,5 +97,5 @@ export const requireLikeParticipant = async (
     return { ok: true, data: { like, role: 'to' } };
   }
 
-  return { ok: false, response: jsonForbidden('AUTH_FORBIDDEN', 'forbidden') };
+  return { ok: false, response: jsonForbidden('ACCESS_DENIED', 'forbidden') };
 };

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
 import { api } from '@/utils/api';
+import { fetchEnvelope } from '@/utils/apiClient';
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -75,12 +76,7 @@ export default function LikeDetailsPage() {
       setLoading(true);
       setErr(null);
       try {
-        const res = await fetch(api(`/api/match/like/${id}`));
-        if (!res.ok) {
-          const b = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(b?.error || `HTTP ${res.status}`);
-        }
-        const data = (await res.json()) as LikeDTO;
+        const data = await fetchEnvelope<LikeDTO>(api(`/api/match/like/${id}`));
         if (on) setLike(data);
       } catch (e) {
         if (on) setErr((e as Error).message || 'Ошибка');
@@ -117,16 +113,16 @@ const canCreatePair = useMemo(
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch(api(endpoint), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const b = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(b?.error || `HTTP ${res.status}`);
-      }
-      const fresh = (await fetch(api(`/api/match/like/${id}`)).then((r) => r.json())) as LikeDTO;
+      await fetchEnvelope<Record<string, never> | { pairId: string; members: [string, string] }>(
+        api(endpoint),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        { idempotency: true }
+      );
+      const fresh = await fetchEnvelope<LikeDTO>(api(`/api/match/like/${id}`));
       setLike(fresh);
     } catch (e) {
       setErr((e as Error).message || 'Ошибка');

@@ -1,13 +1,14 @@
-﻿// DTO rule: return only DTO/view model (never raw DB model shape).
+// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { successScore } from '@/utils/activities';
 import { requireSession } from '@/lib/auth/guards';
-import { requireActivityMember } from '@/lib/auth/resourceGuards';
-import { jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { activitiesService } from '@/domain/services/activities.service';
 
-interface Ctx { params: Promise<{ id: string }> }
+interface Ctx {
+  params: Promise<{ id: string }>;
+}
 
 const paramsSchema = z.object({
   id: z.string().min(1),
@@ -37,21 +38,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!body.ok) return body.response;
   const { answers } = body.data;
 
-  const activityGuard = await requireActivityMember(id, currentUserId);
-  if (!activityGuard.ok) return activityGuard.response;
-
-  const by = activityGuard.data.by;
-  const act = activityGuard.data.activity;
-
-  const now = new Date();
-  act.answers = act.answers || [];
-  for (const a of answers) act.answers.push({ checkInId:a.checkInId, by, ui:a.ui, at: now });
-  act.status = 'awaiting_checkin';
-  // РµСЃР»Рё СЃРѕР±СЂР°РЅС‹ РѕР±Р° РЅР°Р±РѕСЂР° РѕС‚РІРµС‚РѕРІ вЂ” РїРѕСЃС‡РёС‚Р°РµРј success РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕ
-  const sc = successScore(act.checkIns, act.answers);
-  act.successScore = sc;
-  await act.save();
-
-  return jsonOk({ success: sc });
+  return withIdempotency({
+    req,
+    route: `/api/activities/${id}/checkin`,
+    userId: currentUserId,
+    requestBody: {
+      id,
+      answers,
+    },
+    execute: () =>
+      activitiesService.checkinActivity({
+        activityId: id,
+        currentUserId,
+        answers,
+      }),
+  });
 }
-

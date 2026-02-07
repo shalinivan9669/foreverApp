@@ -1,13 +1,15 @@
-﻿// DTO rule: return only DTO/view model (never raw DB model shape).
+// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
-import { jsonForbidden } from '@/lib/auth/errors';
-import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
-import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson } from '@/lib/api/validate';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { matchService } from '@/domain/services/match.service';
 
-type Body = { likeId: string; userId?: string }; // userId legacy field is ignored
+type Body = {
+  likeId: string;
+  userId?: string;
+};
 
 const bodySchema = z
   .object({
@@ -23,22 +25,20 @@ export async function POST(req: NextRequest) {
 
   const body = await parseJson(req, bodySchema);
   if (!body.ok) return body.response;
-  const { likeId } = body.data as Body;
 
-  const likeGuard = await requireLikeParticipant(likeId, currentUserId);
-  if (!likeGuard.ok) return likeGuard.response;
+  const payload = body.data as Body;
 
-  const { like, role } = likeGuard.data;
-  if (role !== 'to') return jsonForbidden('AUTH_FORBIDDEN', 'forbidden');
-  if (like.status === 'rejected') return jsonOk({ already: true });
-
-  if (like.status !== 'sent' && like.status !== 'viewed') {
-    return jsonError(400, 'LIKE_INVALID_STATUS', `invalid status ${like.status}`);
-  }
-
-  like.status = 'rejected';
-  await like.save();
-
-  return jsonOk({});
+  return withIdempotency({
+    req,
+    route: '/api/match/reject',
+    userId: currentUserId,
+    requestBody: {
+      likeId: payload.likeId,
+    },
+    execute: () =>
+      matchService.rejectLike({
+        currentUserId,
+        likeId: payload.likeId,
+      }),
+  });
 }
-
