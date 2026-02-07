@@ -1,4 +1,4 @@
-﻿# Changelog (Docs & Project Notes)
+# Changelog (Docs & Project Notes)
 
 ## 2026-02-05
 - Initialized docs-as-primary-context workflow.
@@ -136,3 +136,11 @@ Summary:
 - Fixed Discord Activity auth flow to read `access_token` from envelope and added one-time init guard to avoid duplicate `authenticate` calls.
 - Updated `Go to main menu` flow to read `/api/users/me` via envelope and send minimal JSON body to `/api/logs` in fire-and-forget mode.
 Files: src/utils/apiClient.ts, src/app/page.tsx, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-02-07
+Summary:
+- Fixed client envelope parsing in UI pages with array rendering/filtering (questionnaires, match inbox, search, main-menu status tile) using `fetchEnvelope` and safe array fallback.
+- Added src/app/lootboxes/page.tsx as a minimal route to remove /lootboxes 404 from main-menu navigation/prefetch.
+- Updated match inbox list loading to parse envelope before `rows.filter(...)`.
+Files: src/app/questionnaires/page.tsx, src/app/match/inbox/page.tsx, src/app/search/page.tsx, src/components/main-menu/SearchPairTile.tsx, src/app/lootboxes/page.tsx, docs/04-api-contracts.md, docs/CHANGELOG.md
+

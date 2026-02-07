@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import MatchTabs from '@/components/MatchTabs';
 import { useUserStore } from '@/store/useUserStore';
 import { api } from '@/utils/api';
+import { fetchEnvelope } from '@/utils/apiClient';
 
 /* ----- типы из API ----- */
 type Direction = 'incoming' | 'outgoing';
@@ -110,12 +111,7 @@ export default function InboxPage() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(api('/api/match/inbox'), { signal: ac.signal });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as Row[];
+      const data = await fetchEnvelope<Row[]>(api('/api/match/inbox'), { signal: ac.signal });
       setRows(Array.isArray(data) ? data : []);
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setErr((e as Error).message || 'Ошибка');

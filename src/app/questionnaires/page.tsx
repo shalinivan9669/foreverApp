@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import QuestionnaireCard from '@/components/QuestionnaireCard';
 import BackBar from '@/components/ui/BackBar';
+import { fetchEnvelope } from '@/utils/apiClient';
+import { api } from '@/utils/api';
 
 type Axis =
   | 'communication'
@@ -42,9 +44,8 @@ export default function QuestionnairesPage() {
   const [aud, setAud] = useState<'all' | 'individual' | 'couple'>('all');
 
   useEffect(() => {
-    fetch('/api/questionnaires/cards')
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setList)
+    fetchEnvelope<QuestionnaireCardDTO[]>(api('/api/questionnaires/cards'))
+      .then((data) => setList(Array.isArray(data) ? data : []))
       .catch(() => setList([]));
   }, []);
 

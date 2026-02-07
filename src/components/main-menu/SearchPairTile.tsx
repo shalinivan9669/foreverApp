@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUserStore } from '@/store/useUserStore';
 import { api } from '@/utils/api';
+import { fetchEnvelope } from '@/utils/apiClient';
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -19,10 +20,12 @@ export default function SearchPairTile() {
   useEffect(() => {
     let on = true;
     if (!user) return;
-    fetch(api('/api/pairs/status'))
-      .then((r) => (r.ok ? r.json() : { hasActive: false }))
-      .then((data: PairStatus) => {
+    fetchEnvelope<PairStatus>(api('/api/pairs/status'))
+      .then((data) => {
         if (on) setStatus(data);
+      })
+      .catch(() => {
+        if (on) setStatus({ hasActive: false });
       });
     return () => {
       on = false;

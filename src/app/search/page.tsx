@@ -6,6 +6,7 @@ import { useUserStore } from '@/store/useUserStore';
 import CandidateCard from '@/components/CandidateCard';
 import LikeModal from '@/components/LikeModal';
 import { api } from '@/utils/api';
+import { fetchEnvelope } from '@/utils/apiClient';
 import MatchTabs from '@/components/MatchTabs';
 import BackBar from '@/components/ui/BackBar';
 
@@ -16,6 +17,19 @@ interface Candidate {
   score: number;
 }
 
+type PairMeDTO = {
+  pair: { _id?: string; status?: string } | null;
+  hasActive: boolean;
+};
+
+type MatchCardDTO = {
+  requirements: [string, string, string];
+  give: [string, string, string];
+  questions: [string, string];
+  isActive: boolean;
+  updatedAt?: string;
+} | null;
+
 export default function SearchPage() {
   const user = useUserStore((s) => s.user);
   const router = useRouter();
@@ -24,29 +38,21 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ id: string; username: string; avatar: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false); // грузим ленту только если не редиректим
+  const [ready, setReady] = useState(false);
 
-  // гвард: активная пара / наличие карточки
   useEffect(() => {
     if (!user) return;
     let on = true;
 
     (async () => {
       const [pairPayload, card] = await Promise.all([
-        fetch(api('/api/pairs/me')).then((r) => (r.ok ? r.json() : null)),
-        fetch(api('/api/match/card')).then((r) => (r.ok ? r.json() : null)),
+        fetchEnvelope<PairMeDTO>(api('/api/pairs/me')),
+        fetchEnvelope<MatchCardDTO>(api('/api/match/card')),
       ]);
-
-      // поддерживаем оба формата: {pair: ...} и плоский doc/null
-      const p = pairPayload && typeof pairPayload === 'object'
-        ? ('pair' in pairPayload ? pairPayload.pair : pairPayload)
-        : null;
-
-      const isActive = !!(p && p._id && p.status === 'active');
 
       if (!on) return;
 
-      if (isActive) {
+      if (pairPayload.hasActive) {
         router.replace('/couple-activity');
         return;
       }
@@ -59,19 +65,22 @@ export default function SearchPage() {
       setReady(true);
     })().catch(() => setReady(true));
 
-    return () => { on = false; };
+    return () => {
+      on = false;
+    };
   }, [user, router]);
 
-  // загрузка ленты кандидатов
   useEffect(() => {
     if (!user || !ready) return;
     setLoading(true);
     setError(null);
 
-    fetch(api('/api/match/feed'))
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((items: Candidate[]) => setList(items ?? []))
-      .catch(async (r: Response) => setError((await r.json().catch(() => ({})))?.error || 'Ошибка'))
+    fetchEnvelope<Candidate[]>(api('/api/match/feed'))
+      .then((items) => setList(Array.isArray(items) ? items : []))
+      .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : 'Ошибка';
+        setError(message);
+      })
       .finally(() => setLoading(false));
   }, [user, ready]);
 
@@ -101,3 +110,4 @@ export default function SearchPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-﻿**API Standard (2026-02-07, PROB-005 + PROB-016)**
+**API Standard (2026-02-07, PROB-005 + PROB-016)**
 
 1. Unified response envelope for every `/api/*` handler:
    - Success: `{ ok: true, data: T, meta?: {...} }`
@@ -170,3 +170,9 @@
 - Added client envelope helper `src/utils/apiClient.ts` (`ApiOk`, `ApiErr`, `ApiEnvelope`, `fetchEnvelope<T>`).
 - Updated Discord Activity entry page to unwrap envelope for `/api/exchange-code` and `/api/users/me`.
 - Updated Activity logs call to send JSON body (`{}`) with `Content-Type: application/json` in fire-and-forget mode.
+
+## Update 2026-02-07 (Client envelope guard + lootboxes route)
+
+- Fixed client pages that used array operators (`filter`/`map`) on raw API JSON by switching to `fetchEnvelope` and explicit `Array.isArray` fallback.
+- Added a minimal GET /lootboxes UI route (src/app/lootboxes/page.tsx) to prevent main-menu prefetch/navigation 404.
+
