@@ -16,5 +16,8 @@ This folder is the primary source of project context.
 ## ADRs
 - `ADR/` ? architecture decisions and rationale (chronological).
 
+## Problems
+- `problems/` ? problem registry: current gaps, target state, execution plan, and closure outcome (`PROB-XXX-*`).
+
 ## Evidence
 - `_evidence/` ? supporting artifacts like repo scans and notes.
