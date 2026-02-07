@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // GET /api/pairs/[id]/diagnostics
 import { NextRequest } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -81,4 +82,5 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   return jsonOk({ pairId: id, passport: { ...passport, lastDiagnosticsAt } });
 }
+
 

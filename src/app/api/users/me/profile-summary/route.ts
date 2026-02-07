@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // src/app/api/users/me/profile-summary/route.ts
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
@@ -27,7 +28,7 @@ const AXES: Axis[] = [
   'psyche',
 ];
 
-// ── Локальные расширения типов (чтобы не править модели прямо сейчас) ─────────
+// в”Ђв”Ђ Р›РѕРєР°Р»СЊРЅС‹Рµ СЂР°СЃС€РёСЂРµРЅРёСЏ С‚РёРїРѕРІ (С‡С‚РѕР±С‹ РЅРµ РїСЂР°РІРёС‚СЊ РјРѕРґРµР»Рё РїСЂСЏРјРѕ СЃРµР№С‡Р°СЃ) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 type PairLean = PairType & { _id: Types.ObjectId; createdAt: Date };
 type UserExtra = Partial<{
   featureFlags: { PERSONAL_ACTIVITIES?: boolean };
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
   const user = await User.findOne({ id: userId }).lean<UserType & UserExtra | null>();
   if (!user) return jsonError(404, 'USER_NOT_FOUND', 'no user');
 
-  // Пара: сначала активная/пауза
+  // РџР°СЂР°: СЃРЅР°С‡Р°Р»Р° Р°РєС‚РёРІРЅР°СЏ/РїР°СѓР·Р°
   const activeOrPaused = await Pair.findOne({
     members: userId,
     status: { $in: ['active', 'paused'] },
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean<PairLean | null>();
 
-  // Любая последняя — чтобы различить solo:new vs solo:history
+  // Р›СЋР±Р°СЏ РїРѕСЃР»РµРґРЅСЏСЏ вЂ” С‡С‚РѕР±С‹ СЂР°Р·Р»РёС‡РёС‚СЊ solo:new vs solo:history
   const lastAny =
     activeOrPaused ??
     (await Pair.findOne({ members: userId }).sort({ createdAt: -1 }).lean<PairLean | null>());
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
       ? { _id: String(activeOrPaused._id), status: activeOrPaused.status, since: activeOrPaused.createdAt }
       : null;
 
-  // Уровни по 6 осям из user.vectors (0..100)
+  // РЈСЂРѕРІРЅРё РїРѕ 6 РѕСЃСЏРј РёР· user.vectors (0..100)
   const levelsByAxis: Record<Axis, number> = {
     communication: 0,
     domestic: 0,
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
     levelsByAxis[a] = Math.round(clamped * 100);
   });
 
-  // Сильные/зоны роста — простая эвристика по количеству facets
+  // РЎРёР»СЊРЅС‹Рµ/Р·РѕРЅС‹ СЂРѕСЃС‚Р° вЂ” РїСЂРѕСЃС‚Р°СЏ СЌРІСЂРёСЃС‚РёРєР° РїРѕ РєРѕР»РёС‡РµСЃС‚РІСѓ facets
   const strongSides: string[] = [];
   const growthAreas: string[] = [];
   AXES.forEach((a) => {
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
     if (neg >= 2) growthAreas.push(a);
   });
 
-  // Инбокс/аутбокс
+  // РРЅР±РѕРєСЃ/Р°СѓС‚Р±РѕРєСЃ
   const [inboxCount, outboxCount] = await Promise.all([
     Like.countDocuments({
       toId: userId,
@@ -112,7 +113,7 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  // Фильтры/предпочтения
+  // Р¤РёР»СЊС‚СЂС‹/РїСЂРµРґРїРѕС‡С‚РµРЅРёСЏ
 const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
   const filters = {
     age: [prefs?.desiredAgeRange?.min ?? 18, prefs?.desiredAgeRange?.max ?? 99],
@@ -146,8 +147,8 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
       boundaries: user.passport?.boundaries ?? [],
     },
     activity: {
-      current: null as null, // персональные активности пока не реализованы
-      suggested: [] as unknown[], // заглушка
+      current: null as null, // РїРµСЂСЃРѕРЅР°Р»СЊРЅС‹Рµ Р°РєС‚РёРІРЅРѕСЃС‚Рё РїРѕРєР° РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅС‹
+      suggested: [] as unknown[], // Р·Р°РіР»СѓС€РєР°
       historyCount: 0,
     },
     matching: {
@@ -155,7 +156,7 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
       outboxCount,
       filters,
     },
-    insights: [] as unknown[], // заглушка (добавим, когда появится модель Insight)
+    insights: [] as unknown[], // Р·Р°РіР»СѓС€РєР° (РґРѕР±Р°РІРёРј, РєРѕРіРґР° РїРѕСЏРІРёС‚СЃСЏ РјРѕРґРµР»СЊ Insight)
     featureFlags: {
       PERSONAL_ACTIVITIES: Boolean(user.featureFlags?.PERSONAL_ACTIVITIES),
     },
@@ -163,3 +164,4 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
 
   return jsonOk(payload);
 }
+

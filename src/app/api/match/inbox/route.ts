@@ -8,6 +8,9 @@ import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { toUserDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 type Direction = 'incoming' | 'outgoing';
 
@@ -73,6 +76,7 @@ export async function GET(req: NextRequest) {
     const direction: Direction = l.toId === userId ? 'incoming' : 'outgoing';
     const peerId = direction === 'incoming' ? l.fromId : l.toId;
     const u = uMap.get(peerId);
+    const peerDto = u ? toUserDTO(u, { scope: 'public' }) : { id: peerId, username: peerId, avatar: '' };
 
     // Создание пары допускаем только когда всё согласовано
     // (mutual_ready) и текущий пользователь — инициатор (fromId).
@@ -85,11 +89,7 @@ export async function GET(req: NextRequest) {
       status: l.status,
       matchScore: l.matchScore,
       updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
-      peer: {
-        id: peerId,
-        username: u?.username ?? peerId,
-        avatar: u?.avatar ?? '',
-      },
+      peer: peerDto,
       canCreatePair,
     };
   });

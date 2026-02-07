@@ -5,6 +5,9 @@ import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson } from '@/lib/api/validate';
+import { toUserDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 const bodySchema = z.object({}).passthrough();
 
@@ -30,5 +33,12 @@ export async function PATCH(req: NextRequest) {
   ).lean<UserType | null>();
 
   if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(doc);
+  return jsonOk(
+    toUserDTO(doc, {
+      scope: 'private',
+      includeOnboarding: true,
+      includeMatchCard: true,
+      includeLocation: true,
+    })
+  );
 }

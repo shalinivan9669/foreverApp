@@ -52,3 +52,21 @@ DTO формируются несистемно: часть роутов воз�
 
 ## Done / Outcome
 
+## Update 2026-02-07 (PROB-006 Iteration 1)
+
+### Done / Outcome
+- Added centralized DTO layer under `src/lib/dto/*` with entity mappers (`User`, `Pair`, `PairActivity`, `Like`, `Questionnaire`, `Question`, `ActivityTemplate`, `Log`).
+- Migrated high-risk read/write API routes away from raw Mongoose response shapes to explicit DTO/view-model returns.
+- Added route-level guard comment for all API handlers: `return only DTO/view model`.
+- Standardized user privacy boundaries: public user payloads are now explicitly separated from private/self payloads.
+
+### Acceptance Criteria
+| Criterion | Status | Notes |
+|---|---|---|
+| No raw Mongoose documents returned from public API handlers | PASS | High-risk endpoints (`users/*`, `questionnaires/*`, `questions`, `activity-templates`, `pairs/me`, `pairs/[id]/summary`, `pairs/[id]/activities`, `match/card`, `match/feed`, `match/inbox`, `match/like/[id]`, `logs`) now use DTO mappers. |
+| Every public endpoint has named DTO/view-model return shape | PASS | DTO functions live in `src/lib/dto/*`; route handlers map domain objects via `to*DTO`. |
+| Client contract remains stable under model-level schema changes | PASS (with migration note) | Compatibility aliases are preserved where needed (e.g. legacy `_id` mirror for pair/activity payloads) while canonical DTO id is `id`. |
+
+### Migration Note
+- Canonical API identity field in DTOs is `id`.
+- Some routes preserve compatibility alias `_id` short-term to avoid immediate frontend breakage; clients should migrate to `id`.

@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { successScore } from '@/utils/activities';
@@ -46,10 +47,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   act.answers = act.answers || [];
   for (const a of answers) act.answers.push({ checkInId:a.checkInId, by, ui:a.ui, at: now });
   act.status = 'awaiting_checkin';
-  // если собраны оба набора ответов — посчитаем success предварительно
+  // РµСЃР»Рё СЃРѕР±СЂР°РЅС‹ РѕР±Р° РЅР°Р±РѕСЂР° РѕС‚РІРµС‚РѕРІ вЂ” РїРѕСЃС‡РёС‚Р°РµРј success РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕ
   const sc = successScore(act.checkIns, act.answers);
   act.successScore = sc;
   await act.save();
 
   return jsonOk({ success: sc });
 }
+

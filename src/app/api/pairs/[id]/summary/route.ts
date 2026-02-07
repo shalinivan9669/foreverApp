@@ -9,6 +9,9 @@ import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
+import { toLikeSummaryDTO, toPairActivityDTO, toPairDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 interface Ctx { params: Promise<{ id: string }> }
 
@@ -56,20 +59,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .lean();
 
   return jsonOk({
-    pair,
-    currentActivity: current ?? null,
-    suggestedCount,
-    lastLike: lastLike
-      ? {
-          id: String(lastLike._id),
-          matchScore: lastLike.matchScore,
-          updatedAt: lastLike.updatedAt,
-          fromId: lastLike.fromId,
-          toId: lastLike.toId,
-          agreements: lastLike.agreements ?? [],
-          answers: lastLike.answers ?? [],
-          recipientResponse: lastLike.recipientResponse ?? null,
-        }
+    pair: toPairDTO(pair, { includeLegacyId: true, includePassport: true, includeMetrics: true }),
+    currentActivity: current
+      ? toPairActivityDTO(current, { includeLegacyId: true, includeAnswers: false })
       : null,
+    suggestedCount,
+    lastLike: lastLike ? toLikeSummaryDTO(lastLike) : null,
   });
 }

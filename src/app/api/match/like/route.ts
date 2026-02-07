@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // src/app/api/match/like/route.ts
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
@@ -13,7 +14,7 @@ export const runtime = 'nodejs';
 type Body = {
   userId?: string;              // legacy client field, ignored
   fromId?: string;              // legacy client field, ignored
-  toId?: string;                // получатель
+  toId?: string;                // РїРѕР»СѓС‡Р°С‚РµР»СЊ
   agreements?: boolean[];       // [true,true,true]
   answers?: string[];           // [string,string]
 };
@@ -62,14 +63,14 @@ export async function POST(req: NextRequest) {
 
   await connectToDatabase();
 
-  // снимок карточки инициатора
+  // СЃРЅРёРјРѕРє РєР°СЂС‚РѕС‡РєРё РёРЅРёС†РёР°С‚РѕСЂР°
   const initiator = await User.findOne({ id: fromId }).lean<UserType | null>();
   const fromCardSnapshot = buildInitiatorSnapshot(initiator);
   if (!fromCardSnapshot) {
     return jsonError(400, 'INITIATOR_CARD_SNAPSHOT_MISSING', 'initiator card snapshot missing');
   }
 
-  // базовый скор, при желании подставишь свою формулу
+  // Р±Р°Р·РѕРІС‹Р№ СЃРєРѕСЂ, РїСЂРё Р¶РµР»Р°РЅРёРё РїРѕРґСЃС‚Р°РІРёС€СЊ СЃРІРѕСЋ С„РѕСЂРјСѓР»Сѓ
   const matchScore = Math.max(0, Math.min(100, 75));
 
   const like = await Like.create({
@@ -82,3 +83,4 @@ export async function POST(req: NextRequest) {
 
   return jsonOk({ id: String(like._id), matchScore });
 }
+

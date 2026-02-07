@@ -1,114 +1,68 @@
-  // src/app/api/match/like/[id]/route.ts
-  import { NextRequest } from 'next/server';
-  import { z } from 'zod';
-  import { type LikeType, type LikeStatus } from '@/models/Like';
-  import { User, type UserType } from '@/models/User';
-  import { requireSession } from '@/lib/auth/guards';
-  import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
-  import { jsonOk } from '@/lib/api/response';
-  import { parseParams, parseQuery } from '@/lib/api/validate';
+﻿// src/app/api/match/like/[id]/route.ts
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { User, type UserType } from '@/models/User';
+import { requireSession } from '@/lib/auth/guards';
+import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
+import { jsonOk } from '@/lib/api/response';
+import { parseParams, parseQuery } from '@/lib/api/validate';
+import { toLikeDTO } from '@/lib/dto';
 
-  type DTO = {
-    id: string;
-    status: LikeStatus;
-    matchScore: number;
-    updatedAt?: string;
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
-    from: { id: string; username: string; avatar: string };
-    to:   { id: string; username: string; avatar: string };
+interface Ctx {
+  params: Promise<{ id: string }>;
+}
 
-    /** legacy-поля инициатора — теперь опциональны */
-    agreements?: [boolean, boolean, boolean];
-    answers?: [string, string];
-    cardSnapshot?: LikeType['cardSnapshot'];
+const paramsSchema = z.object({
+  id: z.string().min(1),
+});
 
-    /** новое поле — снимок карточки получателя при отправке лайка инициатором */
-    fromCardSnapshot?: LikeType['fromCardSnapshot'];
+export async function GET(req: NextRequest, ctx: Ctx) {
+  const query = parseQuery(req, z.object({}).passthrough());
+  if (!query.ok) return query.response;
 
-    /** ответы получателя на карточку инициатора (если уже ответил) */
-    recipientResponse: null | {
-      agreements: [boolean, boolean, boolean];
-      answers: [string, string];
-      initiatorCardSnapshot: NonNullable<LikeType['recipientResponse']>['initiatorCardSnapshot'];
-      at: string;
-    };
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+  const currentUserId = auth.data.userId;
 
-    decisions: {
-      initiator: null | { accepted: boolean; at: string };
-      recipient: null | { accepted: boolean; at: string };
-    };
+  const params = parseParams(await ctx.params, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id } = params.data;
+
+  const likeGuard = await requireLikeParticipant(id, currentUserId);
+  if (!likeGuard.ok) return likeGuard.response;
+  const like = likeGuard.data.like;
+
+  const users = await User.find({ id: { $in: [like.fromId, like.toId] } })
+    .select({ id: 1, username: 1, avatar: 1 })
+    .lean<UserType[]>();
+
+  const byId = new Map(users.map((user) => [user.id, user]));
+
+  const likeInput: Parameters<typeof toLikeDTO>[0] = {
+    _id: like._id,
+    fromId: like.fromId,
+    toId: like.toId,
+    matchScore: like.matchScore,
+    status: like.status,
+    createdAt: like.createdAt,
+    updatedAt: like.updatedAt,
+    fromCardSnapshot: like.fromCardSnapshot,
+    recipientResponse: like.recipientResponse,
+    recipientDecision: like.recipientDecision,
+    initiatorDecision: like.initiatorDecision,
+    agreements: like.agreements,
+    answers: like.answers,
+    cardSnapshot: like.cardSnapshot,
   };
 
-  const avatarUrl = (id: string, avatar?: string) =>
-    avatar
-      ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
-      : `https://cdn.discordapp.com/embed/avatars/0.png`;
-
-  interface Ctx { params: Promise<{ id: string }> }
-
-  const paramsSchema = z.object({
-    id: z.string().min(1),
+  const dto = toLikeDTO(likeInput, {
+    fromUser: byId.get(like.fromId) ?? null,
+    toUser: byId.get(like.toId) ?? null,
+    includeLegacy: true,
+    avatarMode: 'url',
   });
 
-  export async function GET(req: NextRequest, ctx: Ctx) {
-    const query = parseQuery(req, z.object({}).passthrough());
-    if (!query.ok) return query.response;
-
-    const auth = requireSession(req);
-    if (!auth.ok) return auth.response;
-    const currentUserId = auth.data.userId;
-
-    const params = parseParams(await ctx.params, paramsSchema);
-    if (!params.ok) return params.response;
-    const { id } = params.data;
-
-    const likeGuard = await requireLikeParticipant(id, currentUserId);
-    if (!likeGuard.ok) return likeGuard.response;
-    const l = likeGuard.data.like;
-
-    const users = await User.find({ id: { $in: [l.fromId, l.toId] } })
-      .select({ id: 1, username: 1, avatar: 1 })
-      .lean<UserType[]>();
-
-    const byId = new Map(users.map(u => [u.id, u]));
-    const fromU = byId.get(l.fromId);
-    const toU   = byId.get(l.toId);
-
-    const dto: DTO = {
-      id: String(l._id),
-      status: l.status,
-      matchScore: l.matchScore,
-      updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
-
-      from: { id: l.fromId, username: fromU?.username ?? l.fromId, avatar: avatarUrl(l.fromId, fromU?.avatar) },
-      to:   { id: l.toId,   username: toU?.username   ?? l.toId,   avatar: avatarUrl(l.toId,   toU?.avatar) },
-
-      // legacy-поля — могут отсутствовать
-      agreements: l.agreements,
-      answers:    l.answers,
-      cardSnapshot: l.cardSnapshot,
-
-      // новое поле
-      fromCardSnapshot: l.fromCardSnapshot,
-
-      recipientResponse: l.recipientResponse
-        ? {
-            agreements: l.recipientResponse.agreements,
-            answers: l.recipientResponse.answers,
-            initiatorCardSnapshot: l.recipientResponse.initiatorCardSnapshot,
-            at: new Date(l.recipientResponse.at).toISOString(),
-          }
-        : null,
-
-      decisions: {
-        initiator: l.initiatorDecision
-          ? { accepted: l.initiatorDecision.accepted, at: new Date(l.initiatorDecision.at).toISOString() }
-          : null,
-        recipient: l.recipientDecision
-          ? { accepted: l.recipientDecision.accepted, at: new Date(l.recipientDecision.at).toISOString() }
-          : null,
-      },
-    };
-
-    return jsonOk(dto);
-  }
+  return jsonOk(dto);
+}

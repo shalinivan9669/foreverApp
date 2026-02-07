@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // POST /api/pairs/[id]/questionnaires/[qid]/answer
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
@@ -124,3 +125,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   return jsonOk({});
 }
+

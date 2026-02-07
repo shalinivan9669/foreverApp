@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
@@ -87,7 +88,7 @@ async function seedSuggestionsForPair(pairId: Types.ObjectId) {
         facetsTarget: tpl.facetsTarget ?? [],
         title: tpl.title,
         description: tpl.description,
-        why: { ru: `Работа с риском по оси ${topRisk.axis}`, en: `Work on ${topRisk.axis} risk` },
+        why: { ru: `Р Р°Р±РѕС‚Р° СЃ СЂРёСЃРєРѕРј РїРѕ РѕСЃРё ${topRisk.axis}`, en: `Work on ${topRisk.axis} risk` },
         mode: 'together',
         sync: 'sync',
         difficulty: tpl.difficulty,
@@ -177,3 +178,4 @@ export async function POST(req: NextRequest) {
 
   return jsonOk({ pairId: String(pair._id), members });
 }
+

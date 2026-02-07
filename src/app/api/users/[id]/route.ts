@@ -5,6 +5,9 @@ import { User, UserType } from '../../../../models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams, parseQuery } from '@/lib/api/validate';
+import { toUserDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -38,7 +41,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   await connectToDatabase();
   const doc = await User.findOne({ id }).lean<UserType | null>();
   if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(doc);
+  return jsonOk(toUserDTO(doc, { scope: 'public' }));
 }
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
@@ -66,5 +69,5 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     { new: true, runValidators: true }
   ).lean<UserType | null>();
   if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(doc);
+  return jsonOk(toUserDTO(doc, { scope: 'public' }));
 }

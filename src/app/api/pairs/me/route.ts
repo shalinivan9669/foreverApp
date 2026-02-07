@@ -5,6 +5,9 @@ import { Pair } from '@/models/Pair';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { toPairDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 export async function GET(req: NextRequest) {
   const query = parseQuery(req, z.object({}).passthrough());
@@ -35,7 +38,7 @@ export async function GET(req: NextRequest) {
   const hasAny = !!pair;
 
   return jsonOk({
-    pair: pair ?? null,
+    pair: pair ? toPairDTO(pair, { includeLegacyId: true, includePassport: true, includeMetrics: true }) : null,
     hasActive,
     hasAny,
     status, // 'active' | 'paused' | 'ended' | null

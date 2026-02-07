@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -66,3 +67,4 @@ export async function POST(req: NextRequest) {
   await User.updateOne({ id: userId }, update);
   return jsonOk({});
 }
+

@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
@@ -62,17 +63,17 @@ type CompletedSession = Session & { status: 'completed' };
 const SYSTEM_TAGS = new Set(['baseline', 'multi-axis', 'starter']);
 
 const axisLabel: Record<Axis, string> = {
-  communication: 'коммуникацию',
-  domestic: 'быт',
-  personalViews: 'взгляды',
-  finance: 'финансы',
-  sexuality: 'интим',
-  psyche: 'психику',
+  communication: 'РєРѕРјРјСѓРЅРёРєР°С†РёСЋ',
+  domestic: 'Р±С‹С‚',
+  personalViews: 'РІР·РіР»СЏРґС‹',
+  finance: 'С„РёРЅР°РЅСЃС‹',
+  sexuality: 'РёРЅС‚РёРј',
+  psyche: 'РїСЃРёС…РёРєСѓ',
 };
 
 const toTitle = (q: QDoc) => q.title?.ru ?? q.title?.en ?? q._id;
 const toSubtitle = (q: QDoc) =>
-  q.description?.ru ?? q.description?.en ?? `Прокачает ${axisLabel[q.axis]}`;
+  q.description?.ru ?? q.description?.en ?? `РџСЂРѕРєР°С‡Р°РµС‚ ${axisLabel[q.axis]}`;
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
@@ -211,7 +212,7 @@ export async function GET(req: NextRequest) {
       level,
       status,
       progressPct: status === 'in_progress' || status === 'completed' ? progressPct : undefined,
-      lockReason: locked ? 'нужна пара' : undefined,
+      lockReason: locked ? 'РЅСѓР¶РЅР° РїР°СЂР°' : undefined,
       cta,
       isStarter,
       pairId: pairId ? String(pairId) : null,
@@ -220,3 +221,4 @@ export async function GET(req: NextRequest) {
 
   return jsonOk(cards);
 }
+

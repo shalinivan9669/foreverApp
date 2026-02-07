@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { applyEffects, successScore, clamp } from '@/utils/activities';
@@ -47,3 +48,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   await act.save();
   return jsonOk({ success: clamp(sc), status });
 }
+

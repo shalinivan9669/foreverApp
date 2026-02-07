@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { requireActivityMember } from '@/lib/auth/resourceGuards';
@@ -28,3 +29,4 @@ export async function POST(req: Request, ctx: Ctx) {
 
   return jsonOk({});
 }
+

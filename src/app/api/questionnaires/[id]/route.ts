@@ -8,6 +8,9 @@ import { buildVectorUpdate, type VectorQuestion } from '@/utils/vectorUpdates';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
+import { toQuestionnaireDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 type AnswerItem = { qid: string; ui: number };
 type Body =
@@ -66,7 +69,7 @@ export async function GET(
   await connectToDatabase();
   const doc = await Questionnaire.findOne({ _id: id }).lean<QuestionnaireType | null>();
   if (!doc) return jsonError(404, 'QUESTIONNAIRE_NOT_FOUND', 'not found');
-  return jsonOk(doc);
+  return jsonOk(toQuestionnaireDTO(doc));
 }
 
 export async function POST(req: NextRequest) {

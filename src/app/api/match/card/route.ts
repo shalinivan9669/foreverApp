@@ -5,6 +5,9 @@ import { User } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseQuery } from '@/lib/api/validate';
+import { toMatchCardDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 type Body = {
   userId?: string; // legacy client field, ignored
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
 
   if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
 
-  return jsonOk(doc.profile?.matchCard ?? null);
+  return jsonOk(toMatchCardDTO(doc.profile?.matchCard ?? null));
 }
 
 export async function GET(req: NextRequest) {
@@ -81,5 +84,5 @@ export async function GET(req: NextRequest) {
 
   await connectToDatabase();
   const doc = await User.findOne({ id: currentUserId }, { 'profile.matchCard': 1, _id: 0 }).lean();
-  return jsonOk(doc?.profile?.matchCard ?? null);
+  return jsonOk(toMatchCardDTO(doc?.profile?.matchCard ?? null));
 }

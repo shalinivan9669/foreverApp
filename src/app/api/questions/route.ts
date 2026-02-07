@@ -6,6 +6,9 @@ import type { QuestionType } from '@/models/Question';
 import type { PipelineStage } from 'mongoose';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { toQuestionDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 const querySchema = z
   .object({
@@ -30,5 +33,5 @@ export async function GET(req: NextRequest) {
   pipeline.push({ $sample: { size: limit } } as PipelineStage);
 
   const docs = await Question.aggregate<QuestionType>(pipeline);
-  return jsonOk(docs);
+  return jsonOk(docs.map((question) => toQuestionDTO(question)));
 }

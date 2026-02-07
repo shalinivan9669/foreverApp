@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // src/app/api/activities/next/route.ts
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
@@ -17,13 +18,13 @@ import { parseQuery } from '@/lib/api/validate';
 
 type LeanUser = UserType & { _id: Types.ObjectId };
 
-// подпорка для «доп. полей» в шаблоне без any
+// РїРѕРґРїРѕСЂРєР° РґР»СЏ В«РґРѕРї. РїРѕР»РµР№В» РІ С€Р°Р±Р»РѕРЅРµ Р±РµР· any
 type TemplateExtra = {
   fatigueDeltaOnComplete?: number;
   readinessDeltaOnComplete?: number;
 };
 
-// авто-правило дельт, если их нет в шаблоне
+// Р°РІС‚Рѕ-РїСЂР°РІРёР»Рѕ РґРµР»СЊС‚, РµСЃР»Рё РёС… РЅРµС‚ РІ С€Р°Р±Р»РѕРЅРµ
 function autoDeltas(intent: 'improve' | 'celebrate', intensity: 1 | 2 | 3) {
   if (intent === 'celebrate') {
     return {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     return jsonError(404, 'PAIR_NOT_FOUND', 'no active pair');
   }
 
-  // строго типизируем элемент зоны риска
+  // СЃС‚СЂРѕРіРѕ С‚РёРїРёР·РёСЂСѓРµРј СЌР»РµРјРµРЅС‚ Р·РѕРЅС‹ СЂРёСЃРєР°
   type RiskItem = { axis: Axis; severity: 1 | 2 | 3 };
   const risks = (pair.passport?.riskZones ?? []) as unknown as RiskItem[];
   const topRisk: RiskItem | undefined = risks
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
   const offeredAt = new Date();
   const dueAt = new Date(offeredAt.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-  // берём дельты из шаблона (если есть), иначе авто-правило
+  // Р±РµСЂС‘Рј РґРµР»СЊС‚С‹ РёР· С€Р°Р±Р»РѕРЅР° (РµСЃР»Рё РµСЃС‚СЊ), РёРЅР°С‡Рµ Р°РІС‚Рѕ-РїСЂР°РІРёР»Рѕ
   const extra = tpl as unknown as TemplateExtra;
   const fallback = autoDeltas(tpl.intent, tpl.intensity);
 
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
     title: tpl.title,
     description: tpl.description,
     why: {
-      ru: 'Рекомендация по зоне риска из паспорта пары',
+      ru: 'Р РµРєРѕРјРµРЅРґР°С†РёСЏ РїРѕ Р·РѕРЅРµ СЂРёСЃРєР° РёР· РїР°СЃРїРѕСЂС‚Р° РїР°СЂС‹',
       en: 'Suggested by pair passport risk zone',
     },
     mode: 'together',
@@ -141,3 +142,4 @@ export async function POST(req: NextRequest) {
 
   return jsonOk({ activityId: String(act._id) });
 }
+

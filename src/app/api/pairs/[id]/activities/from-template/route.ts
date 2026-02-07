@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // src/app/api/pairs/[id]/activities/from-template/route.ts
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     facetsTarget: tpl.facetsTarget ?? [],
     title: tpl.title,
     description: tpl.description,
-    why: { ru: 'Выбрано из шаблонов', en: 'Chosen from templates' },
+    why: { ru: 'Р’С‹Р±СЂР°РЅРѕ РёР· С€Р°Р±Р»РѕРЅРѕРІ', en: 'Chosen from templates' },
     mode: 'together',
     sync: 'sync',
     difficulty: tpl.difficulty,
@@ -77,3 +78,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   return jsonOk({ id: String(act._id) });
 }
+

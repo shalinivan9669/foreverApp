@@ -7,6 +7,9 @@ import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
+import { toPairActivityDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 type Bucket = 'current' | 'suggested' | 'history';
 
@@ -77,5 +80,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .lean();
 
   // фронт ожидает массив
-  return jsonOk(list);
+  return jsonOk(
+    list.map((activity) => toPairActivityDTO(activity, { includeLegacyId: true, includeAnswers: false }))
+  );
 }

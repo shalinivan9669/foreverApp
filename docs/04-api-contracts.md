@@ -157,3 +157,10 @@
 - `PATCH /api/users/me/onboarding`
 
 
+
+## DTO Contract Rule (2026-02-07, PROB-006)
+
+1. API handlers MUST return DTO/view-model shapes only.
+2. API handlers MUST NOT return DB model shape (Mongoose document or raw `lean()` model object) directly.
+3. DTO mapping must be centralized in `src/lib/dto/*` and reused by routes.
+4. Route-level code review guard: every `route.ts` must keep the rule comment `return only DTO/view model`.

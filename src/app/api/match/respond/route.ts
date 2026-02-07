@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { Like, type LikeType, type LikeStatus } from '@/models/Like';
@@ -107,3 +108,4 @@ export async function POST(req: NextRequest) {
     return jsonError(500, 'INTERNAL_ERROR', 'internal');
   }
 }
+

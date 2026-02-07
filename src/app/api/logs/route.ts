@@ -5,6 +5,9 @@ import { Log } from '../../../models/Log';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { toLogDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 export async function POST(request: Request) {
   const query = parseQuery(request, z.object({}).passthrough());
@@ -17,5 +20,5 @@ export async function POST(request: Request) {
   await connectToDatabase();
 
   const entry = await Log.create({ userId, at: new Date() });
-  return jsonOk(entry);
+  return jsonOk(toLogDTO(entry, { includeUserId: false, includeId: true }));
 }

@@ -3,8 +3,12 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
+import type { ActivityTemplateType } from '@/models/ActivityTemplate';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { toActivityTemplateDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 const querySchema = z
   .object({
@@ -31,6 +35,6 @@ export async function GET(req: NextRequest) {
   const list = await ActivityTemplate.find(q)
     .sort({ updatedAt: -1 })
     .limit(limit ?? 50)
-    .lean();
-  return jsonOk(list);
+    .lean<ActivityTemplateType[]>();
+  return jsonOk(list.map((template) => toActivityTemplateDTO(template)));
 }

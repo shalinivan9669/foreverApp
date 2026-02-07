@@ -2,8 +2,12 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Questionnaire } from '@/models/Questionnaire';
+import type { QuestionnaireType } from '@/models/Questionnaire';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { toQuestionnaireDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 const querySchema = z
   .object({
@@ -22,6 +26,6 @@ export async function GET(req: NextRequest) {
   const q: Record<string, unknown> = {};
   if (target) q['target.type'] = target;
 
-  const list = await Questionnaire.find(q).lean();
-  return jsonOk(list);
+  const list = await Questionnaire.find(q).lean<QuestionnaireType[]>();
+  return jsonOk(list.map((item) => toQuestionnaireDTO(item)));
 }

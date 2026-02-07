@@ -6,6 +6,9 @@ import { User } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
+import { toMatchCardDTO } from '@/lib/dto';
+
+// DTO rule: return only DTO/view model (never raw DB model shape).
 
 type CardDTO =
   | { requirements: [string, string, string]; questions: [string, string] }
@@ -45,16 +48,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     return jsonError(404, 'MATCH_CARD_NOT_FOUND', 'no active match card');
   }
 
-  const reqs = u.profile.matchCard.requirements ?? [];
-  const qs = u.profile.matchCard.questions ?? [];
-
-  const dto: CardDTO =
-    reqs.length === 3 && qs.length === 2
-      ? {
-          requirements: [reqs[0], reqs[1], reqs[2]],
-          questions: [qs[0], qs[1]],
-        }
-      : null;
+  const card = toMatchCardDTO(u.profile.matchCard);
+  const dto: CardDTO = card ? { requirements: card.requirements, questions: card.questions } : null;
 
   if (!dto) return jsonError(500, 'MATCH_CARD_INVALID', 'bad card');
 

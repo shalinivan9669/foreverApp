@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { z } from 'zod';
 import { signJwt } from '@/lib/jwt';
 import { jsonError, jsonOk, type JsonValue } from '@/lib/api/response';
@@ -89,3 +90,4 @@ export async function POST(req: Request) {
   });
   return res;
 }
+

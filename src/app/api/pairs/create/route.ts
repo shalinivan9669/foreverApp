@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // src/app/api/pairs/create/route.ts
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
   const aId = currentUserId;
   let bId = partnerId ?? '';
 
-  // поддержка старого контракта: пришёл likeId
+  // РїРѕРґРґРµСЂР¶РєР° СЃС‚Р°СЂРѕРіРѕ РєРѕРЅС‚СЂР°РєС‚Р°: РїСЂРёС€С‘Р» likeId
   if (!partnerId && likeId) {
     const like = await Like.findById(likeId);
     if (!like) return jsonError(404, 'LIKE_NOT_FOUND', 'like not found');
@@ -97,3 +98,4 @@ export async function POST(req: NextRequest) {
 
   return jsonOk({ pairId: String(pair._id) });
 }
+

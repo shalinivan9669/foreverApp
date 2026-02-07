@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { User, UserType } from '@/models/User';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const fatigue = pair.fatigue?.score ?? 0;
-  // самая актуальная зона риска
+  // СЃР°РјР°СЏ Р°РєС‚СѓР°Р»СЊРЅР°СЏ Р·РѕРЅР° СЂРёСЃРєР°
   const rz = pair.passport.riskZones.slice().sort((a,b)=>b.severity-a.severity)[0];
   const difficulty = Math.min(5, Math.max(1, rz.severity + (fatigue>0.6?-1:0) + (fatigue<0.3?1:0)));
 
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .filter((t: { _id: string }) => t._id !== lastTplId)
     .slice(0, 3);
 
-  // инстанс «offered» на основе шаблонов
+  // РёРЅСЃС‚Р°РЅСЃ В«offeredВ» РЅР° РѕСЃРЅРѕРІРµ С€Р°Р±Р»РѕРЅРѕРІ
   const users = await User.find({ id: { $in: pair.members } }).lean<UserType[] & { _id: Types.ObjectId }[]>();
   const now = new Date();
   const created = await Promise.all(docs.map(tpl => PairActivity.create({
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     facetsTarget: tpl.facetsTarget,
     title: tpl.title,
     description: tpl.description,
-    why: { ru:`Работа с риском по оси ${rz.axis}`, en:`Work on ${rz.axis} risk` },
+    why: { ru:`Р Р°Р±РѕС‚Р° СЃ СЂРёСЃРєРѕРј РїРѕ РѕСЃРё ${rz.axis}`, en:`Work on ${rz.axis} risk` },
     mode: 'together',
     sync: 'sync',
     difficulty: tpl.difficulty,
@@ -88,3 +89,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     created.map((x) => ({ id: String(x._id), title: x.title, difficulty: x.difficulty }))
   );
 }
+

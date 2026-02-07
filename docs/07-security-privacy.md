@@ -49,3 +49,21 @@
   - `401` — нет валидной session.
   - `403` — session валидна, но пользователь не участник ресурса.
   - `404` — целевой ресурс отсутствует.
+
+## PII Boundaries (2026-02-07, PROB-006)
+
+### PII we treat as sensitive
+- `User.personal.*` (`gender`, `age`, `city`, `relationshipStatus`)
+- `User.profile.onboarding.*`
+- `PairActivity.answers[]` and questionnaire answer content (`ui`, free-text answers)
+- precise location payload (`User.location.*`)
+
+### Never expose through API response by default
+- provider/internal tokens and secrets
+- raw DB internals (`__v`, technical model fields, uncontrolled nested model shapes)
+- unnecessary onboarding/answer details in non-self endpoints
+
+### Allowed PII exposure (explicit and scoped)
+- `GET/PUT/PATCH /api/users/me*`: self-only endpoints may return private profile DTO.
+- non-self endpoints (`/api/users/[id]`, match feed/inbox peer cards, etc.) return public user DTO only (`id`, `username`, `avatar`).
+- pair activity list DTO omits check-in answer payload by default.

@@ -1,3 +1,4 @@
+﻿// DTO rule: return only DTO/view model (never raw DB model shape).
 // src/app/api/pairs/[id]/resume/route.ts
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
@@ -33,3 +34,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!doc) return jsonError(404, 'PAIR_NOT_FOUND', 'not found');
   return jsonOk({});
 }
+
