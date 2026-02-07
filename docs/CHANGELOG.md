@@ -129,3 +129,10 @@ Summary:
 - Added public/private user field boundaries and enforced route-level DTO guard comments across all API `route.ts` handlers.
 - Updated PROB-006, API contracts, security/privacy docs, and added a manual 10-endpoint validation checklist for DTO regression control.
 Files: src/lib/dto/index.ts, src/lib/dto/user.dto.ts, src/lib/dto/pair.dto.ts, src/lib/dto/activity.dto.ts, src/lib/dto/questionnaire.dto.ts, src/lib/dto/match.dto.ts, src/lib/dto/analytics.dto.ts, src/app/api/**/route.ts, docs/problems/PROB-006-no-centralized-dto-layer.md, docs/04-api-contracts.md, docs/07-security-privacy.md, docs/_evidence/prob-006-dto-manual-checklist-2026-02-07.md, docs/CHANGELOG.md
+
+Date: 2026-02-07
+Summary:
+- Added `src/utils/apiClient.ts` with `fetchEnvelope<T>` and envelope types for unified client parsing.
+- Fixed Discord Activity auth flow to read `access_token` from envelope and added one-time init guard to avoid duplicate `authenticate` calls.
+- Updated `Go to main menu` flow to read `/api/users/me` via envelope and send minimal JSON body to `/api/logs` in fire-and-forget mode.
+Files: src/utils/apiClient.ts, src/app/page.tsx, docs/04-api-contracts.md, docs/CHANGELOG.md

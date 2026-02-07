@@ -1,60 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter }          from 'next/navigation';
-import Image                 from 'next/image';
-import { DiscordSDK }         from '@discord/embedded-app-sdk';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { useUserStore, DiscordUser } from '../store/useUserStore';
-import Spinner               from '@/components/ui/Spinner';
+import Spinner from '@/components/ui/Spinner';
+import { fetchEnvelope } from '@/utils/apiClient';
+
+type UserDTO = {
+  profile?: {
+    onboarding?: {
+      seeking?: boolean;
+      inRelationship?: boolean;
+    };
+  };
+};
 
 export default function DiscordActivityPage() {
   const setUser = useUserStore((s) => s.setUser);
-  const user    = useUserStore((s) => s.user);
+  const user = useUserStore((s) => s.user);
   const [error, setError] = useState<string | null>(null);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
+  const didInit = useRef(false);
   const router = useRouter();
 
-  // 1) Авторизуем пользователя в Discord, кладём в Zustand
   useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+
     async function init() {
       try {
         const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!;
-        const sdk      = new DiscordSDK(clientId);
+        const sdk = new DiscordSDK(clientId);
         await sdk.ready();
 
-        // получаем код
         const { code } = await sdk.commands.authorize({
-          client_id:     clientId,
+          client_id: clientId,
           response_type: 'code',
-          scope:         ['identify'],
-          prompt:        'none'
+          scope: ['identify'],
+          prompt: 'none',
         });
 
-        // обмениваем код на токен
-        const tokenResp = await fetch('/.proxy/api/exchange-code', {
-          method:  'POST',
+        const tokenData = await fetchEnvelope<{ access_token: string }>('/.proxy/api/exchange-code', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
+          body: JSON.stringify({
             code,
-            redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
-          })
+            redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!,
+          }),
         });
-        if (!tokenResp.ok) {
-          throw new Error(`Token exchange failed: ${tokenResp.status}`);
-        }
-        const { access_token } = (await tokenResp.json()) as { access_token: string };
-        await sdk.commands.authenticate({ access_token });
 
-        // получаем профиль
+        await sdk.commands.authenticate({ access_token: tokenData.access_token });
+
         const userRes = await fetch('https://discord.com/api/users/@me', {
-          headers: { Authorization: `Bearer ${access_token}` }
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
         if (!userRes.ok) {
           throw new Error(`Failed to fetch profile: ${userRes.status}`);
         }
         const u = (await userRes.json()) as DiscordUser;
 
-        // сохраняем локально
         setUser(u);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -62,34 +68,33 @@ export default function DiscordActivityPage() {
         setError(msg);
       }
     }
+
     init();
   }, [setUser]);
 
-  // 2) Обработчик кнопки: сначала fire-and-forget запись в БД, потом переход
- 
-  const goToMenu = () => {
+  const goToMenu = async () => {
     if (!user) return;
 
-    // Log visit (fire and forget)
-    fetch('/.proxy/api/logs', {
+    fetchEnvelope('/.proxy/api/logs', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
     }).catch(() => {});
 
-    fetch('/.proxy/api/users/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((doc) => {
-        const onboarding = doc?.profile?.onboarding;
-        if (onboarding?.seeking || onboarding?.inRelationship) {
-          router.push('/main-menu');
-        } else {
-          router.push('/welcome');
-        }
-      })
-      .catch(() => router.push('/welcome'));
+    try {
+      const me = await fetchEnvelope<UserDTO>('/.proxy/api/users/me');
+      const onboarding = me.profile?.onboarding;
+
+      if (onboarding?.seeking || onboarding?.inRelationship) {
+        router.push('/main-menu');
+      } else {
+        router.push('/welcome');
+      }
+    } catch {
+      router.push('/welcome');
+    }
   };
 
-
-  // 3) Render
   if (error) return <div className="text-red-500 text-center mt-8">Error: {error}</div>;
   if (!user) {
     return (

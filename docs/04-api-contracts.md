@@ -164,3 +164,9 @@
 2. API handlers MUST NOT return DB model shape (Mongoose document or raw `lean()` model object) directly.
 3. DTO mapping must be centralized in `src/lib/dto/*` and reused by routes.
 4. Route-level code review guard: every `route.ts` must keep the rule comment `return only DTO/view model`.
+
+## Update 2026-02-07 (Discord Activity envelope client fix)
+
+- Added client envelope helper `src/utils/apiClient.ts` (`ApiOk`, `ApiErr`, `ApiEnvelope`, `fetchEnvelope<T>`).
+- Updated Discord Activity entry page to unwrap envelope for `/api/exchange-code` and `/api/users/me`.
+- Updated Activity logs call to send JSON body (`{}`) with `Content-Type: application/json` in fire-and-forget mode.
