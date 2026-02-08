@@ -9,11 +9,13 @@ const DEFAULT_CACHE_KEY = 'questionnaires:cards';
 type UseQuestionnairesOptions = {
   enabled?: boolean;
   cacheKey?: string;
+  audience?: 'personal' | 'couple';
 };
 
 export function useQuestionnaires(options: UseQuestionnairesOptions = {}) {
   const enabled = options.enabled ?? true;
   const cacheKey = options.cacheKey ?? DEFAULT_CACHE_KEY;
+  const audience = options.audience;
 
   const getCards = useEntitiesStore((state) => state.getQuestionnaireCards);
   const setCards = useEntitiesStore((state) => state.setQuestionnaireCards);
@@ -36,7 +38,7 @@ export function useQuestionnaires(options: UseQuestionnairesOptions = {}) {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const fresh = await runSafe(() => questionnairesApi.getCards(controller.signal), {
+    const fresh = await runSafe(() => questionnairesApi.getCards(controller.signal, audience), {
       loadingKey: 'questionnaire-cards',
     });
     if (!fresh || requestVersion !== versionRef.current) return null;
@@ -45,7 +47,7 @@ export function useQuestionnaires(options: UseQuestionnairesOptions = {}) {
     setCards(cacheKey, normalized);
     setCardsState(normalized);
     return normalized;
-  }, [cacheKey, runSafe, setCards]);
+  }, [audience, cacheKey, runSafe, setCards]);
 
   useEffect(() => {
     setCardsState(getCards(cacheKey) ?? []);

@@ -267,6 +267,7 @@ export type QuestionnaireAxis =
   | 'psyche';
 
 export type QuestionnaireAudience = 'pair' | 'solo' | 'universal';
+export type QuestionnaireScope = 'personal' | 'couple';
 
 export type QuestionnaireStatus = 'new' | 'in_progress' | 'completed' | 'required' | 'locked';
 
@@ -275,6 +276,7 @@ export type QuestionnaireCta = 'start' | 'continue' | 'result' | 'locked';
 export type QuestionnaireCardDTO = {
   id: string;
   vector: QuestionnaireAxis;
+  scope: QuestionnaireScope;
   audience: QuestionnaireAudience;
   title: string;
   subtitle: string;
@@ -292,6 +294,38 @@ export type QuestionnaireCardDTO = {
   cta: QuestionnaireCta;
   isStarter?: boolean;
   pairId?: string | null;
+};
+
+export type QuestionnaireQuestionDTO = {
+  id: string;
+  _id?: string;
+  axis: QuestionnaireAxis;
+  facet: string;
+  polarity: '+' | '-' | 'neutral';
+  scale: 'likert5' | 'bool';
+  map: number[];
+  weight: number;
+  text: Record<string, string>;
+};
+
+export type QuestionnaireDTO = {
+  id: string;
+  _id?: string;
+  scope: QuestionnaireScope;
+  title: Record<string, string>;
+  description?: Record<string, string>;
+  meta?: Record<string, unknown>;
+  target: {
+    type: 'individual' | 'couple';
+    gender: 'unisex' | 'male' | 'female';
+    vector: '+' | '-' | 'neutral';
+  };
+  axis: QuestionnaireAxis;
+  difficulty: 1 | 2 | 3;
+  tags: string[];
+  version: number;
+  randomize: boolean;
+  questions: QuestionnaireQuestionDTO[];
 };
 
 export type ProfileSummaryDTO = {

@@ -20,12 +20,14 @@ type Axis =
   | 'psyche';
 
 type Audience = 'pair' | 'solo' | 'universal';
+type Scope = 'personal' | 'couple';
 type Status = 'new' | 'in_progress' | 'completed' | 'required' | 'locked';
 type Cta = 'start' | 'continue' | 'result' | 'locked';
 
 type CardDTO = {
   id: string;
   vector: Axis;
+  scope: Scope;
   audience: Audience;
   title: string;
   subtitle: string;
@@ -42,6 +44,7 @@ type CardDTO = {
   lockReason?: string;
   cta: Cta;
   isStarter?: boolean;
+  pairId?: string | null;
 };
 
 type QDoc = {
@@ -99,11 +102,20 @@ const audienceFrom = (q: QDoc): Audience => {
   return 'solo';
 };
 
+const scopeFrom = (q: QDoc): Scope => (q.target?.type === 'couple' ? 'couple' : 'personal');
+
 const isInProgress = (s: Session): s is InProgressSession => s.status === 'in_progress';
 const isCompleted = (s: Session): s is CompletedSession => s.status === 'completed';
 
 export async function GET(req: NextRequest) {
-  const query = parseQuery(req, z.object({}).passthrough());
+  const query = parseQuery(
+    req,
+    z
+      .object({
+        audience: z.enum(['personal', 'couple']).optional(),
+      })
+      .passthrough()
+  );
   if (!query.ok) return query.response;
 
   const auth = requireSession(req);
@@ -201,6 +213,7 @@ export async function GET(req: NextRequest) {
     return {
       id: qid,
       vector: q.axis,
+      scope: scopeFrom(q),
       audience: audienceFrom(q),
       title: toTitle(q),
       subtitle: toSubtitle(q),
@@ -219,6 +232,10 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return jsonOk(cards);
+  const filteredCards = query.data.audience
+    ? cards.filter((card) => card.scope === query.data.audience)
+    : cards;
+
+  return jsonOk(filteredCards);
 }
 

@@ -1,0 +1,94 @@
+'use client';
+
+import QuestionnaireCard from '@/components/QuestionnaireCard';
+import type { QuestionnaireCardDTO, QuestionnaireScope } from '@/client/api/types';
+import LoadingView from '@/components/ui/LoadingView';
+
+type QuestionnairesPageViewProps = {
+  activeTab: QuestionnaireScope;
+  onChangeTab: (tab: QuestionnaireScope) => void;
+  canAccessCouple: boolean;
+  personalCards: QuestionnaireCardDTO[];
+  coupleCards: QuestionnaireCardDTO[];
+  loadingCards: boolean;
+  loadingByQuestionnaireId: Record<string, boolean>;
+  onStartQuestionnaire: (questionnaire: QuestionnaireCardDTO) => Promise<void> | void;
+};
+
+const tabClassName = (active: boolean, disabled = false): string => {
+  if (disabled) return 'rounded border px-3 py-1.5 text-sm text-gray-400 cursor-not-allowed';
+  if (active) return 'rounded border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm text-white';
+  return 'rounded border px-3 py-1.5 text-sm hover:bg-gray-50';
+};
+
+export default function QuestionnairesPageView({
+  activeTab,
+  onChangeTab,
+  canAccessCouple,
+  personalCards,
+  coupleCards,
+  loadingCards,
+  loadingByQuestionnaireId,
+  onStartQuestionnaire,
+}: QuestionnairesPageViewProps) {
+  const cards = activeTab === 'personal' ? personalCards : coupleCards;
+  const coupleLockedMessage = 'Доступно после создания активной пары.';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className={tabClassName(activeTab === 'personal')}
+          onClick={() => onChangeTab('personal')}
+        >
+          Персональные
+        </button>
+        <button
+          type="button"
+          className={tabClassName(activeTab === 'couple', !canAccessCouple)}
+          onClick={() => {
+            if (!canAccessCouple) return;
+            onChangeTab('couple');
+          }}
+          disabled={!canAccessCouple}
+          title={!canAccessCouple ? coupleLockedMessage : undefined}
+        >
+          Для пары
+        </button>
+      </div>
+
+      {!canAccessCouple && activeTab === 'couple' && (
+        <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {coupleLockedMessage}
+        </div>
+      )}
+
+      {loadingCards && cards.length === 0 && <LoadingView compact label="Загрузка анкет..." />}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {cards.map((questionnaire) => {
+          const isCoupleBlocked = questionnaire.scope === 'couple' && !canAccessCouple;
+          return (
+            <QuestionnaireCard
+              key={questionnaire.id}
+              q={questionnaire}
+              loading={Boolean(loadingByQuestionnaireId[questionnaire.id])}
+              disabled={isCoupleBlocked}
+              disabledReason={isCoupleBlocked ? coupleLockedMessage : undefined}
+              onStart={onStartQuestionnaire}
+            />
+          );
+        })}
+      </div>
+
+      {!loadingCards && cards.length === 0 && (
+        <p className="text-sm text-gray-600">
+          {activeTab === 'personal'
+            ? 'Нет персональных анкет.'
+            : 'Нет парных анкет.'}
+        </p>
+      )}
+    </div>
+  );
+}

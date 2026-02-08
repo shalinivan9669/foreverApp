@@ -12,6 +12,7 @@ import { toQuestionnaireDTO } from '@/lib/dto';
 const querySchema = z
   .object({
     target: z.enum(['couple', 'individual']).optional(),
+    audience: z.enum(['personal', 'couple']).optional(),
   })
   .passthrough();
 
@@ -21,10 +22,13 @@ export async function GET(req: NextRequest) {
   if (!query.ok) return query.response;
 
   await connectToDatabase();
-  const { target } = query.data;
+  const { target, audience } = query.data;
+
+  const normalizedTarget =
+    target ?? (audience === 'personal' ? 'individual' : audience === 'couple' ? 'couple' : undefined);
 
   const q: Record<string, unknown> = {};
-  if (target) q['target.type'] = target;
+  if (normalizedTarget) q['target.type'] = normalizedTarget;
 
   const list = await Questionnaire.find(q).lean<QuestionnaireType[]>();
   return jsonOk(list.map((item) => toQuestionnaireDTO(item)));

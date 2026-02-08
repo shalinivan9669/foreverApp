@@ -1,75 +1,161 @@
-// src/app/questionnaire/[id]/page.tsx
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUserStore } from '@/store/useUserStore';
-import { api } from '@/utils/api';
 import BackBar from '@/components/ui/BackBar';
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
 import QuestionCard from '@/components/QuestionCard';
-import type { QuestionnaireType } from '@/models/Questionnaire';
+import { questionnairesApi } from '@/client/api/questionnaires.api';
+import type { QuestionnaireDTO } from '@/client/api/types';
+import { useApi } from '@/client/hooks/useApi';
 
-// Минимальный интерфейс вопроса, который нужен UI и QuestionCard
-type RenderableQ = {
-  id?: string;                       // id вопроса внутри анкеты
-  _id?: string;                      // (на случай старого формата)
+type RenderableQuestion = {
+  id?: string;
+  _id?: string;
   text: Record<string, string>;
   scale: 'likert5' | 'bool';
 };
 
-export default function Runner() {
+export default function PersonalQuestionnaireRunner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const user = useUserStore(s => s.user);
 
-  const [qn, setQn] = useState<QuestionnaireType | null>(null);
-  const [idx, setIdx] = useState(0);
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireDTO | null>(null);
+  const [index, setIndex] = useState(0);
 
-  // загрузка анкеты
+  const {
+    runSafe: runLoadSafe,
+    loading: loadingQuestionnaire,
+    error: loadError,
+    clearError: clearLoadError,
+  } = useApi('questionnaire-personal-load');
+
+  const {
+    runSafe: runSubmitSafe,
+    loading: submitting,
+    error: submitError,
+    clearError: clearSubmitError,
+  } = useApi('questionnaire-personal-submit');
+
   useEffect(() => {
     if (!id) return;
-    let on = true;
-    fetch(api(`/api/questionnaires/${id}`))
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => { if (on) setQn(data); });
-    return () => { on = false; };
-  }, [id]);
 
-  const q = qn?.questions?.[idx] as unknown as RenderableQ | undefined;
-  if (!qn || !q) return <p className="p-4">Загрузка…</p>;
+    let active = true;
+    const controller = new AbortController();
 
-  const title = qn.title?.ru ?? qn.title?.en ?? 'Анкета';
+    setIndex(0);
+    setQuestionnaire(null);
+    clearLoadError();
 
-  const answer = async (_qid: string, ui: number) => {
-    if (!user) return;
-
-    // Унифицируем id вопроса
-    const qid = q.id ?? q._id ?? _qid;
-    if (!qid) return;
-
-    await fetch(api(`/api/questionnaires/${id}`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ qid, ui }),
+    runLoadSafe(() => questionnairesApi.startPersonalQuestionnaire(id, controller.signal), {
+      loadingKey: 'questionnaire-personal-load',
+    }).then((data) => {
+      if (!active || !data) return;
+      setQuestionnaire(data);
     });
 
-    if (idx < (qn.questions?.length ?? 0) - 1) {
-      setIdx(i => i + 1);
-    } else {
-      router.push('/questionnaires');
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [clearLoadError, id, runLoadSafe]);
+
+  const questions = useMemo<RenderableQuestion[]>(() => {
+    if (!questionnaire || !Array.isArray(questionnaire.questions)) return [];
+    return questionnaire.questions;
+  }, [questionnaire]);
+
+  const currentQuestion = questions[index];
+  const title = questionnaire?.title?.ru ?? questionnaire?.title?.en ?? 'Анкета';
+
+  const onAnswer = async (questionId: string, ui: number) => {
+    if (!id || !currentQuestion || submitting) return;
+
+    const normalizedQuestionId = currentQuestion.id ?? currentQuestion._id ?? questionId;
+    if (!normalizedQuestionId) return;
+
+    clearSubmitError();
+
+    const saved = await runSubmitSafe(
+      () => questionnairesApi.submitPersonalAnswer(id, { qid: normalizedQuestionId, ui }),
+      { loadingKey: 'questionnaire-personal-submit' }
+    );
+
+    if (!saved) return;
+
+    if (index < questions.length - 1) {
+      setIndex((prev) => prev + 1);
+      return;
     }
+
+    router.push('/questionnaires');
   };
 
+  if (loadingQuestionnaire && !questionnaire) {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
+        <BackBar title="Анкета" fallbackHref="/questionnaires" />
+        <LoadingView compact label="Загрузка анкеты..." />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
+        <BackBar title="Анкета" fallbackHref="/questionnaires" />
+        <ErrorView
+          error={loadError}
+          onRetry={() => {
+            router.refresh();
+          }}
+          onAuthRequired={() => {
+            router.push('/');
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!questionnaire || !currentQuestion) {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
+        <BackBar title="Анкета" fallbackHref="/questionnaires" />
+        <p className="text-sm text-gray-600">Анкета недоступна.</p>
+      </div>
+    );
+  }
+
+  if (questionnaire.scope === 'couple') {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
+        <BackBar title={title} fallbackHref="/questionnaires" />
+        <p className="text-sm text-amber-700">
+          Эта анкета относится к парному сценарию. Откройте её из раздела пары.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 flex flex-col gap-4 max-w-xl mx-auto">
+    <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <BackBar title={title} fallbackHref="/questionnaires" />
 
-      <h2 className="font-semibold">{qn.title?.ru ?? qn.title?.en}</h2>
+      <h2 className="font-semibold">{title}</h2>
       <p className="text-sm text-gray-600">
-        {idx + 1}/{qn.questions.length}
+        {index + 1}/{questions.length}
       </p>
 
-      <QuestionCard q={q} onAnswer={answer} />
+      <QuestionCard q={currentQuestion} onAnswer={onAnswer} />
+
+      {submitting && <LoadingView compact label="Сохраняем ответ..." />}
+      <ErrorView
+        error={submitError}
+        onAuthRequired={() => {
+          router.push('/');
+        }}
+      />
     </div>
   );
 }

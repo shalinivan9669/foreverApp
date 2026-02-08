@@ -16,6 +16,7 @@ export type QuestionDTO = {
 export type QuestionnaireDTO = {
   id: string;
   _id?: string;
+  scope: 'personal' | 'couple';
   title: Record<string, string>;
   description?: Record<string, string>;
   meta?: QuestionnaireType['meta'];
@@ -38,6 +39,10 @@ type ToQuestionnaireDtoOptions = {
   includeLegacyId?: boolean;
   includeQuestions?: boolean;
 };
+
+const toQuestionnaireScope = (
+  target: QuestionnaireType['target'] | undefined
+): 'personal' | 'couple' => (target?.type === 'couple' ? 'couple' : 'personal');
 
 const getQuestionId = (question: QuestionSource): string => {
   if ('id' in question && typeof question.id === 'string' && question.id.length > 0) {
@@ -80,6 +85,7 @@ export function toQuestionnaireDTO(
 
   const dto: QuestionnaireDTO = {
     id: questionnaire._id,
+    scope: toQuestionnaireScope(questionnaire.target),
     title: questionnaire.title,
     description: questionnaire.description,
     meta: questionnaire.meta,
@@ -97,4 +103,3 @@ export function toQuestionnaireDTO(
   if (includeLegacyId) dto._id = questionnaire._id;
   return dto;
 }
-

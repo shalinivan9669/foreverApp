@@ -1,113 +1,108 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import QuestionnaireCard from '@/components/QuestionnaireCard';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import BackBar from '@/components/ui/BackBar';
-import { fetchEnvelope } from '@/utils/apiClient';
-import { api } from '@/utils/api';
-
-type Axis =
-  | 'communication'
-  | 'domestic'
-  | 'personalViews'
-  | 'finance'
-  | 'sexuality'
-  | 'psyche';
-
-type Audience = 'pair' | 'solo' | 'universal';
-
-type QuestionnaireCardDTO = {
-  id: string;
-  vector: Axis;
-  audience: Audience;
-  title: string;
-  subtitle: string;
-  tagsPublic: string[];
-  tagsHiddenCount: number;
-  questionCount: number;
-  estMinutesMin: number;
-  estMinutesMax: number;
-  level: 1 | 2 | 3 | 4 | 5;
-  rewardCoins?: number;
-  insightsCount?: number;
-  status: 'new' | 'in_progress' | 'completed' | 'required' | 'locked';
-  progressPct?: number;
-  lockReason?: string;
-  cta: 'start' | 'continue' | 'result' | 'locked';
-  isStarter?: boolean;
-  pairId?: string | null;
-};
+import ErrorView from '@/components/ui/ErrorView';
+import { ApiClientError } from '@/client/api/errors';
+import { questionnairesApi } from '@/client/api/questionnaires.api';
+import type { QuestionnaireCardDTO, QuestionnaireScope } from '@/client/api/types';
+import { usePair } from '@/client/hooks/usePair';
+import { useQuestionnaires } from '@/client/hooks/useQuestionnaires';
+import { useApi } from '@/client/hooks/useApi';
+import QuestionnairesPageView from '@/features/questionnaires/QuestionnairesPageView';
 
 export default function QuestionnairesPage() {
-  const [list, setList] = useState<QuestionnaireCardDTO[]>([]);
-  const [axis, setAxis] = useState<Axis | 'all'>('all');
-  const [aud, setAud] = useState<'all' | 'individual' | 'couple'>('all');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<QuestionnaireScope>('personal');
+  const [loadingByQuestionnaireId, setLoadingByQuestionnaireId] = useState<Record<string, boolean>>({});
+
+  const { cards, loading: loadingCards, refetch } = useQuestionnaires();
+  const { pairId, status } = usePair();
+  const { error, clearError, setErrorFromException } = useApi('questionnaire-start');
+
+  const hasPair = Boolean(pairId || (status && status.hasActive));
+
+  const personalCards = useMemo(
+    () => cards.filter((card) => card.scope === 'personal'),
+    [cards]
+  );
+  const coupleCards = useMemo(
+    () => cards.filter((card) => card.scope === 'couple'),
+    [cards]
+  );
 
   useEffect(() => {
-    fetchEnvelope<QuestionnaireCardDTO[]>(api('/api/questionnaires/cards'))
-      .then((data) => setList(Array.isArray(data) ? data : []))
-      .catch(() => setList([]));
+    if (activeTab === 'couple' && !hasPair) {
+      setActiveTab('personal');
+    }
+  }, [activeTab, hasPair]);
+
+  const setItemLoading = useCallback((questionnaireId: string, loading: boolean) => {
+    setLoadingByQuestionnaireId((prev) => ({
+      ...prev,
+      [questionnaireId]: loading,
+    }));
   }, []);
 
-  const filtered = useMemo(() => {
-    return list.filter((q) => {
-      if (axis !== 'all' && q.vector !== axis) return false;
-      if (aud === 'couple' && q.audience !== 'pair') return false;
-      if (aud === 'individual' && q.audience === 'pair') return false;
-      return true;
-    });
-  }, [list, axis, aud]);
+  const startQuestionnaire = useCallback(
+    async (questionnaire: QuestionnaireCardDTO) => {
+      clearError();
+      setItemLoading(questionnaire.id, true);
+
+      try {
+        if (questionnaire.scope === 'couple') {
+          if (!pairId) {
+            throw new ApiClientError({
+              status: 403,
+              code: 'ACCESS_DENIED',
+              message: 'Парная анкета доступна только участникам активной пары.',
+            });
+          }
+
+          await questionnairesApi.startCoupleQuestionnaire(pairId, questionnaire.id);
+          router.push(`/pair/${pairId}/questionnaire/${questionnaire.id}`);
+          return;
+        }
+
+        await questionnairesApi.startPersonalQuestionnaire(questionnaire.id);
+        router.push(`/questionnaire/${questionnaire.id}`);
+      } catch (caughtError) {
+        const normalized =
+          caughtError instanceof Error ? caughtError : new Error('Не удалось запустить анкету');
+        setErrorFromException(normalized);
+      } finally {
+        setItemLoading(questionnaire.id, false);
+      }
+    },
+    [clearError, pairId, router, setErrorFromException, setItemLoading]
+  );
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl p-4">
       <BackBar title="Анкеты" fallbackHref="/main-menu" />
-      <h1 className="text-xl font-semibold mb-4">Анкеты</h1>
+      <h1 className="mb-4 text-xl font-semibold">Анкеты</h1>
 
-      {/* Фильтры */}
-      <div className="flex gap-3 items-center mb-4">
-        <label className="flex items-center gap-2">
-          Ось:
-          <select
-            value={axis}
-            onChange={(e) => setAxis(e.target.value as Axis | 'all')}
-            className="border rounded px-2 py-1"
-          >
-            <option value="all">все</option>
-            <option value="communication">коммуникация</option>
-            <option value="domestic">быт</option>
-            <option value="personalViews">взгляды</option>
-            <option value="finance">финансы</option>
-            <option value="sexuality">интим</option>
-            <option value="psyche">психика</option>
-          </select>
-        </label>
+      <ErrorView
+        error={error}
+        onRetry={() => {
+          void refetch();
+        }}
+        onAuthRequired={() => {
+          router.push('/');
+        }}
+      />
 
-        <label className="flex items-center gap-2">
-          Аудитория:
-          <select
-            value={aud}
-            onChange={(e) => setAud(e.target.value as 'all' | 'individual' | 'couple')}
-            className="border rounded px-2 py-1"
-          >
-            <option value="all">все</option>
-            <option value="individual">одиночка</option>
-            <option value="couple">для пары</option>
-          </select>
-        </label>
-      </div>
-
-      {/* Список карточек */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {filtered.map((q) => (
-          <QuestionnaireCard key={q.id} q={q} />
-        ))}
-      </div>
-
-      {!filtered.length && (
-        <p className="text-sm text-gray-600 mt-6">
-          Нет анкет под выбранные фильтры.
-        </p>
-      )}
+      <QuestionnairesPageView
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        canAccessCouple={hasPair}
+        personalCards={personalCards}
+        coupleCards={coupleCards}
+        loadingCards={loadingCards}
+        loadingByQuestionnaireId={loadingByQuestionnaireId}
+        onStartQuestionnaire={startQuestionnaire}
+      />
     </div>
   );
 }

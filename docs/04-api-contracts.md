@@ -310,3 +310,18 @@ Applied policy groups:
 ### Pair route alignment
 - Added route `/pair/[id]` and aligned links from main-menu/profile to use pair `id`.
 - Pair profile loading is now aligned with `/api/pairs/[id]/summary` membership guard expectations.
+
+## Update 2026-02-08 (Questionnaire Scope + Start Routing)
+
+- Added explicit questionnaire scope contract:
+  - `scope: 'personal' | 'couple'`
+  - present in `/api/questionnaires` and `/api/questionnaires/[id]` DTO.
+- `/api/questionnaires/cards` now also returns `scope` together with legacy `audience`.
+- `/api/questionnaires/cards` supports optional query filter:
+  - `?audience=personal|couple`
+- Start routing rule is explicit in client API:
+  - `questionnairesApi.startPersonalQuestionnaire(qid)` -> user-scoped flow (`/api/questionnaires/[id]`, no `/api/pairs/*` dependency)
+  - `questionnairesApi.startCoupleQuestionnaire(pairId, qid)` -> pair-scoped start (`POST /api/pairs/[pairId]/questionnaires/[qid]/start`)
+- UI contract:
+  - users with active pair see both sections (`Personal`, `For couple`)
+  - users without active pair can start only `personal`; `couple` flow is disabled with message.
