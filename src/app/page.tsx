@@ -79,7 +79,7 @@ export default function DiscordActivityPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
-    }).catch(() => {});
+    }, { idempotency: true }).catch(() => {});
 
     try {
       const me = await fetchEnvelope<UserDTO>('/.proxy/api/users/me');

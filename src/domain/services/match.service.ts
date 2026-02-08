@@ -8,6 +8,8 @@ import { User, type UserType } from '@/models/User';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { matchTransition } from '@/domain/state/matchMachine';
+import { emitEvent } from '@/lib/audit/emitEvent';
+import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -228,6 +230,7 @@ export type CreateLikeInput = {
   toId: string;
   agreements: [true, true, true];
   answers: [string, string];
+  auditRequest?: AuditRequestContext;
 };
 
 export type RespondToLikeInput = {
@@ -235,11 +238,13 @@ export type RespondToLikeInput = {
   likeId: string;
   agreements: [true, true, true];
   answers: [string, string];
+  auditRequest?: AuditRequestContext;
 };
 
 export type DecideLikeInput = {
   currentUserId: string;
   likeId: string;
+  auditRequest?: AuditRequestContext;
 };
 
 export const matchService = {
@@ -280,6 +285,24 @@ export const matchService = {
       matchScore,
       fromCardSnapshot,
       status: transition.next.status,
+    });
+
+    await emitEvent({
+      event: 'MATCH_LIKE_CREATED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? { route: '/api/match/like', method: 'POST' },
+      context: {
+        likeId: String(like._id),
+      },
+      target: {
+        type: 'like',
+        id: String(like._id),
+      },
+      metadata: {
+        likeId: String(like._id),
+        toUserId: input.toId,
+        matchScore,
+      },
     });
 
     return {
@@ -355,6 +378,23 @@ export const matchService = {
       });
     }
 
+    await emitEvent({
+      event: 'MATCH_RESPONDED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? { route: '/api/match/respond', method: 'POST' },
+      context: {
+        likeId: String(updated._id),
+      },
+      target: {
+        type: 'like',
+        id: String(updated._id),
+      },
+      metadata: {
+        likeId: String(updated._id),
+        status: 'awaiting_initiator',
+      },
+    });
+
     return { status: updated.status };
   },
 
@@ -399,6 +439,23 @@ export const matchService = {
       });
     }
 
+    await emitEvent({
+      event: 'MATCH_ACCEPTED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? { route: '/api/match/accept', method: 'POST' },
+      context: {
+        likeId: String(updated._id),
+      },
+      target: {
+        type: 'like',
+        id: String(updated._id),
+      },
+      metadata: {
+        likeId: String(updated._id),
+        status: 'mutual_ready',
+      },
+    });
+
     return {};
   },
 
@@ -421,6 +478,23 @@ export const matchService = {
     );
 
     if (like.status === 'rejected') {
+      await emitEvent({
+        event: 'MATCH_REJECTED',
+        actor: { userId: input.currentUserId },
+        request: input.auditRequest ?? { route: '/api/match/reject', method: 'POST' },
+        context: {
+          likeId: String(like._id),
+        },
+        target: {
+          type: 'like',
+          id: String(like._id),
+        },
+        metadata: {
+          likeId: String(like._id),
+          status: 'rejected',
+          already: true,
+        },
+      });
       return { already: true };
     }
 
@@ -446,6 +520,23 @@ export const matchService = {
         action: 'REJECT',
       });
     }
+
+    await emitEvent({
+      event: 'MATCH_REJECTED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? { route: '/api/match/reject', method: 'POST' },
+      context: {
+        likeId: String(updated._id),
+      },
+      target: {
+        type: 'like',
+        id: String(updated._id),
+      },
+      metadata: {
+        likeId: String(updated._id),
+        status: 'rejected',
+      },
+    });
 
     return {};
   },
@@ -482,6 +573,7 @@ export const matchService = {
 
     const members = [fromUser.id, toUser.id].sort() as [string, string];
     const key = `${members[0]}|${members[1]}`;
+    const existingPair = await Pair.findOne({ key }, { _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
 
     const pair = await Pair.findOneAndUpdate(
       { key },
@@ -546,6 +638,46 @@ export const matchService = {
     );
 
     await seedSuggestionsForPair(pair._id as Types.ObjectId);
+
+    await emitEvent({
+      event: 'MATCH_CONFIRMED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? { route: '/api/match/confirm', method: 'POST' },
+      context: {
+        likeId: String(like._id),
+        pairId: String(pair._id),
+      },
+      target: {
+        type: 'pair',
+        id: String(pair._id),
+      },
+      metadata: {
+        likeId: String(like._id),
+        pairId: String(pair._id),
+        members,
+      },
+    });
+
+    if (!existingPair) {
+      await emitEvent({
+        event: 'PAIR_CREATED',
+        actor: { userId: input.currentUserId },
+        request: input.auditRequest ?? { route: '/api/match/confirm', method: 'POST' },
+        context: {
+          pairId: String(pair._id),
+          likeId: String(like._id),
+        },
+        target: {
+          type: 'pair',
+          id: String(pair._id),
+        },
+        metadata: {
+          pairId: String(pair._id),
+          members,
+          source: 'match_confirm',
+        },
+      });
+    }
 
     return {
       pairId: String(pair._id),

@@ -87,3 +87,14 @@ All migrated machines now throw:
 - `/api/activities/[id]/accept|cancel|checkin|complete`
 - `/api/answers/bulk`
 - `/api/pairs/[id]/questionnaires/[qid]/start|answer`
+
+## Update 2026-02-08 (Pair machine)
+
+Added centralized pair transition machine:
+- `src/domain/state/pairMachine.ts` (`CREATE`, `PAUSE`, `RESUME`)
+
+Applied to mutation services/routes:
+- `src/domain/services/pairs.service.ts`
+- `/api/pairs/create` POST
+- `/api/pairs/[id]/pause` POST
+- `/api/pairs/[id]/resume` POST

@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
+import { emitEvent } from '@/lib/audit/emitEvent';
+import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { Question, type QuestionType } from '@/models/Question';
 import { Questionnaire, type QuestionItem, type QuestionnaireType } from '@/models/Questionnaire';
 import {
@@ -63,6 +65,7 @@ export const questionnairesService = {
   async submitBulkAnswers(input: {
     currentUserId: string;
     answers: { qid: string; ui: number }[];
+    auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     await connectToDatabase();
 
@@ -99,6 +102,20 @@ export const questionnairesService = {
     }
 
     await User.updateOne({ id: input.currentUserId }, update);
+
+    await emitEvent({
+      event: 'ANSWERS_BULK_SUBMITTED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? { route: '/api/answers/bulk', method: 'POST' },
+      target: {
+        type: 'user',
+        id: input.currentUserId,
+      },
+      metadata: {
+        answersCount: input.answers.length,
+      },
+    });
+
     return {};
   },
 
@@ -106,6 +123,7 @@ export const questionnairesService = {
     pairId: string;
     questionnaireId: string;
     currentUserId: string;
+    auditRequest?: AuditRequestContext;
   }): Promise<{ sessionId: string; status: 'in_progress'; startedAt: Date }> {
     const pairData = await ensurePairMember(input.pairId, input.currentUserId);
     const pair = pairData.pair;
@@ -154,6 +172,30 @@ export const questionnairesService = {
         }
       );
 
+      await emitEvent({
+        event: 'QUESTIONNAIRE_STARTED',
+        actor: { userId: input.currentUserId },
+        request:
+          input.auditRequest ??
+          {
+            route: `/api/pairs/${input.pairId}/questionnaires/${input.questionnaireId}/start`,
+            method: 'POST',
+          },
+        context: {
+          pairId: input.pairId,
+          questionnaireId: input.questionnaireId,
+        },
+        target: {
+          type: 'session',
+          id: String(existing._id),
+        },
+        metadata: {
+          pairId: input.pairId,
+          questionnaireId: input.questionnaireId,
+          sessionId: String(existing._id),
+        },
+      });
+
       return {
         sessionId: String(existing._id),
         status: 'in_progress',
@@ -181,6 +223,30 @@ export const questionnairesService = {
       status: transition.next.status,
     });
 
+    await emitEvent({
+      event: 'QUESTIONNAIRE_STARTED',
+      actor: { userId: input.currentUserId },
+      request:
+        input.auditRequest ??
+        {
+          route: `/api/pairs/${input.pairId}/questionnaires/${input.questionnaireId}/start`,
+          method: 'POST',
+        },
+      context: {
+        pairId: input.pairId,
+        questionnaireId: input.questionnaireId,
+      },
+      target: {
+        type: 'session',
+        id: String(session._id),
+      },
+      metadata: {
+        pairId: input.pairId,
+        questionnaireId: input.questionnaireId,
+        sessionId: String(session._id),
+      },
+    });
+
     return {
       sessionId: String(session._id),
       status: 'in_progress',
@@ -195,6 +261,7 @@ export const questionnairesService = {
     questionId: string;
     ui: number;
     currentUserId: string;
+    auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     const pairData = await ensurePairMember(input.pairId, input.currentUserId);
     await connectToDatabase();
@@ -334,6 +401,32 @@ export const questionnairesService = {
     }
 
     await User.updateOne({ id: input.currentUserId }, update);
+
+    await emitEvent({
+      event: 'QUESTIONNAIRE_ANSWERED',
+      actor: { userId: input.currentUserId },
+      request:
+        input.auditRequest ??
+        {
+          route: `/api/pairs/${input.pairId}/questionnaires/${input.questionnaireId}/answer`,
+          method: 'POST',
+        },
+      context: {
+        pairId: input.pairId,
+        questionnaireId: input.questionnaireId,
+      },
+      target: {
+        type: 'session',
+        id: String(session._id),
+      },
+      metadata: {
+        pairId: input.pairId,
+        questionnaireId: input.questionnaireId,
+        sessionId: String(session._id),
+        questionId: input.questionId,
+        ui: input.ui,
+      },
+    });
 
     return {};
   },

@@ -50,4 +50,17 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-08
 
+- Added retention-aware event log model:
+  - `src/models/EventLog.ts` with `expiresAt` and TTL index (`expireAfterSeconds: 0`)
+- Implemented code-level retention matrix in audit layer:
+  - `src/lib/audit/eventTypes.ts` (`short=14d`, `abuse=30d`, `long=90d`)
+  - per-event retention tier resolved centrally in `emitEvent`
+- Added default metadata privacy guard:
+  - `src/lib/audit/emitEvent.ts` strips sensitive keys (`access_token`, `code`, `redirect_uri`, auth/secrets, raw body-like keys, direct answers payload keys)
+
+Acceptance criteria status:
+- PASS: event retention is enforced by Mongo TTL through `expiresAt`.
+- PASS: per-event retention tiers are deterministic and configured in code (no external service required).
+- PASS: default event metadata path is privacy-first and avoids raw sensitive request payload logging.

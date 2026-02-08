@@ -52,4 +52,21 @@ API не имеет централизованного rate limiting и анти
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-08
 
+- Added centralized Mongo fixed-window rate limiter:
+  - `src/models/RateLimitBucket.ts` (TTL bucket storage)
+  - `src/lib/abuse/rateLimit.ts` (`enforceRateLimit`, policy registry, 429 response contract)
+- Applied policy-based throttling to key endpoints:
+  - `/api/exchange-code`: `10/min` + `30/hour` per IP
+  - `/api/match/*` mutating: `30/min` per session user (IP fallback)
+  - `/api/logs`: `60/min` per session user (IP fallback)
+  - `/api/users` POST: `5/min` per IP
+  - `/api/pairs/create` POST: `5/min` per IP
+- Added abuse audit signal on limit hit:
+  - `ABUSE_RATE_LIMIT_HIT` event via `emitEvent`
+
+Acceptance criteria status:
+- PASS: P0 write/auth endpoints now have centralized frequency guards.
+- PASS: overflow returns `429 RATE_LIMITED` with `error.details.retryAfterMs` and `Retry-After` header.
+- PASS: rate-limit hits are auditable without sensitive payload leakage.

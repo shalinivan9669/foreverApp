@@ -72,3 +72,22 @@ Acceptance criteria status:
 - PASS: same key with different payload returns `409 IDEMPOTENCY_KEY_REUSE_CONFLICT`.
 - PASS: missing/invalid key returns `422` (`IDEMPOTENCY_KEY_REQUIRED` / `IDEMPOTENCY_KEY_INVALID`).
 - PARTIAL: integration tests for idempotency are still pending.
+
+Date: 2026-02-08
+
+- Extended idempotency coverage:
+  - `/api/users` POST
+  - `/api/pairs/create` POST
+  - `/api/users/me/onboarding` PATCH
+  - `/api/logs` POST (enabled as optional hardening, now covered)
+  - `/api/pairs/[id]/pause` POST
+  - `/api/pairs/[id]/resume` POST
+- Updated client onboarding and activity entry flows to send idempotency keys where now required:
+  - `src/components/OnboardingWizard.tsx`
+  - `src/app/page.tsx`
+
+Explicit non-idempotent endpoints (by design):
+- `/api/exchange-code` POST: OAuth exchange is already externally bounded and now rate-limited; replay token response is not stored in idempotency layer intentionally.
+- `/api/pairs/[id]/suggest` POST, `/api/pairs/[id]/activities/suggest` POST: endpoint semantics intentionally generate new sampled suggestions.
+- `/api/activities/next` POST, `/api/pairs/[id]/activities/from-template` POST: left without mandatory Idempotency-Key to keep current UX contract; protected by auth + validation, and documented as follow-up for stricter duplicate-prevention policy if product decides to enforce.
+- `PUT/PATCH` profile endpoints (`/api/users/me`, `/api/users/[id]`, `/api/users/[id]/onboarding`) use deterministic set/update semantics and remain naturally idempotent without mandatory Idempotency-Key header.

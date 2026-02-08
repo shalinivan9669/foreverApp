@@ -47,4 +47,23 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-08
 
+- Added unified audit event layer:
+  - `src/lib/audit/eventTypes.ts` (strict event names, typed metadata map, retention mapping)
+  - `src/lib/audit/emitEvent.ts` (single write point, request-context helper, metadata privacy sanitizer)
+  - `src/models/EventLog.ts` (event envelope + `expiresAt` TTL index + audit indexes)
+- Migrated critical event emission into domain services (not UI):
+  - `src/domain/services/match.service.ts`
+  - `src/domain/services/activities.service.ts`
+  - `src/domain/services/questionnaires.service.ts`
+  - `src/domain/services/users.service.ts`
+  - `src/domain/services/pairs.service.ts`
+- Added auth/security and abuse telemetry events:
+  - `SECURITY_AUTH_FAILED` from `/api/exchange-code`
+  - `ABUSE_RATE_LIMIT_HIT` from centralized rate limit guard
+
+Acceptance criteria status:
+- PASS: P0 event names are emitted in runtime for match/activity/questionnaire/user onboarding + pair creation flows.
+- PASS: unified event envelope persisted in `event_logs` with `event`, `ts`, `actor`, `context`, `target`, `request`, `metadata`, `expiresAt`.
+- PASS: metadata sanitizer blocks sensitive keys by default (`access_token`, `code`, `redirect_uri`, `email`, `phone`, raw body-like keys).

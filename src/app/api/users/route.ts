@@ -1,11 +1,12 @@
 // src/app/api/users/route.ts
 import { z } from 'zod';
-import { connectToDatabase } from '../../../lib/mongodb';
-import { User, UserType }    from '../../../models/User';
 import { requireSession } from '@/lib/auth/guards';
-import { jsonOk } from '@/lib/api/response';
 import { parseJson } from '@/lib/api/validate';
 import { toUserDTO } from '@/lib/dto';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { usersService, type UserProfileUpsertPayload } from '@/domain/services/users.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -26,40 +27,37 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
+  const rate = await enforceRateLimit({
+    req: request,
+    policy: RATE_LIMIT_POLICIES.usersCreate,
+    userId: currentUserId,
+    routeForAudit: '/api/users',
+  });
+  if (!rate.ok) return rate.response;
+
   const bodyResult = await parseJson(request, userUpdateSchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const body = bodyResult.data as Partial<UserType>;
-  await connectToDatabase();
+  const body = bodyResult.data as UserProfileUpsertPayload;
+  const auditRequest = auditContextFromRequest(request, '/api/users');
 
-  const updateFields: Record<string, unknown> = {
-    username: body.username,
-    avatar: body.avatar,
-  };
-  if (body.personal) updateFields.personal = body.personal;
-  if (body.vectors) updateFields.vectors = body.vectors;
-  if (body.preferences) updateFields.preferences = body.preferences;
-  if (body.embeddings) updateFields.embeddings = body.embeddings;
-  if (body.location) updateFields.location = body.location;
+  return withIdempotency({
+    req: request,
+    route: '/api/users',
+    userId: currentUserId,
+    requestBody: body,
+    execute: async () => {
+      const doc = await usersService.upsertCurrentUserProfile({
+        currentUserId,
+        payload: body,
+        auditRequest,
+      });
 
-  const doc = await User.findOneAndUpdate(
-    { id: currentUserId },
-    {
-      $set: updateFields,
-      $setOnInsert: { id: currentUserId },
+      return toUserDTO(doc, {
+        scope: 'private',
+        includeOnboarding: true,
+        includeMatchCard: true,
+        includeLocation: true,
+      });
     },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    }
-  ).lean<UserType>();
-
-  return jsonOk(
-    toUserDTO(doc, {
-      scope: 'private',
-      includeOnboarding: true,
-      includeMatchCard: true,
-      includeLocation: true,
-    })
-  );
+  });
 }

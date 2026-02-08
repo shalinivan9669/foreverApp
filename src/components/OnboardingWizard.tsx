@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
+import { fetchEnvelope } from '@/utils/apiClient';
 
 export default function OnboardingWizard() {
   const router = useRouter();
@@ -40,25 +41,31 @@ export default function OnboardingWizard() {
   const submitStep1 = async () => {
     setError(null);
     setLoading(true);
-    const res = await fetch('/.proxy/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: user.username,
-        avatar: user.avatar,
-        personal: {
-          gender,
-          age,
-          city: 'unknown',
-          relationshipStatus: status,
+    try {
+      await fetchEnvelope<{ id: string }>(
+        '/.proxy/api/users',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            avatar: user.avatar,
+            personal: {
+              gender,
+              age,
+              city: 'unknown',
+              relationshipStatus: status,
+            },
+          }),
         },
-      }),
-    });
-    setLoading(false);
-    if (!res.ok) {
+        { idempotency: true }
+      );
+    } catch {
+      setLoading(false);
       setError('Не удалось сохранить профиль. Попробуйте ещё раз.');
       return;
     }
+    setLoading(false);
     setStep(2);
   };
 
@@ -87,16 +94,22 @@ export default function OnboardingWizard() {
           };
     setError(null);
     setLoading(true);
-    const res = await fetch('/.proxy/api/users/me/onboarding', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    setLoading(false);
-    if (!res.ok) {
+    try {
+      await fetchEnvelope<{ id: string }>(
+        '/.proxy/api/users/me/onboarding',
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+        { idempotency: true }
+      );
+    } catch {
+      setLoading(false);
       setError('Не удалось завершить анкету. Попробуйте ещё раз.');
       return;
     }
+    setLoading(false);
     setStep(3);
   };
 
@@ -366,3 +379,5 @@ export default function OnboardingWizard() {
     </div>
   );
 }
+
+

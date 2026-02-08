@@ -6,6 +6,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { parseParams } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { questionnairesService } from '@/domain/services/questionnaires.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 interface Ctx {
   params: Promise<{ id: string; qid: string }>;
@@ -25,6 +26,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!params.ok) return params.response;
 
   const { id, qid } = params.data;
+  const auditRequest = auditContextFromRequest(
+    req,
+    `/api/pairs/${id}/questionnaires/${qid}/start`
+  );
 
   return withIdempotency({
     req,
@@ -39,6 +44,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         pairId: id,
         questionnaireId: qid,
         currentUserId,
+        auditRequest,
       }),
   });
 }

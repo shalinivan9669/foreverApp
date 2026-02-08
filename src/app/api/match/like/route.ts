@@ -5,6 +5,8 @@ import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { matchService } from '@/domain/services/match.service';
+import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 export const runtime = 'nodejs';
 
@@ -31,10 +33,19 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
+  const rate = await enforceRateLimit({
+    req,
+    policy: RATE_LIMIT_POLICIES.matchMutations,
+    userId: currentUserId,
+    routeForAudit: '/api/match/like',
+  });
+  if (!rate.ok) return rate.response;
+
   const parsedBody = await parseJson(req, bodySchema);
   if (!parsedBody.ok) return parsedBody.response;
 
   const body = parsedBody.data as Body;
+  const auditRequest = auditContextFromRequest(req, '/api/match/like');
 
   return withIdempotency({
     req,
@@ -51,6 +62,7 @@ export async function POST(req: NextRequest) {
         toId: body.toId,
         agreements: body.agreements,
         answers: body.answers,
+        auditRequest,
       }),
   });
 }

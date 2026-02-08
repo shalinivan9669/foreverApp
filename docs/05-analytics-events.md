@@ -38,3 +38,42 @@
 **PII/Интимные Данные (Запреты)**
 - Не логировать текстовые ответы, `answers[]`, `checkIns` и любые чувствительные free-text поля.
 - Не логировать access_token или OAuth коды.
+
+## Update 2026-02-08 (Audit Event Canonical Runtime)
+
+Canonical persisted event schema (`event_logs`):
+- `event`: `AuditEventName`
+- `ts`: unix ms timestamp (`Date.now()`)
+- `actor`: `{ userId: string }`
+- `context`: `{ pairId?, activityId?, likeId?, questionnaireId? }`
+- `target`: `{ type, id }` (optional)
+- `request`: `{ route, method, ip?, ua? }`
+- `metadata`: privacy-sanitized safe snapshot (no raw sensitive payloads)
+- `retentionTier`: `short | long | abuse`
+- `expiresAt`: computed by retention policy
+
+Canonical runtime emitter:
+- `src/lib/audit/emitEvent.ts` (`emitEvent`, `auditContextFromRequest`)
+
+Canonical event names:
+- `MATCH_LIKE_CREATED`
+- `MATCH_RESPONDED`
+- `MATCH_ACCEPTED`
+- `MATCH_REJECTED`
+- `MATCH_CONFIRMED`
+- `ACTIVITY_ACCEPTED`
+- `ACTIVITY_CANCELED`
+- `ACTIVITY_CHECKED_IN`
+- `ACTIVITY_COMPLETED`
+- `QUESTIONNAIRE_STARTED`
+- `QUESTIONNAIRE_ANSWERED`
+- `ANSWERS_BULK_SUBMITTED`
+- `USER_ONBOARDING_UPDATED`
+- `USER_PROFILE_UPSERTED`
+- `MATCH_CARD_UPDATED`
+- `PAIR_CREATED`
+- `PAIR_PAUSED`
+- `PAIR_RESUMED`
+- `SECURITY_AUTH_FAILED`
+- `ABUSE_RATE_LIMIT_HIT`
+- `LOG_VISIT_RECORDED`

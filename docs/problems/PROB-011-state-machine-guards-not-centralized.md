@@ -65,3 +65,18 @@ Acceptance criteria status:
 - PASS (scope): invalid transition now returns `409` with `STATE_CONFLICT`.
 - PASS: `docs/03-state-machines.md` updated with centralized transition rules.
 - PARTIAL (global): non-scope routes still need migration to machine-based transitions.
+
+Date: 2026-02-08
+
+- Added centralized pair transition machine:
+  - `src/domain/state/pairMachine.ts` (`CREATE`, `PAUSE`, `RESUME`)
+- Added pair transition service orchestration:
+  - `src/domain/services/pairs.service.ts`
+- Migrated pair transition endpoints:
+  - `/api/pairs/create` POST
+  - `/api/pairs/[id]/pause` POST
+  - `/api/pairs/[id]/resume` POST
+
+Acceptance criteria status (updated):
+- PASS (transition endpoints): transition-based mutation routes (`match`, `activity`, `pair`, `pair questionnaire`) now use centralized machine guards.
+- PASS: forbidden transitions return stable `409 STATE_CONFLICT`.

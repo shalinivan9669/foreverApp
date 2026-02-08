@@ -6,6 +6,8 @@ import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseQuery } from '@/lib/api/validate';
 import { toMatchCardDTO } from '@/lib/dto';
+import { usersService } from '@/domain/services/users.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -53,23 +55,17 @@ export async function POST(req: NextRequest) {
     return jsonError(400, 'MATCH_CARD_INVALID_PAYLOAD', 'invalid payload');
   }
 
-  await connectToDatabase();
-
-  const set = {
-    'profile.matchCard': {
-      requirements, give, questions,
+  const auditRequest = auditContextFromRequest(req, '/api/match/card');
+  const doc = await usersService.upsertCurrentUserMatchCard({
+    currentUserId,
+    payload: {
+      requirements: [requirements[0], requirements[1], requirements[2]],
+      give: [give[0], give[1], give[2]],
+      questions: [questions[0], questions[1]],
       isActive: b.isActive ?? true,
-      updatedAt: new Date()
-    }
-  };
-
-  const doc = await User.findOneAndUpdate(
-    { id: currentUserId },
-    { $set: set },
-    { new: true, runValidators: true }
-  ).lean();
-
-  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
+    },
+    auditRequest,
+  });
 
   return jsonOk(toMatchCardDTO(doc.profile?.matchCard ?? null));
 }

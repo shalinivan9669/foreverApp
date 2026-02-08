@@ -6,6 +6,8 @@ import { parseJson, parseQuery } from '@/lib/api/validate';
 import { jsonError } from '@/lib/api/response';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { matchService } from '@/domain/services/match.service';
+import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 type Body = {
   userId?: string;
@@ -30,16 +32,25 @@ const bodySchema = z
   .strict();
 
 export async function POST(req: NextRequest) {
-  const query = parseQuery(req, querySchema);
-  if (!query.ok) return query.response;
-
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
+  const rate = await enforceRateLimit({
+    req,
+    policy: RATE_LIMIT_POLICIES.matchMutations,
+    userId: currentUserId,
+    routeForAudit: '/api/match/respond',
+  });
+  if (!rate.ok) return rate.response;
+
+  const query = parseQuery(req, querySchema);
+  if (!query.ok) return query.response;
+
   const bodyResult = await parseJson(req, bodySchema);
   if (!bodyResult.ok) return bodyResult.response;
   const body = bodyResult.data as Body;
+  const auditRequest = auditContextFromRequest(req, '/api/match/respond');
 
   const likeId = body.likeId ?? query.data.id ?? '';
   if (!likeId) {
@@ -61,6 +72,7 @@ export async function POST(req: NextRequest) {
         likeId,
         agreements: body.agreements,
         answers: body.answers,
+        auditRequest,
       }),
   });
 }

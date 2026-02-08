@@ -5,6 +5,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { questionnairesService } from '@/domain/services/questionnaires.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 type Body = {
   userId?: string;
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
   if (!body.ok) return body.response;
 
   const payload = body.data as Body;
+  const auditRequest = auditContextFromRequest(req, '/api/answers/bulk');
 
   return withIdempotency({
     req,
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
       questionnairesService.submitBulkAnswers({
         currentUserId,
         answers: payload.answers,
+        auditRequest,
       }),
   });
 }

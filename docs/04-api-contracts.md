@@ -215,3 +215,21 @@ Validation behavior:
 - `IDEMPOTENCY_KEY_INVALID` (`422`)
 - `INTERNAL` (`500`)
 
+## Update 2026-02-08 (Rate Limit Contract)
+
+Centralized abuse guard returns:
+- HTTP status: `429`
+- envelope:
+  - `ok: false`
+  - `error.code: 'RATE_LIMITED'`
+  - `error.message: 'Too many requests'`
+  - `error.details.retryAfterMs: number`
+- header: `Retry-After` (seconds)
+
+Applied policy groups:
+- `/api/exchange-code` (IP)
+- `/api/match/*` mutating (user/IP fallback)
+- `/api/logs` (user/IP fallback)
+- `/api/users` POST (IP)
+- `/api/pairs/create` POST (IP)
+

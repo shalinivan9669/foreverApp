@@ -16,3 +16,11 @@
 **Consequences**
 - Единый формат событий задаётся на уровне приложения.
 - Наблюдаемость не требует внешнего брокера на старте.
+
+## Update 2026-02-08
+
+- Decision implemented in runtime:
+  - `src/models/EventLog.ts` (single audit/event collection in monolith Mongo)
+  - `src/lib/audit/emitEvent.ts` (single emission API)
+  - `src/lib/audit/eventTypes.ts` (event name + retention typing)
+- Legacy lightweight `Log` model is superseded by `EventLog` for auditable analytics/security events.

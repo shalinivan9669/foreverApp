@@ -1,6 +1,8 @@
 import { successScore, applyEffects, clamp } from '@/utils/activities';
 import { requireActivityMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
+import { emitEvent } from '@/lib/audit/emitEvent';
+import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import {
   activityTransition,
   type ActivityAnswerInput,
@@ -47,6 +49,7 @@ export const activitiesService = {
   async acceptActivity(input: {
     activityId: string;
     currentUserId: string;
+    auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
 
@@ -72,12 +75,35 @@ export const activitiesService = {
     }
 
     await data.activity.save();
+
+    await emitEvent({
+      event: 'ACTIVITY_ACCEPTED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? {
+        route: `/api/activities/${input.activityId}/accept`,
+        method: 'POST',
+      },
+      context: {
+        pairId: String(data.pair._id),
+        activityId: String(data.activity._id),
+      },
+      target: {
+        type: 'activity',
+        id: String(data.activity._id),
+      },
+      metadata: {
+        activityId: String(data.activity._id),
+        status: 'accepted',
+      },
+    });
+
     return {};
   },
 
   async cancelActivity(input: {
     activityId: string;
     currentUserId: string;
+    auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
 
@@ -99,6 +125,27 @@ export const activitiesService = {
     data.activity.status = transition.next.status;
     await data.activity.save();
 
+    await emitEvent({
+      event: 'ACTIVITY_CANCELED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? {
+        route: `/api/activities/${input.activityId}/cancel`,
+        method: 'POST',
+      },
+      context: {
+        pairId: String(data.pair._id),
+        activityId: String(data.activity._id),
+      },
+      target: {
+        type: 'activity',
+        id: String(data.activity._id),
+      },
+      metadata: {
+        activityId: String(data.activity._id),
+        status: 'cancelled',
+      },
+    });
+
     return {};
   },
 
@@ -106,6 +153,7 @@ export const activitiesService = {
     activityId: string;
     currentUserId: string;
     answers: ActivityAnswerInput[];
+    auditRequest?: AuditRequestContext;
   }): Promise<{ success: number }> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
 
@@ -134,6 +182,29 @@ export const activitiesService = {
 
     await data.activity.save();
 
+    await emitEvent({
+      event: 'ACTIVITY_CHECKED_IN',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? {
+        route: `/api/activities/${input.activityId}/checkin`,
+        method: 'POST',
+      },
+      context: {
+        pairId: String(data.pair._id),
+        activityId: String(data.activity._id),
+      },
+      target: {
+        type: 'activity',
+        id: String(data.activity._id),
+      },
+      metadata: {
+        activityId: String(data.activity._id),
+        answersCount: input.answers.length,
+        success: clamp(score),
+        status: 'awaiting_checkin',
+      },
+    });
+
     return {
       success: score,
     };
@@ -142,6 +213,7 @@ export const activitiesService = {
   async completeActivity(input: {
     activityId: string;
     currentUserId: string;
+    auditRequest?: AuditRequestContext;
   }): Promise<{ success: number; status: 'completed_success' | 'completed_partial' | 'failed' }> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
 
@@ -179,6 +251,28 @@ export const activitiesService = {
     });
 
     await data.activity.save();
+
+    await emitEvent({
+      event: 'ACTIVITY_COMPLETED',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? {
+        route: `/api/activities/${input.activityId}/complete`,
+        method: 'POST',
+      },
+      context: {
+        pairId: String(data.pair._id),
+        activityId: String(data.activity._id),
+      },
+      target: {
+        type: 'activity',
+        id: String(data.activity._id),
+      },
+      metadata: {
+        activityId: String(data.activity._id),
+        success: clamp(score),
+        status: completedStatus,
+      },
+    });
 
     return {
       success: clamp(score),

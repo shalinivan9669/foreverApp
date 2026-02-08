@@ -1,14 +1,15 @@
-﻿// DTO rule: return only DTO/view model (never raw DB model shape).
-// src/app/api/pairs/[id]/resume/route.ts
+// DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { Pair } from '@/models/Pair';
 import { requireSession } from '@/lib/auth/guards';
-import { requirePairMember } from '@/lib/auth/resourceGuards';
-import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams } from '@/lib/api/validate';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { pairsService } from '@/domain/services/pairs.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
-interface Ctx { params: Promise<{ id: string }> }
+interface Ctx {
+  params: Promise<{ id: string }>;
+}
 
 const paramsSchema = z.object({
   id: z.string().min(1),
@@ -22,16 +23,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
   const { id } = params.data;
+  const auditRequest = auditContextFromRequest(req, `/api/pairs/${id}/resume`);
 
-  const pairGuard = await requirePairMember(id, currentUserId);
-  if (!pairGuard.ok) return pairGuard.response;
-
-  const doc = await Pair.findByIdAndUpdate(
-    pairGuard.data.pair._id,
-    { $set: { status: 'active' } },
-    { new: true }
-  );
-  if (!doc) return jsonError(404, 'PAIR_NOT_FOUND', 'not found');
-  return jsonOk({});
+  return withIdempotency({
+    req,
+    route: `/api/pairs/${id}/resume`,
+    userId: currentUserId,
+    requestBody: { pairId: id },
+    execute: () =>
+      pairsService.resumePair({
+        pairId: id,
+        currentUserId,
+        auditRequest,
+      }),
+  });
 }
-

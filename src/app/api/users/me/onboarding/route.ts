@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { connectToDatabase } from '@/lib/mongodb';
-import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
-import { jsonError, jsonOk } from '@/lib/api/response';
+import type { JsonValue } from '@/lib/api/response';
 import { parseJson } from '@/lib/api/validate';
 import { toUserDTO } from '@/lib/dto';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { usersService } from '@/domain/services/users.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -18,27 +19,27 @@ export async function PATCH(req: NextRequest) {
 
   const bodyResult = await parseJson(req, bodySchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const body = bodyResult.data;
-  await connectToDatabase();
+  const patch = bodyResult.data as Record<string, JsonValue>;
+  const auditRequest = auditContextFromRequest(req, '/api/users/me/onboarding');
 
-  const set: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(body)) {
-    set[`profile.onboarding.${k}`] = v;
-  }
+  return withIdempotency({
+    req,
+    route: '/api/users/me/onboarding',
+    userId,
+    requestBody: patch,
+    execute: async () => {
+      const doc = await usersService.updateCurrentUserOnboarding({
+        currentUserId: userId,
+        patch,
+        auditRequest,
+      });
 
-  const doc = await User.findOneAndUpdate(
-    { id: userId },
-    { $set: set },
-    { new: true, runValidators: true }
-  ).lean<UserType | null>();
-
-  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(
-    toUserDTO(doc, {
-      scope: 'private',
-      includeOnboarding: true,
-      includeMatchCard: true,
-      includeLocation: true,
-    })
-  );
+      return toUserDTO(doc, {
+        scope: 'private',
+        includeOnboarding: true,
+        includeMatchCard: true,
+        includeLocation: true,
+      });
+    },
+  });
 }

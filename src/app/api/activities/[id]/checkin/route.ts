@@ -5,6 +5,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { parseJson, parseParams } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { activitiesService } from '@/domain/services/activities.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const body = await parseJson(req, bodySchema);
   if (!body.ok) return body.response;
   const { answers } = body.data;
+  const auditRequest = auditContextFromRequest(req, `/api/activities/${id}/checkin`);
 
   return withIdempotency({
     req,
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         activityId: id,
         currentUserId,
         answers,
+        auditRequest,
       }),
   });
 }

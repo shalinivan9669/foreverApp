@@ -67,3 +67,26 @@
 - `GET/PUT/PATCH /api/users/me*`: self-only endpoints may return private profile DTO.
 - non-self endpoints (`/api/users/[id]`, match feed/inbox peer cards, etc.) return public user DTO only (`id`, `username`, `avatar`).
 - pair activity list DTO omits check-in answer payload by default.
+
+## Update 2026-02-08 (Event Retention + Privacy Defaults)
+
+### Event retention policy
+| Event category | Examples | Retention tier | Retention window |
+|---|---|---|---|
+| Security/Auth/Audit | `SECURITY_AUTH_FAILED`, `MATCH_*`, `ACTIVITY_*`, `QUESTIONNAIRE_*`, `PAIR_*`, `USER_*` | `long` | 90 days |
+| Abuse controls | `ABUSE_RATE_LIMIT_HIT` | `abuse` | 30 days |
+| Debug/diagnostic | `LOG_VISIT_RECORDED` | `short` | 14 days |
+
+Implementation:
+- `src/lib/audit/eventTypes.ts` (tier mapping + days)
+- `src/models/EventLog.ts` (`expiresAt` + TTL index)
+
+### PII-safe event metadata defaults
+By default, event metadata must not include:
+- OAuth artifacts (`access_token`, `code`, `redirect_uri`)
+- auth/session material (`authorization`, `cookie`, `secret`, `password`)
+- direct contacts (`email`, `phone`)
+- raw free-text/raw request body snapshots (`message/messages`, `raw`, `body`, full `answers/checkIns` payloads)
+
+Enforcement path:
+- `src/lib/audit/emitEvent.ts` metadata sanitizer strips sensitive keys before persist.

@@ -61,3 +61,23 @@ Acceptance criteria status:
 - PASS (scope): migrated mutation handlers are thin and do not contain business transition logic.
 - PASS (scope): resource guards and role resolution executed in services.
 - PARTIAL (global): heavyweight non-scope routes (`activities/next`, `pairs/[id]/suggest`, `pairs/[id]/diagnostics`) remain for follow-up migration.
+
+Date: 2026-02-08
+
+- Migrated additional mutation handlers to domain services:
+  - `src/domain/services/pairs.service.ts` + `src/domain/state/pairMachine.ts`
+  - `src/domain/services/users.service.ts`
+  - `src/domain/services/logs.service.ts`
+  - `src/domain/services/activityOffer.service.ts`
+- Refactored mutation routes to thin controllers (`auth -> validate -> [rate-limit] -> [idempotency] -> service`):
+  - `/api/pairs/create`, `/api/pairs/[id]/pause`, `/api/pairs/[id]/resume`
+  - `/api/users` POST, `/api/users/me/onboarding` PATCH, `/api/users/me` PUT
+  - `/api/users/[id]` PUT, `/api/users/[id]/onboarding` PATCH
+  - `/api/logs` POST
+  - `/api/activities/next` POST, `/api/pairs/[id]/suggest` POST, `/api/pairs/[id]/activities/suggest` POST, `/api/pairs/[id]/activities/from-template` POST
+  - `/api/questionnaires/[id]` POST delegated to questionnaire service
+
+Acceptance criteria status (updated):
+- PASS (mutations): mutation handlers are thin and delegate business logic/state mutations into services.
+- PARTIAL (global repo): heavy non-mutation route `/api/pairs/[id]/diagnostics` (GET) still keeps non-trivial recomputation logic and is tracked separately.
+- Not-in-scope adapter exception: `/api/exchange-code` remains an integration/auth adapter route (OAuth exchange), not a domain-state mutation service.

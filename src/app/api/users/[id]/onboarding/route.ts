@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { connectToDatabase } from '../../../../../lib/mongodb';
-import { User, UserType } from '../../../../../models/User';
 import { requireSession } from '@/lib/auth/guards';
-import { jsonError, jsonOk } from '@/lib/api/response';
+import { jsonError, jsonOk, type JsonValue } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
 import { toUserDTO } from '@/lib/dto';
+import { usersService } from '@/domain/services/users.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import { asError, toDomainError } from '@/domain/errors';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -22,6 +23,7 @@ const bodySchema = z.object({}).passthrough();
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const actorUserId = auth.data.userId;
 
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
@@ -29,19 +31,24 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   const bodyResult = await parseJson(req, bodySchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const body = bodyResult.data;
+  const patch = bodyResult.data as Record<string, JsonValue>;
+  const auditRequest = auditContextFromRequest(req, `/api/users/${id}/onboarding`);
 
-  await connectToDatabase();
-
-  const set: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(body)) {
-    set[`profile.onboarding.${k}`] = v;
+  try {
+    const doc = await usersService.updateUserOnboardingById({
+      targetUserId: id,
+      actorUserId,
+      patch,
+      auditRequest,
+    });
+    return jsonOk(toUserDTO(doc, { scope: 'public' }));
+  } catch (error: unknown) {
+    const domainError = toDomainError(asError(error));
+    return jsonError(
+      domainError.status,
+      domainError.code,
+      domainError.message,
+      domainError.details
+    );
   }
-
-  const doc = await User.findOneAndUpdate(
-    { id }, { $set: set }, { new: true, runValidators: true }
-  ).lean<UserType | null>();
-
-  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(toUserDTO(doc, { scope: 'public' }));
 }

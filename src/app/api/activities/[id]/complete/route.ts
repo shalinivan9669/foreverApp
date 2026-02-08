@@ -5,6 +5,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { parseParams } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { activitiesService } from '@/domain/services/activities.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
   const { id } = params.data;
+  const auditRequest = auditContextFromRequest(req, `/api/activities/${id}/complete`);
 
   return withIdempotency({
     req,
@@ -32,6 +34,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       activitiesService.completeActivity({
         activityId: id,
         currentUserId,
+        auditRequest,
       }),
   });
 }

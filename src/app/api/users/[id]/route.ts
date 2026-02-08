@@ -6,6 +6,9 @@ import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams, parseQuery } from '@/lib/api/validate';
 import { toUserDTO } from '@/lib/dto';
+import { usersService, type UserProfileUpsertPayload } from '@/domain/services/users.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import { asError, toDomainError } from '@/domain/errors';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -47,6 +50,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const actorUserId = auth.data.userId;
 
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
@@ -54,20 +58,24 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 
   const bodyResult = await parseJson(req, userUpdateSchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const body = bodyResult.data as Partial<UserType>;
+  const body = bodyResult.data as UserProfileUpsertPayload;
+  const auditRequest = auditContextFromRequest(req, `/api/users/${id}`);
 
-  await connectToDatabase();
-  const update: Record<string, unknown> = {};
-  if (body.personal) update.personal = body.personal;
-  if (body.vectors) update.vectors = body.vectors;
-  if (body.preferences) update.preferences = body.preferences;
-  if (body.embeddings) update.embeddings = body.embeddings;
-  if (body.location) update.location = body.location;
-  const doc = await User.findOneAndUpdate(
-    { id },
-    update,
-    { new: true, runValidators: true }
-  ).lean<UserType | null>();
-  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(toUserDTO(doc, { scope: 'public' }));
+  try {
+    const doc = await usersService.updateUserProfileById({
+      targetUserId: id,
+      actorUserId,
+      payload: body,
+      auditRequest,
+    });
+    return jsonOk(toUserDTO(doc, { scope: 'public' }));
+  } catch (error: unknown) {
+    const domainError = toDomainError(asError(error));
+    return jsonError(
+      domainError.status,
+      domainError.code,
+      domainError.message,
+      domainError.details
+    );
+  }
 }
