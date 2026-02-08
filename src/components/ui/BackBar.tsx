@@ -27,7 +27,7 @@ export default function BackBar({ title, fallbackHref = '/main-menu', rightSlot 
       <div className="mx-auto flex h-12 max-w-5xl items-center gap-3 px-3">
         <button
           onClick={goBack}
-          aria-label="Р СњР В°Р В·Р В°Р Т‘"
+          aria-label="�����"
           className="rounded-md border border-transparent p-1.5 transition hover:border-slate-200 hover:bg-slate-100"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">

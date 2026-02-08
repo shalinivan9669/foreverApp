@@ -21,7 +21,7 @@ export default function CandidateCard({ c, onLike }: Props) {
           onClick={() => onLike({ id: c.id, username: c.username, avatar: c.avatar })}
           className="app-btn-primary px-3 py-1 text-sm"
         >
-          Р вЂєР В°Р в„–Р С”
+          Лайк
         </button>
       )}
     </div>

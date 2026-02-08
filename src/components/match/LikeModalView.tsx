@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -56,7 +56,7 @@ export default function LikeModalView(props: LikeModalViewProps) {
             className="rounded-full ring-1 ring-slate-200"
             alt={candidate.username}
           />
-          <div className="font-medium">Р›Р°Р№Рє {candidate.username}</div>
+          <div className="font-medium">Лайк {candidate.username}</div>
           <button onClick={onClose} className="app-btn-secondary ml-auto px-2 py-1 text-slate-700">
             x
           </button>
@@ -64,11 +64,11 @@ export default function LikeModalView(props: LikeModalViewProps) {
 
         <div className="space-y-4 p-4">
           {!card ? (
-            <p className="app-muted">Р—Р°РіСЂСѓР·РєР° СѓСЃР»РѕРІРёР№вЂ¦</p>
+            <p className="app-muted">Загрузка условий...</p>
           ) : (
             <>
               <section>
-                <h3 className="mb-2 font-medium">РЎРѕРіР»Р°СЃРёРµ СЃ СѓСЃР»РѕРІРёСЏРјРё</h3>
+                <h3 className="mb-2 font-medium">Согласие с условиями</h3>
                 <ul className="space-y-2">
                   {card.requirements.map((requirement, index) => (
                     <li key={index} className="flex items-start gap-2">
@@ -86,7 +86,7 @@ export default function LikeModalView(props: LikeModalViewProps) {
               </section>
 
               <section className="space-y-2">
-                <h3 className="mb-2 font-medium">РћС‚РІРµС‚СЊС‚Рµ РЅР° РІРѕРїСЂРѕСЃС‹</h3>
+                <h3 className="mb-2 font-medium">Ответьте на вопросы</h3>
                 {card.questions.map((question, index) => (
                   <div key={index} className="space-y-1">
                     <div className="app-muted text-sm">{question}</div>
@@ -108,14 +108,14 @@ export default function LikeModalView(props: LikeModalViewProps) {
 
         <div className="flex gap-3 border-t border-slate-200 p-4">
           <button onClick={onClose} className="app-btn-secondary px-4 py-2 text-slate-800">
-            РћС‚РјРµРЅР°
+            Отмена
           </button>
           <button
             onClick={onSubmit}
             disabled={!canSend || busy}
             className="app-btn-primary px-4 py-2 text-white disabled:opacity-60"
           >
-            {busy ? 'РћС‚РїСЂР°РІР»СЏРµРјвЂ¦' : 'РћС‚РїСЂР°РІРёС‚СЊ Р·Р°СЏРІРєСѓ'}
+            {busy ? 'Отправляем...' : 'Отправить заявку'}
           </button>
         </div>
       </div>

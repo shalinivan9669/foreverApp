@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import ActivityCard from '@/components/activities/ActivityCard';
 import CheckInModal from '@/components/activities/CheckInModal';
@@ -72,10 +72,10 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
   if (!hasPair) {
     return (
       <main className="mx-auto max-w-3xl space-y-4 p-4">
-        <BackBar title="Р С’Р С”РЎвЂљР С‘Р Р†Р Р…Р С•РЎРѓРЎвЂљР С‘ Р С—Р В°РЎР‚РЎвЂ№" fallbackHref="/main-menu" />
+        <BackBar title="Активности пары" fallbackHref="/main-menu" />
         <EmptyStateView
-          title="Р СџР В°РЎР‚Р В° Р Р…Р Вµ Р Р…Р В°Р в„–Р Т‘Р ВµР Р…Р В°"
-          description="Р РЋР Р…Р В°РЎвЂЎР В°Р В»Р В° РЎРѓР С•Р В·Р Т‘Р В°Р в„–РЎвЂљР Вµ Р С—Р В°РЎР‚РЎС“, Р В·Р В°РЎвЂљР ВµР С Р Р†Р ВµРЎР‚Р Р…Р С‘РЎвЂљР ВµРЎРѓРЎРЉ Р С” Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•РЎРѓРЎвЂљРЎРЏР С."
+          title="Пара не найдена"
+          description="Сначала создайте пару, затем вернитесь к активностям."
         />
       </main>
     );
@@ -83,22 +83,22 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4">
-      <BackBar title="Р С’Р С”РЎвЂљР С‘Р Р†Р Р…Р С•РЎРѓРЎвЂљР С‘ Р С—Р В°РЎР‚РЎвЂ№" fallbackHref="/main-menu" />
-      <h1 className="text-2xl font-bold text-slate-900">Р С’Р С”РЎвЂљР С‘Р Р†Р Р…Р С•РЎРѓРЎвЂљР С‘ Р С—Р В°РЎР‚РЎвЂ№</h1>
+      <BackBar title="Активности пары" fallbackHref="/main-menu" />
+      <h1 className="text-2xl font-bold text-slate-900">Активности пары</h1>
 
       <div className="flex gap-2">
         <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>
-          Р С’Р С”РЎвЂљР С‘Р Р†Р Р…Р В°РЎРЏ
+          Активная
         </button>
         <button onClick={() => onSetTab('suggested')} className={tabButtonClass(tab === 'suggested')}>
-          Р СџРЎР‚Р ВµР Т‘Р В»Р С•Р В¶Р ВµР Р…Р С•
+          Предложено
         </button>
         <button onClick={() => onSetTab('history')} className={tabButtonClass(tab === 'history')}>
-          Р ВРЎРѓРЎвЂљР С•РЎР‚Р С‘РЎРЏ
+          История
         </button>
       </div>
 
-      {loading && <LoadingView compact label="Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С”Р В° Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•РЎРѓРЎвЂљР ВµР в„–РІР‚В¦" />}
+      {loading && <LoadingView compact label="Загрузка активностей..." />}
       {error && <ErrorView error={error} onRetry={onRetry} />}
       {activityFlowMessage && (
         <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
@@ -119,7 +119,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
                     disabled={pendingCompleteInFlight}
                     className="app-btn-secondary mt-2 px-3 py-1.5 text-sm text-slate-900 disabled:opacity-60"
                   >
-                    {pendingCompleteInFlight ? 'Р вЂ”Р В°Р Р†Р ВµРЎР‚РЎв‚¬Р В°Р ВµР С...' : 'Р вЂ”Р В°Р Р†Р ВµРЎР‚РЎв‚¬Р С‘РЎвЂљРЎРЉ Р ВµРЎвЂ°Р Вµ РЎР‚Р В°Р В·'}
+                    {pendingCompleteInFlight ? 'Завершаем...' : 'Завершить еще раз'}
                   </button>
                 </div>
               )}
@@ -137,11 +137,11 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
           ) : (
             <div className="app-panel flex items-center justify-between gap-3 p-4">
               <div>
-                <div className="font-medium text-slate-900">Р СњР ВµРЎвЂљ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•РЎРѓРЎвЂљР С‘</div>
-                <div className="app-muted text-sm">Р СџРЎР‚Р ВµР Т‘Р В»Р С•Р В¶Р С‘Р С Р С—Р С•Р Т‘РЎвЂ¦Р С•Р Т‘РЎРЏРЎвЂ°Р ВµР Вµ Р В·Р В°Р Т‘Р В°Р Р…Р С‘Р Вµ</div>
+                <div className="font-medium text-slate-900">Нет активной активности</div>
+                <div className="app-muted text-sm">Предложим подходящее задание</div>
               </div>
               <button onClick={onSuggestNext} className="app-btn-primary px-3 py-2 text-white">
-                Р СџРЎР‚Р ВµР Т‘Р В»Р С•Р В¶Р С‘РЎвЂљРЎРЉ
+                Предложить
               </button>
             </div>
           )}
@@ -152,12 +152,12 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
         <div className="space-y-3">
           <div className="flex justify-end">
             <button onClick={onSuggestNext} className="app-btn-primary px-3 py-2 text-white">
-              Р вЂўРЎвЂ°РЎвЂ Р Р†Р В°РЎР‚Р С‘Р В°Р Р…РЎвЂљРЎвЂ№
+              Еще варианты
             </button>
           </div>
 
           {suggested.length === 0 && (
-            <EmptyStateView title="Р СџР С•Р С”Р В° Р С—РЎС“РЎРѓРЎвЂљР С•" description="Р СњР В°Р В¶Р СР С‘РЎвЂљР Вµ Р’В«Р вЂўРЎвЂ°РЎвЂ Р Р†Р В°РЎР‚Р С‘Р В°Р Р…РЎвЂљРЎвЂ№Р’В», РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ Р С—Р С•Р В»РЎС“РЎвЂЎР С‘РЎвЂљРЎРЉ РЎРѓР С—Р С‘РЎРѓР С•Р С”." />
+            <EmptyStateView title="Пока пусто" description="Нажмите «Еще варианты», чтобы получить список." />
           )}
 
           {suggested.map((item) => (
@@ -177,7 +177,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
       {!loading && tab === 'history' && (
         <div className="space-y-3">
-          {history.length === 0 && <EmptyStateView title="Р ВРЎРѓРЎвЂљР С•РЎР‚Р С‘РЎРЏ Р С—Р С•Р С”Р В° Р С—РЎС“РЎРѓРЎвЂљР В°" />}
+          {history.length === 0 && <EmptyStateView title="История пока пуста" />}
           {history.map((item) => (
             <ActivityCard
               key={item._id}
@@ -199,13 +199,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
           locale={locale}
           submitting={checkInSubmitting}
           pendingComplete={pendingCompleteActivityId === checkInFor._id}
-          pendingCompleteMessage={
-            pendingCompleteActivityId === checkInFor._id ? pendingCompleteMessage : null
-          }
+          pendingCompleteMessage={pendingCompleteActivityId === checkInFor._id ? pendingCompleteMessage : null}
           onRetryComplete={
-            pendingCompleteActivityId === checkInFor._id
-              ? () => onRetryComplete(checkInFor._id)
-              : undefined
+            pendingCompleteActivityId === checkInFor._id ? () => onRetryComplete(checkInFor._id) : undefined
           }
           retryCompleteLoading={pendingCompleteInFlight}
           onClose={onCloseCheckIn}

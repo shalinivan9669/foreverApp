@@ -1,4 +1,4 @@
-// src/components/main-menu/QuestionnaireTile.tsx
+﻿// src/components/main-menu/QuestionnaireTile.tsx
 import Link from 'next/link';
 
 export default function QuestionnaireTile() {
@@ -7,7 +7,7 @@ export default function QuestionnaireTile() {
       href="/questionnaires"
       className="flex items-center justify-center rounded-2xl border border-lime-200 bg-gradient-to-br from-lime-100 via-emerald-100 to-teal-100 px-3 text-center font-semibold tracking-wide text-emerald-950 shadow-[0_10px_24px_rgba(21,128,61,0.14)] transition hover:-translate-y-0.5"
     >
-      Р С’Р Р…Р С”Р ВµРЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘Р Вµ
+      АНКЕТИРОВАНИЕ
     </Link>
   );
 }

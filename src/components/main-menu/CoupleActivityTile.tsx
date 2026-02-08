@@ -1,4 +1,4 @@
-// src/components/main-menu/CoupleActivityTile.tsx
+﻿// src/components/main-menu/CoupleActivityTile.tsx
 import Link from 'next/link';
 
 export default function CoupleActivityTile() {
@@ -7,7 +7,7 @@ export default function CoupleActivityTile() {
       href="/couple-activity"
       className="flex items-center justify-center rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-100 via-yellow-100 to-orange-100 px-3 text-center font-semibold tracking-wide text-amber-950 shadow-[0_10px_24px_rgba(146,64,14,0.12)] transition hover:-translate-y-0.5"
     >
-      Р С’Р С™Р СћР ВР вЂ™Р СњР С›Р РЋР СћР В¬ Р СџР С’Р В Р В«
+      АКТИВНОСТЬ ПАРЫ
     </Link>
   );
 }

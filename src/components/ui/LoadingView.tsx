@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Spinner from './Spinner';
 
@@ -7,7 +7,7 @@ type LoadingViewProps = {
   compact?: boolean;
 };
 
-export default function LoadingView({ label = 'Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С”Р В°РІР‚В¦', compact = false }: LoadingViewProps) {
+export default function LoadingView({ label = 'Загрузка...', compact = false }: LoadingViewProps) {
   if (compact) {
     return (
       <div className="app-muted flex items-center gap-2 text-sm">

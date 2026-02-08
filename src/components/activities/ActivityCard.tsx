@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 type I18nText = Record<string, string>;
 type CheckIn = {
@@ -35,14 +35,10 @@ export default function ActivityCard(props: {
 }) {
   const { activity: a, locale, variant, onAccept, onCancel, onComplete, onSuggestNext } = props;
 
-  const t = (txt?: I18nText) =>
-    txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] ?? '' : '';
+  const t = (txt?: I18nText) => txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] ?? '' : '';
 
   const axisText = Array.isArray(a.axis) ? a.axis.join(', ') : a.axis;
-  const badge =
-    a.intent === 'celebrate'
-      ? 'bg-emerald-100 text-emerald-700'
-      : 'bg-amber-100 text-amber-700';
+  const badge = a.intent === 'celebrate' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
 
   return (
     <div className="app-panel p-4 text-slate-900">
@@ -58,46 +54,30 @@ export default function ActivityCard(props: {
 
           {a.description && <p className="app-muted mt-1 text-sm">{t(a.description)}</p>}
 
-          {a.timeEstimateMin ? (
-            <div className="app-muted mt-1 text-xs">~{a.timeEstimateMin} РјРёРЅ</div>
-          ) : null}
+          {a.timeEstimateMin ? <div className="app-muted mt-1 text-xs">~{a.timeEstimateMin} мин</div> : null}
 
-          {a.dueAt ? (
-            <div className="app-muted text-xs">РґРѕ {new Date(a.dueAt).toLocaleString('ru-RU')}</div>
-          ) : null}
+          {a.dueAt ? <div className="app-muted text-xs">до {new Date(a.dueAt).toLocaleString('ru-RU')}</div> : null}
         </div>
       </div>
 
       <div className="mt-3 flex gap-2">
         {variant === 'suggested' && (
           <>
-            <button onClick={onAccept} className="app-btn-primary px-3 py-2">
-              РџСЂРёРЅСЏС‚СЊ
-            </button>
-            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">
-              РћС‚РєР»РѕРЅРёС‚СЊ
-            </button>
+            <button onClick={onAccept} className="app-btn-primary px-3 py-2">Принять</button>
+            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">Отклонить</button>
           </>
         )}
 
         {variant === 'active' && (
           <>
-            <button onClick={onComplete} className="app-btn-primary px-3 py-2">
-              Р—Р°РІРµСЂС€РёС‚СЊ
-            </button>
-            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">
-              РћС‚РјРµРЅРёС‚СЊ
-            </button>
+            <button onClick={onComplete} className="app-btn-primary px-3 py-2">Завершить</button>
+            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">Отменить</button>
             <div className="flex-1" />
-            <button onClick={onSuggestNext} className="app-btn-secondary px-3 py-2">
-              РџСЂРµРґР»РѕР¶РёС‚СЊ РµС‰Рµ
-            </button>
+            <button onClick={onSuggestNext} className="app-btn-secondary px-3 py-2">Предложить еще</button>
           </>
         )}
 
-        {variant === 'history' && (
-          <span className="app-muted self-center text-xs">status: {a.status}</span>
-        )}
+        {variant === 'history' && <span className="app-muted self-center text-xs">status: {a.status}</span>}
       </div>
     </div>
   );

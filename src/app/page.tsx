@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -81,13 +81,13 @@ export default function DiscordActivityPage() {
     }
   };
 
-  if (error) return <div className="text-red-500 text-center mt-8">Error: {error}</div>;
+  if (error) return <div className="mt-8 text-center text-red-500">Error: {error}</div>;
   if (!user) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-4">
         <div className="app-panel flex items-center gap-3 px-5 py-4 text-slate-900">
           <Spinner size={28} />
-          <span className="app-muted text-sm">РџРѕРґРєР»СЋС‡Р°РµРј Discord РїСЂРѕС„РёР»СЊвЂ¦</span>
+          <span className="app-muted text-sm">Подключаем Discord профиль...</span>
         </div>
       </div>
     );
@@ -114,10 +114,7 @@ export default function DiscordActivityPage() {
         </div>
         <h2 className="mt-4 text-lg font-semibold">{user.username}</h2>
 
-        <button
-          onClick={goToMenu}
-          className="app-btn-primary mt-6 px-4 py-2 text-white"
-        >
+        <button onClick={goToMenu} className="app-btn-primary mt-6 px-4 py-2 text-white">
           Go to main menu
         </button>
       </div>

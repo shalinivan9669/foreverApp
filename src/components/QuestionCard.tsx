@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 type QuestionItem = {
   _id?: string;
@@ -14,9 +14,8 @@ type Props = {
 };
 
 export default function QuestionCard({ q, selected, onAnswer }: Props) {
-  // Р Р€Р Р…Р С‘РЎвЂћР С‘РЎвЂ Р С‘РЎР‚РЎС“Р ВµР С Р С‘Р Т‘Р ВµР Р…РЎвЂљР С‘РЎвЂћР С‘Р С”Р В°РЎвЂљР С•РЎР‚
   const qid = (q.id ?? q._id) ?? '';
-  if (!qid) return null; // Р ВµРЎРѓР В»Р С‘ Р Р†Р Т‘РЎР‚РЎС“Р С– Р Р…Р ВµРЎвЂљ id РІР‚вЂќ Р Р…Р С‘РЎвЂЎР ВµР С–Р С• Р Р…Р Вµ РЎР‚Р ВµР Р…Р Т‘Р ВµРЎР‚Р С‘Р С
+  if (!qid) return null;
 
   const label = q.text?.ru ?? q.text?.en ?? '';
 
@@ -25,7 +24,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
       <p className="text-slate-900">{label}</p>
 
       {q.scale === 'likert5' && (
-        <div className="flex gap-2 mt-2">
+        <div className="mt-2 flex gap-2">
           {[1, 2, 3, 4, 5].map((i) => {
             const isSel = selected === i;
             return (
@@ -34,14 +33,14 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
                 type="button"
                 onClick={() => onAnswer(qid, i)}
                 className={[
-                  'w-8 h-8 flex items-center justify-center border rounded-md transition',
+                  'flex h-8 w-8 items-center justify-center rounded-md border transition',
                   isSel
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-transparent text-slate-700 border-gray-400 hover:bg-blue-100',
+                    ? 'border-blue-600 bg-blue-600 text-white'
+                    : 'border-gray-400 bg-transparent text-slate-700 hover:bg-blue-100',
                   'focus:outline-none focus:ring-2 focus:ring-blue-400',
                 ].join(' ')}
                 aria-pressed={isSel}
-                aria-label={`Р С›РЎвЂ Р ВµР Р…Р С”Р В° ${i}`}
+                aria-label={`Оценка ${i}`}
               >
                 {i}
               </button>
@@ -51,10 +50,10 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
       )}
 
       {q.scale === 'bool' && (
-        <div className="flex gap-4 mt-2">
+        <div className="mt-2 flex gap-4">
           {[
-            { val: 1 as const, label: 'Р СњР ВµРЎвЂљ' },
-            { val: 2 as const, label: 'Р вЂќР В°'  },
+            { val: 1 as const, label: 'Нет' },
+            { val: 2 as const, label: 'Да' },
           ].map(({ val, label: btnLabel }) => {
             const isSel = selected === val;
             return (
@@ -63,10 +62,10 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
                 type="button"
                 onClick={() => onAnswer(qid, val)}
                 className={[
-                  'px-4 py-1 border rounded-md transition',
+                  'rounded-md border px-4 py-1 transition',
                   isSel
-                    ? 'bg-green-600 text-white border-green-600'
-                    : 'bg-transparent text-slate-700 border-gray-400 hover:bg-green-100',
+                    ? 'border-green-600 bg-green-600 text-white'
+                    : 'border-gray-400 bg-transparent text-slate-700 hover:bg-green-100',
                   'focus:outline-none focus:ring-2 focus:ring-green-400',
                 ].join(' ')}
                 aria-pressed={isSel}
@@ -80,4 +79,3 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
     </div>
   );
 }
-

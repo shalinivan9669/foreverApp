@@ -1,4 +1,4 @@
-// src/components/main-menu/ProfileTile.tsx
+﻿// src/components/main-menu/ProfileTile.tsx
 'use client';
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
@@ -21,7 +21,7 @@ export default function ProfileTile() {
           className="rounded-full ring-2 ring-white/80 shadow-md"
         />
       ) : (
-        <span className="text-sm font-medium text-fuchsia-900">Р СџРЎР‚Р С•РЎвЂћР С‘Р В»РЎРЉ</span>
+        <span className="text-sm font-medium text-fuchsia-900">ПРОФИЛЬ</span>
       )}
     </Link>
   );

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import QuestionnaireCard from '@/components/QuestionnaireCard';
 import type { QuestionnaireCardDTO, QuestionnaireScope } from '@/client/api/types';
@@ -32,17 +32,13 @@ export default function QuestionnairesPageView({
   onStartQuestionnaire,
 }: QuestionnairesPageViewProps) {
   const cards = activeTab === 'personal' ? personalCards : coupleCards;
-  const coupleLockedMessage = 'Р вЂќР С•РЎРѓРЎвЂљРЎС“Р С—Р Р…Р С• Р С—Р С•РЎРѓР В»Р Вµ РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р С‘РЎРЏ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– Р С—Р В°РЎР‚РЎвЂ№.';
+  const coupleLockedMessage = 'Доступно после создания активной пары.';
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className={tabClassName(activeTab === 'personal')}
-          onClick={() => onChangeTab('personal')}
-        >
-          Р СџР ВµРЎР‚РЎРѓР С•Р Р…Р В°Р В»РЎРЉР Р…РЎвЂ№Р Вµ
+        <button type="button" className={tabClassName(activeTab === 'personal')} onClick={() => onChangeTab('personal')}>
+          Персональные
         </button>
         <button
           type="button"
@@ -54,7 +50,7 @@ export default function QuestionnairesPageView({
           disabled={!canAccessCouple}
           title={!canAccessCouple ? coupleLockedMessage : undefined}
         >
-          Р вЂќР В»РЎРЏ Р С—Р В°РЎР‚РЎвЂ№
+          Для пары
         </button>
       </div>
 
@@ -64,7 +60,7 @@ export default function QuestionnairesPageView({
         </div>
       )}
 
-      {loadingCards && cards.length === 0 && <LoadingView compact label="Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С”Р В° Р В°Р Р…Р С”Р ВµРЎвЂљ..." />}
+      {loadingCards && cards.length === 0 && <LoadingView compact label="Загрузка анкет..." />}
 
       <div className="grid gap-4 md:grid-cols-2">
         {cards.map((questionnaire) => {
@@ -84,12 +80,9 @@ export default function QuestionnairesPageView({
 
       {!loadingCards && cards.length === 0 && (
         <p className="app-muted text-sm">
-          {activeTab === 'personal'
-            ? 'Р СњР ВµРЎвЂљ Р С—Р ВµРЎР‚РЎРѓР С•Р Р…Р В°Р В»РЎРЉР Р…РЎвЂ№РЎвЂ¦ Р В°Р Р…Р С”Р ВµРЎвЂљ.'
-            : 'Р СњР ВµРЎвЂљ Р С—Р В°РЎР‚Р Р…РЎвЂ№РЎвЂ¦ Р В°Р Р…Р С”Р ВµРЎвЂљ.'}
+          {activeTab === 'personal' ? 'Нет персональных анкет.' : 'Нет парных анкет.'}
         </p>
       )}
     </div>
   );
 }
-
