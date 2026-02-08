@@ -70,3 +70,13 @@ DTO формируются несистемно: часть роутов воз�
 ### Migration Note
 - Canonical API identity field in DTOs is `id`.
 - Some routes preserve compatibility alias `_id` short-term to avoid immediate frontend breakage; clients should migrate to `id`.
+
+## Prevention rule
+- `docs/engineering/backend-playbook.md#golden-path-for-a-new-api-endpoint`
+- `docs/engineering/checklists/dto-contract-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/dto/index.ts`
+- `src/lib/dto/user.dto.ts`
+- `src/lib/dto/pair.dto.ts`
+- `docs/_evidence/prob-006-dto-manual-checklist-2026-02-07.md`

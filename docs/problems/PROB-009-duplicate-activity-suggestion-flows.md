@@ -73,3 +73,13 @@ PASS/FAIL:
 - PASS: `/pairs/[id]/suggest` and `/pairs/[id]/activities/suggest` return one DTO schema.
 - PASS: `activities/next` uses same pipeline semantics (single-offer mode).
 - PASS: suggestion flow now has entitlement/quota enforcement before generation.
+
+## Prevention rule
+- `docs/engineering/checklists/domain-service-checklist.md`
+- `docs/engineering/checklists/state-machine-checklist.md`
+
+## Evidence (post-fix)
+- `src/domain/services/activityOffer.service.ts`
+- `src/domain/services/match.service.ts`
+- `src/app/api/pairs/[id]/suggest/route.ts`
+- `src/app/api/pairs/[id]/activities/suggest/route.ts`

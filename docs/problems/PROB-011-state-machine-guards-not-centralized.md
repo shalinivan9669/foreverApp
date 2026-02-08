@@ -80,3 +80,13 @@ Date: 2026-02-08
 Acceptance criteria status (updated):
 - PASS (transition endpoints): transition-based mutation routes (`match`, `activity`, `pair`, `pair questionnaire`) now use centralized machine guards.
 - PASS: forbidden transitions return stable `409 STATE_CONFLICT`.
+
+## Prevention rule
+- `docs/engineering/checklists/state-machine-checklist.md`
+- `docs/engineering/checklists/idempotency-checklist.md`
+
+## Evidence (post-fix)
+- `src/domain/state/matchMachine.ts`
+- `src/domain/state/activityMachine.ts`
+- `src/domain/state/questionnaireMachine.ts`
+- `src/domain/state/pairMachine.ts`

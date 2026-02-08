@@ -63,3 +63,13 @@ PASS/FAIL:
 - PASS: legacy records (if present) are mapped to pair activity DTO shape (view-only, `legacy: true`).
 - PASS: legacy usage has dedicated audit event for controlled deprecation tracking.
 - TODO: optional one-time migration script to materialize legacy records into `PairActivity` and retire collection.
+
+## Prevention rule
+- `docs/engineering/checklists/domain-service-checklist.md`
+- `docs/engineering/checklists/dto-contract-checklist.md`
+
+## Evidence (post-fix)
+- `src/domain/services/relationshipActivityLegacy.service.ts`
+- `src/domain/services/activityOffer.service.ts`
+- `src/app/api/pairs/[id]/activities/route.ts`
+- `src/lib/dto/activity.dto.ts`

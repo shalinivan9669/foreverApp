@@ -81,3 +81,13 @@ Acceptance criteria status (updated):
 - PASS (mutations): mutation handlers are thin and delegate business logic/state mutations into services.
 - PARTIAL (global repo): heavy non-mutation route `/api/pairs/[id]/diagnostics` (GET) still keeps non-trivial recomputation logic and is tracked separately.
 - Not-in-scope adapter exception: `/api/exchange-code` remains an integration/auth adapter route (OAuth exchange), not a domain-state mutation service.
+
+## Prevention rule
+- `docs/engineering/backend-playbook.md#golden-path-for-a-new-api-endpoint`
+- `docs/engineering/checklists/domain-service-checklist.md`
+
+## Evidence (post-fix)
+- `src/domain/services/match.service.ts`
+- `src/domain/services/activities.service.ts`
+- `src/domain/services/questionnaires.service.ts`
+- `src/app/api/match/confirm/route.ts`

@@ -70,3 +70,13 @@ Acceptance criteria status:
 - PASS: P0 write/auth endpoints now have centralized frequency guards.
 - PASS: overflow returns `429 RATE_LIMITED` with `error.details.retryAfterMs` and `Retry-After` header.
 - PASS: rate-limit hits are auditable without sensitive payload leakage.
+
+## Prevention rule
+- `docs/engineering/checklists/audit-rate-limit-entitlements-checklist.md`
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/abuse/rateLimit.ts`
+- `src/models/RateLimitBucket.ts`
+- `src/app/api/exchange-code/route.ts`
+- `src/app/api/match/like/route.ts`

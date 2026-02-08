@@ -91,3 +91,13 @@ Explicit non-idempotent endpoints (by design):
 - `/api/pairs/[id]/suggest` POST, `/api/pairs/[id]/activities/suggest` POST: endpoint semantics intentionally generate new sampled suggestions.
 - `/api/activities/next` POST, `/api/pairs/[id]/activities/from-template` POST: left without mandatory Idempotency-Key to keep current UX contract; protected by auth + validation, and documented as follow-up for stricter duplicate-prevention policy if product decides to enforce.
 - `PUT/PATCH` profile endpoints (`/api/users/me`, `/api/users/[id]`, `/api/users/[id]/onboarding`) use deterministic set/update semantics and remain naturally idempotent without mandatory Idempotency-Key header.
+
+## Prevention rule
+- `docs/engineering/checklists/idempotency-checklist.md`
+- `docs/engineering/checklists/state-machine-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/idempotency/withIdempotency.ts`
+- `src/lib/idempotency/store.ts`
+- `src/models/IdempotencyRecord.ts`
+- `src/app/api/match/respond/route.ts`

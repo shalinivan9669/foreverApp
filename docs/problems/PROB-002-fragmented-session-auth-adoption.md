@@ -58,3 +58,13 @@
   - Добавлены единые auth-модули: `src/lib/auth/session.ts`, `src/lib/auth/guards.ts`, `src/lib/auth/errors.ts`.
   - Приватные роуты `activities/*`, `pairs/*`, `match/*`, `users/*`, `answers/bulk`, `questionnaires/cards`, `questionnaires/[id] POST`, `logs` переведены на `requireSession`.
   - Удалены дубли локального session-парсинга в роутерах (`getSessionUserId`).
+
+## Prevention rule
+- `docs/engineering/backend-playbook.md#golden-path-for-a-new-api-endpoint`
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/auth/session.ts`
+- `src/lib/auth/guards.ts`
+- `src/app/api/questionnaires/cards/route.ts`
+- `src/app/api/pairs/[id]/questionnaires/[qid]/start/route.ts`

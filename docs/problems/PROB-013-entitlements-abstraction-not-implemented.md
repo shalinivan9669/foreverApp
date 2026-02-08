@@ -80,3 +80,13 @@ PASS/FAIL:
 - PASS: `assertQuota` enforces limits and throws `403 QUOTA_EXCEEDED`.
 - PASS: free fallback works when no active subscription exists.
 - PASS: dev grant path issues runtime-effective subscription records without external billing.
+
+## Prevention rule
+- `docs/engineering/checklists/audit-rate-limit-entitlements-checklist.md`
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/entitlements/catalog.ts`
+- `src/lib/entitlements/resolve.ts`
+- `src/lib/entitlements/guards.ts`
+- `src/app/api/users/me/profile-summary/route.ts`

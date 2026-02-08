@@ -70,3 +70,13 @@ Files: `src/client/api/http.ts`, `src/client/api/errors.ts`, `src/client/api/*.t
 | View-компоненты не знают про API client/envelope | PASS | View-слой импортирует только props/types/UI (`src/features/**`, `src/components/*View.tsx`), API вызовы остаются в hooks/containers |
 | Единый маппинг ошибок `ENTITLEMENT_REQUIRED`/`QUOTA_EXCEEDED`/`RATE_LIMITED`/`AUTH_REQUIRED` | PASS | `src/client/api/errors.ts` + `src/components/ui/ErrorView.tsx` |
 | Поведение контуров не изменено функционально | PASS (manual) | `npm run lint` пройден; `npm run build` дошел до стадии `Collecting page data`, остановлен только из-за отсутствия `MONGODB_URI` (не связано с UI-рефакторингом) |
+
+## Prevention rule
+- `docs/engineering/frontend-playbook.md#core-rules`
+- `docs/engineering/checklists/ui-container-view-checklist.md`
+
+## Evidence (post-fix)
+- `src/client/api/http.ts`
+- `src/client/hooks/useMatchFeed.ts`
+- `src/features/match/feed/MatchFeedView.tsx`
+- `src/features/activities/CoupleActivityView.tsx`

@@ -71,3 +71,13 @@ Acceptance criteria:
 - Нельзя прочитать/изменить чужой `Pair`, `PairActivity`, `PairQuestionnaireSession` с валидной, но чужой сессией: `PASS`.
 - Все защищенные роуты возвращают `403` при чужом ресурсе: `PASS`.
 - В роутерах нет прямых `findById` без authz-проверки для приватных сущностей из scope PROB-003: `PASS`.
+
+## Prevention rule
+- `docs/engineering/backend-playbook.md#golden-path-for-a-new-api-endpoint`
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/auth/resourceGuards.ts`
+- `src/lib/auth/errors.ts`
+- `src/app/api/pairs/[id]/summary/route.ts`
+- `src/app/api/activities/[id]/accept/route.ts`

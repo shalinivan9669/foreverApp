@@ -64,3 +64,13 @@
 - PASS: no route relies on ad-hoc `if (!field)` checks as the only validation layer.
 - PASS: validation failures are normalized through one response format and one error code.
 - PASS: parsing/validation concerns are now cross-cutting and reusable.
+
+## Prevention rule
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+- `docs/engineering/checklists/dto-contract-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/api/validate.ts`
+- `src/app/api/questionnaires/[id]/route.ts`
+- `src/app/api/answers/bulk/route.ts`
+- `src/app/api/match/respond/route.ts`

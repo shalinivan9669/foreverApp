@@ -64,3 +64,13 @@ Acceptance criteria status:
 - PASS: event retention is enforced by Mongo TTL through `expiresAt`.
 - PASS: per-event retention tiers are deterministic and configured in code (no external service required).
 - PASS: default event metadata path is privacy-first and avoids raw sensitive request payload logging.
+
+## Prevention rule
+- `docs/engineering/backend-playbook.md`
+- `docs/engineering/checklists/audit-rate-limit-entitlements-checklist.md`
+
+## Evidence (post-fix)
+- `src/models/EventLog.ts`
+- `src/lib/audit/eventTypes.ts`
+- `src/lib/audit/emitEvent.ts`
+- `docs/07-security-privacy.md`

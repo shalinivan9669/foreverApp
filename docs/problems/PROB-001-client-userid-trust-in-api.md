@@ -66,3 +66,13 @@
     - Нет self-scoped эндпоинтов с обязательным `userId` в query/body: `PASS`.
     - Self-scoped эндпоинты требуют валидную session и отдают `401` без нее: `PASS` (через `requireSession`).
     - В коде нет новых self-scoped вызовов `fetch(api(...userId=...))`: `PASS`.
+
+## Prevention rule
+- `docs/engineering/backend-playbook.md#golden-path-for-a-new-api-endpoint`
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/auth/session.ts`
+- `src/lib/auth/guards.ts`
+- `src/app/api/users/me/route.ts`
+- `src/app/api/match/feed/route.ts`

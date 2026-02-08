@@ -62,3 +62,13 @@
 - PASS: every `/api/*` handler now returns `ok: true|false` envelope.
 - PASS: free-form string-only error payloads replaced with `{ code, message, details? }`.
 - PASS: HTTP status semantics preserved for `400/401/403/404/409/500`.
+
+## Prevention rule
+- `docs/engineering/checklists/api-endpoint-checklist.md`
+- `docs/engineering/checklists/dto-contract-checklist.md`
+
+## Evidence (post-fix)
+- `src/lib/api/response.ts`
+- `src/lib/auth/errors.ts`
+- `src/app/api/match/feed/route.ts`
+- `src/app/api/pairs/[id]/summary/route.ts`
