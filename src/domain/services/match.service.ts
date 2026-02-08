@@ -1,15 +1,16 @@
-import { Types } from 'mongoose';
+﻿import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType } from '@/models/Like';
 import { Pair } from '@/models/Pair';
 import { PairActivity } from '@/models/PairActivity';
-import { ActivityTemplate, type ActivityTemplateType, type Axis } from '@/models/ActivityTemplate';
+import type { Axis } from '@/models/ActivityTemplate';
 import { User, type UserType } from '@/models/User';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { matchTransition } from '@/domain/state/matchMachine';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
+import { activityOfferService } from '@/domain/services/activityOffer.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -132,88 +133,19 @@ const buildPassport = (left: UserType, right: UserType) => {
   return { strongSides, riskZones, complementMap, levelDelta };
 };
 
-const seedSuggestionsForPair = async (pairId: Types.ObjectId): Promise<void> => {
+const seedSuggestionsForPair = async (
+  pairId: Types.ObjectId,
+  currentUserId: string
+): Promise<void> => {
   const hasOffered = await PairActivity.exists({ pairId, status: 'offered' });
   if (hasOffered) return;
 
-  const pair = await Pair.findById(pairId).lean();
-  if (!pair?.passport?.riskZones?.length) return;
-
-  const topRisk = pair.passport.riskZones
-    .slice()
-    .sort((left, right) => right.severity - left.severity)[0] as {
-    axis: Axis;
-    severity: 1 | 2 | 3;
-  };
-
-  const expectedDifficulty = topRisk.severity;
-
-  const templates = await ActivityTemplate.aggregate<ActivityTemplateType>([
-    {
-      $match: {
-        axis: topRisk.axis,
-        difficulty: {
-          $in: [
-            expectedDifficulty,
-            Math.max(1, expectedDifficulty - 1),
-            Math.min(5, expectedDifficulty + 1),
-          ],
-        },
-      },
-    },
-    { $sample: { size: 3 } },
-  ]);
-
-  if (!templates.length) return;
-
-  const users = await User.find({ id: { $in: pair.members } }).lean<(UserType & { _id: Types.ObjectId })[]>();
-  const firstMember = users.find((user) => user.id === pair.members[0]);
-  const secondMember = users.find((user) => user.id === pair.members[1]);
-
-  if (!firstMember || !secondMember) {
-    throw new DomainError({
-      code: 'NOT_FOUND',
-      status: 404,
-      message: 'Pair members are missing',
-    });
-  }
-
-  const members: [Types.ObjectId, Types.ObjectId] = [firstMember._id, secondMember._id];
-  const now = new Date();
-
-  await Promise.all(
-    templates.map((template) =>
-      PairActivity.create({
-        pairId,
-        members,
-        intent: template.intent,
-        archetype: template.archetype,
-        axis: template.axis,
-        facetsTarget: template.facetsTarget ?? [],
-        title: template.title,
-        description: template.description,
-        why: {
-          ru: `������ � ������ �� ��� ${topRisk.axis}`,
-          en: `Work on ${topRisk.axis} risk`,
-        },
-        mode: 'together',
-        sync: 'sync',
-        difficulty: template.difficulty,
-        intensity: template.intensity,
-        timeEstimateMin: template.timeEstimateMin,
-        costEstimate: template.costEstimate,
-        location: template.location ?? 'any',
-        materials: template.materials ?? [],
-        offeredAt: now,
-        dueAt: new Date(now.getTime() + 3 * 24 * 3600 * 1000),
-        requiresConsent: template.requiresConsent,
-        status: 'offered',
-        checkIns: template.checkIns,
-        effect: template.effect,
-        createdBy: 'system',
-      })
-    )
-  );
+  await activityOfferService.suggestActivities({
+    pairId: String(pairId),
+    currentUserId,
+    dedupeAgainstLastOffered: true,
+    source: 'pairs.activities.suggest',
+  });
 };
 
 const stateConflict = (details: Record<string, string>): never => {
@@ -637,7 +569,7 @@ export const matchService = {
       { $set: { 'personal.relationshipStatus': 'in_relationship' } }
     );
 
-    await seedSuggestionsForPair(pair._id as Types.ObjectId);
+    await seedSuggestionsForPair(pair._id as Types.ObjectId, input.currentUserId);
 
     await emitEvent({
       event: 'MATCH_CONFIRMED',
@@ -685,3 +617,4 @@ export const matchService = {
     };
   },
 };
+

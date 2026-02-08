@@ -7,6 +7,11 @@ import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { matchService } from '@/domain/services/match.service';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import {
+  assertEntitlement,
+  assertQuota,
+  resolveEntitlements,
+} from '@/lib/entitlements';
 
 type Body = {
   likeId: string;
@@ -46,11 +51,26 @@ export async function POST(req: NextRequest) {
     requestBody: {
       likeId: payload.likeId,
     },
-    execute: () =>
-      matchService.acceptLike({
+    execute: async () => {
+      const snapshot = await resolveEntitlements({ currentUserId });
+      await assertEntitlement({
+        req,
+        route: '/api/match/accept',
+        snapshot,
+        key: 'match.mutations',
+      });
+      await assertQuota({
+        req,
+        route: '/api/match/accept',
+        snapshot,
+        key: 'match.mutations.per_day',
+      });
+
+      return matchService.acceptLike({
         currentUserId,
         likeId: payload.likeId,
         auditRequest,
-      }),
+      });
+    },
   });
 }

@@ -36,6 +36,9 @@ const relationshipActivitySchema = new Schema<RelationshipActivityType>(
   { timestamps: true }
 );
 
+// Legacy read-only collection kept for compatibility and migration.
+relationshipActivitySchema.index({ userId: 1, partnerId: 1, status: 1, createdAt: -1 });
+
 export const RelationshipActivity =
   (mongoose.models.RelationshipActivity as mongoose.Model<RelationshipActivityType>) ||
   mongoose.model<RelationshipActivityType>('RelationshipActivity', relationshipActivitySchema);

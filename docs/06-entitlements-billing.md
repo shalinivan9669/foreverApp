@@ -17,3 +17,61 @@
 - MVP-каналы оплаты: in-app purchase, Stripe, redeem codes (на старте можно только redeem codes).
 - API-маршруты: `POST /api/billing/checkout`, `POST /api/billing/webhook`, `GET /api/entitlements?userId=...`.
 - Маппинг на модель User/Pair: `featureFlags` заполняется через entitlements.
+
+## Update 2026-02-08 (Runtime Entitlements Contract)
+
+### Runtime primitives
+- `resolveEntitlements(currentUserId, pairId?) -> EntitlementsSnapshot`
+- `assertEntitlement(req, snapshot, featureKey)`
+- `assertQuota(req, snapshot, quotaKey)`
+
+### Plans and statuses
+- Plans: `FREE`, `SOLO`, `COUPLE`
+- Subscription statuses: `active`, `trial`, `grace`, `expired`
+- Default behavior: if no effective subscription is found, runtime falls back to `FREE`
+
+### Storage
+- `subscriptions` collection (`src/models/Subscription.ts`)
+  - `userId`, `plan`, `status`, `periodEnd?`, `meta`, timestamps
+- `entitlement_quota_usage` collection (`src/models/EntitlementQuotaUsage.ts`)
+  - per-user fixed window counters for quota checks
+
+### Current feature keys
+- `match.mutations`
+- `pairs.create`
+- `activities.suggestions`
+- `questionnaires.premium`
+- `lootboxes.access`
+
+### Current quota keys
+- `match.mutations.per_day`
+- `pairs.create.per_month`
+- `activities.suggestions.per_day`
+
+### Error contract
+- Feature denied by plan:
+  - HTTP `402`
+  - `error.code = 'ENTITLEMENT_REQUIRED'`
+  - details: `{ feature, plan, requiredPlan }`
+- Quota exceeded:
+  - HTTP `403`
+  - `error.code = 'QUOTA_EXCEEDED'`
+  - details: `{ quota, plan, limit, used, resetAt }`
+
+### Dev/admin grant (no external billing in this sprint)
+- Endpoint: `POST /api/entitlements/grant`
+- Enabled in non-production by default
+- In production requires header `x-entitlements-admin-key` matching `ENTITLEMENTS_ADMIN_KEY`
+- Body: `{ userId, plan, days?, status? }`
+
+### Runtime integration (implemented)
+- `/api/match/like`
+- `/api/match/respond`
+- `/api/match/accept`
+- `/api/match/reject`
+- `/api/match/confirm`
+- `/api/pairs/create`
+- `/api/pairs/[id]/suggest`
+- `/api/pairs/[id]/activities/suggest`
+- `/api/activities/next`
+- `/api/users/me/profile-summary` (featureFlags/plan status now entitlement-derived)

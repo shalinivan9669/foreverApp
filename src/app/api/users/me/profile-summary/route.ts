@@ -10,6 +10,7 @@ import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
+import { resolveEntitlements } from '@/lib/entitlements';
 
 type Axis =
   | 'communication'
@@ -31,7 +32,6 @@ const AXES: Axis[] = [
 // в”Ђв”Ђ Р›РѕРєР°Р»СЊРЅС‹Рµ СЂР°СЃС€РёСЂРµРЅРёСЏ С‚РёРїРѕРІ (С‡С‚РѕР±С‹ РЅРµ РїСЂР°РІРёС‚СЊ РјРѕРґРµР»Рё РїСЂСЏРјРѕ СЃРµР№С‡Р°СЃ) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 type PairLean = PairType & { _id: Types.ObjectId; createdAt: Date };
 type UserExtra = Partial<{
-  featureFlags: { PERSONAL_ACTIVITIES?: boolean };
   streak: { individual: number };
   completed: { individual: number };
   readiness: { score: number; updatedAt: Date };
@@ -73,6 +73,11 @@ export async function GET(req: NextRequest) {
     activeOrPaused && activeOrPaused.status === 'active'
       ? { _id: String(activeOrPaused._id), status: activeOrPaused.status, since: activeOrPaused.createdAt }
       : null;
+
+  const entitlements = await resolveEntitlements({
+    currentUserId: userId,
+    pairId: currentPair?._id,
+  });
 
   // РЈСЂРѕРІРЅРё РїРѕ 6 РѕСЃСЏРј РёР· user.vectors (0..100)
   const levelsByAxis: Record<Axis, number> = {
@@ -130,7 +135,11 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
       joinedAt: user.createdAt,
       status,
       lastActiveAt: user.updatedAt,
-      featureFlags: user.featureFlags ?? {},
+      featureFlags: {
+        PERSONAL_ACTIVITIES: entitlements.features['activities.suggestions'],
+        PREMIUM_QUESTIONNAIRES: entitlements.features['questionnaires.premium'],
+        LOOTBOXES: entitlements.features['lootboxes.access'],
+      },
     },
     currentPair,
     metrics: {
@@ -158,7 +167,14 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
     },
     insights: [] as unknown[], // Р·Р°РіР»СѓС€РєР° (РґРѕР±Р°РІРёРј, РєРѕРіРґР° РїРѕСЏРІРёС‚СЃСЏ РјРѕРґРµР»СЊ Insight)
     featureFlags: {
-      PERSONAL_ACTIVITIES: Boolean(user.featureFlags?.PERSONAL_ACTIVITIES),
+      PERSONAL_ACTIVITIES: entitlements.features['activities.suggestions'],
+      PREMIUM_QUESTIONNAIRES: entitlements.features['questionnaires.premium'],
+      LOOTBOXES: entitlements.features['lootboxes.access'],
+    },
+    entitlements: {
+      plan: entitlements.plan,
+      status: entitlements.status,
+      periodEnd: entitlements.periodEnd ?? null,
     },
   };
 

@@ -53,4 +53,30 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-08
 
+- Implemented runtime entitlements layer:
+  - `src/lib/entitlements/types.ts`
+  - `src/lib/entitlements/catalog.ts`
+  - `src/lib/entitlements/resolve.ts`
+  - `src/lib/entitlements/guards.ts`
+- Added storage:
+  - `src/models/Subscription.ts` (plan/status/period/meta source of truth)
+  - `src/models/EntitlementQuotaUsage.ts` (quota windows and usage)
+- Added dev/admin grant endpoint:
+  - `POST /api/entitlements/grant` (dev enabled, production only via admin header key)
+- Applied runtime checks in key endpoints:
+  - `/api/match/{like,respond,accept,reject,confirm}`
+  - `/api/pairs/create`
+  - `/api/pairs/[id]/suggest`
+  - `/api/pairs/[id]/activities/suggest`
+  - `/api/activities/next`
+- Integrated profile summary with entitlement-derived feature flags:
+  - `src/app/api/users/me/profile-summary/route.ts`
+
+PASS/FAIL:
+- PASS: `resolveEntitlements(currentUserId, pairId?)` returns `EntitlementsSnapshot`.
+- PASS: `assertEntitlement` emits `ENTITLEMENT_DENIED` and throws `402 ENTITLEMENT_REQUIRED`.
+- PASS: `assertQuota` enforces limits and throws `403 QUOTA_EXCEEDED`.
+- PASS: free fallback works when no active subscription exists.
+- PASS: dev grant path issues runtime-effective subscription records without external billing.

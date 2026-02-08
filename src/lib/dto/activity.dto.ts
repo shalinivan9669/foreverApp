@@ -61,6 +61,8 @@ export type PairActivityDTO = {
   fatigueDeltaOnComplete?: number;
   readinessDeltaOnComplete?: number;
   createdBy: PairActivityType['createdBy'];
+  legacy?: boolean;
+  legacySource?: 'relationship_activity';
   createdAt?: string;
   updatedAt?: string;
 };
@@ -86,9 +88,25 @@ export type ActivityTemplateDTO = {
   cooldownDays?: number;
 };
 
+export type ActivityOfferDTO = {
+  id: string;
+  templateId?: string;
+  title: { ru: string; en: string };
+  axis: Axis[];
+  difficulty: PairActivityType['difficulty'];
+  stepsPreview?: { ru: string[]; en: string[] };
+  reward: {
+    readinessDelta: number;
+    fatigueDelta: number;
+  };
+  expiresAt?: string;
+  source: string;
+};
+
 export type ToPairActivityDtoOptions = {
   includeLegacyId?: boolean;
   includeAnswers?: boolean;
+  legacy?: boolean;
 };
 
 export function toPairActivityDTO(
@@ -97,6 +115,7 @@ export function toPairActivityDTO(
 ): PairActivityDTO {
   const includeLegacyId = opts.includeLegacyId ?? false;
   const includeAnswers = opts.includeAnswers ?? false;
+  const legacy = opts.legacy ?? false;
 
   const id = toId(activity._id);
   const dto: PairActivityDTO = {
@@ -140,6 +159,10 @@ export function toPairActivityDTO(
   };
 
   if (includeLegacyId) dto._id = id;
+  if (legacy) {
+    dto.legacy = true;
+    dto.legacySource = 'relationship_activity';
+  }
 
   if (includeAnswers) {
     dto.answers = (activity.answers ?? []).map((answer) => ({
@@ -176,3 +199,133 @@ export function toActivityTemplateDTO(template: ActivityTemplateSource): Activit
   };
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const toOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+};
+
+const toStepsPreview = (value: unknown): { ru: string[]; en: string[] } | undefined => {
+  if (!isRecord(value)) return undefined;
+  const ru = toStringArray(value.ru);
+  const en = toStringArray(value.en);
+  if (ru.length === 0 && en.length === 0) return undefined;
+  return { ru, en };
+};
+
+type OfferMeta = {
+  templateId?: string;
+  source?: string;
+  stepsPreview?: { ru: string[]; en: string[] };
+};
+
+const extractOfferMeta = (stateMeta: unknown): OfferMeta => {
+  if (!isRecord(stateMeta)) return {};
+  return {
+    templateId: toOptionalString(stateMeta.templateId),
+    source: toOptionalString(stateMeta.source),
+    stepsPreview: toStepsPreview(stateMeta.stepsPreview),
+  };
+};
+
+export function toActivityOfferDTO(activity: PairActivitySource): ActivityOfferDTO {
+  const id = toId(activity._id);
+  const meta = extractOfferMeta(activity.stateMeta);
+
+  return {
+    id,
+    templateId: meta.templateId,
+    title: activity.title,
+    axis: activity.axis,
+    difficulty: activity.difficulty,
+    stepsPreview: meta.stepsPreview,
+    reward: {
+      readinessDelta: activity.readinessDeltaOnComplete ?? 0,
+      fatigueDelta: activity.fatigueDeltaOnComplete ?? 0,
+    },
+    expiresAt: toIso(activity.dueAt),
+    source: meta.source ?? 'system',
+  };
+}
+
+export type LegacyRelationshipActivitySource = {
+  _id?: IdLike;
+  pairId: string;
+  type: 'task' | 'reminder' | 'challenge';
+  status: 'pending' | 'completed';
+  payload: {
+    title: string;
+    description?: string;
+    dueAt?: Date | string;
+  };
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+};
+
+const LEGACY_ARCHETYPE_BY_TYPE: Record<
+  LegacyRelationshipActivitySource['type'],
+  PairActivityType['archetype']
+> = {
+  task: 'task',
+  reminder: 'ritual',
+  challenge: 'game',
+};
+
+const LEGACY_STATUS_BY_STATUS: Record<
+  LegacyRelationshipActivitySource['status'],
+  PairActivityType['status']
+> = {
+  pending: 'offered',
+  completed: 'completed_partial',
+};
+
+export function toLegacyRelationshipActivityDTO(
+  activity: LegacyRelationshipActivitySource
+): PairActivityDTO {
+  const id = toId(activity._id);
+  const description = activity.payload.description?.trim();
+  const titleRu = activity.payload.title.trim();
+  const titleEn = titleRu;
+  const descriptionText = description && description.length > 0 ? description : undefined;
+
+  return {
+    id,
+    _id: id,
+    pairId: activity.pairId,
+    intent: 'improve',
+    archetype: LEGACY_ARCHETYPE_BY_TYPE[activity.type],
+    axis: ['communication'],
+    facetsTarget: [],
+    title: { ru: titleRu, en: titleEn },
+    description: descriptionText
+      ? { ru: descriptionText, en: descriptionText }
+      : undefined,
+    why: {
+      ru: 'Legacy RelationshipActivity (read-only)',
+      en: 'Legacy RelationshipActivity (read-only)',
+    },
+    mode: 'together',
+    sync: 'async',
+    difficulty: 1,
+    intensity: 1,
+    location: 'any',
+    materials: [],
+    offeredAt: toIso(activity.createdAt),
+    dueAt: toIso(activity.payload.dueAt),
+    status: LEGACY_STATUS_BY_STATUS[activity.status],
+    checkIns: [],
+    createdBy: 'system',
+    legacy: true,
+    legacySource: 'relationship_activity',
+    createdAt: toIso(activity.createdAt),
+    updatedAt: toIso(activity.updatedAt),
+  };
+}

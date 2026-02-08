@@ -24,6 +24,10 @@ export const AUDIT_EVENT_NAMES = [
   'LOG_VISIT_RECORDED',
   'SECURITY_AUTH_FAILED',
   'ABUSE_RATE_LIMIT_HIT',
+  'ENTITLEMENT_DENIED',
+  'ENTITLEMENT_GRANTED',
+  'LEGACY_RELATIONSHIP_ACTIVITY_VIEWED',
+  'SUGGESTIONS_GENERATED',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -149,6 +153,33 @@ export type AuditEventMetadataMap = {
     windowMs: number;
     limit: number;
   };
+  ENTITLEMENT_DENIED: {
+    reason: 'feature' | 'quota';
+    feature?: string | null;
+    requiredPlan?: string | null;
+    quota?: string | null;
+    plan: string;
+    limit?: number | null;
+    used?: number | null;
+    resetAt?: string | null;
+    route: string;
+  };
+  ENTITLEMENT_GRANTED: {
+    userId: string;
+    plan: string;
+    status: string;
+    periodEnd?: string | null;
+    source: 'dev_endpoint';
+  };
+  LEGACY_RELATIONSHIP_ACTIVITY_VIEWED: {
+    pairId: string;
+    count: number;
+  };
+  SUGGESTIONS_GENERATED: {
+    pairId: string;
+    count: number;
+    source: 'pairs.suggest' | 'pairs.activities.suggest' | 'activities.next';
+  };
 };
 
 export type AuditEventMetadata<E extends AuditEventName> = AuditEventMetadataMap[E];
@@ -197,6 +228,10 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   LOG_VISIT_RECORDED: 'short',
   SECURITY_AUTH_FAILED: 'long',
   ABUSE_RATE_LIMIT_HIT: 'abuse',
+  ENTITLEMENT_DENIED: 'long',
+  ENTITLEMENT_GRANTED: 'long',
+  LEGACY_RELATIONSHIP_ACTIVITY_VIEWED: 'short',
+  SUGGESTIONS_GENERATED: 'short',
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

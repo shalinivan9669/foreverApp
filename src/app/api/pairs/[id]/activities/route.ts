@@ -1,4 +1,4 @@
-// src/app/api/pairs/[id]/activities/route.ts
+﻿// src/app/api/pairs/[id]/activities/route.ts
 import { NextRequest } from 'next/server';
 import { PairActivity } from '@/models/PairActivity';
 import { Types } from 'mongoose';
@@ -8,6 +8,8 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
 import { toPairActivityDTO } from '@/lib/dto';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import { relationshipActivityLegacyService } from '@/domain/services/relationshipActivityLegacy.service';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -25,7 +27,7 @@ function buildQuery(pairId: string, s?: string) {
   }
   if (bucket === 'current') {
     q.status = { $in: ['accepted', 'in_progress', 'awaiting_checkin'] };
-    return { q, limit: 1 }; // текущая — одна
+    return { q, limit: 1 }; // С‚РµРєСѓС‰Р°СЏ вЂ” РѕРґРЅР°
   }
   if (bucket === 'history') {
     q.status = {
@@ -40,7 +42,7 @@ function buildQuery(pairId: string, s?: string) {
     return { q, limit: 50 };
   }
 
-  // если прилетел реальный статус — тоже поддержим
+  // РµСЃР»Рё РїСЂРёР»РµС‚РµР» СЂРµР°Р»СЊРЅС‹Р№ СЃС‚Р°С‚СѓСЃ вЂ” С‚РѕР¶Рµ РїРѕРґРґРµСЂР¶РёРј
   q.status = s;
   return { q, limit: 50 };
 }
@@ -72,6 +74,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   const pairGuard = await requirePairMember(id, currentUserId);
   if (!pairGuard.ok) return pairGuard.response;
+  const auditRequest = auditContextFromRequest(req, `/api/pairs/${id}/activities`);
 
   const { q, limit } = buildQuery(String(pairGuard.data.pair._id), s);
   const list = await PairActivity.find(q)
@@ -79,8 +82,24 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .limit(limit)
     .lean();
 
-  // фронт ожидает массив
-  return jsonOk(
-    list.map((activity) => toPairActivityDTO(activity, { includeLegacyId: true, includeAnswers: false }))
+  const pairActivities = list.map((activity) =>
+    toPairActivityDTO(activity, { includeLegacyId: true, includeAnswers: false })
   );
+
+  const legacyActivities = await relationshipActivityLegacyService.listForPair({
+    pairId: String(pairGuard.data.pair._id),
+    members: pairGuard.data.pair.members,
+    currentUserId,
+    bucket: s,
+    auditRequest,
+  });
+
+  const merged = [...pairActivities, ...legacyActivities].sort((left, right) => {
+    const leftTs = Date.parse(left.createdAt ?? left.offeredAt ?? '');
+    const rightTs = Date.parse(right.createdAt ?? right.offeredAt ?? '');
+    return (Number.isFinite(rightTs) ? rightTs : 0) - (Number.isFinite(leftTs) ? leftTs : 0);
+  });
+
+  return jsonOk(merged.slice(0, limit));
 }
+

@@ -45,4 +45,21 @@ Legacy сущность `RelationshipActivity` остается в кодово�
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-08
 
+- Runtime canonical path kept on `PairActivity + ActivityTemplate`:
+  - new/offered activities are generated only through `activityOfferService`.
+- Removed legacy suggestion creation branch from match confirm flow:
+  - `src/domain/services/match.service.ts` now delegates seeding to `activityOfferService`.
+- Introduced legacy read-only compatibility layer:
+  - `src/domain/services/relationshipActivityLegacy.service.ts`
+  - merged in `GET /api/pairs/[id]/activities` as DTO-compatible `legacy: true` entries.
+- Added audit visibility for legacy reads:
+  - `LEGACY_RELATIONSHIP_ACTIVITY_VIEWED`.
+- No runtime mutation endpoint writes to `RelationshipActivity`.
+
+PASS/FAIL:
+- PASS: runtime creation/suggestion flows do not create `RelationshipActivity`.
+- PASS: legacy records (if present) are mapped to pair activity DTO shape (view-only, `legacy: true`).
+- PASS: legacy usage has dedicated audit event for controlled deprecation tracking.
+- TODO: optional one-time migration script to materialize legacy records into `PairActivity` and retire collection.

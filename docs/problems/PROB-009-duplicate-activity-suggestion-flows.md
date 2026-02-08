@@ -50,4 +50,26 @@
 - Date created: 2026-02-07
 
 ## Done / Outcome
+Date: 2026-02-08
 
+- Unified suggestion generation in one canonical service:
+  - `src/domain/services/activityOffer.service.ts`
+  - `suggestActivities(...)` is the single offer pipeline.
+- Routed all suggestion entrypoints through canonical pipeline:
+  - `/api/pairs/[id]/suggest`
+  - `/api/pairs/[id]/activities/suggest`
+  - `/api/activities/next` (now uses `suggestActivities(..., count: 1)`)
+  - `match.confirm` initial seeding also delegates to the same service.
+- Standardized response DTO for offers:
+  - `ActivityOfferDTO` with fields:
+    - `id`, `templateId`, `title`, `axis`, `difficulty`, `stepsPreview`, `reward`, `expiresAt`, `source`
+- Added suggestion generation audit event:
+  - `SUGGESTIONS_GENERATED`.
+- Added quota gate before suggestion generation:
+  - `activities.suggestions.per_day`.
+
+PASS/FAIL:
+- PASS: no duplicated template sampling logic remains outside `activityOfferService`.
+- PASS: `/pairs/[id]/suggest` and `/pairs/[id]/activities/suggest` return one DTO schema.
+- PASS: `activities/next` uses same pipeline semantics (single-offer mode).
+- PASS: suggestion flow now has entitlement/quota enforcement before generation.

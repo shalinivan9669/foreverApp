@@ -233,3 +233,41 @@ Applied policy groups:
 - `/api/users` POST (IP)
 - `/api/pairs/create` POST (IP)
 
+
+## Update 2026-02-08 (Entitlements + Quota Errors)
+
+### New standardized error codes
+- `ENTITLEMENT_REQUIRED`
+  - HTTP status: `402`
+  - message: `Upgrade required`
+  - details shape:
+    - `feature: string`
+    - `plan: 'FREE' | 'SOLO' | 'COUPLE'`
+    - `requiredPlan: 'FREE' | 'SOLO' | 'COUPLE'`
+
+- `QUOTA_EXCEEDED`
+  - HTTP status: `403`
+  - message: `Quota exceeded`
+  - details shape:
+    - `quota: string`
+    - `plan: 'FREE' | 'SOLO' | 'COUPLE'`
+    - `limit: number`
+    - `used: number`
+    - `resetAt: ISO-8601 string`
+
+### New dev-only/admin endpoint
+- `POST /api/entitlements/grant`
+- Envelope: `jsonOk({ id, userId, plan, status, periodEnd?, createdAt? })`
+- Availability:
+  - always in non-production
+  - in production only with valid admin header key
+
+### Suggestions DTO unification
+- Canonical response DTO for suggestion lists:
+  - `ActivityOfferDTO`
+  - fields:
+    - `id`, `templateId?`, `title`, `axis`, `difficulty`, `stepsPreview?`, `reward`, `expiresAt?`, `source`
+- Returned by:
+  - `/api/pairs/[id]/suggest`
+  - `/api/pairs/[id]/activities/suggest`
+- `/api/activities/next` now returns `{ activityId, offer? }` where `offer` is `ActivityOfferDTO`.

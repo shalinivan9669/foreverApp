@@ -7,6 +7,11 @@ import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { matchService } from '@/domain/services/match.service';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import {
+  assertEntitlement,
+  assertQuota,
+  resolveEntitlements,
+} from '@/lib/entitlements';
 
 export const runtime = 'nodejs';
 
@@ -56,13 +61,28 @@ export async function POST(req: NextRequest) {
       agreements: body.agreements,
       answers: body.answers,
     },
-    execute: () =>
-      matchService.createLike({
+    execute: async () => {
+      const snapshot = await resolveEntitlements({ currentUserId });
+      await assertEntitlement({
+        req,
+        route: '/api/match/like',
+        snapshot,
+        key: 'match.mutations',
+      });
+      await assertQuota({
+        req,
+        route: '/api/match/like',
+        snapshot,
+        key: 'match.mutations.per_day',
+      });
+
+      return matchService.createLike({
         currentUserId,
         toId: body.toId,
         agreements: body.agreements,
         answers: body.answers,
         auditRequest,
-      }),
+      });
+    },
   });
 }

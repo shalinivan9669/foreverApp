@@ -7,6 +7,11 @@ import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { pairsService } from '@/domain/services/pairs.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
+import {
+  assertEntitlement,
+  assertQuota,
+  resolveEntitlements,
+} from '@/lib/entitlements';
 
 type Body = {
   userId?: string;
@@ -48,12 +53,27 @@ export async function POST(req: NextRequest) {
       partnerId: body.partnerId ?? null,
       likeId: body.likeId ?? null,
     },
-    execute: () =>
-      pairsService.createPair({
+    execute: async () => {
+      const snapshot = await resolveEntitlements({ currentUserId });
+      await assertEntitlement({
+        req,
+        route: '/api/pairs/create',
+        snapshot,
+        key: 'pairs.create',
+      });
+      await assertQuota({
+        req,
+        route: '/api/pairs/create',
+        snapshot,
+        key: 'pairs.create.per_month',
+      });
+
+      return pairsService.createPair({
         currentUserId,
         partnerId: body.partnerId,
         likeId: body.likeId,
         auditRequest,
-      }),
+      });
+    },
   });
 }

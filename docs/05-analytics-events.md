@@ -77,3 +77,23 @@ Canonical event names:
 - `SECURITY_AUTH_FAILED`
 - `ABUSE_RATE_LIMIT_HIT`
 - `LOG_VISIT_RECORDED`
+
+## Update 2026-02-08 (Entitlements / Legacy / Suggestions Events)
+
+Added canonical audit events:
+- `ENTITLEMENT_DENIED` (retention: `long`)
+  - emitted when feature/quota gate blocks request
+  - metadata: `{ reason, feature?, requiredPlan?, quota?, plan, limit?, used?, resetAt?, route }`
+- `ENTITLEMENT_GRANTED` (retention: `long`)
+  - emitted by `POST /api/entitlements/grant`
+  - metadata: `{ userId, plan, status, periodEnd?, source: 'dev_endpoint' }`
+- `LEGACY_RELATIONSHIP_ACTIVITY_VIEWED` (retention: `short`)
+  - emitted when legacy `RelationshipActivity` records are returned through compat mapping
+  - metadata: `{ pairId, count }`
+- `SUGGESTIONS_GENERATED` (retention: `short`)
+  - emitted from canonical suggestion pipeline
+  - metadata: `{ pairId, count, source }`
+
+PII policy reminder for these events:
+- keep metadata strictly non-sensitive
+- do not include raw answers/check-ins/messages/tokens

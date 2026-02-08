@@ -50,3 +50,26 @@
 - Свести активности к единой системе `ActivityTemplate` + `PairActivity`; `RelationshipActivity` документировать как legacy с планом миграции.
 - Вынести доменные связи в явный domain map (ER/mermaid) и добавить индексы под ключевые запросы (activity feed, match inbox, pair history).
 - Ввести явные DTO для API, чтобы отсечь лишние поля моделей при выдаче наружу.
+
+## Update 2026-02-08 (Activities Canonical Model)
+
+### Canonical runtime model
+- Pair activity lifecycle is canonicalized on:
+  - `ActivityTemplate` (selection source)
+  - `PairActivity` (runtime execution entity)
+
+### Legacy model status
+- `RelationshipActivity` is now treated as legacy read-only compatibility data.
+- Runtime mutation/suggestion flows do not create `RelationshipActivity`.
+- Compatibility mapping exists for list views:
+  - legacy records are mapped into `PairActivityDTO`-compatible shape with `legacy: true`.
+
+### Canonical creation/suggestion pipeline
+- `src/domain/services/activityOffer.service.ts` is the single suggestion/offer pipeline used by:
+  - `/api/pairs/[id]/suggest`
+  - `/api/pairs/[id]/activities/suggest`
+  - `/api/activities/next`
+  - initial seed on `match.confirm`
+
+### Remaining migration note
+- One-time migration script (`RelationshipActivity` -> `PairActivity`) remains optional follow-up.

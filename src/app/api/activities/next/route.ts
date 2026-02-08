@@ -6,6 +6,12 @@ import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
 import { activityOfferService } from '@/domain/services/activityOffer.service';
 import { asError, toDomainError } from '@/domain/errors';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import {
+  assertEntitlement,
+  assertQuota,
+  resolveEntitlements,
+} from '@/lib/entitlements';
 
 export async function POST(req: NextRequest) {
   const query = parseQuery(req, z.object({}).passthrough());
@@ -13,10 +19,26 @@ export async function POST(req: NextRequest) {
 
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
+  const auditRequest = auditContextFromRequest(req, '/api/activities/next');
 
   try {
+    const snapshot = await resolveEntitlements({ currentUserId: auth.data.userId });
+    await assertEntitlement({
+      req,
+      route: '/api/activities/next',
+      snapshot,
+      key: 'activities.suggestions',
+    });
+    await assertQuota({
+      req,
+      route: '/api/activities/next',
+      snapshot,
+      key: 'activities.suggestions.per_day',
+    });
+
     const data = await activityOfferService.createNextActivity({
       currentUserId: auth.data.userId,
+      auditRequest,
     });
     return jsonOk(data);
   } catch (error: unknown) {
