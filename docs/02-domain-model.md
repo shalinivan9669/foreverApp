@@ -81,3 +81,24 @@
   - no NaN propagation
   - deterministic facet aggregation (`positives`/`negatives`).
 
+## Update 2026-02-08 (Vector Stability Policy)
+
+- Vector scoring now uses weighted normalization per axis:
+  - `weightedSum = sum(contribution * weight)`
+  - `deltaAxis = weightedSum / sumWeights`
+  - collected diagnostics: `perAxisMatchedCount`, `perAxisSumWeights`.
+- Vector apply now uses a configurable policy (`VectorUpdatePolicy`) in `src/domain/vectors/types.ts`:
+  - `alphaBase = 0.12`
+  - `maxStepPerSubmit = 0.08`
+  - `confidenceK = 12`
+  - `edgeDiminishMin = 0.35`
+- Effective step formula:
+  - `confidence = clamp(matchedCount / confidenceK, 0..1)`
+  - `effectiveAlpha = alphaBase * confidence`
+  - `step = clamp(deltaAxis * effectiveAlpha, -maxStep, +maxStep)`
+  - edge dampening near `0/1`: less movement close to boundaries.
+- Domain apply metadata is now explicit for audit/explainability:
+  - `appliedStepByAxis`
+  - `clampedAxes`
+  - `confidence`, `alphaBase`, `maxStepPerSubmit`, `effectiveAlpha`.
+

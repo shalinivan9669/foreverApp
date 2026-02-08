@@ -13,12 +13,16 @@ import {
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { User, type UserType } from '@/models/User';
 import {
+  AXES,
   applyDeltaToUserVectors,
   scoreAnswersToVectorDelta,
   toVectorQuestionMap,
+  type Axis,
   type VectorAnswerInput,
+  type VectorDelta,
   type VectorQuestion,
   type VectorQuestionSource,
+  type UserVectorApplyResult,
 } from '@/domain/vectors';
 import { questionnaireTransition } from '@/domain/state/questionnaireMachine';
 
@@ -69,6 +73,8 @@ const buildQuestionMapFromQuestionDocs = (
       axis: question.axis,
       facet: question.facet,
       map: question.map,
+      weight: question.weight,
+      polarity: question.polarity,
     }))
   );
 
@@ -83,6 +89,8 @@ const buildQuestionMapFromQuestionnaire = (
       axis: question.axis,
       facet: question.facet,
       map: question.map,
+      weight: question.weight,
+      polarity: question.polarity,
     });
 
     if (hasStringId(question as object)) {
@@ -93,12 +101,54 @@ const buildQuestionMapFromQuestionnaire = (
           axis: question.axis,
           facet: question.facet,
           map: question.map,
+          weight: question.weight,
+          polarity: question.polarity,
         });
       }
     }
   }
 
   return toVectorQuestionMap(sources);
+};
+
+const roundTo3 = (value: number): number => Math.round(value * 1000) / 1000;
+
+const toRoundedAppliedSteps = (
+  applied: UserVectorApplyResult
+): Partial<Record<Axis, number>> => {
+  const rounded: Partial<Record<Axis, number>> = {};
+  for (const axis of AXES) {
+    if (!Object.prototype.hasOwnProperty.call(applied.appliedStepByAxis, axis)) continue;
+    const raw = Number(applied.appliedStepByAxis[axis] ?? 0);
+    if (!Number.isFinite(raw)) continue;
+    rounded[axis] = roundTo3(raw);
+  }
+  return rounded;
+};
+
+const toVectorAuditMetrics = (
+  delta: VectorDelta,
+  applied: UserVectorApplyResult
+) => {
+  const sumWeightsTotal = AXES.reduce((acc, axis) => {
+    const axisWeight = Number(delta.perAxisSumWeights[axis] ?? 0);
+    return Number.isFinite(axisWeight) ? acc + axisWeight : acc;
+  }, 0);
+
+  const deltaMagnitude = AXES.reduce((acc, axis) => {
+    const step = Number(applied.appliedStepByAxis[axis] ?? 0);
+    return Number.isFinite(step) ? acc + Math.abs(step) : acc;
+  }, 0);
+
+  return {
+    answeredCount: delta.answeredCount,
+    matchedCount: delta.matchedCount,
+    confidence: roundTo3(applied.confidence),
+    sumWeightsTotal: roundTo3(sumWeightsTotal),
+    deltaMagnitude: roundTo3(deltaMagnitude),
+    appliedStepByAxis: toRoundedAppliedSteps(applied),
+    clampedAxes: applied.clampedAxes,
+  };
 };
 
 type SessionLean = {
@@ -160,6 +210,7 @@ export const questionnairesService = {
     }
 
     const applied = applyDeltaToUserVectors(user, delta);
+    const vectorAudit = toVectorAuditMetrics(delta, applied);
 
     const hasSet = Object.keys(applied.setLevels).length > 0;
     const hasAddToSet = Object.keys(applied.addToSet).length > 0;
@@ -187,7 +238,7 @@ export const questionnairesService = {
       },
       metadata: {
         answersCount: delta.answeredCount,
-        matchedCount: delta.matchedCount,
+        ...vectorAudit,
         audience: input.audience ?? 'personal',
         questionnaireId: input.questionnaireId,
       },
@@ -453,6 +504,7 @@ export const questionnairesService = {
 
     const delta = scoreAnswersToVectorDelta(vectorAnswers, questionMap);
     const applied = applyDeltaToUserVectors(user, delta);
+    const vectorAudit = toVectorAuditMetrics(delta, applied);
 
     const hasSet = Object.keys(applied.setLevels).length > 0;
     const hasAddToSet = Object.keys(applied.addToSet).length > 0;
@@ -493,6 +545,7 @@ export const questionnairesService = {
         sessionId: String(session._id),
         questionId: input.questionId,
         ui: input.ui,
+        ...vectorAudit,
       },
     });
 

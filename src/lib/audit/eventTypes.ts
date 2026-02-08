@@ -1,6 +1,9 @@
 import type { JsonValue } from '@/lib/api/response';
 import type { LikeType } from '@/models/Like';
 import type { PairActivityType } from '@/models/PairActivity';
+import type { QuestionType } from '@/models/Question';
+
+type AuditAxis = QuestionType['axis'];
 
 export const AUDIT_EVENT_NAMES = [
   'MATCH_LIKE_CREATED',
@@ -111,12 +114,25 @@ export type AuditEventMetadataMap = {
     sessionId: string;
     questionId: string;
     ui: number;
+    answeredCount: number;
+    matchedCount: number;
+    confidence: number;
+    sumWeightsTotal: number;
+    deltaMagnitude: number;
+    appliedStepByAxis: Partial<Record<AuditAxis, number>>;
+    clampedAxes: AuditAxis[];
   };
   ANSWERS_BULK_SUBMITTED: {
     answersCount: number;
+    answeredCount: number;
     matchedCount: number;
     audience: 'personal' | 'couple';
     questionnaireId?: string;
+    confidence: number;
+    sumWeightsTotal: number;
+    deltaMagnitude: number;
+    appliedStepByAxis: Partial<Record<AuditAxis, number>>;
+    clampedAxes: AuditAxis[];
   };
   USER_ONBOARDING_UPDATED: {
     updatedKeys: string[];

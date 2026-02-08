@@ -105,3 +105,18 @@ PII policy reminder for these events:
 - Personal questionnaire submit (`POST /api/questionnaires/[id]`) emits `ANSWERS_BULK_SUBMITTED` with `audience: 'personal'`.
 - No PII payload is written: event metadata stores counters/IDs only.
 
+## Update 2026-02-08 (Vector Quality Metrics in Questionnaire Events)
+
+- `ANSWERS_BULK_SUBMITTED` and `QUESTIONNAIRE_ANSWERED` now include non-PII vector quality metadata:
+  - `answeredCount`, `matchedCount`
+  - `confidence`
+  - `sumWeightsTotal`
+  - `deltaMagnitude`
+  - `appliedStepByAxis` (rounded to 3 decimals)
+  - `clampedAxes`
+- Existing business identifiers are preserved (`pairId`, `questionnaireId`, `sessionId`, `audience`).
+- Metadata remains privacy-safe:
+  - no raw answer text
+  - no free-text payload
+  - no token/secret fields.
+

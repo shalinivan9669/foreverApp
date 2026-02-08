@@ -214,3 +214,10 @@ Summary:
 - Made `POST /api/questionnaires/[id]` idempotent (`withIdempotency`) and questionnaire-scoped for scoring, with strict question match validation to prevent silent no-op vector updates.
 - Added personal submit UI refetch (`current user` + `profile summary`), added no-store fetch policy for profile summary, and extended `ANSWERS_BULK_SUBMITTED` audit metadata with `audience/matchedCount/questionnaireId`.
 Files: src/domain/vectors/types.ts, src/domain/vectors/scoring.ts, src/domain/vectors/apply.ts, src/domain/vectors/index.ts, src/domain/services/questionnaires.service.ts, src/app/api/questionnaires/[id]/route.ts, src/app/api/answers/bulk/route.ts, src/lib/audit/eventTypes.ts, src/client/api/http.ts, src/client/api/users.api.ts, src/app/questionnaire/[id]/page.tsx, docs/02-domain-model.md, docs/04-api-contracts.md, docs/05-analytics-events.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Improved vector stability by introducing weighted per-axis scoring, policy-based apply dampening, and clamp-safe step control in `src/domain/vectors/*`.
+- Added explainability metadata from vector apply (`confidence`, `appliedStepByAxis`, `clampedAxes`, `deltaMagnitude`, `sumWeightsTotal`) into questionnaire audit events.
+- Added pure-function self-check script for vectors policy scenarios (short/long confidence, edge damping, weight influence, clamp bounds).
+Files: src/domain/vectors/types.ts, src/domain/vectors/scoring.ts, src/domain/vectors/apply.ts, src/domain/services/questionnaires.service.ts, src/lib/audit/eventTypes.ts, scripts/vectors-policy.selfcheck.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/CHANGELOG.md
