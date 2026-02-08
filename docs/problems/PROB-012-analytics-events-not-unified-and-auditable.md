@@ -5,7 +5,7 @@
 
 ## Evidence
 - Реализация сейчас:
-  - `src/models/Log.ts` (только `userId`, `at`)
+  - `src/models/EventLog.ts` (канонический event envelope + retention/TTL)
   - `src/app/api/logs/route.ts`
   - клиентский fire-and-forget лог визита в `src/app/page.tsx`.
 - В `docs/05-analytics-events.md` перечислены целевые события (`match_like_*`, `pair_*`, `questionnaire_*`), но они не реализованы как единый runtime-слой.

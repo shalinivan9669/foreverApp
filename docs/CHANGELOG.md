@@ -200,3 +200,10 @@ Summary:
 - Added explicit questionnaire classification (`scope: personal|couple`) in DTO/contracts and cards endpoint filter support (`?audience=personal|couple`).
 - Implemented explicit start routing (`startPersonalQuestionnaire` vs `startCoupleQuestionnaire`) and rebuilt questionnaires UI into personal/couple sections with per-item loading and deterministic error handling.
 Files: src/lib/dto/questionnaire.dto.ts, src/client/api/types.ts, src/client/api/questionnaires.api.ts, src/client/hooks/useQuestionnaires.ts, src/app/api/questionnaires/route.ts, src/app/api/questionnaires/cards/route.ts, src/components/QuestionnaireCard.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, src/app/questionnaires/page.tsx, src/app/questionnaire/[id]/page.tsx, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Removed unused legacy UI/client/backend files after import-chain verification (`rg`) and static checks (`ts-prune`, `knip`) without changing API routes/contracts.
+- Removed dead DTO/model artifacts (`analytics.dto`, `Log`, `Insight`, `Match`) and unused client barrels/helpers (`client/api/index`, `client/hooks/index`, `client/api/entitlements.api`).
+- Updated domain/analytics/ADR/problem docs to reflect `EventLog` canonical analytics runtime and removed references to deleted runtime files.
+Files: src/components/common/EmptyState.tsx, src/components/common/ErrorCard.tsx, src/client/api/index.ts, src/client/hooks/index.ts, src/client/api/entitlements.api.ts, src/lib/dto/index.ts, src/lib/dto/analytics.dto.ts, src/models/Log.ts, src/models/Insight.ts, src/models/Match.ts, src/utils/passport.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/ADR/ADR-003-event-log-monolith.md, docs/problems/PROB-012-analytics-events-not-unified-and-auditable.md, docs/problems/PROB-015-log-privacy-and-retention-policy-missing.md, docs/CHANGELOG.md

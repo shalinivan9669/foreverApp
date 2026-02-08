@@ -4,8 +4,8 @@
 Нет реализованной политики хранения/удаления событий и чувствительных ответов.
 
 ## Evidence
-- `Log` хранит события без TTL/retention индексов:
-  - `src/models/Log.ts`
+- Канонические события хранятся в `EventLog` с retention/TTL:
+  - `src/models/EventLog.ts`
   - `src/app/api/logs/route.ts`
 - Чувствительные ответы сохраняются в доменных коллекциях без retention-политики:
   - `PairActivity.answers`: `src/models/PairActivity.ts`

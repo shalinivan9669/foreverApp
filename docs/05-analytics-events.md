@@ -1,17 +1,14 @@
-**Как Сейчас (Обзор)**
-1. В репозитории определена модель `Log` с полями `userId` и `at`. Доказательства: `src/models/Log.ts:4-13`.
-2. `/api/logs` создаёт запись `Log` и возвращает сохранённый документ. Доказательства: `src/app/api/logs/route.ts:6-11`.
-3. Клиент вызывает `/api/logs` при переходе в основное меню (visit log). Доказательства: `src/app/page.tsx:70-75`.
-
+﻿**Current State (Overview)**
+1. Analytics/audit events are persisted in `event_logs` via `EventLog`. Evidence: `src/models/EventLog.ts`.
+2. `/api/logs` records visits through `logsService.recordVisit(...)`, which emits `LOG_VISIT_RECORDED` using the unified audit runtime. Evidence: `src/app/api/logs/route.ts`, `src/domain/services/logs.service.ts`, `src/lib/audit/emitEvent.ts`.
+3. Client still sends fire-and-forget visit call on entry to main menu flow. Evidence: `src/app/page.tsx`.
 **Evidence**
-| Факт | Тип | Источник (path:line) | Цитата (?2 строки) |
+| Р¤Р°РєС‚ | РўРёРї | РСЃС‚РѕС‡РЅРёРє (path:line) | Р¦РёС‚Р°С‚Р° (?2 СЃС‚СЂРѕРєРё) |
 |---|---|---|---|
-| Модель Log: userId, at | model | `src/models/Log.ts:4-13` | `export interface LogType {`<br>`  userId: string;` |
-| /api/logs пишет Log | api | `src/app/api/logs/route.ts:6-11` | `const entry = await Log.create({ userId, at: new Date() });` |
-| Вызов /api/logs на клиенте | ui | `src/app/page.tsx:70-75` | `fetch('/.proxy/api/logs', {`<br>`  body: JSON.stringify({ userId: user.id }),` |
+| Р’С‹Р·РѕРІ /api/logs РЅР° РєР»РёРµРЅС‚Рµ | ui | `src/app/page.tsx:63` | `usersApi.writeActivityLog().catch(() => {});` |
 
-**Куда Идём (Целевые MVP События)**
-- `user_auth_completed` (после обмена code -> access_token).
+**РљСѓРґР° РРґС‘Рј (Р¦РµР»РµРІС‹Рµ MVP РЎРѕР±С‹С‚РёСЏ)**
+- `user_auth_completed` (РїРѕСЃР»Рµ РѕР±РјРµРЅР° code -> access_token).
 - `user_profile_upserted` (POST `/api/users`).
 - `onboarding_completed` (PATCH `/api/users/[id]/onboarding`).
 - `match_card_updated` (POST `/api/match/card`).
@@ -20,24 +17,24 @@
 - `pair_activity_offered`, `pair_activity_accepted`, `pair_activity_checkin`, `pair_activity_completed`, `pair_activity_cancelled`.
 - `questionnaire_started`, `questionnaire_answered`, `questionnaire_completed`.
 
-**Обязательные Свойства Событий (Целевой Формат)**
+**РћР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ РЎРІРѕР№СЃС‚РІР° РЎРѕР±С‹С‚РёР№ (Р¦РµР»РµРІРѕР№ Р¤РѕСЂРјР°С‚)**
 - `eventId` (UUID), `eventName`, `timestamp`.
-- `userId` (если релевантно), `pairId` (если релевантно).
-- `requestId` (корреляция), `source` (web/discord/tg).
-- `entityId` (activityId, likeId, sessionId) и `entityType`.
+- `userId` (РµСЃР»Рё СЂРµР»РµРІР°РЅС‚РЅРѕ), `pairId` (РµСЃР»Рё СЂРµР»РµРІР°РЅС‚РЅРѕ).
+- `requestId` (РєРѕСЂСЂРµР»СЏС†РёСЏ), `source` (web/discord/tg).
+- `entityId` (activityId, likeId, sessionId) Рё `entityType`.
 
-**Что Используем Для Продукт-Аналитики**
-- Воронки: `user_auth_completed -> user_profile_upserted -> onboarding_completed`.
-- Ретеншн: количество `pair_activity_completed` и повторные `questionnaire_started`.
-- Сигналы качества: распределение `pair_activity_completed` по статусам (success/partial/failed).
+**Р§С‚Рѕ РСЃРїРѕР»СЊР·СѓРµРј Р”Р»СЏ РџСЂРѕРґСѓРєС‚-РђРЅР°Р»РёС‚РёРєРё**
+- Р’РѕСЂРѕРЅРєРё: `user_auth_completed -> user_profile_upserted -> onboarding_completed`.
+- Р РµС‚РµРЅС€РЅ: РєРѕР»РёС‡РµСЃС‚РІРѕ `pair_activity_completed` Рё РїРѕРІС‚РѕСЂРЅС‹Рµ `questionnaire_started`.
+- РЎРёРіРЅР°Р»С‹ РєР°С‡РµСЃС‚РІР°: СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ `pair_activity_completed` РїРѕ СЃС‚Р°С‚СѓСЃР°Рј (success/partial/failed).
 
-**Что Используем Для Audit/Security**
+**Р§С‚Рѕ РСЃРїРѕР»СЊР·СѓРµРј Р”Р»СЏ Audit/Security**
 - `user_profile_upserted`, `match_like_*`, `pair_*`, `questionnaire_*`.
-- Связка `requestId` + `entityId` для разбора инцидентов.
+- РЎРІСЏР·РєР° `requestId` + `entityId` РґР»СЏ СЂР°Р·Р±РѕСЂР° РёРЅС†РёРґРµРЅС‚РѕРІ.
 
-**PII/Интимные Данные (Запреты)**
-- Не логировать текстовые ответы, `answers[]`, `checkIns` и любые чувствительные free-text поля.
-- Не логировать access_token или OAuth коды.
+**PII/РРЅС‚РёРјРЅС‹Рµ Р”Р°РЅРЅС‹Рµ (Р—Р°РїСЂРµС‚С‹)**
+- РќРµ Р»РѕРіРёСЂРѕРІР°С‚СЊ С‚РµРєСЃС‚РѕРІС‹Рµ РѕС‚РІРµС‚С‹, `answers[]`, `checkIns` Рё Р»СЋР±С‹Рµ С‡СѓРІСЃС‚РІРёС‚РµР»СЊРЅС‹Рµ free-text РїРѕР»СЏ.
+- РќРµ Р»РѕРіРёСЂРѕРІР°С‚СЊ access_token РёР»Рё OAuth РєРѕРґС‹.
 
 ## Update 2026-02-08 (Audit Event Canonical Runtime)
 
@@ -97,3 +94,4 @@ Added canonical audit events:
 PII policy reminder for these events:
 - keep metadata strictly non-sensitive
 - do not include raw answers/check-ins/messages/tokens
+

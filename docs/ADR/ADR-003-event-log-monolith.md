@@ -1,17 +1,17 @@
 **ADR-003: Event Log Inside Monolith**
 
 **Как Сейчас (Обзор)**
-1. Есть модель `Log` с полями `userId` и `at`. Доказательства: `src/models/Log.ts:4-13`.
-2. `/api/logs` пишет событие в коллекцию `Log`. Доказательства: `src/app/api/logs/route.ts:6-11`.
+1. Есть каноническая модель `EventLog` с event envelope и TTL (`expiresAt`). Доказательства: `src/models/EventLog.ts`.
+2. `/api/logs` пишет событие через единый runtime `emitEvent` (через `logsService.recordVisit`). Доказательства: `src/app/api/logs/route.ts`, `src/domain/services/logs.service.ts`.
 
 **Evidence**
 | Факт | Тип | Источник (path:line) | Цитата (?2 строки) |
 |---|---|---|---|
-| Log model | model | `src/models/Log.ts:4-13` | `export interface LogType {`<br>`  userId: string;` |
-| /api/logs creates Log | api | `src/app/api/logs/route.ts:6-11` | `const entry = await Log.create({ userId, at: new Date() });` |
+| EventLog model | model | `src/models/EventLog.ts` | `export interface EventLogType {`<br>`  event: AuditEventName;` |
+| /api/logs emits unified event | api | `src/domain/services/logs.service.ts` | `event: 'LOG_VISIT_RECORDED',` |
 
 **Decision**
-- События и аудит остаются внутри монолита в Mongo (коллекция `Log`/`Event`).
+- События и аудит остаются внутри монолита в Mongo (коллекция `event_logs` через `EventLog`).
 
 **Consequences**
 - Единый формат событий задаётся на уровне приложения.

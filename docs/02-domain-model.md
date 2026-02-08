@@ -1,55 +1,48 @@
-**Как Сейчас (Обзор)**
-1. Снапшот ключевых путей репозитория зафиксирован в `docs/_evidence/repo-tree.txt`. Доказательства: `docs/_evidence/repo-tree.txt:1-127`.
-2. User: поля `id`, `username`, `avatar`, `personal{gender,age,city,relationshipStatus}`, `vectors`, `embeddings`, `preferences{desiredAgeRange,maxDistanceKm}`, `matchMeta.recentMatches`, `profile.onboarding`, `profile.matchCard`, `location`, `createdAt`, `updatedAt`. Доказательства: `src/models/User.ts:3-64`.
-3. Pair: поля `members`, `key`, `status`, `activeActivity`, `progress`, `passport{strongSides,riskZones,complementMap,levelDelta,lastDiagnosticsAt}`, `fatigue`, `readiness`, `createdAt`, `updatedAt`. Доказательства: `src/models/Pair.ts:15-31`.
-4. ActivityTemplate: поля `_id`, `intent`, `archetype`, `axis`, `facetsTarget`, `difficulty`, `intensity`, `timeEstimateMin`, `costEstimate`, `location`, `requiresConsent`, `title`, `description`, `steps`, `materials`, `checkIns`, `effect`, `preconditions`, `cooldownDays`. Доказательства: `src/models/ActivityTemplate.ts:29-59`.
-5. PairActivity: поля `pairId`, `members`, `intent`, `archetype`, `axis`, `facetsTarget`, `title`, `description`, `why`, `mode`, `sync`, `difficulty`, `intensity`, `timeEstimateMin`, `costEstimate`, `location`, `materials`, `offeredAt`, `acceptedAt`, `windowStart`, `windowEnd`, `dueAt`, `recurrence`, `cooldownDays`, `requiresConsent`, `consentA`, `consentB`, `visibility`, `status`, `stateMeta`, `checkIns`, `answers`, `successScore`, `effect`, `fatigueDeltaOnComplete`, `readinessDeltaOnComplete`, `createdBy`, `createdAt`, `updatedAt`. Доказательства: `src/models/PairActivity.ts:11-63`.
-6. RelationshipActivity: поля `userId`, `partnerId`, `type`, `payload{title,description,dueAt}`, `status`, `createdAt`, `updatedAt`. Доказательства: `src/models/RelationshipActivity.ts:9-16`, `src/models/RelationshipActivity.ts:19-35`.
-7. Insight: поля `userId`, `partnerId`, `category`, `message`, `isRead`, `createdAt`. Доказательства: `src/models/Insight.ts:3-20`.
-8. Like: поля `fromId`, `toId`, `matchScore`, `fromCardSnapshot`, `recipientResponse`, `recipientDecision`, `initiatorDecision`, `status`, `agreements`, `answers`, `cardSnapshot`, `createdAt`, `updatedAt`. Доказательства: `src/models/Like.ts:30-54`.
-9. Match: поля `userId`, `items`, `expireAt`, `createdAt`, `updatedAt`; `items` состоят из `MatchCandidate{id,score,reasons}`. Доказательства: `src/models/Match.ts:5-19`.
-10. Question: поля `_id`, `axis`, `facet`, `polarity`, `scale`, `map`, `weight`, `text`. Доказательства: `src/models/Question.ts:3-11`.
-11. Questionnaire: поля `_id`, `title`, `description`, `target{type,gender,vector}`, `axis`, `difficulty`, `tags`, `version`, `randomize`, `questions`. Доказательства: `src/models/Questionnaire.ts:15-29`.
-12. PairQuestionnaireSession: поля `pairId`, `questionnaireId`, `members`, `startedAt`, `finishedAt`, `status`, `meta`, `createdAt`, `updatedAt`. Доказательства: `src/models/PairQuestionnaireSession.ts:3-12`.
-13. PairQuestionnaireAnswer: поля `sessionId`, `pairId`, `questionnaireId`, `questionId`, `by`, `ui`, `at`, `createdAt`, `updatedAt`. Доказательства: `src/models/PairQuestionnaireAnswer.ts:3-12`.
-14. Log: поля `userId`, `at`. Доказательства: `src/models/Log.ts:4-13`.
-15. Связи: `PairActivity.pairId` ссылается на `Pair`, `PairActivity.members` — на `User`; `PairQuestionnaireSession.pairId` — на `Pair`, `PairQuestionnaireSession.members` — на `User`; `PairQuestionnaireAnswer.sessionId` — на `PairQuestionnaireSession`, `PairQuestionnaireAnswer.pairId` — на `Pair`; `RelationshipActivity.userId/partnerId` — на `User`. Доказательства: `src/models/PairActivity.ts:79-80`, `src/models/PairQuestionnaireSession.ts:17-19`, `src/models/PairQuestionnaireAnswer.ts:17-19`, `src/models/RelationshipActivity.ts:30-31`.
-16. Индексы: User (`personal.city`, `personal.gender+relationshipStatus`, `location`, `embeddings`); Pair (`members+status`, `key`); PairActivity (`pairId+status+dueAt`); Like (`fromId+toId+createdAt`); Match (`userId unique`, `expireAt TTL`); PairQuestionnaireSession (`pairId+questionnaireId+status`, `pairId+createdAt`); PairQuestionnaireAnswer (`sessionId`, `pairId+questionnaireId+questionId`). Доказательства: `src/models/User.ts:203-207`, `src/models/Pair.ts:77-78`, `src/models/PairActivity.ts:145`, `src/models/Like.ts:106`, `src/models/Match.ts:42-45`, `src/models/PairQuestionnaireSession.ts:28-29`, `src/models/PairQuestionnaireAnswer.ts:28-29`.
-
+﻿**Current State (Overview)**
+1. Key repository path snapshot is captured in `docs/_evidence/repo-tree.txt`.
+2. User model fields: `id`, `username`, `avatar`, `personal`, `vectors`, `embeddings`, `preferences`, `matchMeta`, `profile`, `location`, `createdAt`, `updatedAt`. Evidence: `src/models/User.ts`.
+3. Pair model fields: `members`, `key`, `status`, `activeActivity`, `progress`, `passport`, `fatigue`, `readiness`, `createdAt`, `updatedAt`. Evidence: `src/models/Pair.ts`.
+4. ActivityTemplate model fields: intent/archetype/axis/facets/effect/preconditions and content metadata. Evidence: `src/models/ActivityTemplate.ts`.
+5. PairActivity is the canonical runtime pair activity model. Evidence: `src/models/PairActivity.ts`.
+6. RelationshipActivity is legacy read-only compatibility data. Evidence: `src/models/RelationshipActivity.ts`.
+7. Like model fields include cards, decisions, status, and timestamps. Evidence: `src/models/Like.ts`.
+8. EventLog is the canonical analytics/audit event model with retention tier and TTL via `expiresAt`. Evidence: `src/models/EventLog.ts`.
+9. Question model fields: axis/facet/polarity/scale/map/weight/text. Evidence: `src/models/Question.ts`.
+10. Questionnaire model fields: title/description/target/axis/difficulty/tags/version/questions. Evidence: `src/models/Questionnaire.ts`.
+11. PairQuestionnaireSession model fields: pair/questionnaire/members/start/finish/status/meta. Evidence: `src/models/PairQuestionnaireSession.ts`.
+12. PairQuestionnaireAnswer model fields: session/pair/questionnaire/question/by/ui/at. Evidence: `src/models/PairQuestionnaireAnswer.ts`.
+13. Main relations: PairActivity -> Pair/User, PairQuestionnaireSession -> Pair/User, PairQuestionnaireAnswer -> Session/Pair, RelationshipActivity -> User.
+14. Main indexes: User, Pair, PairActivity, Like, PairQuestionnaireSession, PairQuestionnaireAnswer.
 **Evidence**
-| Факт | Тип | Источник (path:line) | Цитата (?2 строки) |
+| Р¤Р°РєС‚ | РўРёРї | РСЃС‚РѕС‡РЅРёРє (path:line) | Р¦РёС‚Р°С‚Р° (?2 СЃС‚СЂРѕРєРё) |
 |---|---|---|---|
-| Снапшот дерева репозитория | config | `docs/_evidence/repo-tree.txt:1-127` | `# Repo Tree Snapshot (curated, key paths)` |
-| User поля (интерфейс) | model | `src/models/User.ts:3-64` | `export interface UserType {`<br>`  id: string;` |
-| Pair поля (интерфейс) | model | `src/models/Pair.ts:15-31` | `export interface PairType {`<br>`  members: [string, string];` |
-| ActivityTemplate поля (интерфейс) | model | `src/models/ActivityTemplate.ts:29-59` | `export interface ActivityTemplateType {`<br>`  _id: string;` |
-| PairActivity поля (интерфейс) | model | `src/models/PairActivity.ts:11-63` | `export interface PairActivityType {`<br>`  pairId: Types.ObjectId;` |
-| RelationshipActivity поля | model | `src/models/RelationshipActivity.ts:9-16` | `export interface RelationshipActivityType {`<br>`  userId: Types.ObjectId;` |
+| РЎРЅР°РїС€РѕС‚ РґРµСЂРµРІР° СЂРµРїРѕР·РёС‚РѕСЂРёСЏ | config | `docs/_evidence/repo-tree.txt:1-127` | `# Repo Tree Snapshot (curated, key paths)` |
+| User РїРѕР»СЏ (РёРЅС‚РµСЂС„РµР№СЃ) | model | `src/models/User.ts:3-64` | `export interface UserType {`<br>`  id: string;` |
+| Pair РїРѕР»СЏ (РёРЅС‚РµСЂС„РµР№СЃ) | model | `src/models/Pair.ts:15-31` | `export interface PairType {`<br>`  members: [string, string];` |
+| ActivityTemplate РїРѕР»СЏ (РёРЅС‚РµСЂС„РµР№СЃ) | model | `src/models/ActivityTemplate.ts:29-59` | `export interface ActivityTemplateType {`<br>`  _id: string;` |
+| PairActivity РїРѕР»СЏ (РёРЅС‚РµСЂС„РµР№СЃ) | model | `src/models/PairActivity.ts:11-63` | `export interface PairActivityType {`<br>`  pairId: Types.ObjectId;` |
+| RelationshipActivity РїРѕР»СЏ | model | `src/models/RelationshipActivity.ts:9-16` | `export interface RelationshipActivityType {`<br>`  userId: Types.ObjectId;` |
 | RelationshipActivity payload schema | model | `src/models/RelationshipActivity.ts:19-35` | `const payloadSchema = new Schema<ActivityPayload>(` |
-| Insight поля | model | `src/models/Insight.ts:3-20` | `export interface InsightType {`<br>`  userId: Types.ObjectId;` |
-| Like поля | model | `src/models/Like.ts:30-54` | `export interface LikeType {`<br>`  _id: Types.ObjectId;` |
-| Match поля и кандидат | model | `src/models/Match.ts:5-19` | `export interface MatchCandidate {`<br>`  id: string;` |
-| Question поля | model | `src/models/Question.ts:3-11` | `export interface QuestionType {`<br>`  _id: string;` |
-| Questionnaire поля | model | `src/models/Questionnaire.ts:15-29` | `export interface QuestionnaireType {`<br>`  _id: string;` |
-| PairQuestionnaireSession поля | model | `src/models/PairQuestionnaireSession.ts:3-12` | `export interface PairQuestionnaireSessionType {` |
-| PairQuestionnaireAnswer поля | model | `src/models/PairQuestionnaireAnswer.ts:3-12` | `export interface PairQuestionnaireAnswerType {` |
-| Log поля | model | `src/models/Log.ts:4-13` | `export interface LogType {`<br>`  userId: string;` |
-| PairActivity ссылки на Pair/User | model | `src/models/PairActivity.ts:79-80` | `pairId:   { type: Schema.Types.ObjectId, ref: 'Pair', required: true },` |
-| PairQuestionnaireSession ссылки на Pair/User | model | `src/models/PairQuestionnaireSession.ts:17-19` | `pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },` |
-| PairQuestionnaireAnswer ссылки на Session/Pair | model | `src/models/PairQuestionnaireAnswer.ts:17-19` | `sessionId: { type: Schema.Types.ObjectId, ref: 'PairQuestionnaireSession', required: true },` |
-| RelationshipActivity ссылки на User | model | `src/models/RelationshipActivity.ts:30-31` | `userId:   { type: Schema.Types.ObjectId, ref: 'User', required: true },` |
-| Индексы User | model | `src/models/User.ts:203-207` | `userSchema.index({ 'personal.city': 1 });` |
-| Индексы Pair | model | `src/models/Pair.ts:77-78` | `PairSchema.index({ members: 1, status: 1 });` |
-| Индекс PairActivity | model | `src/models/PairActivity.ts:145` | `PairActivitySchema.index({ pairId: 1, status: 1, dueAt: 1 });` |
-| Индекс Like | model | `src/models/Like.ts:106` | `LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });` |
-| Индексы Match | model | `src/models/Match.ts:42-45` | `MatchSchema.index({ userId: 1 }, { unique: true });` |
-| Индексы PairQuestionnaireSession | model | `src/models/PairQuestionnaireSession.ts:28-29` | `PairQuestionnaireSessionSchema.index({ pairId: 1, questionnaireId: 1, status: 1 });` |
-| Индексы PairQuestionnaireAnswer | model | `src/models/PairQuestionnaireAnswer.ts:28-29` | `PairQuestionnaireAnswerSchema.index({ sessionId: 1 });` |
+| Like РїРѕР»СЏ | model | `src/models/Like.ts:30-54` | `export interface LikeType {`<br>`  _id: Types.ObjectId;` |
+| Question РїРѕР»СЏ | model | `src/models/Question.ts:3-11` | `export interface QuestionType {`<br>`  _id: string;` |
+| Questionnaire РїРѕР»СЏ | model | `src/models/Questionnaire.ts:15-29` | `export interface QuestionnaireType {`<br>`  _id: string;` |
+| PairQuestionnaireSession РїРѕР»СЏ | model | `src/models/PairQuestionnaireSession.ts:3-12` | `export interface PairQuestionnaireSessionType {` |
+| PairQuestionnaireAnswer РїРѕР»СЏ | model | `src/models/PairQuestionnaireAnswer.ts:3-12` | `export interface PairQuestionnaireAnswerType {` |
+| PairActivity СЃСЃС‹Р»РєРё РЅР° Pair/User | model | `src/models/PairActivity.ts:79-80` | `pairId:   { type: Schema.Types.ObjectId, ref: 'Pair', required: true },` |
+| PairQuestionnaireSession СЃСЃС‹Р»РєРё РЅР° Pair/User | model | `src/models/PairQuestionnaireSession.ts:17-19` | `pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },` |
+| PairQuestionnaireAnswer СЃСЃС‹Р»РєРё РЅР° Session/Pair | model | `src/models/PairQuestionnaireAnswer.ts:17-19` | `sessionId: { type: Schema.Types.ObjectId, ref: 'PairQuestionnaireSession', required: true },` |
+| RelationshipActivity СЃСЃС‹Р»РєРё РЅР° User | model | `src/models/RelationshipActivity.ts:30-31` | `userId:   { type: Schema.Types.ObjectId, ref: 'User', required: true },` |
+| РРЅРґРµРєСЃС‹ User | model | `src/models/User.ts:203-207` | `userSchema.index({ 'personal.city': 1 });` |
+| РРЅРґРµРєСЃС‹ Pair | model | `src/models/Pair.ts:77-78` | `PairSchema.index({ members: 1, status: 1 });` |
+| РРЅРґРµРєСЃ PairActivity | model | `src/models/PairActivity.ts:145` | `PairActivitySchema.index({ pairId: 1, status: 1, dueAt: 1 });` |
+| РРЅРґРµРєСЃ Like | model | `src/models/Like.ts:106` | `LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });` |
+| РРЅРґРµРєСЃС‹ PairQuestionnaireSession | model | `src/models/PairQuestionnaireSession.ts:28-29` | `PairQuestionnaireSessionSchema.index({ pairId: 1, questionnaireId: 1, status: 1 });` |
+| РРЅРґРµРєСЃС‹ PairQuestionnaireAnswer | model | `src/models/PairQuestionnaireAnswer.ts:28-29` | `PairQuestionnaireAnswerSchema.index({ sessionId: 1 });` |
 
-**Куда Идём**
-- Свести активности к единой системе `ActivityTemplate` + `PairActivity`; `RelationshipActivity` документировать как legacy с планом миграции.
-- Вынести доменные связи в явный domain map (ER/mermaid) и добавить индексы под ключевые запросы (activity feed, match inbox, pair history).
-- Ввести явные DTO для API, чтобы отсечь лишние поля моделей при выдаче наружу.
+**РљСѓРґР° РРґС‘Рј**
+- РЎРІРµСЃС‚Рё Р°РєС‚РёРІРЅРѕСЃС‚Рё Рє РµРґРёРЅРѕР№ СЃРёСЃС‚РµРјРµ `ActivityTemplate` + `PairActivity`; `RelationshipActivity` РґРѕРєСѓРјРµРЅС‚РёСЂРѕРІР°С‚СЊ РєР°Рє legacy СЃ РїР»Р°РЅРѕРј РјРёРіСЂР°С†РёРё.
+- Р’С‹РЅРµСЃС‚Рё РґРѕРјРµРЅРЅС‹Рµ СЃРІСЏР·Рё РІ СЏРІРЅС‹Р№ domain map (ER/mermaid) Рё РґРѕР±Р°РІРёС‚СЊ РёРЅРґРµРєСЃС‹ РїРѕРґ РєР»СЋС‡РµРІС‹Рµ Р·Р°РїСЂРѕСЃС‹ (activity feed, match inbox, pair history).
+- Р’РІРµСЃС‚Рё СЏРІРЅС‹Рµ DTO РґР»СЏ API, С‡С‚РѕР±С‹ РѕС‚СЃРµС‡СЊ Р»РёС€РЅРёРµ РїРѕР»СЏ РјРѕРґРµР»РµР№ РїСЂРё РІС‹РґР°С‡Рµ РЅР°СЂСѓР¶Сѓ.
 
 ## Update 2026-02-08 (Activities Canonical Model)
 
@@ -73,3 +66,4 @@
 
 ### Remaining migration note
 - One-time migration script (`RelationshipActivity` -> `PairActivity`) remains optional follow-up.
+
