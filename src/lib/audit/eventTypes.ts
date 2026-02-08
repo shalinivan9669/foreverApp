@@ -114,6 +114,9 @@ export type AuditEventMetadataMap = {
   };
   ANSWERS_BULK_SUBMITTED: {
     answersCount: number;
+    matchedCount: number;
+    audience: 'personal' | 'couple';
+    questionnaireId?: string;
   };
   USER_ONBOARDING_UPDATED: {
     updatedKeys: string[];

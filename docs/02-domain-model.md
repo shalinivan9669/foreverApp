@@ -67,3 +67,17 @@
 ### Remaining migration note
 - One-time migration script (`RelationshipActivity` -> `PairActivity`) remains optional follow-up.
 
+## Update 2026-02-08 (Questionnaire -> User Vectors Canonical Pipeline)
+
+- Added a canonical domain pipeline for questionnaire scoring/application:
+  - `src/domain/vectors/types.ts`
+  - `src/domain/vectors/scoring.ts`
+  - `src/domain/vectors/apply.ts`
+  - `src/domain/vectors/index.ts`
+- Both personal and couple questionnaire answer flows now apply vector deltas through the same pipeline.
+- Personal questionnaire submit now resolves question scoring from questionnaire payload (`Questionnaire.questions`) and updates `User.vectors` deterministically.
+- Vector invariants are enforced centrally:
+  - level clamp to `0..1`
+  - no NaN propagation
+  - deterministic facet aggregation (`positives`/`negatives`).
+

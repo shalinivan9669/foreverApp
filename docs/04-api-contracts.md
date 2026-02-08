@@ -325,3 +325,14 @@ Applied policy groups:
 - UI contract:
   - users with active pair see both sections (`Personal`, `For couple`)
   - users without active pair can start only `personal`; `couple` flow is disabled with message.
+
+## Update 2026-02-08 (Personal Questionnaire Submit)
+
+- `POST /api/questionnaires/[id]` is now wrapped with `withIdempotency(...)`.
+  - route scope: `/api/questionnaires/{id}`
+  - request body fingerprint includes `questionnaireId` + `answers[]`
+- Personal submit now passes `questionnaireId` into domain service scoring, so answer IDs are resolved against questionnaire payload questions.
+- Contract shape is unchanged:
+  - success: `jsonOk({})`
+  - error: standard envelope/errors.
+- Personal submit still uses existing URL and envelope contract; no endpoint rename and no raw model response.

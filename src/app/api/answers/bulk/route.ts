@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       questionnairesService.submitBulkAnswers({
         currentUserId,
         answers: payload.answers,
+        audience: 'personal',
         auditRequest,
       }),
   });

@@ -7,8 +7,10 @@ import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
 import QuestionCard from '@/components/QuestionCard';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
+import { usersApi } from '@/client/api/users.api';
 import type { QuestionnaireDTO } from '@/client/api/types';
 import { useApi } from '@/client/hooks/useApi';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 
 type RenderableQuestion = {
   id?: string;
@@ -23,6 +25,7 @@ export default function PersonalQuestionnaireRunner() {
 
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireDTO | null>(null);
   const [index, setIndex] = useState(0);
+  const { refetch: refetchCurrentUser } = useCurrentUser({ enabled: false });
 
   const {
     runSafe: runLoadSafe,
@@ -89,6 +92,8 @@ export default function PersonalQuestionnaireRunner() {
       return;
     }
 
+    await refetchCurrentUser();
+    await usersApi.getProfileSummary().catch(() => null);
     router.push('/questionnaires');
   };
 

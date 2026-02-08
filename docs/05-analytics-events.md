@@ -95,3 +95,13 @@ PII policy reminder for these events:
 - keep metadata strictly non-sensitive
 - do not include raw answers/check-ins/messages/tokens
 
+## Update 2026-02-08 (Personal Questionnaire Audit Details)
+
+- `ANSWERS_BULK_SUBMITTED` metadata now includes:
+  - `answersCount`
+  - `matchedCount`
+  - `audience` (`personal` or `couple`)
+  - `questionnaireId?`
+- Personal questionnaire submit (`POST /api/questionnaires/[id]`) emits `ANSWERS_BULK_SUBMITTED` with `audience: 'personal'`.
+- No PII payload is written: event metadata stores counters/IDs only.
+

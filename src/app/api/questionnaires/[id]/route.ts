@@ -5,6 +5,7 @@ import { Questionnaire, type QuestionnaireType } from '@/models/Questionnaire';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { toQuestionnaireDTO } from '@/lib/dto';
 import { questionnairesService } from '@/domain/services/questionnaires.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
@@ -19,6 +20,10 @@ type Body =
 const paramsSchema = z.object({
   id: z.string().min(1),
 });
+
+type RouteContext = {
+  params: Promise<Record<string, string | string[] | undefined>>;
+};
 
 const answersSchema = z
   .object({
@@ -46,7 +51,7 @@ const bodySchema = z.union([answersSchema, singleAnswerSchema]);
 
 export async function GET(
   _req: NextRequest,
-  context: { params: Promise<Record<string, string | string[] | undefined>> }
+  context: RouteContext
 ) {
   const paramsInput = await context.params;
   const rawId = paramsInput.id;
@@ -63,10 +68,19 @@ export async function GET(
   return jsonOk(toQuestionnaireDTO(doc));
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest, context: RouteContext) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
+
+  const paramsInput = await context.params;
+  const rawId = paramsInput.id;
+  const normalizedId =
+    typeof rawId === 'string' ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;
+
+  const params = parseParams({ id: normalizedId }, paramsSchema);
+  if (!params.ok) return params.response;
+  const { id: questionnaireId } = params.data;
 
   const bodyResult = await parseJson(req, bodySchema);
   if (!bodyResult.ok) return bodyResult.response;
@@ -78,11 +92,26 @@ export async function POST(req: NextRequest) {
       : 'qid' in body && typeof body.qid === 'string'
         ? [{ qid: body.qid, ui: body.ui }]
         : [];
-  const auditRequest = auditContextFromRequest(req, '/api/questionnaires/[id]');
-  await questionnairesService.submitBulkAnswers({
-    currentUserId: userId,
-    answers,
-    auditRequest,
+
+  const route = `/api/questionnaires/${questionnaireId}`;
+  const auditRequest = auditContextFromRequest(req, route);
+
+  return withIdempotency({
+    req,
+    route,
+    userId,
+    requestBody: {
+      questionnaireId,
+      answers,
+    },
+    execute: () =>
+      questionnairesService.submitBulkAnswers({
+        currentUserId: userId,
+        questionnaireId,
+        answers,
+        strictQuestionMatch: true,
+        audience: 'personal',
+        auditRequest,
+      }),
   });
-  return jsonOk({});
 }

@@ -26,6 +26,7 @@ export type HttpRequestOptions = {
   signal?: AbortSignal;
   headers?: HeadersInit;
   idempotency?: boolean;
+  cache?: RequestCache;
 };
 
 const MUTATION_METHODS: HttpMethod[] = ['POST', 'PATCH', 'PUT', 'DELETE'];
@@ -119,6 +120,7 @@ const request = async <TResponse>(
       method,
       headers,
       signal: options?.signal,
+      cache: options?.cache,
       credentials: 'include',
       body: hasBody ? JSON.stringify(body) : undefined,
     });

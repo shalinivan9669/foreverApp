@@ -207,3 +207,10 @@ Summary:
 - Removed dead DTO/model artifacts (`analytics.dto`, `Log`, `Insight`, `Match`) and unused client barrels/helpers (`client/api/index`, `client/hooks/index`, `client/api/entitlements.api`).
 - Updated domain/analytics/ADR/problem docs to reflect `EventLog` canonical analytics runtime and removed references to deleted runtime files.
 Files: src/components/common/EmptyState.tsx, src/components/common/ErrorCard.tsx, src/client/api/index.ts, src/client/hooks/index.ts, src/client/api/entitlements.api.ts, src/lib/dto/index.ts, src/lib/dto/analytics.dto.ts, src/models/Log.ts, src/models/Insight.ts, src/models/Match.ts, src/utils/passport.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/ADR/ADR-003-event-log-monolith.md, docs/problems/PROB-012-analytics-events-not-unified-and-auditable.md, docs/problems/PROB-015-log-privacy-and-retention-policy-missing.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Fixed personal questionnaire vector application by introducing a canonical `src/domain/vectors/*` scoring/apply pipeline and switching both personal + couple questionnaire services to it.
+- Made `POST /api/questionnaires/[id]` idempotent (`withIdempotency`) and questionnaire-scoped for scoring, with strict question match validation to prevent silent no-op vector updates.
+- Added personal submit UI refetch (`current user` + `profile summary`), added no-store fetch policy for profile summary, and extended `ANSWERS_BULK_SUBMITTED` audit metadata with `audience/matchedCount/questionnaireId`.
+Files: src/domain/vectors/types.ts, src/domain/vectors/scoring.ts, src/domain/vectors/apply.ts, src/domain/vectors/index.ts, src/domain/services/questionnaires.service.ts, src/app/api/questionnaires/[id]/route.ts, src/app/api/answers/bulk/route.ts, src/lib/audit/eventTypes.ts, src/client/api/http.ts, src/client/api/users.api.ts, src/app/questionnaire/[id]/page.tsx, docs/02-domain-model.md, docs/04-api-contracts.md, docs/05-analytics-events.md, docs/CHANGELOG.md

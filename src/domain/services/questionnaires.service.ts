@@ -13,10 +13,13 @@ import {
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { User, type UserType } from '@/models/User';
 import {
-  buildVectorUpdate,
-  type VectorAnswer,
+  applyDeltaToUserVectors,
+  scoreAnswersToVectorDelta,
+  toVectorQuestionMap,
+  type VectorAnswerInput,
   type VectorQuestion,
-} from '@/utils/vectorUpdates';
+  type VectorQuestionSource,
+} from '@/domain/vectors';
 import { questionnaireTransition } from '@/domain/state/questionnaireMachine';
 
 type GuardErrorPayload = {
@@ -54,6 +57,50 @@ type WithPossibleId = { _id?: string };
 const hasStringId = (obj: object): obj is { _id: string } =>
   '_id' in obj && typeof (obj as WithPossibleId)._id === 'string';
 
+type BulkSubmitAudience = 'personal' | 'couple';
+
+const buildQuestionMapFromQuestionDocs = (
+  questions: QuestionType[]
+): Record<string, VectorQuestion> =>
+  toVectorQuestionMap(
+    questions.map((question) => ({
+      id: String(question._id),
+      _id: String(question._id),
+      axis: question.axis,
+      facet: question.facet,
+      map: question.map,
+    }))
+  );
+
+const buildQuestionMapFromQuestionnaire = (
+  questionnaire: QuestionnaireType
+): Record<string, VectorQuestion> => {
+  const sources: VectorQuestionSource[] = [];
+
+  for (const question of questionnaire.questions ?? []) {
+    sources.push({
+      id: question.id,
+      axis: question.axis,
+      facet: question.facet,
+      map: question.map,
+    });
+
+    if (hasStringId(question as object)) {
+      const questionWithId = question as QuestionWithOptionalId;
+      if (questionWithId._id) {
+        sources.push({
+          _id: questionWithId._id,
+          axis: question.axis,
+          facet: question.facet,
+          map: question.map,
+        });
+      }
+    }
+  }
+
+  return toVectorQuestionMap(sources);
+};
+
 type SessionLean = {
   _id: Types.ObjectId;
   status: PairQuestionnaireSessionType['status'];
@@ -65,17 +112,12 @@ export const questionnairesService = {
   async submitBulkAnswers(input: {
     currentUserId: string;
     answers: { qid: string; ui: number }[];
+    questionnaireId?: string;
+    strictQuestionMatch?: boolean;
+    audience?: BulkSubmitAudience;
     auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     await connectToDatabase();
-
-    const qids = input.answers.map((answer) => answer.qid);
-    const questions = await Question.find({ _id: { $in: qids } }).lean<QuestionType[]>();
-
-    const qMap: Record<string, QuestionType> = {};
-    for (const question of questions) {
-      qMap[String(question._id)] = question;
-    }
 
     const user = await User.findOne({ id: input.currentUserId }).lean<UserType | null>();
     if (!user) {
@@ -86,22 +128,54 @@ export const questionnairesService = {
       });
     }
 
-    const { setLevels, addToSet } = buildVectorUpdate(
-      user,
-      input.answers,
-      qMap as Record<string, VectorQuestion>
-    );
-
-    const update: {
-      $set: Record<string, number>;
-      $addToSet?: Record<string, { $each: string[] }>;
-    } = { $set: setLevels };
-
-    if (Object.keys(addToSet).length > 0) {
-      update.$addToSet = addToSet;
+    let questionMap: Record<string, VectorQuestion>;
+    if (input.questionnaireId) {
+      const questionnaire = await Questionnaire.findOne({ _id: input.questionnaireId }).lean<QuestionnaireType | null>();
+      if (!questionnaire) {
+        throw new DomainError({
+          code: 'NOT_FOUND',
+          status: 404,
+          message: 'Questionnaire not found',
+        });
+      }
+      questionMap = buildQuestionMapFromQuestionnaire(questionnaire);
+    } else {
+      const qids = input.answers.map((answer) => answer.qid);
+      const questions = await Question.find({ _id: { $in: qids } }).lean<QuestionType[]>();
+      questionMap = buildQuestionMapFromQuestionDocs(questions);
     }
 
-    await User.updateOne({ id: input.currentUserId }, update);
+    const vectorAnswers: VectorAnswerInput[] = input.answers.map((answer) => ({
+      qid: answer.qid,
+      ui: answer.ui,
+    }));
+
+    const delta = scoreAnswersToVectorDelta(vectorAnswers, questionMap);
+    if (input.strictQuestionMatch && delta.matchedCount === 0) {
+      throw new DomainError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'No matching questionnaire questions for provided answers',
+      });
+    }
+
+    const applied = applyDeltaToUserVectors(user, delta);
+
+    const hasSet = Object.keys(applied.setLevels).length > 0;
+    const hasAddToSet = Object.keys(applied.addToSet).length > 0;
+
+    if (hasSet || hasAddToSet) {
+      const update: {
+        $set: Record<string, number>;
+        $addToSet?: Record<string, { $each: string[] }>;
+      } = { $set: applied.setLevels };
+
+      if (hasAddToSet) {
+        update.$addToSet = applied.addToSet;
+      }
+
+      await User.updateOne({ id: input.currentUserId }, update);
+    }
 
     await emitEvent({
       event: 'ANSWERS_BULK_SUBMITTED',
@@ -112,7 +186,10 @@ export const questionnairesService = {
         id: input.currentUserId,
       },
       metadata: {
-        answersCount: input.answers.length,
+        answersCount: delta.answeredCount,
+        matchedCount: delta.matchedCount,
+        audience: input.audience ?? 'personal',
+        questionnaireId: input.questionnaireId,
       },
     });
 
@@ -358,18 +435,7 @@ export const questionnairesService = {
       });
     }
 
-    const qMap: Record<string, QuestionWithOptionalId> = {};
-    for (const question of questionnaire.questions ?? []) {
-      if (question.id) {
-        qMap[question.id] = question;
-      }
-      if (hasStringId(question as object)) {
-        const questionWithId = question as QuestionWithOptionalId;
-        if (questionWithId._id) {
-          qMap[questionWithId._id] = questionWithId;
-        }
-      }
-    }
+    const questionMap = buildQuestionMapFromQuestionnaire(questionnaire);
 
     const user = await User.findOne({ id: input.currentUserId }).lean<UserType | null>();
     if (!user) {
@@ -380,27 +446,29 @@ export const questionnairesService = {
       });
     }
 
-    const vectorAnswers: VectorAnswer[] = answers.map((answer) => ({
+    const vectorAnswers: VectorAnswerInput[] = answers.map((answer) => ({
       qid: answer.questionId,
       ui: answer.ui,
     }));
 
-    const { setLevels, addToSet } = buildVectorUpdate(
-      user,
-      vectorAnswers,
-      qMap as Record<string, VectorQuestion>
-    );
+    const delta = scoreAnswersToVectorDelta(vectorAnswers, questionMap);
+    const applied = applyDeltaToUserVectors(user, delta);
 
-    const update: {
-      $set: Record<string, number>;
-      $addToSet?: Record<string, { $each: string[] }>;
-    } = { $set: setLevels };
+    const hasSet = Object.keys(applied.setLevels).length > 0;
+    const hasAddToSet = Object.keys(applied.addToSet).length > 0;
 
-    if (Object.keys(addToSet).length > 0) {
-      update.$addToSet = addToSet;
+    if (hasSet || hasAddToSet) {
+      const update: {
+        $set: Record<string, number>;
+        $addToSet?: Record<string, { $each: string[] }>;
+      } = { $set: applied.setLevels };
+
+      if (hasAddToSet) {
+        update.$addToSet = applied.addToSet;
+      }
+
+      await User.updateOne({ id: input.currentUserId }, update);
     }
-
-    await User.updateOne({ id: input.currentUserId }, update);
 
     await emitEvent({
       event: 'QUESTIONNAIRE_ANSWERED',
