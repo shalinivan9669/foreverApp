@@ -120,3 +120,15 @@ PII policy reminder for these events:
   - no free-text payload
   - no token/secret fields.
 
+## Update 2026-02-08 (Personal Anti-Farm Audit Fields)
+
+- `ANSWERS_BULK_SUBMITTED` now includes anti-farm cooldown metadata:
+  - `applied` (`true | false`)
+  - `reason` (`APPLIED | COOLDOWN`)
+  - `cooldownDays?` (for personal cooldown mode)
+  - `questionnaireId` (or `bulk` key for ad-hoc personal bulk submit)
+  - `scoringVersion: 'v2'`
+- When personal cooldown blocks repeat submit, endpoint still returns success envelope, while audit marks:
+  - `applied: false`
+  - `reason: 'COOLDOWN'`
+

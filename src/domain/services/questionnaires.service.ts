@@ -15,9 +15,11 @@ import { User, type UserType } from '@/models/User';
 import {
   AXES,
   applyDeltaToUserVectors,
+  evaluatePersonalQuestionnaireCooldown,
   scoreAnswersToVectorDelta,
   toVectorQuestionMap,
   type Axis,
+  type PersonalCooldownReason,
   type VectorAnswerInput,
   type VectorDelta,
   type VectorQuestion,
@@ -128,12 +130,24 @@ const toRoundedAppliedSteps = (
 
 const toVectorAuditMetrics = (
   delta: VectorDelta,
-  applied: UserVectorApplyResult
+  applied?: UserVectorApplyResult
 ) => {
   const sumWeightsTotal = AXES.reduce((acc, axis) => {
     const axisWeight = Number(delta.perAxisSumWeights[axis] ?? 0);
     return Number.isFinite(axisWeight) ? acc + axisWeight : acc;
   }, 0);
+
+  if (!applied) {
+    return {
+      answeredCount: delta.answeredCount,
+      matchedCount: delta.matchedCount,
+      confidence: 0,
+      sumWeightsTotal: roundTo3(sumWeightsTotal),
+      deltaMagnitude: 0,
+      appliedStepByAxis: {},
+      clampedAxes: [],
+    };
+  }
 
   const deltaMagnitude = AXES.reduce((acc, axis) => {
     const step = Number(applied.appliedStepByAxis[axis] ?? 0);
@@ -209,24 +223,45 @@ export const questionnairesService = {
       });
     }
 
-    const applied = applyDeltaToUserVectors(user, delta);
+    const audience = input.audience ?? 'personal';
+    const cooldown = audience === 'personal'
+      ? evaluatePersonalQuestionnaireCooldown({
+          questionnaireId: input.questionnaireId,
+          vectorsMeta: user.vectorsMeta,
+        })
+      : null;
+
+    const shouldApplyVectors = cooldown ? cooldown.applied : true;
+    const applied = shouldApplyVectors ? applyDeltaToUserVectors(user, delta) : undefined;
     const vectorAudit = toVectorAuditMetrics(delta, applied);
 
-    const hasSet = Object.keys(applied.setLevels).length > 0;
-    const hasAddToSet = Object.keys(applied.addToSet).length > 0;
-
-    if (hasSet || hasAddToSet) {
-      const update: {
-        $set: Record<string, number>;
-        $addToSet?: Record<string, { $each: string[] }>;
-      } = { $set: applied.setLevels };
-
-      if (hasAddToSet) {
-        update.$addToSet = applied.addToSet;
+    if (applied) {
+      const setPayload: Record<string, number | Date> = { ...applied.setLevels };
+      if (audience === 'personal' && delta.matchedCount > 0 && cooldown?.applied) {
+        setPayload[
+          `vectorsMeta.personalQuestionnaireCooldowns.${cooldown.questionnaireKey}`
+        ] = cooldown.appliedAt;
       }
 
-      await User.updateOne({ id: input.currentUserId }, update);
+      const hasSet = Object.keys(setPayload).length > 0;
+      const hasAddToSet = Object.keys(applied.addToSet).length > 0;
+      const update: {
+        $set: Record<string, number | Date>;
+        $addToSet?: Record<string, { $each: string[] }>;
+      } = { $set: setPayload };
+
+      if (hasSet || hasAddToSet) {
+        if (hasAddToSet) {
+          update.$addToSet = applied.addToSet;
+        }
+
+        await User.updateOne({ id: input.currentUserId }, update);
+      }
     }
+
+    const antiFarmReason: PersonalCooldownReason = cooldown?.reason ?? 'APPLIED';
+    const antiFarmApplied = cooldown?.applied ?? true;
+    const auditQuestionnaireId = input.questionnaireId ?? cooldown?.questionnaireKey;
 
     await emitEvent({
       event: 'ANSWERS_BULK_SUBMITTED',
@@ -239,8 +274,12 @@ export const questionnairesService = {
       metadata: {
         answersCount: delta.answeredCount,
         ...vectorAudit,
-        audience: input.audience ?? 'personal',
-        questionnaireId: input.questionnaireId,
+        audience,
+        questionnaireId: auditQuestionnaireId,
+        applied: antiFarmApplied,
+        reason: antiFarmReason,
+        cooldownDays: cooldown?.cooldownDays,
+        scoringVersion: 'v2',
       },
     });
 

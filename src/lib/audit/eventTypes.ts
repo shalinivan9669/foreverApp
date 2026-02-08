@@ -128,6 +128,10 @@ export type AuditEventMetadataMap = {
     matchedCount: number;
     audience: 'personal' | 'couple';
     questionnaireId?: string;
+    applied: boolean;
+    reason: 'APPLIED' | 'COOLDOWN';
+    cooldownDays?: number;
+    scoringVersion: 'v2';
     confidence: number;
     sumWeightsTotal: number;
     deltaMagnitude: number;

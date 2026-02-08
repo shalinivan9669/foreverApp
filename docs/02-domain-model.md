@@ -102,3 +102,14 @@
   - `clampedAxes`
   - `confidence`, `alphaBase`, `maxStepPerSubmit`, `effectiveAlpha`.
 
+## Update 2026-02-08 (Personal Questionnaire Anti-Farm Cooldown)
+
+- Added anti-farm metadata container on user profile:
+  - `user.vectorsMeta.personalQuestionnaireCooldowns[questionnaireKey] = lastAppliedAt`
+- Cooldown applies only to personal questionnaire submissions:
+  - same `questionnaireId` can apply vector effect once per cooldown window (7 days)
+  - ad-hoc `/api/answers/bulk` personal submissions use shared key: `bulk`
+- Cooldown decision is deterministic and pure-function based in:
+  - `src/domain/vectors/antifarm.ts`
+- Couple questionnaire flow remains unchanged.
+

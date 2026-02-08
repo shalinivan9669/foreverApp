@@ -15,6 +15,9 @@ export interface UserType {
     positives: string[];
     negatives: string[];
   }>;
+  vectorsMeta?: {
+    personalQuestionnaireCooldowns?: Record<string, Date | string> | Map<string, Date | string>;
+  };
   embeddings?: Record<string, number[]>;
   preferences: {
     desiredAgeRange: { min: number; max: number };
@@ -142,6 +145,13 @@ const userSchema = new Schema<UserType>(
       finance:        { type: vectorSchema, required: true, default: () => ({}) },
       sexuality:      { type: vectorSchema, required: true, default: () => ({}) },
       psyche:         { type: vectorSchema, required: true, default: () => ({}) },
+    },
+    vectorsMeta: {
+      personalQuestionnaireCooldowns: {
+        type: Map,
+        of: Date,
+        default: {},
+      },
     },
     embeddings: { type: Schema.Types.Mixed },
     preferences: {

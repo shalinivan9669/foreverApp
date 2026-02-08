@@ -221,3 +221,11 @@ Summary:
 - Added explainability metadata from vector apply (`confidence`, `appliedStepByAxis`, `clampedAxes`, `deltaMagnitude`, `sumWeightsTotal`) into questionnaire audit events.
 - Added pure-function self-check script for vectors policy scenarios (short/long confidence, edge damping, weight influence, clamp bounds).
 Files: src/domain/vectors/types.ts, src/domain/vectors/scoring.ts, src/domain/vectors/apply.ts, src/domain/services/questionnaires.service.ts, src/lib/audit/eventTypes.ts, scripts/vectors-policy.selfcheck.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Added personal questionnaire anti-farm cooldown (7 days) so repeat submits of the same personal questionnaire do not re-apply full vector effect inside the cooldown window.
+- Added `user.vectorsMeta.personalQuestionnaireCooldowns` tracking and deterministic cooldown decision helper in `src/domain/vectors/antifarm.ts` (with `bulk` key fallback for ad-hoc personal bulk submit).
+- Extended `ANSWERS_BULK_SUBMITTED` audit metadata with cooldown application fields (`applied`, `reason`, `cooldownDays`, `scoringVersion`) while preserving existing API/envelope contracts.
+- Added pure self-check script for anti-farm cooldown behavior.
+Files: src/models/User.ts, src/domain/vectors/antifarm.ts, src/domain/vectors/index.ts, src/domain/services/questionnaires.service.ts, src/lib/audit/eventTypes.ts, scripts/vectors-antifarm.selfcheck.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/CHANGELOG.md
