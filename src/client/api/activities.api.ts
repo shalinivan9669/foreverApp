@@ -1,5 +1,10 @@
 import { http, type HttpRequestOptions } from './http';
+import {
+  toIdempotencyHeaders,
+  type IdempotencyRequestOptions,
+} from './idempotency';
 import type {
+  ActivityCompleteResponse,
   ActivityBucket,
   ActivityCheckInRequest,
   ActivityCheckInResponse,
@@ -13,6 +18,13 @@ import type {
 
 const withSignal = (signal?: AbortSignal): HttpRequestOptions | undefined =>
   signal ? { signal } : undefined;
+
+const withMutationIdempotency = (
+  options?: IdempotencyRequestOptions
+): HttpRequestOptions => ({
+  idempotency: true,
+  headers: toIdempotencyHeaders(options),
+});
 
 export const activitiesApi = {
   getPairActivities: (
@@ -57,15 +69,24 @@ export const activitiesApi = {
       idempotency: true,
     }),
 
-  checkInActivity: (activityId: string, payload: ActivityCheckInRequest): Promise<ActivityCheckInResponse> =>
+  checkInActivity: (
+    activityId: string,
+    payload: ActivityCheckInRequest,
+    options?: IdempotencyRequestOptions
+  ): Promise<ActivityCheckInResponse> =>
     http.post<ActivityCheckInResponse, ActivityCheckInRequest>(
       `/api/activities/${activityId}/checkin`,
       payload,
-      { idempotency: true }
+      withMutationIdempotency(options)
     ),
 
-  completeActivity: (activityId: string): Promise<MutationAckDTO> =>
-    http.post<MutationAckDTO, Record<string, never>>(`/api/activities/${activityId}/complete`, {}, {
-      idempotency: true,
-    }),
+  completeActivity: (
+    activityId: string,
+    options?: IdempotencyRequestOptions
+  ): Promise<ActivityCompleteResponse> =>
+    http.post<ActivityCompleteResponse, Record<string, never>>(
+      `/api/activities/${activityId}/complete`,
+      {},
+      withMutationIdempotency(options)
+    ),
 };

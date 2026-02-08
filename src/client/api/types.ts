@@ -172,6 +172,7 @@ export type MatchConfirmResponse = {
 export type MutationAckDTO = Record<string, never> | { already?: true };
 
 export type ActivityStatus =
+  | 'suggested'
   | 'offered'
   | 'accepted'
   | 'in_progress'
@@ -181,6 +182,16 @@ export type ActivityStatus =
   | 'failed'
   | 'cancelled'
   | 'expired';
+
+export type OfferSource = 'growth' | 'recovery' | 'date';
+
+export type OfferReasonMeta = {
+  topRiskAxis: string | null;
+  topRiskSeverity: 1 | 2 | 3 | null;
+  difficultyComputed: 1 | 2 | 3 | 4 | 5 | null;
+  fatigueScore: number | null;
+  eventKey: string | null;
+};
 
 export type ActivityBucket = 'current' | 'suggested' | 'history';
 
@@ -212,6 +223,10 @@ export type PairActivityDTO = {
   dueAt?: string;
   status: ActivityStatus;
   checkIns: ActivityCheckInDTO[];
+  offerSource?: OfferSource;
+  offerReason?: OfferReasonMeta;
+  legacy?: boolean;
+  legacySource?: 'relationship_activity';
   createdAt?: string;
   updatedAt?: string;
 };
@@ -231,7 +246,8 @@ export type ActivityOfferDTO = {
     fatigueDelta: number;
   };
   expiresAt?: string;
-  source: string;
+  source: OfferSource;
+  reason?: OfferReasonMeta;
 };
 
 export type ActivityCheckInRequest = {
@@ -245,6 +261,11 @@ export type ActivityCheckInResponse = {
   success: number;
 };
 
+export type ActivityCompleteResponse = {
+  success: number;
+  status: 'completed_success' | 'completed_partial' | 'failed';
+};
+
 export type NextActivityResponse = {
   activityId: string;
   offer?: ActivityOfferDTO;
@@ -256,6 +277,7 @@ export type CreateActivityFromTemplateRequest = {
 
 export type CreateActivityFromTemplateResponse = {
   id: string;
+  offer?: ActivityOfferDTO;
 };
 
 export type QuestionnaireAxis =

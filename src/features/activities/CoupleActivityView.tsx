@@ -28,6 +28,12 @@ type CoupleActivityViewProps = {
   onOpenCheckIn: (activity: ActivityCardVM) => void;
   checkInFor: ActivityCardVM | null;
   onCloseCheckIn: () => void;
+  checkInSubmitting: boolean;
+  pendingCompleteActivityId: string | null;
+  pendingCompleteMessage: string | null;
+  pendingCompleteInFlight: boolean;
+  activityFlowMessage: string | null;
+  onRetryComplete: (activityId: string) => void;
   onSubmitCheckIn: (activityId: string, answers: Array<{ checkInId: string; ui: number }>) => void;
 };
 
@@ -52,6 +58,12 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     onOpenCheckIn,
     checkInFor,
     onCloseCheckIn,
+    checkInSubmitting,
+    pendingCompleteActivityId,
+    pendingCompleteMessage,
+    pendingCompleteInFlight,
+    activityFlowMessage,
+    onRetryComplete,
     onSubmitCheckIn,
   } = props;
 
@@ -86,19 +98,40 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
       {loading && <LoadingView compact label="Загрузка активностей…" />}
       {error && <ErrorView error={error} onRetry={onRetry} />}
+      {activityFlowMessage && (
+        <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          {activityFlowMessage}
+        </div>
+      )}
 
       {!loading && tab === 'active' && (
         <div>
           {active ? (
-            <ActivityCard
-              activity={active}
-              locale={locale}
-              variant="active"
-              onAccept={() => undefined}
-              onCancel={() => onCancel(active._id)}
-              onComplete={() => onOpenCheckIn(active)}
-              onSuggestNext={onSuggestNext}
-            />
+            <div className="space-y-3">
+              {pendingCompleteActivityId === active._id && pendingCompleteMessage && (
+                <div className="rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                  <p className="text-sm">{pendingCompleteMessage}</p>
+                  <button
+                    type="button"
+                    onClick={() => onRetryComplete(active._id)}
+                    disabled={pendingCompleteInFlight}
+                    className="mt-2 rounded border border-amber-400 px-3 py-1.5 text-sm hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    {pendingCompleteInFlight ? 'Завершаем...' : 'Завершить еще раз'}
+                  </button>
+                </div>
+              )}
+
+              <ActivityCard
+                activity={active}
+                locale={locale}
+                variant="active"
+                onAccept={() => undefined}
+                onCancel={() => onCancel(active._id)}
+                onComplete={() => onOpenCheckIn(active)}
+                onSuggestNext={onSuggestNext}
+              />
+            </div>
           ) : (
             <div className="rounded border p-4 flex items-center justify-between gap-3">
               <div>
@@ -162,6 +195,17 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
         <CheckInModal
           activity={checkInFor}
           locale={locale}
+          submitting={checkInSubmitting}
+          pendingComplete={pendingCompleteActivityId === checkInFor._id}
+          pendingCompleteMessage={
+            pendingCompleteActivityId === checkInFor._id ? pendingCompleteMessage : null
+          }
+          onRetryComplete={
+            pendingCompleteActivityId === checkInFor._id
+              ? () => onRetryComplete(checkInFor._id)
+              : undefined
+          }
+          retryCompleteLoading={pendingCompleteInFlight}
           onClose={onCloseCheckIn}
           onSubmit={(answers) => onSubmitCheckIn(checkInFor._id, answers)}
         />

@@ -103,10 +103,13 @@ export const isPaywallCode = (code: ApiErrorCode): boolean =>
 export const isPaywallError = (error: Error): boolean =>
   isApiClientError(error) && isPaywallCode(error.code);
 
-const toUiErrorKind = (code: ApiErrorCode): UiErrorKind => {
+const toUiErrorKind = (code: ApiErrorCode, status: number): UiErrorKind => {
   if (isPaywallCode(code)) return 'paywall';
   if (code === 'RATE_LIMITED') return 'rate_limited';
   if (code === 'AUTH_REQUIRED' || code === 'AUTH_INVALID_SESSION') return 'auth_required';
+  if (code === 'IDEMPOTENCY_KEY_REQUIRED' || code === 'IDEMPOTENCY_KEY_INVALID') {
+    return 'validation';
+  }
   if (code === 'NOT_FOUND') return 'not_found';
   if (code === 'ACCESS_DENIED') return 'access_denied';
   if (
@@ -117,6 +120,11 @@ const toUiErrorKind = (code: ApiErrorCode): UiErrorKind => {
     return 'state_conflict';
   }
   if (code === 'VALIDATION_ERROR') return 'validation';
+  if (status === 401) return 'auth_required';
+  if (status === 403) return 'access_denied';
+  if (status === 404) return 'not_found';
+  if (status === 409) return 'state_conflict';
+  if (status === 422) return 'validation';
   return 'generic';
 };
 
@@ -131,7 +139,7 @@ export const toUiErrorState = (error: Error): UiErrorState => {
   }
 
   return {
-    kind: toUiErrorKind(error.code),
+    kind: toUiErrorKind(error.code, error.status),
     code: error.code,
     message: error.message,
     status: error.status,

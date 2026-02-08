@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { activitiesApi } from '@/client/api/activities.api';
+import type { UiErrorState } from '@/client/api/errors';
+import { toUiErrorState } from '@/client/api/errors';
+import type { IdempotencyRequestOptions } from '@/client/api/idempotency';
 import type {
+  ActivityCheckInResponse,
+  ActivityCompleteResponse,
   ActivityCheckInRequest,
   ActivityOfferDTO,
   PairActivityDTO,
@@ -18,6 +23,14 @@ type ActivityBuckets = {
   suggested: PairActivityDTO[];
   history: PairActivityDTO[];
 };
+
+type ActivityMutationOptions = IdempotencyRequestOptions & {
+  refetchOnSuccess?: boolean;
+};
+
+export type ActivityMutationResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: UiErrorState };
 
 const makeKey = (pairId: string, bucket: 'current' | 'suggested' | 'history'): string =>
   `pair-activities:${pairId}:${bucket}`;
@@ -58,6 +71,7 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     error: loadError,
   } = useApi('pair-activities');
   const {
+    run: runMutation,
     runSafe: runMutationSafe,
     loading: mutationLoading,
     error: mutationError,
@@ -146,24 +160,82 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     [refetch, runMutationSafe]
   );
 
-  const checkInActivity = useCallback(
-    async (activityId: string, payload: ActivityCheckInRequest): Promise<boolean> => {
-      const done = await runMutationSafe(() => activitiesApi.checkInActivity(activityId, payload));
-      if (!done) return false;
-      await refetch();
-      return true;
+  const checkInActivityDetailed = useCallback(
+    async (
+      activityId: string,
+      payload: ActivityCheckInRequest,
+      options?: ActivityMutationOptions
+    ): Promise<ActivityMutationResult<ActivityCheckInResponse>> => {
+      try {
+        const data = await runMutation(() =>
+          activitiesApi.checkInActivity(activityId, payload, {
+            idempotencyKey: options?.idempotencyKey,
+          })
+        );
+        if (options?.refetchOnSuccess !== false) {
+          await refetch();
+        }
+        return { ok: true, data };
+      } catch (error) {
+        const normalized =
+          error instanceof Error ? error : new Error('Unexpected mutation error');
+        return {
+          ok: false,
+          error: toUiErrorState(normalized),
+        };
+      }
     },
-    [refetch, runMutationSafe]
+    [refetch, runMutation]
+  );
+
+  const checkInActivity = useCallback(
+    async (
+      activityId: string,
+      payload: ActivityCheckInRequest,
+      options?: ActivityMutationOptions
+    ): Promise<boolean> => {
+      const result = await checkInActivityDetailed(activityId, payload, options);
+      return result.ok;
+    },
+    [checkInActivityDetailed]
+  );
+
+  const completeActivityDetailed = useCallback(
+    async (
+      activityId: string,
+      options?: ActivityMutationOptions
+    ): Promise<ActivityMutationResult<ActivityCompleteResponse>> => {
+      try {
+        const data = await runMutation(() =>
+          activitiesApi.completeActivity(activityId, {
+            idempotencyKey: options?.idempotencyKey,
+          })
+        );
+        if (options?.refetchOnSuccess !== false) {
+          await refetch();
+        }
+        return { ok: true, data };
+      } catch (error) {
+        const normalized =
+          error instanceof Error ? error : new Error('Unexpected mutation error');
+        return {
+          ok: false,
+          error: toUiErrorState(normalized),
+        };
+      }
+    },
+    [refetch, runMutation]
   );
 
   const completeActivity = useCallback(
-    async (activityId: string): Promise<boolean> => {
-      const done = await runMutationSafe(() => activitiesApi.completeActivity(activityId));
-      if (!done) return false;
-      await refetch();
-      return true;
+    async (
+      activityId: string,
+      options?: ActivityMutationOptions
+    ): Promise<boolean> => {
+      const result = await completeActivityDetailed(activityId, options);
+      return result.ok;
     },
-    [refetch, runMutationSafe]
+    [completeActivityDetailed]
   );
 
   useEffect(() => {
@@ -205,7 +277,9 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     acceptActivity,
     cancelActivity,
     checkInActivity,
+    checkInActivityDetailed,
     completeActivity,
+    completeActivityDetailed,
     clearMutationError,
   };
 }

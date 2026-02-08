@@ -1,5 +1,21 @@
 import type { PairActivityDTO } from '@/client/api/types';
 
+const HISTORY_STATUSES: PairActivityDTO['status'][] = [
+  'completed_success',
+  'completed_partial',
+  'failed',
+  'cancelled',
+  'expired',
+];
+
+export const isHistoryActivityStatus = (
+  status: PairActivityDTO['status']
+): boolean => HISTORY_STATUSES.includes(status);
+
+export const isAwaitingCheckinStatus = (
+  status: PairActivityDTO['status']
+): boolean => status === 'awaiting_checkin';
+
 export type ActivityCardVM = {
   _id: string;
   title: Record<string, string>;
@@ -13,6 +29,8 @@ export type ActivityCardVM = {
   dueAt?: string;
   status: PairActivityDTO['status'];
   checkIns: PairActivityDTO['checkIns'];
+  isAwaitingCheckin: boolean;
+  isHistory: boolean;
 };
 
 export const toActivityId = (activity: PairActivityDTO): string => activity._id ?? activity.id;
@@ -30,4 +48,6 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   dueAt: activity.dueAt,
   status: activity.status,
   checkIns: activity.checkIns,
+  isAwaitingCheckin: isAwaitingCheckinStatus(activity.status),
+  isHistory: isHistoryActivityStatus(activity.status),
 });

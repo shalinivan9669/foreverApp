@@ -229,3 +229,10 @@ Summary:
 - Extended `ANSWERS_BULK_SUBMITTED` audit metadata with cooldown application fields (`applied`, `reason`, `cooldownDays`, `scoringVersion`) while preserving existing API/envelope contracts.
 - Added pure self-check script for anti-farm cooldown behavior.
 Files: src/models/User.ts, src/domain/vectors/antifarm.ts, src/domain/vectors/index.ts, src/domain/services/questionnaires.service.ts, src/lib/audit/eventTypes.ts, scripts/vectors-antifarm.selfcheck.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Hardened `/couple-activity` checkin->complete chain with pending-complete recovery state and retry-complete UX that does not resend check-in answers.
+- Added explicit client idempotency key flow for checkin/complete retries, plus in-flight button locks to reduce double-submit risk.
+- Improved client error-kind mapping for 401/403/404/409/422, added self-check scripts, and updated pair-activity working inventory with explicit no-DB scope.
+Files: src/app/couple-activity/page.tsx, src/features/activities/CoupleActivityView.tsx, src/components/activities/CheckInModal.tsx, src/client/hooks/useActivityOffers.ts, src/client/api/activities.api.ts, src/client/api/http.ts, src/client/api/idempotency.ts, src/client/api/errors.ts, src/client/viewmodels/activity.viewmodels.ts, src/features/activities/checkinCompleteFlow.ts, scripts/activity-flow.selfcheck.ts, scripts/client-errors.selfcheck.ts, package.json, docs/activities/pair-activity-inventory.working.md, docs/CHANGELOG.md

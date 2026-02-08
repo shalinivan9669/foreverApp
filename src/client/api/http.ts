@@ -1,5 +1,9 @@
 import { ApiClientError, readRetryAfterMs } from './errors';
 import type { ApiJsonObject, ApiJsonValue } from './types';
+import {
+  createIdempotencyKey,
+  IDEMPOTENCY_KEY_HEADER,
+} from './idempotency';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
@@ -30,20 +34,6 @@ export type HttpRequestOptions = {
 };
 
 const MUTATION_METHODS: HttpMethod[] = ['POST', 'PATCH', 'PUT', 'DELETE'];
-
-const fallbackUuid = (): string =>
-  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-    const rand = Math.floor(Math.random() * 16);
-    const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
-    return value.toString(16);
-  });
-
-const createIdempotencyKey = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return fallbackUuid();
-};
 
 const toProxyPath = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -110,8 +100,12 @@ const request = async <TResponse>(
     headers.set('Content-Type', 'application/json');
   }
 
-  if (options?.idempotency && MUTATION_METHODS.includes(method) && !headers.has('Idempotency-Key')) {
-    headers.set('Idempotency-Key', createIdempotencyKey());
+  if (
+    options?.idempotency &&
+    MUTATION_METHODS.includes(method) &&
+    !headers.has(IDEMPOTENCY_KEY_HEADER)
+  ) {
+    headers.set(IDEMPOTENCY_KEY_HEADER, createIdempotencyKey());
   }
 
   let response: Response;

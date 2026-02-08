@@ -1,60 +1,135 @@
 'use client';
 
+import { useEffect, useMemo, useRef } from 'react';
+
 type I18nText = Record<string, string>;
-type CheckIn = { id: string; scale: 'likert5'|'bool'; map: number[]; text: I18nText; weight?: number };
+type CheckIn = {
+  id: string;
+  scale: 'likert5' | 'bool';
+  map: number[];
+  text: I18nText;
+  weight?: number;
+};
 type Activity = { _id: string; title: I18nText; checkIns: CheckIn[] };
+
+type CheckInAnswer = { checkInId: string; ui: number };
 
 export default function CheckInModal(props: {
   activity: Activity;
   locale: string;
   onClose: () => void;
-  onSubmit: (answers: Array<{checkInId:string; ui:number}>) => void;
+  onSubmit: (answers: CheckInAnswer[]) => void;
+  submitting?: boolean;
+  pendingComplete?: boolean;
+  pendingCompleteMessage?: string | null;
+  onRetryComplete?: () => void;
+  retryCompleteLoading?: boolean;
 }) {
-  const { activity: a, locale, onClose, onSubmit } = props;
-  const t = (txt?: I18nText) => (txt ? (txt[locale] ?? txt['en'] ?? Object.values(txt)[0]) : '');
+  const {
+    activity: activityItem,
+    locale,
+    onClose,
+    onSubmit,
+    submitting = false,
+    pendingComplete = false,
+    pendingCompleteMessage,
+    onRetryComplete,
+    retryCompleteLoading = false,
+  } = props;
 
-  const initial = Object.fromEntries(a.checkIns.map(c => [c.id, 1]));
-  const state = Object.assign(initial, {}) as Record<string, number>;
+  const t = (txt?: I18nText) =>
+    txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] : '';
+
+  const initialAnswers = useMemo(
+    () =>
+      Object.fromEntries(
+        activityItem.checkIns.map((checkIn) => [checkIn.id, 1])
+      ) as Record<string, number>,
+    [activityItem.checkIns]
+  );
+
+  const answersRef = useRef<Record<string, number>>(initialAnswers);
+
+  useEffect(() => {
+    answersRef.current = initialAnswers;
+  }, [initialAnswers, activityItem._id]);
 
   const handleChange = (id: string, ui: number) => {
-    state[id] = ui;
+    if (submitting || pendingComplete) return;
+    answersRef.current[id] = ui;
   };
 
   const submit = () => {
-    const answers = a.checkIns.map(c => ({ checkInId: c.id, ui: Number(state[c.id] ?? 1) }));
+    if (submitting || pendingComplete) return;
+    const answers: CheckInAnswer[] = activityItem.checkIns.map((checkIn) => ({
+      checkInId: checkIn.id,
+      ui: Number(answersRef.current[checkIn.id] ?? 1),
+    }));
     onSubmit(answers);
   };
 
+  const closeDisabled = submitting || retryCompleteLoading;
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded shadow-lg w-full max-w-lg p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-lg rounded bg-white p-4 shadow-lg">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Оцените: {t(a.title)}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-black">✕</button>
+          <h3 className="text-lg font-semibold">Оцените: {t(activityItem.title)}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={closeDisabled}
+            className="text-gray-500 hover:text-black disabled:opacity-60"
+          >
+            ×
+          </button>
         </div>
 
-        <div className="mt-3 space-y-4">
-          {a.checkIns.map((c) => (
-            <div key={c.id} className="space-y-1">
-              <div className="text-sm">{t(c.text)}</div>
+        {pendingComplete && pendingCompleteMessage && (
+          <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            {pendingCompleteMessage}
+          </div>
+        )}
 
-              {c.scale === 'likert5' ? (
+        <div className="mt-3 space-y-4">
+          {activityItem.checkIns.map((checkIn) => (
+            <div key={checkIn.id} className="space-y-1">
+              <div className="text-sm">{t(checkIn.text)}</div>
+
+              {checkIn.scale === 'likert5' ? (
                 <div className="flex gap-2">
-                  {[1,2,3,4,5].map(ui => (
-                    <label key={ui} className="text-xs flex items-center gap-1">
-                      <input name={c.id} type="radio" defaultChecked={ui===1} onChange={() => handleChange(c.id, ui)} />
+                  {[1, 2, 3, 4, 5].map((ui) => (
+                    <label key={ui} className="flex items-center gap-1 text-xs">
+                      <input
+                        name={checkIn.id}
+                        type="radio"
+                        defaultChecked={ui === 1}
+                        disabled={submitting || pendingComplete}
+                        onChange={() => handleChange(checkIn.id, ui)}
+                      />
                       {ui}
                     </label>
                   ))}
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  <label className="text-xs flex items-center gap-1">
-                    <input name={c.id} type="radio" defaultChecked onChange={() => handleChange(c.id, 1)} />
+                  <label className="flex items-center gap-1 text-xs">
+                    <input
+                      name={checkIn.id}
+                      type="radio"
+                      defaultChecked
+                      disabled={submitting || pendingComplete}
+                      onChange={() => handleChange(checkIn.id, 1)}
+                    />
                     Да
                   </label>
-                  <label className="text-xs flex items-center gap-1">
-                    <input name={c.id} type="radio" onChange={() => handleChange(c.id, 2)} />
+                  <label className="flex items-center gap-1 text-xs">
+                    <input
+                      name={checkIn.id}
+                      type="radio"
+                      disabled={submitting || pendingComplete}
+                      onChange={() => handleChange(checkIn.id, 2)}
+                    />
                     Нет
                   </label>
                 </div>
@@ -63,9 +138,34 @@ export default function CheckInModal(props: {
           ))}
         </div>
 
-        <div className="mt-4 flex gap-2 justify-end">
-          <button onClick={onClose} className="px-3 py-2 rounded border">Отмена</button>
-          <button onClick={submit} className="px-3 py-2 rounded bg-black text-white">Отправить</button>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={closeDisabled}
+            className="rounded border px-3 py-2 disabled:opacity-60"
+          >
+            Отмена
+          </button>
+          {pendingComplete ? (
+            <button
+              type="button"
+              onClick={onRetryComplete}
+              disabled={!onRetryComplete || retryCompleteLoading}
+              className="rounded bg-black px-3 py-2 text-white disabled:opacity-60"
+            >
+              {retryCompleteLoading ? 'Завершаем...' : 'Завершить еще раз'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={submitting}
+              className="rounded bg-black px-3 py-2 text-white disabled:opacity-60"
+            >
+              {submitting ? 'Отправка...' : 'Отправить'}
+            </button>
+          )}
         </div>
       </div>
     </div>
