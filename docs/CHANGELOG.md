@@ -249,3 +249,9 @@ Summary:
 - Restored readable UTF-8 Russian text in remaining UI surfaces that still rendered mojibake in embedded mode.
 - Fixed action/aria/error/paywall labels so text is consistently readable in activities, match, and main-menu flows.
 Files: src/app/main-menu/page.tsx, src/app/page.tsx, src/components/CandidateCard.tsx, src/components/MatchTabs.tsx, src/components/QuestionCard.tsx, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/match/LikeModalView.tsx, src/components/ui/BackBar.tsx, src/components/ui/ErrorView.tsx, src/components/ui/LoadingView.tsx, src/components/ui/PaywallView.tsx, src/features/activities/CoupleActivityView.tsx, src/features/match/inbox/MatchInboxView.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Fixed Vercel build failure caused by invalid/non-UTF-8 source encoding in shared UI components.
+- Rewrote BackBar/ErrorView/PaywallView as clean UTF-8 files and verified repository text files are UTF-8.
+Files: src/components/ui/BackBar.tsx, src/components/ui/ErrorView.tsx, src/components/ui/PaywallView.tsx, docs/CHANGELOG.md

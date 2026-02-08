@@ -13,7 +13,7 @@ type ErrorViewProps = {
 const retryAfterLabel = (retryAfterMs?: number): string => {
   if (!retryAfterMs) return '';
   const seconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
-  return `Повторите через ${seconds} сек.`;
+  return `Retry in ${seconds} sec.`;
 };
 
 export default function ErrorView({
@@ -39,7 +39,7 @@ export default function ErrorView({
             onClick={onRetry}
             className="mt-3 rounded border border-orange-300 px-3 py-1.5 text-sm hover:bg-orange-100"
           >
-            Повторить
+            Retry
           </button>
         )}
       </div>
@@ -49,7 +49,7 @@ export default function ErrorView({
   if (error.kind === 'auth_required') {
     return (
       <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 text-blue-900">
-        <p className="font-medium">Нужна авторизация</p>
+        <p className="font-medium">Authorization required</p>
         <p className="mt-1 text-sm">{error.message}</p>
         {onAuthRequired && (
           <button
@@ -57,7 +57,7 @@ export default function ErrorView({
             onClick={onAuthRequired}
             className="mt-3 rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
           >
-            Перезапустить авторизацию
+            Re-auth
           </button>
         )}
       </div>
@@ -67,14 +67,14 @@ export default function ErrorView({
   return (
     <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
       <p className="font-medium">{error.message}</p>
-      <p className="mt-1 text-xs text-red-700">Код: {error.code}</p>
+      <p className="mt-1 text-xs text-red-700">Code: {error.code}</p>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
           className="mt-3 rounded border border-red-300 px-3 py-1.5 text-sm hover:bg-red-100"
         >
-          Повторить
+          Retry
         </button>
       )}
     </div>
