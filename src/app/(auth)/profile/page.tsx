@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useUserStore } from '@/store/useUserStore';
@@ -58,12 +58,12 @@ export default function ProfileOverviewPage() {
 
   const ff = data.featureFlags ?? { PERSONAL_ACTIVITIES: false };
 
-  if (!user) return <div className="p-4">РќРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (РЅСѓР¶РЅР° Р°РІС‚РѕСЂРёР·Р°С†РёСЏ).</div>;
+  if (!user) return <div className="p-4">Нет пользователя (нужна авторизация).</div>;
 
   if (loading) {
     return (
       <div className="p-4 space-y-3">
-        <BackBar title="РџСЂРѕС„РёР»СЊ" fallbackHref="/main-menu" />
+        <BackBar title="Профиль" fallbackHref="/main-menu" />
         <Skeleton className="h-20" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Skeleton className="h-24" />
@@ -82,9 +82,9 @@ export default function ProfileOverviewPage() {
   if (!hasSummary) {
     return (
       <div className="p-4 space-y-3">
-        <BackBar title="РџСЂРѕС„РёР»СЊ" fallbackHref="/main-menu" />
+        <BackBar title="Профиль" fallbackHref="/main-menu" />
         <div className="border rounded p-4 text-sm text-zinc-600">
-          РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЃРІРѕРґРєСѓ РїСЂРѕС„РёР»СЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РѕС‚РєСЂС‹С‚СЊ СЃС‚СЂР°РЅРёС†Сѓ РµС‰Рµ СЂР°Р·.
+          Не удалось загрузить сводку профиля. Попробуйте открыть страницу еще раз.
         </div>
       </div>
     );
@@ -92,7 +92,7 @@ export default function ProfileOverviewPage() {
 
   return (
     <div className="p-4 space-y-3">
-      <BackBar title="РџСЂРѕС„РёР»СЊ" fallbackHref="/main-menu" />
+      <BackBar title="Профиль" fallbackHref="/main-menu" />
 
       <UserHeader user={data.user} pair={data.currentPair} />
 
@@ -104,7 +104,7 @@ export default function ProfileOverviewPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Р›РёС‡РЅР°СЏ Р°РєС‚РёРІРЅРѕСЃС‚СЊ</h2>
+        <h2 className="text-lg font-semibold">Личная активность</h2>
         {ff.PERSONAL_ACTIVITIES ? (
           <UserActivityCard activity={data.activity.current} suggested={data.activity.suggested} />
         ) : (
@@ -113,7 +113,7 @@ export default function ProfileOverviewPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">РџСЂРµРґРїРѕС‡С‚РµРЅРёСЏ РїР°СЂС‚РЅС‘СЂР°</h2>
+        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
         <PreferencesCard value={data.matching.filters} />
       </section>
     </div>

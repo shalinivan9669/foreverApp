@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -16,7 +16,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
   return (
     <Link
       href={href}
-      aria-label={hasActive ? 'РџСЂРѕС„РёР»СЊ РїР°СЂС‹' : 'РџРѕРёСЃРє РїР°СЂС‹'}
+      aria-label={hasActive ? 'Профиль пары' : 'Поиск пары'}
       className="
         group relative row-span-2 col-start-1
         flex items-center justify-center text-center
@@ -46,7 +46,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
           )}
         </div>
 
-        <div className="text-lg text-black font-semibold">{hasActive ? 'РџСЂРѕС„РёР»СЊ РїР°СЂС‹' : 'РџРѕРёСЃРє РїР°СЂС‹'}</div>
+        <div className="text-lg text-black font-semibold">{hasActive ? 'Профиль пары' : 'Поиск пары'}</div>
 
         {hasActive && peer && (
           <div className="mt-1 text-sm text-zinc-700 flex items-center gap-2 justify-center">

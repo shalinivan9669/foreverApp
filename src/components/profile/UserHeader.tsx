@@ -1,4 +1,4 @@
-﻿// src/components/profile/UserHeader.tsx
+// src/components/profile/UserHeader.tsx
 'use client';
 
 import Link from 'next/link';
@@ -20,22 +20,22 @@ export default function UserHeader({ user, pair }: {
       <div className="flex-1">
         <div className="font-semibold">@{user.handle}</div>
         <div className="text-sm text-gray-600">
-          РЎС‚Р°С‚СѓСЃ: {user.status}
+          Статус: {user.status}
           {pair && (
             <>
-              {' В· '}
-              <Link href={`/pair/${pair.id}`} className="text-blue-600 hover:underline">РњРѕСЏ РїР°СЂР°</Link>
+              {' · '}
+              <Link href={`/pair/${pair.id}`} className="text-blue-600 hover:underline">Моя пара</Link>
             </>
           )}
         </div>
       </div>
       <nav className="hidden md:flex gap-2 text-sm">
-        <Link href="/profile" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">РћР±Р·РѕСЂ</Link>
-        <Link href="/profile/profile" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">РџСЂРѕС„РёР»СЊ</Link>
-        <Link href="/profile/activities" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">РђРєС‚РёРІРЅРѕСЃС‚Рё</Link>
-        <Link href="/profile/matching" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">РњР°С‚С‡РёРЅРі</Link>
-        <Link href="/profile/history" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">РСЃС‚РѕСЂРёСЏ</Link>
-        <Link href="/profile/settings" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">РќР°СЃС‚СЂРѕР№РєРё</Link>
+        <Link href="/profile" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Обзор</Link>
+        <Link href="/profile/profile" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Профиль</Link>
+        <Link href="/profile/activities" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Активности</Link>
+        <Link href="/profile/matching" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Матчинг</Link>
+        <Link href="/profile/history" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">История</Link>
+        <Link href="/profile/settings" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Настройки</Link>
       </nav>
     </header>
   );

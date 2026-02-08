@@ -1,4 +1,4 @@
-﻿// src/app/profile/(tabs)/matching/page.tsx
+// src/app/profile/(tabs)/matching/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -49,17 +49,17 @@ export default function ProfileMatchingTab() {
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">РњР°С‚С‡РёРЅРі</h1>
-        <Link href="/profile" className="text-sm text-blue-600 hover:underline">Рљ РѕР±Р·РѕСЂСѓ</Link>
+        <h1 className="text-xl font-semibold">Матчинг</h1>
+        <Link href="/profile" className="text-sm text-blue-600 hover:underline">К обзору</Link>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="border rounded p-4">
-          <div className="text-sm text-gray-600">Р’С…РѕРґСЏС‰РёРµ</div>
-          <div className="text-2xl font-semibold">{loading ? 'вЂ¦' : (inbox ?? 0)}</div>
+          <div className="text-sm text-gray-600">Входящие</div>
+          <div className="text-2xl font-semibold">{loading ? '…' : (inbox ?? 0)}</div>
         </div>
         <div className="border rounded p-4">
-          <div className="text-sm text-gray-600">РСЃС…РѕРґСЏС‰РёРµ</div>
-          <div className="text-2xl font-semibold">{loading ? 'вЂ¦' : (outbox ?? 0)}</div>
+          <div className="text-sm text-gray-600">Исходящие</div>
+          <div className="text-2xl font-semibold">{loading ? '…' : (outbox ?? 0)}</div>
         </div>
       </div>
     </div>

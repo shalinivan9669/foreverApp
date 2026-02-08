@@ -180,3 +180,9 @@ Summary:
 - Fixed pair-profile false "Пара не найдена" by standardizing on `pair.id`, adding `pairId` to `/api/pairs/status`, migrating pair UI links/routes to `/pair/[id]`, and normalizing `_id -> id` in client pair adapters.
 - Added server-side guard-failure diagnostics in `/api/pairs/[id]/summary` with `{ userId, requestedPairId, foundPairId, membershipOk }` logging for 404/403 troubleshooting.
 Files: src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/matching/page.tsx, src/client/viewmodels/profile.viewmodels.ts, src/client/viewmodels/pair.viewmodels.ts, src/client/viewmodels/index.ts, src/client/api/types.ts, src/client/api/pairs.api.ts, src/client/hooks/usePair.ts, src/components/profile/UserHeader.tsx, src/components/profile/InsightsList.tsx, src/components/activities/UserActivityCard.tsx, src/components/main-menu/SearchPairTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/features/pair/PairProfilePageClient.tsx, src/app/pair/page.tsx, src/app/pair/[id]/page.tsx, src/app/pair/[id]/diagnostics/page.tsx, src/app/pair/[id]/questionnaire/[qid]/page.tsx, src/app/api/pairs/status/route.ts, src/app/api/pairs/me/route.ts, src/app/api/pairs/[id]/summary/route.ts, src/app/api/users/me/profile-summary/route.ts, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Fixed mojibake (broken Cyrillic encoding like `РџС...`) in profile and main-menu UI labels so Russian text renders correctly.
+- Re-encoded affected client pages/components and questionnaire card API labels to valid UTF-8 text.
+Files: src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/matching/page.tsx, src/features/pair/PairProfilePageClient.tsx, src/components/profile/UserHeader.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/activities/UserActivityCard.tsx, src/app/api/questionnaires/cards/route.ts, docs/CHANGELOG.md
