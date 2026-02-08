@@ -1,8 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useUserStore } from '@/store/useUserStore';
-import { api } from '@/utils/api';
+import type { ProfileSummaryDTO } from '@/client/api/types';
+import { usersApi } from '@/client/api/users.api';
+import { createEmptyProfileSummary, normalizeProfileSummary } from '@/client/viewmodels';
 
 import BackBar from '@/components/ui/BackBar';
 import UserHeader from '@/components/profile/UserHeader';
@@ -14,51 +16,54 @@ import UserActivityCard from '@/components/activities/UserActivityCard';
 import UserActivitiesPlaceholder from '@/components/activities/UserActivitiesPlaceholder';
 import Skeleton from '@/components/common/Skeleton';
 
-type Axis = 'communication'|'domestic'|'personalViews'|'finance'|'sexuality'|'psyche';
-
-type ProfileSummary = {
-  user: {
-    _id: string;
-    handle: string;
-    avatar: string | null;
-    joinedAt: string;
-    status: 'solo:new'|'solo:history'|'paired';
-    lastActiveAt: string;
-    featureFlags?: Record<string, boolean>;
-  };
-  currentPair: { _id: string; status: 'active'|'paused'|'ended'; since: string } | null;
-  metrics: { streak: { individual: number }; completed: { individual: number } };
-  readiness: { score: number; updatedAt: string };
-  fatigue:   { score: number; updatedAt: string };
-  passport: { levelsByAxis: Record<Axis, number>; strongSides: string[]; growthAreas: string[]; values: string[]; boundaries: string[] };
-  activity: { current: { _id: string; title?: string; progress?: number } | null; suggested: { _id: string; title?: string }[]; historyCount: number };
-  matching: { inboxCount: number; outboxCount: number; filters: { age: [number,number]; radiusKm: number; valuedQualities: string[]; excludeTags: string[] } };
-  insights: { _id: string; title?: string; axis?: Axis; delta?: number }[];
-  featureFlags?: { PERSONAL_ACTIVITIES?: boolean };
-};
-
 export default function ProfileOverviewPage() {
-  const user = useUserStore(s => s.user);
-  const [data, setData] = useState<ProfileSummary | null>(null);
+  const user = useUserStore((s) => s.user);
+  const [data, setData] = useState<ProfileSummaryDTO>(createEmptyProfileSummary());
   const [loading, setLoading] = useState(true);
+  const [hasSummary, setHasSummary] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    let active = true;
+
+    if (!user) {
+      setLoading(false);
+      setHasSummary(false);
+      setData(createEmptyProfileSummary());
+      return () => {
+        active = false;
+      };
+    }
+
     setLoading(true);
-    fetch(api('/api/users/me/profile-summary'))
-      .then(r => r.json() as Promise<ProfileSummary>)
-      .then(setData)
-      .finally(() => setLoading(false));
+    usersApi
+      .getProfileSummary()
+      .then((summary) => {
+        if (!active) return;
+        setData(normalizeProfileSummary(summary));
+        setHasSummary(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setData(createEmptyProfileSummary());
+        setHasSummary(false);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [user]);
 
-  const ff = data?.featureFlags ?? { PERSONAL_ACTIVITIES: false };
+  const ff = data.featureFlags ?? { PERSONAL_ACTIVITIES: false };
 
-  if (!user) return <div className="p-4">Нет пользователя (нужна авторизация).</div>;
+  if (!user) return <div className="p-4">РќРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (РЅСѓР¶РЅР° Р°РІС‚РѕСЂРёР·Р°С†РёСЏ).</div>;
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="p-4 space-y-3">
-        <BackBar title="Профиль" fallbackHref="/main-menu" />
+        <BackBar title="РџСЂРѕС„РёР»СЊ" fallbackHref="/main-menu" />
         <Skeleton className="h-20" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Skeleton className="h-24" />
@@ -74,17 +79,24 @@ export default function ProfileOverviewPage() {
     );
   }
 
+  if (!hasSummary) {
+    return (
+      <div className="p-4 space-y-3">
+        <BackBar title="РџСЂРѕС„РёР»СЊ" fallbackHref="/main-menu" />
+        <div className="border rounded p-4 text-sm text-zinc-600">
+          РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЃРІРѕРґРєСѓ РїСЂРѕС„РёР»СЏ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РѕС‚РєСЂС‹С‚СЊ СЃС‚СЂР°РЅРёС†Сѓ РµС‰Рµ СЂР°Р·.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-3">
-      <BackBar title="Профиль" fallbackHref="/main-menu" />
+      <BackBar title="РџСЂРѕС„РёР»СЊ" fallbackHref="/main-menu" />
 
       <UserHeader user={data.user} pair={data.currentPair} />
 
-      <SummaryTiles
-        metrics={data.metrics}
-        readiness={data.readiness}
-        fatigue={data.fatigue}
-      />
+      <SummaryTiles metrics={data.metrics} readiness={data.readiness} fatigue={data.fatigue} />
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <AxisRadar levels={data.passport.levelsByAxis} />
@@ -92,20 +104,16 @@ export default function ProfileOverviewPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Личная активность</h2>
-        {ff.PERSONAL_ACTIVITIES
-          ? (
-            <UserActivityCard
-              activity={data.activity.current}
-              suggested={data.activity.suggested}
-            />
-          )
-          : <UserActivitiesPlaceholder />
-        }
+        <h2 className="text-lg font-semibold">Р›РёС‡РЅР°СЏ Р°РєС‚РёРІРЅРѕСЃС‚СЊ</h2>
+        {ff.PERSONAL_ACTIVITIES ? (
+          <UserActivityCard activity={data.activity.current} suggested={data.activity.suggested} />
+        ) : (
+          <UserActivitiesPlaceholder />
+        )}
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
+        <h2 className="text-lg font-semibold">РџСЂРµРґРїРѕС‡С‚РµРЅРёСЏ РїР°СЂС‚РЅС‘СЂР°</h2>
         <PreferencesCard value={data.matching.filters} />
       </section>
     </div>

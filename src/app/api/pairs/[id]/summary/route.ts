@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
+import { Pair } from '@/models/Pair';
 import { PairActivity } from '@/models/PairActivity';
 import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
@@ -32,7 +33,29 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = params.data;
 
   const pairGuard = await requirePairMember(id, currentUserId);
-  if (!pairGuard.ok) return pairGuard.response;
+  if (!pairGuard.ok) {
+    let foundPairId: string | null = null;
+    let membershipOk = false;
+
+    if (Types.ObjectId.isValid(id)) {
+      const pairDoc = await Pair.findById(id)
+        .select({ _id: 1, members: 1 })
+        .lean<{ _id: Types.ObjectId; members: string[] } | null>();
+
+      if (pairDoc) {
+        foundPairId = String(pairDoc._id);
+        membershipOk = pairDoc.members.includes(currentUserId);
+      }
+    }
+
+    console.warn('[pairs.summary] pair access check failed', {
+      userId: currentUserId,
+      requestedPairId: id,
+      foundPairId,
+      membershipOk,
+    });
+    return pairGuard.response;
+  }
 
   await connectToDatabase();
   const pair = pairGuard.data.pair;
@@ -59,9 +82,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     .lean();
 
   return jsonOk({
-    pair: toPairDTO(pair, { includeLegacyId: true, includePassport: true, includeMetrics: true }),
+    pair: toPairDTO(pair, { includePassport: true, includeMetrics: true }),
     currentActivity: current
-      ? toPairActivityDTO(current, { includeLegacyId: true, includeAnswers: false })
+      ? toPairActivityDTO(current, { includeAnswers: false })
       : null,
     suggestedCount,
     lastLike: lastLike ? toLikeSummaryDTO(lastLike) : null,

@@ -98,7 +98,10 @@ export function usePair(options: UsePairOptions = {}) {
 
   const error = statusError ?? pairError;
   const loading = statusLoading || pairLoading;
-  const pairId = useMemo(() => pairMe?.pair?._id ?? pairMe?.pair?.id ?? null, [pairMe]);
+  const pairId = useMemo(
+    () => pairMe?.pair?.id ?? (status?.hasActive ? status.pairId : null),
+    [pairMe, status]
+  );
 
   return {
     status,

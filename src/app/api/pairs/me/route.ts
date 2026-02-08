@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const hasAny = !!pair;
 
   return jsonOk({
-    pair: pair ? toPairDTO(pair, { includeLegacyId: true, includePassport: true, includeMetrics: true }) : null,
+    pair: pair ? toPairDTO(pair, { includePassport: true, includeMetrics: true }) : null,
     hasActive,
     hasAny,
     status, // 'active' | 'paused' | 'ended' | null

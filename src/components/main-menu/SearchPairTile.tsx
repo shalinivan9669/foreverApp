@@ -7,7 +7,8 @@ export default function SearchPairTile() {
   const { status } = usePair();
 
   const hasActive = status?.hasActive === true;
+  const pairId = status?.hasActive ? status.pairId : undefined;
   const peer = status?.hasActive ? status.peer : undefined;
 
-  return <SearchPairTileView hasActive={hasActive} peer={peer} />;
+  return <SearchPairTileView hasActive={hasActive} pairId={pairId} peer={peer} />;
 }

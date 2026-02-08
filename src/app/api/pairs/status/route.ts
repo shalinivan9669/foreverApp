@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
 
   return jsonOk({
     hasActive: true,
+    pairId: String(pair._id),
     pairKey: pair.key,
     peer: peerDto,
   });

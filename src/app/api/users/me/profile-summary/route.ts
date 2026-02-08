@@ -71,12 +71,12 @@ export async function GET(req: NextRequest) {
 
   const currentPair =
     activeOrPaused && activeOrPaused.status === 'active'
-      ? { _id: String(activeOrPaused._id), status: activeOrPaused.status, since: activeOrPaused.createdAt }
+      ? { id: String(activeOrPaused._id), status: activeOrPaused.status, since: activeOrPaused.createdAt }
       : null;
 
   const entitlements = await resolveEntitlements({
     currentUserId: userId,
-    pairId: currentPair?._id,
+    pairId: currentPair?.id,
   });
 
   // РЈСЂРѕРІРЅРё РїРѕ 6 РѕСЃСЏРј РёР· user.vectors (0..100)
@@ -97,7 +97,26 @@ export async function GET(req: NextRequest) {
   // РЎРёР»СЊРЅС‹Рµ/Р·РѕРЅС‹ СЂРѕСЃС‚Р° вЂ” РїСЂРѕСЃС‚Р°СЏ СЌРІСЂРёСЃС‚РёРєР° РїРѕ РєРѕР»РёС‡РµСЃС‚РІСѓ facets
   const strongSides: string[] = [];
   const growthAreas: string[] = [];
+  const positivesByAxis: Record<Axis, string[]> = {
+    communication: [],
+    domestic: [],
+    personalViews: [],
+    finance: [],
+    sexuality: [],
+    psyche: [],
+  };
+  const negativesByAxis: Record<Axis, string[]> = {
+    communication: [],
+    domestic: [],
+    personalViews: [],
+    finance: [],
+    sexuality: [],
+    psyche: [],
+  };
   AXES.forEach((a) => {
+    positivesByAxis[a] = user.vectors?.[a]?.positives ?? [];
+    negativesByAxis[a] = user.vectors?.[a]?.negatives ?? [];
+
     const pos = user.vectors?.[a]?.positives?.length ?? 0;
     const neg = user.vectors?.[a]?.negatives?.length ?? 0;
     if (pos >= 2) strongSides.push(a);
@@ -119,7 +138,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   // Р¤РёР»СЊС‚СЂС‹/РїСЂРµРґРїРѕС‡С‚РµРЅРёСЏ
-const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
+  const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
   const filters = {
     age: [prefs?.desiredAgeRange?.min ?? 18, prefs?.desiredAgeRange?.max ?? 99],
     radiusKm: prefs?.maxDistanceKm ?? 50,
@@ -129,7 +148,7 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
 
   const payload = {
     user: {
-      _id: user.id,
+      id: user.id,
       handle: user.username,
       avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
       joinedAt: user.createdAt,
@@ -150,14 +169,17 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
     fatigue: user.fatigue ?? { score: 0, updatedAt: user.updatedAt },
     passport: {
       levelsByAxis,
+      positivesByAxis,
+      negativesByAxis,
       strongSides,
       growthAreas,
       values: user.passport?.values ?? [],
       boundaries: user.passport?.boundaries ?? [],
+      updatedAt: user.updatedAt,
     },
     activity: {
       current: null as null, // РїРµСЂСЃРѕРЅР°Р»СЊРЅС‹Рµ Р°РєС‚РёРІРЅРѕСЃС‚Рё РїРѕРєР° РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅС‹
-      suggested: [] as unknown[], // Р·Р°РіР»СѓС€РєР°
+      suggested: [] as Array<{ id: string; title?: string }>, // Р·Р°РіР»СѓС€РєР°
       historyCount: 0,
     },
     matching: {
@@ -165,7 +187,7 @@ const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
       outboxCount,
       filters,
     },
-    insights: [] as unknown[], // Р·Р°РіР»СѓС€РєР° (РґРѕР±Р°РІРёРј, РєРѕРіРґР° РїРѕСЏРІРёС‚СЃСЏ РјРѕРґРµР»СЊ Insight)
+    insights: [] as Array<{ id: string; title?: string; axis?: Axis; delta?: number }>, // Р·Р°РіР»СѓС€РєР° (РґРѕР±Р°РІРёРј, РєРѕРіРґР° РїРѕСЏРІРёС‚СЃСЏ РјРѕРґРµР»СЊ Insight)
     featureFlags: {
       PERSONAL_ACTIVITIES: entitlements.features['activities.suggestions'],
       PREMIUM_QUESTIONNAIRES: entitlements.features['questionnaires.premium'],

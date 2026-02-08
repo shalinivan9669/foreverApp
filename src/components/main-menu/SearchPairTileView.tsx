@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -6,14 +6,17 @@ import type { PublicUserDTO } from '@/client/api/types';
 
 type SearchPairTileViewProps = {
   hasActive: boolean;
+  pairId?: string;
   peer?: PublicUserDTO;
 };
 
-export default function SearchPairTileView({ hasActive, peer }: SearchPairTileViewProps) {
+export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPairTileViewProps) {
+  const href = hasActive ? (pairId ? `/pair/${pairId}` : '/pair') : '/search';
+
   return (
     <Link
-      href={hasActive ? '/pair' : '/search'}
-      aria-label={hasActive ? 'Профиль пары' : 'Поиск пары'}
+      href={href}
+      aria-label={hasActive ? 'РџСЂРѕС„РёР»СЊ РїР°СЂС‹' : 'РџРѕРёСЃРє РїР°СЂС‹'}
       className="
         group relative row-span-2 col-start-1
         flex items-center justify-center text-center
@@ -43,7 +46,7 @@ export default function SearchPairTileView({ hasActive, peer }: SearchPairTileVi
           )}
         </div>
 
-        <div className="text-lg text-black font-semibold">{hasActive ? 'Профиль пары' : 'Поиск пары'}</div>
+        <div className="text-lg text-black font-semibold">{hasActive ? 'РџСЂРѕС„РёР»СЊ РїР°СЂС‹' : 'РџРѕРёСЃРє РїР°СЂС‹'}</div>
 
         {hasActive && peer && (
           <div className="mt-1 text-sm text-zinc-700 flex items-center gap-2 justify-center">

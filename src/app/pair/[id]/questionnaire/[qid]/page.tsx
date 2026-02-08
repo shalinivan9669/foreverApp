@@ -1,23 +1,29 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/utils/api';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchEnvelope } from '@/utils/apiClient';
+import { pairsApi } from '@/client/api/pairs.api';
 
 type QItem = {
   id?: string;
   _id?: string;
-  text: Record<string,string>;
-  scale: 'likert5'|'bool';
+  text: Record<string, string>;
+  scale: 'likert5' | 'bool';
   map: number[];
+};
+
+type QuestionnaireDTO = {
+  title?: Record<string, string>;
+  questions?: QItem[];
 };
 
 export default function PairQuestionnaireRunner() {
   const params = useParams<{ id: string; qid: string }>();
   const router = useRouter();
-  const user = useUserStore(s => s.user);
+  const user = useUserStore((s) => s.user);
   const pairId = params?.id;
   const qnId = params?.qid;
 
@@ -27,39 +33,45 @@ export default function PairQuestionnaireRunner() {
   const [idx, setIdx] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [by, setBy] = useState<'A'|'B'>('A');
+  const [by, setBy] = useState<'A' | 'B'>('A');
 
-  // Determine A/B from pair summary
   useEffect(() => {
     let on = true;
     if (!pairId || !user) return;
-    fetch(api(`/api/pairs/${pairId}/summary`))
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!on || !d?.pair) return;
-        const members: string[] = d.pair.members ?? [];
+
+    pairsApi
+      .getSummary(pairId)
+      .then((summary) => {
+        if (!on) return;
+        const members: string[] = summary.pair.members ?? [];
         const which = members[0] === user.id ? 'A' : 'B';
         setBy(which);
-      }).catch(() => {});
-    return () => { on = false; };
+      })
+      .catch(() => {});
+
+    return () => {
+      on = false;
+    };
   }, [pairId, user]);
 
-  // Load questionnaire
   useEffect(() => {
     let on = true;
     if (!qnId) return;
-    fetch(api(`/api/questionnaires/${qnId}`))
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!on || !d) return;
-        setTitle(d?.title?.ru ?? d?.title?.en ?? 'Р В РЎвЂєР В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р В Р вЂ¦Р В РЎвЂР В РЎвЂќ');
-        const qs = Array.isArray(d?.questions) ? d.questions as QItem[] : [];
+
+    fetchEnvelope<QuestionnaireDTO>(api(`/api/questionnaires/${qnId}`))
+      .then((questionnaire) => {
+        if (!on) return;
+        setTitle(questionnaire.title?.ru ?? questionnaire.title?.en ?? 'Анкета');
+        const qs = Array.isArray(questionnaire.questions) ? questionnaire.questions : [];
         setQuestions(qs);
-      }).catch(() => {});
-    return () => { on = false; };
+      })
+      .catch(() => {});
+
+    return () => {
+      on = false;
+    };
   }, [qnId]);
 
-  // Start session
   useEffect(() => {
     let on = true;
     if (!pairId || !qnId) return;
@@ -68,9 +80,13 @@ export default function PairQuestionnaireRunner() {
       { method: 'POST' },
       { idempotency: true }
     )
-      .then(d => { if (on) setSessionId(d?.sessionId ?? null); })
+      .then((d) => {
+        if (on) setSessionId(d?.sessionId ?? null);
+      })
       .catch(() => {});
-    return () => { on = false; };
+    return () => {
+      on = false;
+    };
   }, [pairId, qnId]);
 
   const q = questions[idx];
@@ -82,7 +98,10 @@ export default function PairQuestionnaireRunner() {
     setBusy(true);
     setError(null);
     try {
-      const body = { sessionId, questionId: q.id ?? q._id!, ui };
+      const questionId = q.id ?? q._id;
+      if (!questionId) throw new Error('QUESTION_ID_REQUIRED');
+
+      const body = { sessionId, questionId, ui };
       await fetchEnvelope<Record<string, never>>(
         api(`/api/pairs/${pairId}/questionnaires/${qnId}/answer`),
         {
@@ -92,10 +111,10 @@ export default function PairQuestionnaireRunner() {
         },
         { idempotency: true }
       );
-      if (idx < questions.length - 1) setIdx(i => i + 1);
+      if (idx < questions.length - 1) setIdx((i) => i + 1);
       else router.push(`/pair/${pairId}/diagnostics`);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Р В РЎвЂєР РЋРІвЂљВ¬Р В РЎвЂР В Р’В±Р В РЎвЂќР В Р’В°');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка отправки ответа');
     } finally {
       setBusy(false);
     }
@@ -103,29 +122,52 @@ export default function PairQuestionnaireRunner() {
 
   const Likert = () => (
     <div className="flex gap-2">
-      {[1,2,3,4,5].map(n => (
-        <button key={n} onClick={() => onAnswer(n)} disabled={busy}
-          className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">{n}</button>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          onClick={() => onAnswer(n)}
+          disabled={busy}
+          className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
+        >
+          {n}
+        </button>
       ))}
     </div>
   );
+
   const YesNo = () => (
     <div className="flex gap-2">
-      <button onClick={() => onAnswer(1)} disabled={busy} className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">Р В РЎСљР В Р’ВµР РЋРІР‚С™</button>
-      <button onClick={() => onAnswer(2)} disabled={busy} className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50">Р В РІР‚СњР В Р’В°</button>
+      <button
+        onClick={() => onAnswer(1)}
+        disabled={busy}
+        className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
+      >
+        Да
+      </button>
+      <button
+        onClick={() => onAnswer(2)}
+        disabled={busy}
+        className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
+      >
+        Нет
+      </button>
     </div>
   );
 
   return (
     <main className="p-4 max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">{title || 'Р В РЎвЂєР В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р В Р вЂ¦Р В РЎвЂР В РЎвЂќ'}</h1>
+      <h1 className="text-2xl font-bold">{title || 'Анкета'}</h1>
 
-      <div className="text-sm text-gray-600">Р В РІР‚в„ўР РЋРІР‚в„– Р В РЎвЂўР РЋРІР‚С™Р В Р вЂ Р В Р’ВµР РЋРІР‚РЋР В Р’В°Р В Р’ВµР РЋРІР‚С™Р В Р’Вµ Р В РЎвЂќР В Р’В°Р В РЎвЂќ: <span className="font-medium">{by}</span></div>
+      <div className="text-sm text-gray-600">
+        Ваша роль в паре: <span className="font-medium">{by}</span>
+      </div>
 
       <div className="border rounded p-4 space-y-3">
-        <div className="text-sm text-gray-500">Р В РІР‚в„ўР В РЎвЂўР В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“ {idx + 1} / {questions.length || 1}</div>
+        <div className="text-sm text-gray-500">
+          Вопрос {idx + 1} / {questions.length || 1}
+        </div>
         <div className="text-lg">{text}</div>
-        {scale === 'bool' ? <YesNo/> : <Likert/>}
+        {scale === 'bool' ? <YesNo /> : <Likert />}
         {error && <div className="text-sm text-red-600">{error}</div>}
       </div>
     </main>

@@ -290,3 +290,23 @@ Applied policy groups:
   - `src/components/ui/ErrorView.tsx`
   - `src/components/ui/PaywallView.tsx`
   - `src/components/ui/EmptyStateView.tsx`
+
+## Update 2026-02-08 (Profile/Pairs DTO Normalization)
+
+### Pair identity contract (`id` only)
+- `/api/pairs/status` now returns `{ hasActive: true, pairId, pairKey, peer }`.
+- `/api/pairs/me` and `/api/pairs/[id]/summary` return canonical pair DTO with `id`; legacy `_id` mirror is no longer used by UI.
+- Client-side pair normalizer maps legacy `_id -> id` for backward compatibility when needed.
+
+### Profile summary contract hardening
+- `/api/users/me/profile-summary` now returns canonical `user.id` and `currentPair.id`.
+- `passport` payload includes safe profile-radar fields:
+  - `levelsByAxis`
+  - `positivesByAxis`
+  - `negativesByAxis`
+  - `updatedAt`
+- This allows clients to render profile radar/insights safely even with partial payloads.
+
+### Pair route alignment
+- Added route `/pair/[id]` and aligned links from main-menu/profile to use pair `id`.
+- Pair profile loading is now aligned with `/api/pairs/[id]/summary` membership guard expectations.

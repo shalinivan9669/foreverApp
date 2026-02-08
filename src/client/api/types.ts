@@ -29,6 +29,7 @@ export type PairStatusDTO =
   | { hasActive: false }
   | {
       hasActive: true;
+      pairId: string;
       pairKey: string;
       peer: PublicUserDTO;
     };
@@ -37,7 +38,6 @@ export type PairState = 'active' | 'paused' | 'ended';
 
 export type PairDTO = {
   id: string;
-  _id?: string;
   members: [string, string];
   key: string;
   status: PairState;
@@ -296,7 +296,7 @@ export type QuestionnaireCardDTO = {
 
 export type ProfileSummaryDTO = {
   user: {
-    _id: string;
+    id: string;
     handle: string;
     avatar: string | null;
     joinedAt?: string;
@@ -305,10 +305,64 @@ export type ProfileSummaryDTO = {
     featureFlags: Record<string, boolean>;
   };
   currentPair: null | {
-    _id: string;
+    id: string;
     status: PairState;
     since: string;
   };
+  metrics: {
+    streak: {
+      individual: number;
+    };
+    completed: {
+      individual: number;
+    };
+  };
+  readiness: {
+    score: number;
+    updatedAt?: string;
+  };
+  fatigue: {
+    score: number;
+    updatedAt?: string;
+  };
+  passport: {
+    levelsByAxis: Record<QuestionnaireAxis, number>;
+    positivesByAxis: Record<QuestionnaireAxis, string[]>;
+    negativesByAxis: Record<QuestionnaireAxis, string[]>;
+    strongSides: string[];
+    growthAreas: string[];
+    values: string[];
+    boundaries: string[];
+    updatedAt?: string;
+  };
+  activity: {
+    current: {
+      id: string;
+      title?: string;
+      progress?: number;
+    } | null;
+    suggested: Array<{
+      id: string;
+      title?: string;
+    }>;
+    historyCount: number;
+  };
+  matching: {
+    inboxCount: number;
+    outboxCount: number;
+    filters: {
+      age: [number, number];
+      radiusKm: number;
+      valuedQualities: string[];
+      excludeTags: string[];
+    };
+  };
+  insights: Array<{
+    id: string;
+    title?: string;
+    axis?: QuestionnaireAxis;
+    delta?: number;
+  }>;
   featureFlags: Record<string, boolean>;
   entitlements: {
     plan: 'FREE' | 'SOLO' | 'COUPLE';
