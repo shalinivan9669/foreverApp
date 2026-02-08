@@ -271,3 +271,22 @@ Applied policy groups:
   - `/api/pairs/[id]/suggest`
   - `/api/pairs/[id]/activities/suggest`
 - `/api/activities/next` now returns `{ activityId, offer? }` where `offer` is `ActivityOfferDTO`.
+
+## Update 2026-02-08 (Client API Layer + UI Error Mapping)
+
+- Added a unified client transport in `src/client/api/http.ts`:
+  - typed `get/post/patch/put`
+  - automatic `/.proxy` prefix in browser runtime
+  - envelope parsing (`{ ok, data | error }`)
+  - mutation idempotency support via `Idempotency-Key`
+- Added typed API modules (`src/client/api/*.api.ts`) and hooks (`src/client/hooks/*.ts`) so UI pages/components no longer embed route URLs and envelope parsing.
+- Standardized UI-facing error mapping in `src/client/api/errors.ts`:
+  - `ENTITLEMENT_REQUIRED` / `QUOTA_EXCEEDED` -> paywall state
+  - `RATE_LIMITED` -> retry state with `retryAfterMs`
+  - `AUTH_REQUIRED` / `AUTH_INVALID_SESSION` -> auth recovery state
+  - `NOT_FOUND` / `ACCESS_DENIED` / `STATE_CONFLICT` -> typed UI error states
+- Added shared UI renderers for async states:
+  - `src/components/ui/LoadingView.tsx`
+  - `src/components/ui/ErrorView.tsx`
+  - `src/components/ui/PaywallView.tsx`
+  - `src/components/ui/EmptyStateView.tsx`

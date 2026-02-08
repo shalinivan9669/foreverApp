@@ -2,112 +2,60 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/store/useUserStore';
-import CandidateCard from '@/components/CandidateCard';
 import LikeModal from '@/components/LikeModal';
-import { api } from '@/utils/api';
-import { fetchEnvelope } from '@/utils/apiClient';
-import MatchTabs from '@/components/MatchTabs';
-import BackBar from '@/components/ui/BackBar';
-
-interface Candidate {
-  id: string;
-  username: string;
-  avatar: string;
-  score: number;
-}
-
-type PairMeDTO = {
-  pair: { _id?: string; status?: string } | null;
-  hasActive: boolean;
-};
-
-type MatchCardDTO = {
-  requirements: [string, string, string];
-  give: [string, string, string];
-  questions: [string, string];
-  isActive: boolean;
-  updatedAt?: string;
-} | null;
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
+import { useMatchFeed } from '@/client/hooks/useMatchFeed';
+import MatchFeedView from '@/features/match/feed/MatchFeedView';
 
 export default function SearchPage() {
-  const user = useUserStore((s) => s.user);
   const router = useRouter();
-
-  const [list, setList] = useState<Candidate[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ id: string; username: string; avatar: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+
+  const { gate, redirectPath, candidates, loading, error, refetch } = useMatchFeed({
+    enabled: true,
+    preflight: true,
+  });
 
   useEffect(() => {
-    if (!user) return;
-    let on = true;
+    if (!redirectPath) return;
+    router.replace(redirectPath);
+  }, [redirectPath, router]);
 
-    (async () => {
-      const [pairPayload, card] = await Promise.all([
-        fetchEnvelope<PairMeDTO>(api('/api/pairs/me')),
-        fetchEnvelope<MatchCardDTO>(api('/api/match/card')),
-      ]);
+  if (gate === 'checking' && loading && candidates.length === 0) {
+    return <LoadingView label="Проверяем профиль и подбираем кандидатов…" />;
+  }
 
-      if (!on) return;
+  if (error && candidates.length === 0) {
+    return (
+      <div className="p-4">
+        <ErrorView error={error} onRetry={() => void refetch()} />
+      </div>
+    );
+  }
 
-      if (pairPayload.hasActive) {
-        router.replace('/couple-activity');
-        return;
-      }
-
-      if (!card) {
-        router.replace('/match-card/create');
-        return;
-      }
-
-      setReady(true);
-    })().catch(() => setReady(true));
-
-    return () => {
-      on = false;
-    };
-  }, [user, router]);
-
-  useEffect(() => {
-    if (!user || !ready) return;
-    setLoading(true);
-    setError(null);
-
-    fetchEnvelope<Candidate[]>(api('/api/match/feed'))
-      .then((items) => setList(Array.isArray(items) ? items : []))
-      .catch((e: unknown) => {
-        const message = e instanceof Error ? e.message : 'Ошибка';
-        setError(message);
-      })
-      .finally(() => setLoading(false));
-  }, [user, ready]);
-
-  if (!user) return <>No user</>;
-  if (!ready && loading) return <div className="p-4">Загрузка…</div>;
-  if (error) return <div className="p-4 text-red-600">{error}</div>;
+  const visibleCandidates = candidates.filter((candidate) => !hiddenIds.includes(candidate.id));
 
   return (
-    <div className="p-4 flex flex-col gap-2">
-      <BackBar title="Поиск пары" fallbackHref="/main-menu" />
-      <MatchTabs />
+    <>
+      <MatchFeedView candidates={visibleCandidates} onLike={setSelected} />
 
-      {list.map((c) => (
-        <CandidateCard key={c.id} c={c} onLike={setSelected} />
-      ))}
-      {!list.length && <p className="text-center">Нет кандидатов</p>}
+      {error && (
+        <div className="px-4 pb-3">
+          <ErrorView error={error} onRetry={() => void refetch()} />
+        </div>
+      )}
 
       <LikeModal
-        open={!!selected}
+        open={Boolean(selected)}
         onClose={() => setSelected(null)}
         candidate={selected}
         onSent={({ toId }) => {
-          setList((xs) => xs.filter((x) => x.id !== toId));
+          setHiddenIds((current) => (current.includes(toId) ? current : [...current, toId]));
           router.push('/match/inbox');
         }}
       />
-    </div>
+    </>
   );
 }
-

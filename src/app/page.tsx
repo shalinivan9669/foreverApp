@@ -6,16 +6,8 @@ import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { useUserStore, DiscordUser } from '../store/useUserStore';
 import Spinner from '@/components/ui/Spinner';
-import { fetchEnvelope } from '@/utils/apiClient';
-
-type UserDTO = {
-  profile?: {
-    onboarding?: {
-      seeking?: boolean;
-      inRelationship?: boolean;
-    };
-  };
-};
+import { usersApi } from '@/client/api/users.api';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 
 export default function DiscordActivityPage() {
   const setUser = useUserStore((s) => s.setUser);
@@ -24,6 +16,7 @@ export default function DiscordActivityPage() {
   const [avatarLoaded, setAvatarLoaded] = useState(false);
   const didInit = useRef(false);
   const router = useRouter();
+  const { refetch: refetchCurrentUser } = useCurrentUser({ enabled: false });
 
   useEffect(() => {
     if (didInit.current) return;
@@ -42,13 +35,9 @@ export default function DiscordActivityPage() {
           prompt: 'none',
         });
 
-        const tokenData = await fetchEnvelope<{ access_token: string }>('/.proxy/api/exchange-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            code,
-            redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!,
-          }),
+        const tokenData = await usersApi.exchangeDiscordCode({
+          code,
+          redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!,
         });
 
         await sdk.commands.authenticate({ access_token: tokenData.access_token });
@@ -62,7 +51,7 @@ export default function DiscordActivityPage() {
         const u = (await userRes.json()) as DiscordUser;
 
         setUser(u);
-      } catch (e: unknown) {
+      } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(e);
         setError(msg);
@@ -75,14 +64,11 @@ export default function DiscordActivityPage() {
   const goToMenu = async () => {
     if (!user) return;
 
-    fetchEnvelope('/.proxy/api/logs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    }, { idempotency: true }).catch(() => {});
+    usersApi.writeActivityLog().catch(() => {});
 
     try {
-      const me = await fetchEnvelope<UserDTO>('/.proxy/api/users/me');
+      const me = await refetchCurrentUser();
+      if (!me) throw new Error('USER_NOT_FOUND');
       const onboarding = me.profile?.onboarding;
 
       if (onboarding?.seeking || onboarding?.inRelationship) {

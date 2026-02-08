@@ -2,126 +2,140 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/utils/api';
-import { useUserStore } from '@/store/useUserStore';
+import { matchApi } from '@/client/api/match.api';
+import { useApi } from '@/client/hooks/useApi';
+import ErrorView from '@/components/ui/ErrorView';
 
-const max = { req: 80, give: 80, q: 120 };
+const MAX = { req: 80, give: 80, question: 120 };
 
 export default function MatchCardCreatePage() {
   const router = useRouter();
-  const user = useUserStore(s => s.user);
-
   const [requirements, setRequirements] = useState(['', '', '']);
-  const [give, setGiveState] = useState(['', '', '']);     // ← переименован сеттер
+  const [give, setGive] = useState(['', '', '']);
   const [questions, setQuestions] = useState(['', '']);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const { runSafe, loading, error } = useApi('match-card-create');
 
   useEffect(() => {
-    if (!user) return;
-    fetch(api('/api/match/card'))
-      .then(r => (r.ok ? r.json() : null))
-      .then(card => {
-        if (card?.requirements?.length === 3) router.replace('/search');
-      })
-      .catch(() => {});
-  }, [user, router]);
-
-  if (!user) return <div className="p-4">No user</div>;
-
-  const onSubmit = async () => {
-    setErr(null);
-    if (requirements.some(s => !s.trim()) || give.some(s => !s.trim()) || questions.some(s => !s.trim())) {
-      setErr('Заполните все поля.');
-      return;
-    }
-    setLoading(true);
-    const res = await fetch(api('/api/match/card'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requirements, give, questions, isActive: true })
+    let active = true;
+    runSafe(() => matchApi.getOwnMatchCard(), { loadingKey: 'match-card-create' }).then((card) => {
+      if (!active) return;
+      if (card?.requirements?.length === 3) {
+        router.replace('/search');
+      }
     });
-    setLoading(false);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      setErr(d?.error || 'Ошибка сохранения.');
-      return;
-    }
-    router.replace('/search');
-  };
+    return () => {
+      active = false;
+    };
+  }, [router, runSafe]);
 
-  // универсальный биндер массива
-  const bindArr =
-    (arr: string[], setArr: (v: string[]) => void, m: number) =>
-    (i: number, v: string) => {
-      const next = arr.slice();
-      next[i] = v.slice(0, m);
-      setArr(next);
+  const bindInput =
+    (state: string[], setter: (value: string[]) => void, maxLength: number) =>
+    (index: number, value: string) => {
+      const next = state.slice();
+      next[index] = value.slice(0, maxLength);
+      setter(next);
     };
 
-  const setReqItem = bindArr(requirements, setRequirements, max.req);
-  const setGiveItem = bindArr(give, setGiveState, max.give);     // ← новое имя
-  const setQItem = bindArr(questions, setQuestions, max.q);
+  const setRequirement = bindInput(requirements, setRequirements, MAX.req);
+  const setGiveValue = bindInput(give, setGive, MAX.give);
+  const setQuestion = bindInput(questions, setQuestions, MAX.question);
 
-  const C = ({ v, max }: { v: string; max: number }) => (
-    <span className="text-xs text-gray-500">{v.length}/{max}</span>
+  const onSubmit = async () => {
+    setLocalError(null);
+    const hasEmpty = requirements.some((value) => !value.trim()) ||
+      give.some((value) => !value.trim()) ||
+      questions.some((value) => !value.trim());
+
+    if (hasEmpty) {
+      setLocalError('Заполните все поля.');
+      return;
+    }
+
+    const saved = await runSafe(
+      () =>
+        matchApi.saveOwnMatchCard({
+          requirements: [requirements[0], requirements[1], requirements[2]],
+          give: [give[0], give[1], give[2]],
+          questions: [questions[0], questions[1]],
+          isActive: true,
+        }),
+      {
+        loadingKey: 'match-card-create',
+      }
+    );
+
+    if (saved) {
+      router.replace('/search');
+      return;
+    }
+
+    setLocalError('Ошибка сохранения.');
+  };
+
+  const counter = (value: string, maxLength: number) => (
+    <span className="text-xs text-gray-500">
+      {value.length}/{maxLength}
+    </span>
   );
 
   return (
     <div className="p-4 max-w-xl mx-auto flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Карточка мэтчинга</h1>
-      {err && <p className="text-red-600">{err}</p>}
+      {error && <ErrorView error={error} onRetry={onSubmit} />}
+      {localError && <p className="text-red-600">{localError}</p>}
 
       <section className="space-y-2">
         <h2 className="font-medium">Мои условия (требуют согласия)</h2>
-        {requirements.map((v, i) => (
-          <div key={i} className="space-y-1">
+        {requirements.map((value, index) => (
+          <div key={index} className="space-y-1">
             <input
-              value={v}
-              onChange={e => setReqItem(i, e.target.value)}
-              placeholder={`Условие ${i + 1}`}
-              maxLength={max.req}
+              value={value}
+              onChange={(event) => setRequirement(index, event.target.value)}
+              placeholder={`Условие ${index + 1}`}
+              maxLength={MAX.req}
               className="w-full border rounded px-3 py-2"
             />
-            <C v={v} max={max.req} />
+            {counter(value, MAX.req)}
           </div>
         ))}
       </section>
 
       <section className="space-y-2">
         <h2 className="font-medium">Я готов дать</h2>
-        {give.map((v, i) => (
-          <div key={i} className="space-y-1">
+        {give.map((value, index) => (
+          <div key={index} className="space-y-1">
             <input
-              value={v}
-              onChange={e => setGiveItem(i, e.target.value)} 
-              placeholder={`Обещание ${i + 1}`}
-              maxLength={max.give}
+              value={value}
+              onChange={(event) => setGiveValue(index, event.target.value)}
+              placeholder={`Обещание ${index + 1}`}
+              maxLength={MAX.give}
               className="w-full border rounded px-3 py-2"
             />
-            <C v={v} max={max.give} />
+            {counter(value, MAX.give)}
           </div>
         ))}
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-medium">Мои вопросы партнёру</h2>
-        {questions.map((v, i) => (
-          <div key={i} className="space-y-1">
+        <h2 className="font-medium">Мои вопросы партнеру</h2>
+        {questions.map((value, index) => (
+          <div key={index} className="space-y-1">
             <input
-              value={v}
-              onChange={e => setQItem(i, e.target.value)}
-              placeholder={`Вопрос ${i + 1}`}
-              maxLength={max.q}
+              value={value}
+              onChange={(event) => setQuestion(index, event.target.value)}
+              placeholder={`Вопрос ${index + 1}`}
+              maxLength={MAX.question}
               className="w-full border rounded px-3 py-2"
             />
-            <C v={v} max={max.q} />
+            {counter(value, MAX.question)}
           </div>
         ))}
       </section>
 
       <button
-        onClick={onSubmit}
+        onClick={() => void onSubmit()}
         disabled={loading}
         className="bg-blue-600 text-white rounded px-4 py-2 disabled:opacity-60"
       >

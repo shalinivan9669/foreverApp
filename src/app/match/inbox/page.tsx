@@ -1,477 +1,145 @@
-// src/app/match/inbox/page.tsx
 'use client';
 
-/* eslint-disable @next/next/no-img-element */
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import MatchTabs from '@/components/MatchTabs';
-import { useUserStore } from '@/store/useUserStore';
-import { api } from '@/utils/api';
-import { fetchEnvelope } from '@/utils/apiClient';
-
-/* ----- типы из API ----- */
-type Direction = 'incoming' | 'outgoing';
-type Status =
-  | 'sent'
-  | 'viewed'
-  | 'awaiting_initiator'
-  | 'mutual_ready'
-  | 'paired'
-  | 'rejected'
-  | 'expired';
-
-type Row = {
-  id: string; // like id
-  direction: Direction;
-  status: Status;
-  matchScore: number;
-  updatedAt?: string;
-  peer: { id: string; username: string; avatar: string };
-  canCreatePair: boolean;
-};
-
-/* Деталка лайка (для модалки ответа) */
-type CardSnapshot = { requirements: [string, string, string]; questions: [string, string]; updatedAt?: string };
-type LikeDTO = {
-  id: string;
-  status: Status;
-  matchScore: number;
-  from: { id: string; username: string; avatar: string };
-  to:   { id: string; username: string; avatar: string };
-  fromCardSnapshot: CardSnapshot;                 // карточка инициатора
-  recipientResponse: null | {
-    agreements: [boolean, boolean, boolean];
-    answers: [string, string];
-    initiatorCardSnapshot: CardSnapshot;          // снапшот карточки инициатора в момент ответа
-    at: string;
-  };
-  decisions: {
-    initiator: null | { accepted: boolean; at: string };
-    recipient: null | { accepted: boolean; at: string };
-  };
-};
-
-const STATUS_TEXT: Record<Direction, Record<Status, string>> = {
-  incoming: {
-    sent: 'ожидает вашего ответа',
-    viewed: 'ожидает вашего ответа',
-    awaiting_initiator: 'ожидает решения инициатора',
-    mutual_ready: 'готово к паре',
-    paired: 'пара создана',
-    rejected: 'отклонено',
-    expired: 'истекло',
-  },
-  outgoing: {
-    sent: 'отправлено',
-    viewed: 'просмотрено',
-    awaiting_initiator: 'ожидает вашего решения',
-    mutual_ready: 'готово к паре',
-    paired: 'пара создана',
-    rejected: 'отклонено',
-    expired: 'истекло',
-  },
-};
-
-const BADGE_CLASS: Record<Status, string> = {
-  sent: 'bg-gray-100 text-gray-800',
-  viewed: 'bg-gray-100 text-gray-800',
-  awaiting_initiator: 'bg-amber-100 text-amber-900',
-  mutual_ready: 'bg-green-100 text-green-900',
-  paired: 'bg-green-200 text-green-900',
-  rejected: 'bg-red-100 text-red-900',
-  expired: 'bg-gray-100 text-gray-500',
-};
-
-function formatWhen(iso?: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short' }).format(d);
-}
-
-/* ---------------------------------- страница ---------------------------------- */
+import LoadingView from '@/components/ui/LoadingView';
+import type { MatchLikeDTO } from '@/client/api/types';
+import { useInbox } from '@/client/hooks/useInbox';
+import MatchInboxView from '@/features/match/inbox/MatchInboxView';
 
 export default function InboxPage() {
   const router = useRouter();
-  const user = useUserStore(s => s.user);
+  const {
+    rows,
+    incoming,
+    outgoing,
+    loading,
+    error,
+    mutationLoading,
+    mutationError,
+    refetch,
+    fetchLike,
+    respondToLike,
+    acceptLike,
+    rejectLike,
+    confirmLike,
+  } = useInbox();
 
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const abortRef = useRef<AbortController | null>(null);
-
-  const fetchInbox = useCallback(async () => {
-    if (!user) return;
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-
-    setLoading(true);
-    setErr(null);
-    try {
-      const data = await fetchEnvelope<Row[]>(api('/api/match/inbox'), { signal: ac.signal });
-      setRows(Array.isArray(data) ? data : []);
-    } catch (e) {
-      if ((e as Error).name !== 'AbortError') setErr((e as Error).message || 'Ошибка');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchInbox();
-    return () => abortRef.current?.abort();
-  }, [fetchInbox]);
-
-  const incoming = useMemo(() => rows.filter(r => r.direction === 'incoming'), [rows]);
-  const outgoing = useMemo(() => rows.filter(r => r.direction === 'outgoing'), [rows]);
-
-  /* --- действия --- */
-
-  const openRespond = useCallback((id: string) => {
-  const r = rows.find(x => x.id === id);
-  if (!r) return;
-
-  if (r.direction === 'incoming' && (r.status === 'sent' || r.status === 'viewed')) {
-    setRespondLikeId(id);
-  } else {
-    router.push(`/match/like/${id}`);
-  }
-}, [rows, router]);
-
-  const acceptByInitiator = useCallback(async (likeId: string, accepted: boolean) => {
-    if (!user) return;
-    const endpoint = accepted ? '/api/match/accept' : '/api/match/reject';
-    try {
-      await fetchEnvelope<Record<string, never> | { already?: true }>(
-        api(endpoint),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ likeId }),
-        },
-        { idempotency: true }
-      );
-      fetchInbox();
-    } catch (e) {
-      alert((e as Error).message || 'Failed to save decision');
-    }
-  }, [user, fetchInbox]);
-
-  const createPair = useCallback(async (likeId: string) => {
-    if (!user) return;
-    try {
-      await fetchEnvelope<{ pairId: string; members: [string, string] }>(
-        api('/api/match/confirm'),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ likeId }),
-        },
-        { idempotency: true }
-      );
-      router.replace('/couple-activity');
-    } catch (e) {
-      alert((e as Error).message || 'Failed to create pair');
-    }
-  }, [router, user]);
-
-  /* --- модалка ответа --- */
   const [respondLikeId, setRespondLikeId] = useState<string | null>(null);
+  const [respondLike, setRespondLike] = useState<MatchLikeDTO | null>(null);
+  const [agreements, setAgreements] = useState<[boolean, boolean, boolean]>([false, false, false]);
+  const [answers, setAnswers] = useState<[string, string]>(['', '']);
+  const [respondError, setRespondError] = useState<string | null>(null);
 
-  if (!user) return <div className="p-4">No user</div>;
+  const openRespondModal = async (likeId: string) => {
+    const details = await fetchLike(likeId, true);
+    if (!details) return;
+    setRespondLikeId(likeId);
+    setRespondLike(details);
+    setAgreements([false, false, false]);
+    setAnswers(['', '']);
+    setRespondError(null);
+  };
 
-  return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <MatchTabs />
+  const onOpenIncoming = async (id: string) => {
+    const row = rows.find((item) => item.id === id);
+    if (!row) return;
 
-      <div className="mt-3 mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Потенциальные партнёры</h1>
-        <div className="flex items-center gap-2">
-          {err && <span className="text-red-600 text-sm">Ошибка: {err}</span>}
-          <button
-            onClick={fetchInbox}
-            disabled={loading}
-            className="text-sm px-3 py-1.5 border rounded hover:bg-gray-50 disabled:opacity-60"
-            aria-label="Обновить список"
-          >
-            {loading ? 'Обновляем…' : 'Обновить'}
-          </button>
-        </div>
-      </div>
-
-      <Section
-        title="Входящие"
-        rows={incoming}
-        onOpen={openRespond}
-        onAccept={(id) => acceptByInitiator(id, true)}   // не используется для входящих
-        onReject={(id) => acceptByInitiator(id, false)}  // не используется для входящих
-        onCreatePair={createPair}
-      />
-
-      <Section
-        title="Исходящие"
-        rows={outgoing}
-        onOpen={(id) => router.push(`/match/like/${id}`)}
-        onAccept={(id) => acceptByInitiator(id, true)}
-        onReject={(id) => acceptByInitiator(id, false)}
-        onCreatePair={createPair}
-      />
-
-      {respondLikeId && (
-        <RespondModal
-          likeId={respondLikeId}
-          onClose={() => setRespondLikeId(null)}
-          onDone={() => {
-            setRespondLikeId(null);
-            fetchInbox();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/* --------------------------------- раздел списка -------------------------------- */
-
-function Section(props: {
-  title: string;
-  rows: Row[];
-  onOpen: (id: string) => void;
-  onAccept: (id: string) => void;
-  onReject: (id: string) => void;
-  onCreatePair: (id: string) => void;
-}) {
-  const { title, rows, onOpen, onAccept, onReject, onCreatePair } = props;
-
-  return (
-    <section className="mb-8">
-      <h2 className="font-medium mb-2">{title}</h2>
-      <div className="flex flex-col gap-2">
-        {rows.map(r => {
-          const canRespond = r.direction === 'incoming' && (r.status === 'sent' || r.status === 'viewed');
-          const canDecide  = r.direction === 'outgoing' && r.status === 'awaiting_initiator';
-          return (
-            <article key={r.id} className="border rounded p-2">
-              <div className="w-full text-left flex items-center gap-3">
-                <button type="button" onClick={() => onOpen(r.id)} className="flex items-center gap-3 flex-1">
-                  <img
-                    src={`https://cdn.discordapp.com/avatars/${r.peer.id}/${r.peer.avatar}.png`}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                    alt={r.peer.username}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="font-medium truncate">{r.peer.username}</div>
-                      <span className={`text-[11px] px-2 py-0.5 rounded ${BADGE_CLASS[r.status]}`}>
-                        {STATUS_TEXT[r.direction][r.status]}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Скор: {Math.round(r.matchScore)}%
-                      {r.updatedAt ? ` · ${formatWhen(r.updatedAt)}` : ''}
-                    </div>
-                  </div>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  {canRespond && (
-                    <button
-                      type="button"
-                      onClick={() => onOpen(r.id)}
-                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
-                    >
-                      Ответить
-                    </button>
-                  )}
-
-                  {canDecide && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onAccept(r.id)}
-                        className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
-                      >
-                        Принять
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onReject(r.id)}
-                        className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
-                      >
-                        Отклонить
-                      </button>
-                    </>
-                  )}
-
-                  {r.canCreatePair && (
-                    <button
-                      type="button"
-                      onClick={() => onCreatePair(r.id)}
-                      className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700"
-                    >
-                      Создать пару
-                    </button>
-                  )}
-                </div>
-              </div>
-            </article>
-          );
-        })}
-        {!rows.length && <p className="text-sm text-gray-500">Пусто</p>}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------ модалка «Ответить» ------------------------------ */
-
-function RespondModal(props: {
-  likeId: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { likeId, onClose, onDone } = props;
-  const user = useUserStore(s => s.user);
-  const [like, setLike] = useState<LikeDTO | null>(null);
-  const [agree, setAgree] = useState<[boolean, boolean, boolean]>([false, false, false]);
-  const [ans, setAns] = useState<[string, string]>(['', '']);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let on = true;
-    (async () => {
-      try {
-        const data = await fetchEnvelope<LikeDTO>(api(`/api/match/like/${likeId}`));
-        if (!on) return;
-        setLike(data);
-        setAgree([false, false, false]);
-        setAns(['', '']);
-        setErr(null);
-      } catch (e) {
-        if (!on) return;
-        setErr((e as Error).message || 'Failed to submit response');
-      }
-    })();
-    return () => { on = false; };
-  }, [likeId]);
-
-  const canSend =
-    !!like &&
-    agree.every(Boolean) &&
-    ans[0].trim().length > 0 &&
-    ans[1].trim().length > 0 &&
-    ans[0].length <= 280 &&
-    ans[1].length <= 280;
-
-  const send = useCallback(async () => {
-    if (!user || !canSend) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await fetchEnvelope<{ status: Status }>(
-        api('/api/match/respond'),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            likeId,
-            agreements: [true, true, true],
-            answers: ans,
-          }),
-        },
-        { idempotency: true }
-      );
-      onDone();
-    } catch (e) {
-      setErr((e as Error).message || 'Failed to submit response');
-    } finally {
-      setBusy(false);
+    if (row.direction === 'incoming' && (row.status === 'sent' || row.status === 'viewed')) {
+      await openRespondModal(id);
+      return;
     }
-  }, [user, canSend, likeId, ans, onDone]);
 
-  if (!like) return null;
+    router.push(`/match/like/${id}`);
+  };
+
+  const onOpenOutgoing = (id: string) => {
+    router.push(`/match/like/${id}`);
+  };
+
+  const onToggleAgreement = (index: number, checked: boolean) => {
+    const next = [...agreements] as [boolean, boolean, boolean];
+    next[index] = checked;
+    setAgreements(next);
+  };
+
+  const onChangeAnswer = (index: number, value: string) => {
+    const next = [...answers] as [string, string];
+    next[index] = value.slice(0, 280);
+    setAnswers(next);
+  };
+
+  const canSubmitResponse = useMemo(() => {
+    const first = answers[0].trim();
+    const second = answers[1].trim();
+    return agreements.every(Boolean) && first.length > 0 && second.length > 0;
+  }, [agreements, answers]);
+
+  const onSubmitResponse = async () => {
+    if (!respondLikeId || !canSubmitResponse) return;
+    const done = await respondToLike({
+      likeId: respondLikeId,
+      agreements: [true, true, true],
+      answers,
+    });
+    if (!done) {
+      setRespondError(mutationError?.message ?? 'Не удалось отправить ответ');
+      return;
+    }
+
+    setRespondLikeId(null);
+    setRespondLike(null);
+    setRespondError(null);
+  };
+
+  const onAccept = (id: string) => {
+    void acceptLike({ likeId: id });
+  };
+
+  const onReject = (id: string) => {
+    void rejectLike({ likeId: id });
+  };
+
+  const onCreatePair = async (id: string) => {
+    const done = await confirmLike({ likeId: id });
+    if (done) {
+      router.replace('/couple-activity');
+    }
+  };
+
+  if (loading && rows.length === 0) {
+    return <LoadingView label="Загружаем входящие и исходящие…" />;
+  }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
-      <div className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-3">
-          <img
-            src={`https://cdn.discordapp.com/avatars/${like.from.id}/${like.from.avatar}.png`}
-            width={40}
-            height={40}
-            className="rounded-full"
-            alt={like.from.username}
-          />
-          <div className="font-medium">Ответ на заявку @{like.from.username}</div>
-          <button onClick={onClose} className="ml-auto text-gray-500 hover:text-black" aria-label="Закрыть">✕</button>
-        </div>
-
-        <div className="p-4 space-y-4">
-          <section>
-            <h3 className="font-medium mb-2">Согласие с условиями</h3>
-            <ul className="space-y-2">
-              {like.fromCardSnapshot.requirements.map((r, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={agree[i]}
-                      onChange={e => {
-                        const a = [...agree] as [boolean, boolean, boolean];
-                        a[i] = e.target.checked;
-                        setAgree(a);
-                      }}
-                    />
-                    <span>{r}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="font-medium mb-2">Ответьте на вопросы</h3>
-            {like.fromCardSnapshot.questions.map((q, i) => (
-              <div key={i} className="space-y-1">
-                <div className="text-sm text-gray-500">{q}</div>
-                <textarea
-                  value={ans[i]}
-                  onChange={e => {
-                    const a = [...ans] as [string, string];
-                    a[i] = e.target.value.slice(0, 280);
-                    setAns(a);
-                  }}
-                  maxLength={280}
-                  rows={3}
-                  className="w-full border rounded px-3 py-2"
-                />
-                <div className="text-xs text-gray-500">{ans[i].length}/280</div>
-              </div>
-            ))}
-          </section>
-
-          {err && <p className="text-red-600">{err}</p>}
-        </div>
-
-        <div className="p-4 border-t flex gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Отмена</button>
-          <button
-            onClick={send}
-            disabled={!canSend || busy}
-            className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
-          >
-            {busy ? 'Отправляем…' : 'Отправить ответ'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <MatchInboxView
+      incoming={incoming}
+      outgoing={outgoing}
+      loading={loading}
+      error={error}
+      onRefresh={() => void refetch()}
+      onOpenIncoming={(id) => void onOpenIncoming(id)}
+      onOpenOutgoing={onOpenOutgoing}
+      onAccept={onAccept}
+      onReject={onReject}
+      onCreatePair={(id) => void onCreatePair(id)}
+      respondModal={{
+        open: Boolean(respondLikeId && respondLike),
+        like: respondLike,
+        agreements,
+        answers,
+        canSubmit: canSubmitResponse,
+        busy: mutationLoading,
+        error: respondError ?? mutationError?.message ?? null,
+      }}
+      onCloseRespondModal={() => {
+        setRespondLikeId(null);
+        setRespondLike(null);
+        setRespondError(null);
+      }}
+      onToggleAgreement={onToggleAgreement}
+      onChangeAnswer={onChangeAnswer}
+      onSubmitResponse={() => void onSubmitResponse()}
+    />
   );
 }
-
-
