@@ -8,15 +8,15 @@ import CoupleActivityTile    from '@/components/main-menu/CoupleActivityTile';
 
 export default function MainMenuPage() {
   return (
-    <main className="grid w-screen h-screen grid-rows-[46.5vh_7vh_46.5vh]">
-      {/* Верхняя часть: 2×2 сетка */}
-      <div className="grid grid-cols-2 grid-rows-2 gap-x-5 gap-y-2 p-2">
+    <main className="mx-auto grid h-dvh w-full max-w-md grid-rows-[46%_24%_24%] gap-3 p-3">
+      {/* Р’РµСЂС…РЅСЏСЏ С‡Р°СЃС‚СЊ: 2Г—2 СЃРµС‚РєР° */}
+      <div className="grid grid-cols-2 grid-rows-2 gap-3">
         <SearchPairTile />
         <ProfileTile />
         <QuestionnaireTile />
       </div>
 
-      {/* Нижняя часть */}
+      {/* РќРёР¶РЅСЏСЏ С‡Р°СЃС‚СЊ */}
       <LootboxTile />
       <CoupleActivityTile />
     </main>

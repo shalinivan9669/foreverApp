@@ -236,3 +236,10 @@ Summary:
 - Added explicit client idempotency key flow for checkin/complete retries, plus in-flight button locks to reduce double-submit risk.
 - Improved client error-kind mapping for 401/403/404/409/422, added self-check scripts, and updated pair-activity working inventory with explicit no-DB scope.
 Files: src/app/couple-activity/page.tsx, src/features/activities/CoupleActivityView.tsx, src/components/activities/CheckInModal.tsx, src/client/hooks/useActivityOffers.ts, src/client/api/activities.api.ts, src/client/api/http.ts, src/client/api/idempotency.ts, src/client/api/errors.ts, src/client/viewmodels/activity.viewmodels.ts, src/features/activities/checkinCompleteFlow.ts, scripts/activity-flow.selfcheck.ts, scripts/client-errors.selfcheck.ts, package.json, docs/activities/pair-activity-inventory.working.md, docs/CHANGELOG.md
+
+Date: 2026-02-08
+Summary:
+- Added a deterministic embedded color system for Discord iframe (`globals` tokens + reusable `app-*` UI classes) to prevent host-theme contrast regressions.
+- Updated shared UI surfaces (main menu tiles, cards, modals, tabs, back bar, loading/empty states) with explicit background/text/border colors while keeping existing flows unchanged.
+- Documented the new embedded theme approach and constraints.
+Files: src/app/globals.css, src/app/layout.tsx, src/app/main-menu/page.tsx, src/app/page.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/ui/BackBar.tsx, src/components/ui/LoadingView.tsx, src/components/ui/EmptyStateView.tsx, src/components/MatchTabs.tsx, src/components/CandidateCard.tsx, src/components/QuestionCard.tsx, src/components/QuestionnaireCard.tsx, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/components/match/LikeModalView.tsx, src/features/activities/CoupleActivityView.tsx, src/features/match/inbox/MatchInboxView.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md

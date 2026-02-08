@@ -16,9 +16,9 @@ type QuestionnairesPageViewProps = {
 };
 
 const tabClassName = (active: boolean, disabled = false): string => {
-  if (disabled) return 'rounded border px-3 py-1.5 text-sm text-gray-400 cursor-not-allowed';
-  if (active) return 'rounded border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm text-white';
-  return 'rounded border px-3 py-1.5 text-sm hover:bg-gray-50';
+  if (disabled) return 'app-btn-secondary cursor-not-allowed rounded px-3 py-1.5 text-sm text-slate-400';
+  if (active) return 'app-btn-primary rounded px-3 py-1.5 text-sm text-white';
+  return 'app-btn-secondary rounded px-3 py-1.5 text-sm text-slate-800';
 };
 
 export default function QuestionnairesPageView({
@@ -32,7 +32,7 @@ export default function QuestionnairesPageView({
   onStartQuestionnaire,
 }: QuestionnairesPageViewProps) {
   const cards = activeTab === 'personal' ? personalCards : coupleCards;
-  const coupleLockedMessage = 'Доступно после создания активной пары.';
+  const coupleLockedMessage = 'Р вЂќР С•РЎРѓРЎвЂљРЎС“Р С—Р Р…Р С• Р С—Р С•РЎРѓР В»Р Вµ РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р С‘РЎРЏ Р В°Р С”РЎвЂљР С‘Р Р†Р Р…Р С•Р в„– Р С—Р В°РЎР‚РЎвЂ№.';
 
   return (
     <div className="space-y-4">
@@ -42,7 +42,7 @@ export default function QuestionnairesPageView({
           className={tabClassName(activeTab === 'personal')}
           onClick={() => onChangeTab('personal')}
         >
-          Персональные
+          Р СџР ВµРЎР‚РЎРѓР С•Р Р…Р В°Р В»РЎРЉР Р…РЎвЂ№Р Вµ
         </button>
         <button
           type="button"
@@ -54,7 +54,7 @@ export default function QuestionnairesPageView({
           disabled={!canAccessCouple}
           title={!canAccessCouple ? coupleLockedMessage : undefined}
         >
-          Для пары
+          Р вЂќР В»РЎРЏ Р С—Р В°РЎР‚РЎвЂ№
         </button>
       </div>
 
@@ -64,7 +64,7 @@ export default function QuestionnairesPageView({
         </div>
       )}
 
-      {loadingCards && cards.length === 0 && <LoadingView compact label="Загрузка анкет..." />}
+      {loadingCards && cards.length === 0 && <LoadingView compact label="Р вЂ”Р В°Р С–РЎР‚РЎС“Р В·Р С”Р В° Р В°Р Р…Р С”Р ВµРЎвЂљ..." />}
 
       <div className="grid gap-4 md:grid-cols-2">
         {cards.map((questionnaire) => {
@@ -83,12 +83,13 @@ export default function QuestionnairesPageView({
       </div>
 
       {!loadingCards && cards.length === 0 && (
-        <p className="text-sm text-gray-600">
+        <p className="app-muted text-sm">
           {activeTab === 'personal'
-            ? 'Нет персональных анкет.'
-            : 'Нет парных анкет.'}
+            ? 'Р СњР ВµРЎвЂљ Р С—Р ВµРЎР‚РЎРѓР С•Р Р…Р В°Р В»РЎРЉР Р…РЎвЂ№РЎвЂ¦ Р В°Р Р…Р С”Р ВµРЎвЂљ.'
+            : 'Р СњР ВµРЎвЂљ Р С—Р В°РЎР‚Р Р…РЎвЂ№РЎвЂ¦ Р В°Р Р…Р С”Р ВµРЎвЂљ.'}
         </p>
       )}
     </div>
   );
 }
+

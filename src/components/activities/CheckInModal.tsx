@@ -37,14 +37,10 @@ export default function CheckInModal(props: {
     retryCompleteLoading = false,
   } = props;
 
-  const t = (txt?: I18nText) =>
-    txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] : '';
+  const t = (txt?: I18nText) => txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] : '';
 
   const initialAnswers = useMemo(
-    () =>
-      Object.fromEntries(
-        activityItem.checkIns.map((checkIn) => [checkIn.id, 1])
-      ) as Record<string, number>,
+    () => Object.fromEntries(activityItem.checkIns.map((checkIn) => [checkIn.id, 1])) as Record<string, number>,
     [activityItem.checkIns]
   );
 
@@ -71,17 +67,17 @@ export default function CheckInModal(props: {
   const closeDisabled = submitting || retryCompleteLoading;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded bg-white p-4 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-3">
+      <div className="app-panel w-full max-w-lg p-4 text-slate-900">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Оцените: {t(activityItem.title)}</h3>
+          <h3 className="text-lg font-semibold">РћС†РµРЅРёС‚Рµ: {t(activityItem.title)}</h3>
           <button
             type="button"
             onClick={onClose}
             disabled={closeDisabled}
-            className="text-gray-500 hover:text-black disabled:opacity-60"
+            className="app-btn-secondary px-2 py-1 text-slate-700 disabled:opacity-60"
           >
-            ×
+            x
           </button>
         </div>
 
@@ -121,7 +117,7 @@ export default function CheckInModal(props: {
                       disabled={submitting || pendingComplete}
                       onChange={() => handleChange(checkIn.id, 1)}
                     />
-                    Да
+                    Р”Р°
                   </label>
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -130,7 +126,7 @@ export default function CheckInModal(props: {
                       disabled={submitting || pendingComplete}
                       onChange={() => handleChange(checkIn.id, 2)}
                     />
-                    Нет
+                    РќРµС‚
                   </label>
                 </div>
               )}
@@ -143,27 +139,27 @@ export default function CheckInModal(props: {
             type="button"
             onClick={onClose}
             disabled={closeDisabled}
-            className="rounded border px-3 py-2 disabled:opacity-60"
+            className="app-btn-secondary px-3 py-2 text-slate-800 disabled:opacity-60"
           >
-            Отмена
+            РћС‚РјРµРЅР°
           </button>
           {pendingComplete ? (
             <button
               type="button"
               onClick={onRetryComplete}
               disabled={!onRetryComplete || retryCompleteLoading}
-              className="rounded bg-black px-3 py-2 text-white disabled:opacity-60"
+              className="app-btn-primary px-3 py-2 text-white disabled:opacity-60"
             >
-              {retryCompleteLoading ? 'Завершаем...' : 'Завершить еще раз'}
+              {retryCompleteLoading ? 'Р—Р°РІРµСЂС€Р°РµРј...' : 'Р—Р°РІРµСЂС€РёС‚СЊ РµС‰Рµ СЂР°Р·'}
             </button>
           ) : (
             <button
               type="button"
               onClick={submit}
               disabled={submitting}
-              className="rounded bg-black px-3 py-2 text-white disabled:opacity-60"
+              className="app-btn-primary px-3 py-2 text-white disabled:opacity-60"
             >
-              {submitting ? 'Отправка...' : 'Отправить'}
+              {submitting ? 'РћС‚РїСЂР°РІРєР°...' : 'РћС‚РїСЂР°РІРёС‚СЊ'}
             </button>
           )}
         </div>

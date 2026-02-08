@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import type { MouseEvent } from 'react';
@@ -97,8 +97,8 @@ export default function QuestionnaireCard({
         }
       }}
       className={
-        'relative block rounded-lg border bg-white p-4 transition ' +
-        'hover:-translate-y-0.5 hover:shadow-sm ' +
+        'app-panel relative block p-4 transition ' +
+        'hover:-translate-y-0.5 hover:shadow-md ' +
         (q.status === 'locked' || disabled ? 'opacity-75' : '') +
         (q.isStarter ? ' border-blue-200 bg-blue-50/40' : '')
       }
@@ -107,27 +107,27 @@ export default function QuestionnaireCard({
       <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-lg ${vectorStripe[q.vector]}`} />
 
       <div className="flex items-start justify-between gap-3 pl-3">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span className="inline-flex h-2 w-2 rounded-full bg-gray-300" />
+        <div className="app-muted flex items-center gap-2 text-sm">
+          <span className="inline-flex h-2 w-2 rounded-full bg-slate-300" />
           <span>{vectorLabel[q.vector]}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{scopeLabel[q.scope]}</span>
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{audienceLabel[q.audience]}</span>
-          {badge && <span className="text-xs px-2 py-0.5 rounded bg-gray-100">{badge}</span>}
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{scopeLabel[q.scope]}</span>
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{audienceLabel[q.audience]}</span>
+          {badge && <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{badge}</span>}
         </div>
       </div>
 
       <div className="mt-3 pl-3">
-        <h3 className="text-base font-semibold text-gray-900 leading-snug max-h-12 overflow-hidden">
+        <h3 className="max-h-12 overflow-hidden text-base font-semibold leading-snug text-slate-900">
           {q.title}
         </h3>
-        <p className="text-sm text-gray-600 mt-1 leading-5 max-h-10 overflow-hidden">
+        <p className="app-muted mt-1 max-h-10 overflow-hidden text-sm leading-5">
           {q.subtitle}
         </p>
       </div>
 
-      <div className="mt-3 pl-3 text-sm text-gray-700 flex flex-wrap gap-x-3 gap-y-1">
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 pl-3 text-sm text-slate-700">
         <span>{q.estMinutesMin}-{q.estMinutesMax} мин</span>
         <span>{q.questionCount} вопросов</span>
         <span>уровень {q.level}</span>
@@ -137,12 +137,12 @@ export default function QuestionnaireCard({
 
       <div className="mt-3 pl-3 flex flex-wrap gap-2">
         {q.tagsPublic.map((tag) => (
-          <span key={tag} className="text-[11px] px-2 py-0.5 rounded border border-gray-200">
+          <span key={tag} className="rounded border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700">
             {tag}
           </span>
         ))}
         {q.tagsHiddenCount > 0 && (
-          <span className="text-[11px] px-2 py-0.5 rounded border border-gray-200">
+          <span className="rounded border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700">
             +{q.tagsHiddenCount}
           </span>
         )}
@@ -151,16 +151,16 @@ export default function QuestionnaireCard({
       <div className="mt-4 pl-3 flex items-center justify-between gap-3">
         {q.status === 'in_progress' && (
           <div className="flex-1">
-            <div className="h-2 bg-gray-100 rounded">
+            <div className="h-2 rounded bg-slate-100">
               <div
-                className="h-2 bg-blue-600 rounded"
+                className="h-2 rounded bg-blue-600"
                 style={{ width: `${Math.min(100, q.progressPct ?? 0)}%` }}
               />
             </div>
-            <div className="text-xs text-gray-500 mt-1">Прогресс {q.progressPct ?? 0}%</div>
+            <div className="app-muted mt-1 text-xs">Прогресс {q.progressPct ?? 0}%</div>
           </div>
         )}
-        {q.status === 'completed' && <div className="text-xs text-gray-500">Готово</div>}
+        {q.status === 'completed' && <div className="app-muted text-xs">Готово</div>}
 
         <button
           type="button"
@@ -176,10 +176,10 @@ export default function QuestionnaireCard({
           }}
           disabled={actionDisabled}
           className={
-            'px-3 py-1.5 rounded text-sm ' +
+            'rounded px-3 py-1.5 text-sm ' +
             (actionDisabled
-              ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700')
+              ? 'cursor-not-allowed bg-slate-200 text-slate-500'
+              : 'app-btn-primary text-white')
           }
         >
           {loading ? 'Запускаем...' : ctaLabel(q)}
@@ -187,10 +187,10 @@ export default function QuestionnaireCard({
       </div>
 
       {q.status === 'locked' && q.lockReason && (
-        <div className="mt-2 pl-3 text-xs text-gray-500">{q.lockReason}</div>
+        <div className="app-muted mt-2 pl-3 text-xs">{q.lockReason}</div>
       )}
       {!q.lockReason && disabledReason && (
-        <div className="mt-2 pl-3 text-xs text-gray-500">{disabledReason}</div>
+        <div className="app-muted mt-2 pl-3 text-xs">{disabledReason}</div>
       )}
     </Link>
   );

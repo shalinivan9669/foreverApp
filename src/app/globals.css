@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --app-bg: #eef3fb;
+  --app-bg-accent: #dfe8f8;
+  --app-surface: #ffffff;
+  --app-surface-soft: #f5f8ff;
+  --app-fg: #14213d;
+  --app-muted: #4d5b77;
+  --app-border: #c7d2e3;
+  --app-primary: #2251b2;
+  --app-primary-strong: #173f95;
+  --app-primary-contrast: #ffffff;
+  --app-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--app-bg);
+  --color-foreground: var(--app-fg);
+  --color-surface: var(--app-surface);
+  --color-surface-soft: var(--app-surface-soft);
+  --color-muted: var(--app-muted);
+  --color-border: var(--app-border);
+  --color-primary: var(--app-primary);
+  --color-primary-strong: var(--app-primary-strong);
+  --color-primary-contrast: var(--app-primary-contrast);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*,
+*::before,
+*::after {
+  border-color: var(--app-border);
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background:
+    radial-gradient(circle at 8% -10%, var(--app-bg-accent) 0, transparent 38%),
+    radial-gradient(circle at 100% 0%, #f7d7e6 0, transparent 30%),
+    linear-gradient(170deg, #f3f7ff 0%, var(--app-bg) 38%, #e7eefb 100%);
+  color: var(--app-fg);
+  font-family: "Trebuchet MS", "Segoe UI", "Noto Sans", sans-serif;
+}
+
+a {
+  color: var(--app-primary-strong);
+}
+
+input,
+textarea,
+select {
+  background-color: var(--app-surface);
+  color: var(--app-fg);
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #7184a8;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.app-panel {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 0.875rem;
+  box-shadow: var(--app-shadow);
+}
+
+.app-panel-soft {
+  background-color: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+  border-radius: 0.875rem;
+}
+
+.app-muted {
+  color: var(--app-muted);
+}
+
+.app-btn-primary {
+  background-color: var(--app-primary);
+  color: var(--app-primary-contrast);
+  border: 1px solid #183f95;
+  border-radius: 0.625rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.app-btn-primary:hover {
+  background-color: var(--app-primary-strong);
+}
+
+.app-btn-secondary {
+  background-color: #e7edf9;
+  color: var(--app-fg);
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.app-btn-secondary:hover {
+  background-color: #d7e1f3;
+}
+
+.app-btn-danger {
+  background-color: #b91c1c;
+  color: #fff;
+  border: 1px solid #7f1d1d;
+  border-radius: 0.625rem;
+}
+
+.app-btn-success {
+  background-color: #047857;
+  color: #fff;
+  border: 1px solid #065f46;
+  border-radius: 0.625rem;
 }

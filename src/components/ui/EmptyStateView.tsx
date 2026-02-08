@@ -7,9 +7,9 @@ type EmptyStateViewProps = {
 
 export default function EmptyStateView({ title, description }: EmptyStateViewProps) {
   return (
-    <div className="rounded border border-dashed border-gray-300 p-4 text-sm text-gray-600">
-      <p className="font-medium text-gray-700">{title}</p>
-      {description && <p className="mt-1">{description}</p>}
+    <div className="app-panel-soft border-dashed p-4 text-sm text-slate-700">
+      <p className="font-medium text-slate-900">{title}</p>
+      {description && <p className="mt-1 app-muted">{description}</p>}
     </div>
   );
 }

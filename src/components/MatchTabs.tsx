@@ -9,16 +9,21 @@ export default function MatchTabs() {
     return (
       <Link
         href={href}
-        className={`px-3 mt-8 py-2 rounded ${active ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+        className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+          active
+            ? 'app-btn-primary text-white'
+            : 'app-btn-secondary text-slate-800'
+        }`}
       >
         {label}
       </Link>
     );
   };
+
   return (
-    <div className="p-3 flex gap-2 border-b">
-      <Item href="/search" label="Поиск" />
-      <Item href="/match/inbox" label="Потенциальные партнёры" />
+    <div className="app-panel-soft flex gap-2 p-3">
+      <Item href="/search" label="Р СџР С•Р С‘РЎРѓР С”" />
+      <Item href="/match/inbox" label="Р СџР С•РЎвЂљР ВµР Р…РЎвЂ Р С‘Р В°Р В»РЎРЉР Р…РЎвЂ№Р Вµ Р С—Р В°РЎР‚РЎвЂљР Р…РЎвЂРЎР‚РЎвЂ№" />
     </div>
   );
 }

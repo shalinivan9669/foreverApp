@@ -9,22 +9,22 @@ import type { UiErrorState } from '@/client/api/errors';
 
 const STATUS_TEXT: Record<MatchDirection, Record<MatchStatus, string>> = {
   incoming: {
-    sent: 'ожидает вашего ответа',
-    viewed: 'ожидает вашего ответа',
-    awaiting_initiator: 'ожидает решения инициатора',
-    mutual_ready: 'готово к паре',
-    paired: 'пара создана',
-    rejected: 'отклонено',
-    expired: 'истекло',
+    sent: 'Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљ Р Р†Р В°РЎв‚¬Р ВµР С–Р С• Р С•РЎвЂљР Р†Р ВµРЎвЂљР В°',
+    viewed: 'Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљ Р Р†Р В°РЎв‚¬Р ВµР С–Р С• Р С•РЎвЂљР Р†Р ВµРЎвЂљР В°',
+    awaiting_initiator: 'Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљ РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘РЎРЏ Р С‘Р Р…Р С‘РЎвЂ Р С‘Р В°РЎвЂљР С•РЎР‚Р В°',
+    mutual_ready: 'Р С–Р С•РЎвЂљР С•Р Р†Р С• Р С” Р С—Р В°РЎР‚Р Вµ',
+    paired: 'Р С—Р В°РЎР‚Р В° РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р В°',
+    rejected: 'Р С•РЎвЂљР С”Р В»Р С•Р Р…Р ВµР Р…Р С•',
+    expired: 'Р С‘РЎРѓРЎвЂљР ВµР С”Р В»Р С•',
   },
   outgoing: {
-    sent: 'отправлено',
-    viewed: 'просмотрено',
-    awaiting_initiator: 'ожидает вашего решения',
-    mutual_ready: 'готово к паре',
-    paired: 'пара создана',
-    rejected: 'отклонено',
-    expired: 'истекло',
+    sent: 'Р С•РЎвЂљР С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С•',
+    viewed: 'Р С—РЎР‚Р С•РЎРѓР СР С•РЎвЂљРЎР‚Р ВµР Р…Р С•',
+    awaiting_initiator: 'Р С•Р В¶Р С‘Р Т‘Р В°Р ВµРЎвЂљ Р Р†Р В°РЎв‚¬Р ВµР С–Р С• РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘РЎРЏ',
+    mutual_ready: 'Р С–Р С•РЎвЂљР С•Р Р†Р С• Р С” Р С—Р В°РЎР‚Р Вµ',
+    paired: 'Р С—Р В°РЎР‚Р В° РЎРѓР С•Р В·Р Т‘Р В°Р Р…Р В°',
+    rejected: 'Р С•РЎвЂљР С”Р В»Р С•Р Р…Р ВµР Р…Р С•',
+    expired: 'Р С‘РЎРѓРЎвЂљР ВµР С”Р В»Р С•',
   },
 };
 
@@ -97,7 +97,7 @@ function Section(props: {
           const canDecide = row.direction === 'outgoing' && row.status === 'awaiting_initiator';
 
           return (
-            <article key={row.id} className="border rounded p-2">
+            <article key={row.id} className="app-panel p-2">
               <div className="w-full text-left flex items-center gap-3">
                 <button type="button" onClick={() => onOpen(row.id)} className="flex items-center gap-3 flex-1">
                   <img
@@ -114,9 +114,9 @@ function Section(props: {
                         {STATUS_TEXT[row.direction][row.status]}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Скор: {Math.round(row.matchScore)}%
-                      {row.updatedAt ? ` · ${formatWhen(row.updatedAt)}` : ''}
+                    <div className="app-muted text-xs">
+                      Р РЋР С”Р С•РЎР‚: {Math.round(row.matchScore)}%
+                      {row.updatedAt ? ` Р’В· ${formatWhen(row.updatedAt)}` : ''}
                     </div>
                   </div>
                 </button>
@@ -128,7 +128,7 @@ function Section(props: {
                       onClick={() => onOpen(row.id)}
                       className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
                     >
-                      Ответить
+                      Р С›РЎвЂљР Р†Р ВµРЎвЂљР С‘РЎвЂљРЎРЉ
                     </button>
                   )}
 
@@ -139,14 +139,14 @@ function Section(props: {
                         onClick={() => onAccept(row.id)}
                         className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
                       >
-                        Принять
+                        Р СџРЎР‚Р С‘Р Р…РЎРЏРЎвЂљРЎРЉ
                       </button>
                       <button
                         type="button"
                         onClick={() => onReject(row.id)}
                         className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
                       >
-                        Отклонить
+                        Р С›РЎвЂљР С”Р В»Р С•Р Р…Р С‘РЎвЂљРЎРЉ
                       </button>
                     </>
                   )}
@@ -157,7 +157,7 @@ function Section(props: {
                       onClick={() => onCreatePair(row.id)}
                       className="text-xs bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700"
                     >
-                      Создать пару
+                      Р РЋР С•Р В·Р Т‘Р В°РЎвЂљРЎРЉ Р С—Р В°РЎР‚РЎС“
                     </button>
                   )}
                 </div>
@@ -165,7 +165,7 @@ function Section(props: {
             </article>
           );
         })}
-        {!rows.length && <p className="text-sm text-gray-500">Пусто</p>}
+        {!rows.length && <p className="app-muted text-sm">Р СџРЎС“РЎРѓРЎвЂљР С•</p>}
       </div>
     </section>
   );
@@ -191,19 +191,19 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
   } = props;
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
+    <div className="mx-auto max-w-2xl p-4 text-slate-900">
       <MatchTabs />
 
       <div className="mt-3 mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Потенциальные партнеры</h1>
+        <h1 className="text-xl font-semibold">Р СџР С•РЎвЂљР ВµР Р…РЎвЂ Р С‘Р В°Р В»РЎРЉР Р…РЎвЂ№Р Вµ Р С—Р В°РЎР‚РЎвЂљР Р…Р ВµРЎР‚РЎвЂ№</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="text-sm px-3 py-1.5 border rounded hover:bg-gray-50 disabled:opacity-60"
-            aria-label="Обновить список"
+            className="app-btn-secondary px-3 py-1.5 text-sm text-slate-800 disabled:opacity-60"
+            aria-label="Р С›Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљРЎРЉ РЎРѓР С—Р С‘РЎРѓР С•Р С”"
           >
-            {loading ? 'Обновляем…' : 'Обновить'}
+            {loading ? 'Р С›Р В±Р Р…Р С•Р Р†Р В»РЎРЏР ВµР СРІР‚В¦' : 'Р С›Р В±Р Р…Р С•Р Р†Р С‘РЎвЂљРЎРЉ'}
           </button>
         </div>
       </div>
@@ -215,7 +215,7 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
       )}
 
       <Section
-        title="Входящие"
+        title="Р вЂ™РЎвЂ¦Р С•Р Т‘РЎРЏРЎвЂ°Р С‘Р Вµ"
         rows={incoming}
         onOpen={onOpenIncoming}
         onAccept={onAccept}
@@ -224,7 +224,7 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
       />
 
       <Section
-        title="Исходящие"
+        title="Р ВРЎРѓРЎвЂ¦Р С•Р Т‘РЎРЏРЎвЂ°Р С‘Р Вµ"
         rows={outgoing}
         onOpen={onOpenOutgoing}
         onAccept={onAccept}
@@ -233,9 +233,9 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
       />
 
       {respondModal.open && respondModal.like && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
-          <div className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden">
-            <div className="p-4 border-b flex items-center gap-3">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 sm:items-center">
+          <div className="app-panel w-full overflow-hidden rounded-t-2xl text-slate-900 sm:max-w-lg sm:rounded-2xl">
+            <div className="flex items-center gap-3 border-b border-slate-200 p-4">
               <img
                 src={toAvatarSrc(respondModal.like.from.id, respondModal.like.from.avatar)}
                 width={40}
@@ -243,19 +243,19 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
                 className="rounded-full"
                 alt={respondModal.like.from.username}
               />
-              <div className="font-medium">Ответ на заявку @{respondModal.like.from.username}</div>
+              <div className="font-medium">Р С›РЎвЂљР Р†Р ВµРЎвЂљ Р Р…Р В° Р В·Р В°РЎРЏР Р†Р С”РЎС“ @{respondModal.like.from.username}</div>
               <button
                 onClick={onCloseRespondModal}
-                className="ml-auto text-gray-500 hover:text-black"
-                aria-label="Закрыть"
+                className="app-btn-secondary ml-auto px-2 py-1 text-slate-700"
+                aria-label="Р вЂ”Р В°Р С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ"
               >
-                ✕
+                РІСљвЂў
               </button>
             </div>
 
             <div className="p-4 space-y-4">
               <section>
-                <h3 className="font-medium mb-2">Согласие с условиями</h3>
+                <h3 className="font-medium mb-2">Р РЋР С•Р С–Р В»Р В°РЎРѓР С‘Р Вµ РЎРѓ РЎС“РЎРѓР В»Р С•Р Р†Р С‘РЎРЏР СР С‘</h3>
                 <ul className="space-y-2">
                   {respondModal.like.fromCardSnapshot?.requirements.map((requirement, index) => (
                     <li key={index} className="flex items-start gap-2">
@@ -273,18 +273,18 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
               </section>
 
               <section className="space-y-2">
-                <h3 className="font-medium mb-2">Ответьте на вопросы</h3>
+                <h3 className="font-medium mb-2">Р С›РЎвЂљР Р†Р ВµРЎвЂљРЎРЉРЎвЂљР Вµ Р Р…Р В° Р Р†Р С•Р С—РЎР‚Р С•РЎРѓРЎвЂ№</h3>
                 {respondModal.like.fromCardSnapshot?.questions.map((question, index) => (
                   <div key={index} className="space-y-1">
-                    <div className="text-sm text-gray-500">{question}</div>
+                    <div className="app-muted text-sm">{question}</div>
                     <textarea
                       value={respondModal.answers[index]}
                       onChange={(event) => onChangeAnswer(index, event.target.value)}
                       maxLength={280}
                       rows={3}
-                      className="w-full border rounded px-3 py-2"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900"
                     />
-                    <div className="text-xs text-gray-500">{respondModal.answers[index].length}/280</div>
+                    <div className="app-muted text-xs">{respondModal.answers[index].length}/280</div>
                   </div>
                 ))}
               </section>
@@ -292,16 +292,16 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
               {respondModal.error && <p className="text-red-600">{respondModal.error}</p>}
             </div>
 
-            <div className="p-4 border-t flex gap-3">
-              <button onClick={onCloseRespondModal} className="px-4 py-2 rounded bg-gray-200">
-                Отмена
+            <div className="flex gap-3 border-t border-slate-200 p-4">
+              <button onClick={onCloseRespondModal} className="app-btn-secondary px-4 py-2 text-slate-800">
+                Р С›РЎвЂљР СР ВµР Р…Р В°
               </button>
               <button
                 onClick={onSubmitResponse}
                 disabled={!respondModal.canSubmit || respondModal.busy}
-                className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
+                className="app-btn-primary px-4 py-2 text-white disabled:opacity-60"
               >
-                {respondModal.busy ? 'Отправляем…' : 'Отправить ответ'}
+                {respondModal.busy ? 'Р С›РЎвЂљР С—РЎР‚Р В°Р Р†Р В»РЎРЏР ВµР СРІР‚В¦' : 'Р С›РЎвЂљР С—РЎР‚Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р С•РЎвЂљР Р†Р ВµРЎвЂљ'}
               </button>
             </div>
           </div>
@@ -310,3 +310,5 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
     </div>
   );
 }
+
+

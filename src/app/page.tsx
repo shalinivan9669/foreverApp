@@ -84,38 +84,43 @@ export default function DiscordActivityPage() {
   if (error) return <div className="text-red-500 text-center mt-8">Error: {error}</div>;
   if (!user) {
     return (
-      <div className="flex items-center justify-center mt-16">
-        <Spinner size={36} />
+      <div className="flex min-h-dvh items-center justify-center p-4">
+        <div className="app-panel flex items-center gap-3 px-5 py-4 text-slate-900">
+          <Spinner size={28} />
+          <span className="app-muted text-sm">РџРѕРґРєР»СЋС‡Р°РµРј Discord РїСЂРѕС„РёР»СЊвЂ¦</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center mt-8">
-      <div className="relative h-32 w-32">
-        {!avatarLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Spinner size={28} />
-          </div>
-        )}
-        <Image
-          src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
-          alt="Avatar"
-          width={128}
-          height={128}
-          className="rounded-full"
-          onLoad={() => setAvatarLoaded(true)}
-          priority
-        />
-      </div>
-      <h2 className="mt-4 text-lg">{user.username}</h2>
+    <div className="flex min-h-dvh items-center justify-center p-4">
+      <div className="app-panel flex w-full max-w-sm flex-col items-center p-6 text-slate-900">
+        <div className="relative h-32 w-32">
+          {!avatarLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Spinner size={28} />
+            </div>
+          )}
+          <Image
+            src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+            alt="Avatar"
+            width={128}
+            height={128}
+            className="rounded-full ring-2 ring-slate-200"
+            onLoad={() => setAvatarLoaded(true)}
+            priority
+          />
+        </div>
+        <h2 className="mt-4 text-lg font-semibold">{user.username}</h2>
 
-      <button
-        onClick={goToMenu}
-        className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Go to main menu
-      </button>
+        <button
+          onClick={goToMenu}
+          className="app-btn-primary mt-6 px-4 py-2 text-white"
+        >
+          Go to main menu
+        </button>
+      </div>
     </div>
   );
 }

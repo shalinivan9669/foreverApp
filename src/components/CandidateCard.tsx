@@ -6,22 +6,22 @@ type Props = {
 
 export default function CandidateCard({ c, onLike }: Props) {
   return (
-    <div className="border p-2 flex gap-2 items-center rounded">
+    <div className="app-panel flex items-center gap-3 p-3 text-slate-900">
       <img
         src={`https://cdn.discordapp.com/avatars/${c.id}/${c.avatar}.png`}
         width={40}
         height={40}
-        className="rounded-full"
+        className="rounded-full ring-1 ring-slate-200"
         alt={c.username}
       />
-      <span className="flex-1">{c.username}</span>
-      <span className="mr-2">{c.score.toFixed(0)}%</span>
+      <span className="flex-1 truncate font-medium">{c.username}</span>
+      <span className="text-sm app-muted">{c.score.toFixed(0)}%</span>
       {onLike && (
         <button
           onClick={() => onLike({ id: c.id, username: c.username, avatar: c.avatar })}
-          className="px-3 py-1 rounded bg-blue-600 text-white text-sm"
+          className="app-btn-primary px-3 py-1 text-sm"
         >
-          Лайк
+          Р вЂєР В°Р в„–Р С”
         </button>
       )}
     </div>

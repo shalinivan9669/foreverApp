@@ -13,7 +13,7 @@ export type ActivityVM = {
   _id: string;
   title: I18nText;
   description?: I18nText;
-  axis: string | string[];                 // ← может быть строкой или массивом
+  axis: string | string[];
   archetype: string;
   intent: 'improve' | 'celebrate';
   difficulty: 1 | 2 | 3 | 4 | 5;
@@ -36,7 +36,7 @@ export default function ActivityCard(props: {
   const { activity: a, locale, variant, onAccept, onCancel, onComplete, onSuggestNext } = props;
 
   const t = (txt?: I18nText) =>
-    txt ? txt[locale] ?? txt['en'] ?? Object.values(txt)[0] ?? '' : '';
+    txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] ?? '' : '';
 
   const axisText = Array.isArray(a.axis) ? a.axis.join(', ') : a.axis;
   const badge =
@@ -45,29 +45,25 @@ export default function ActivityCard(props: {
       : 'bg-amber-100 text-amber-700';
 
   return (
-    <div className="rounded border p-4">
+    <div className="app-panel p-4 text-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-0.5 rounded ${badge}`}>{a.intent}</span>
-            {axisText && <span className="text-xs text-gray-500">{axisText}</span>}
-            <span className="text-xs text-gray-500">• d{a.difficulty} • i{a.intensity}</span>
+            <span className={`rounded px-2 py-0.5 text-xs ${badge}`}>{a.intent}</span>
+            {axisText && <span className="app-muted text-xs">{axisText}</span>}
+            <span className="app-muted text-xs">- d{a.difficulty} - i{a.intensity}</span>
           </div>
 
-          <h3 className="text-lg font-semibold mt-1">{t(a.title)}</h3>
+          <h3 className="mt-1 text-lg font-semibold">{t(a.title)}</h3>
 
-          {a.description && (
-            <p className="text-sm text-gray-600 mt-1">{t(a.description)}</p>
-          )}
+          {a.description && <p className="app-muted mt-1 text-sm">{t(a.description)}</p>}
 
           {a.timeEstimateMin ? (
-            <div className="text-xs text-gray-500 mt-1">~{a.timeEstimateMin} мин</div>
+            <div className="app-muted mt-1 text-xs">~{a.timeEstimateMin} РјРёРЅ</div>
           ) : null}
 
           {a.dueAt ? (
-            <div className="text-xs text-gray-500">
-              до {new Date(a.dueAt).toLocaleString('ru-RU')}
-            </div>
+            <div className="app-muted text-xs">РґРѕ {new Date(a.dueAt).toLocaleString('ru-RU')}</div>
           ) : null}
         </div>
       </div>
@@ -75,32 +71,32 @@ export default function ActivityCard(props: {
       <div className="mt-3 flex gap-2">
         {variant === 'suggested' && (
           <>
-            <button onClick={onAccept} className="px-3 py-2 rounded bg-black text-white">
-              Принять
+            <button onClick={onAccept} className="app-btn-primary px-3 py-2">
+              РџСЂРёРЅСЏС‚СЊ
             </button>
-            <button onClick={onCancel} className="px-3 py-2 rounded border">
-              Отклонить
+            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">
+              РћС‚РєР»РѕРЅРёС‚СЊ
             </button>
           </>
         )}
 
         {variant === 'active' && (
           <>
-            <button onClick={onComplete} className="px-3 py-2 rounded bg-black text-white">
-              Завершить
+            <button onClick={onComplete} className="app-btn-primary px-3 py-2">
+              Р—Р°РІРµСЂС€РёС‚СЊ
             </button>
-            <button onClick={onCancel} className="px-3 py-2 rounded border">
-              Отменить
+            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">
+              РћС‚РјРµРЅРёС‚СЊ
             </button>
             <div className="flex-1" />
-            <button onClick={onSuggestNext} className="px-3 py-2 rounded border">
-              Предложить ещё
+            <button onClick={onSuggestNext} className="app-btn-secondary px-3 py-2">
+              РџСЂРµРґР»РѕР¶РёС‚СЊ РµС‰Рµ
             </button>
           </>
         )}
 
         {variant === 'history' && (
-          <span className="text-xs text-gray-500 self-center">status: {a.status}</span>
+          <span className="app-muted self-center text-xs">status: {a.status}</span>
         )}
       </div>
     </div>

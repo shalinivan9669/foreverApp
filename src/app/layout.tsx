@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru">
-      <body className="antialiased">
+      <body className="min-h-dvh antialiased">
         {children}
       </body>
     </html>
