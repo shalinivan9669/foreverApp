@@ -29,16 +29,13 @@ export default function ErrorView({
   }
 
   if (error.kind === 'rate_limited') {
+    const retryLabel = retryAfterLabel(error.retryAfterMs);
     return (
-      <div className="app-reveal rounded-lg border border-orange-300 bg-orange-50 p-4 text-orange-900">
+      <div className="app-alert app-alert-rate app-reveal">
         <p className="font-medium">{error.message}</p>
-        <p className="mt-1 text-sm">{retryAfterLabel(error.retryAfterMs)}</p>
+        {retryLabel && <p className="mt-1 text-sm">{retryLabel}</p>}
         {onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="app-btn-secondary mt-3 px-3 py-1.5 text-sm text-slate-900"
-          >
+          <button type="button" onClick={onRetry} className="app-btn-secondary mt-3 px-3 py-1.5 text-sm">
             Повторить
           </button>
         )}
@@ -48,15 +45,11 @@ export default function ErrorView({
 
   if (error.kind === 'auth_required') {
     return (
-      <div className="app-reveal rounded-lg border border-blue-300 bg-blue-50 p-4 text-blue-900">
+      <div className="app-alert app-alert-auth app-reveal">
         <p className="font-medium">Требуется авторизация</p>
         <p className="mt-1 text-sm">{error.message}</p>
         {onAuthRequired && (
-          <button
-            type="button"
-            onClick={onAuthRequired}
-            className="app-btn-primary mt-3 px-3 py-1.5 text-sm text-white"
-          >
+          <button type="button" onClick={onAuthRequired} className="app-btn-primary mt-3 px-3 py-1.5 text-sm">
             Войти снова
           </button>
         )}
@@ -65,15 +58,11 @@ export default function ErrorView({
   }
 
   return (
-    <div className="app-reveal rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
+    <div className="app-alert app-alert-error app-reveal">
       <p className="font-medium">{error.message}</p>
-      <p className="mt-1 text-xs text-red-700">Код: {error.code}</p>
+      <p className="mt-1 text-xs opacity-80">Код: {error.code}</p>
       {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="app-btn-secondary mt-3 px-3 py-1.5 text-sm text-slate-900"
-        >
+        <button type="button" onClick={onRetry} className="app-btn-secondary mt-3 px-3 py-1.5 text-sm">
           Повторить
         </button>
       )}

@@ -49,3 +49,18 @@
   - menu tiles, activity cards, questionnaire cards, inbox rows, and state blocks now share the same interaction language.
   - loading/empty/error/paywall blocks now follow one visual hierarchy.
 - Normalized visible match-flow text to readable Russian in the key screens (`search`, `inbox`, `match-card/create`, `match like details`, and tabs).
+
+## Palette and motion refresh (2026-02-09)
+- Retuned global colors to a warm pastel palette based on product art references:
+  - cream-peach base background with pink accents.
+  - warm text/border tones replacing cold blue defaults.
+  - updated focus ring and interactive glow colors for consistent contrast.
+- Smoothed interaction feel in shared primitives:
+  - slower spring-like easing for `app-lift` and `app-reveal`.
+  - retuned button hover/active depth and shadows.
+  - preserved `prefers-reduced-motion` safe behavior.
+- Added reusable UI classes for coherence:
+  - `app-backbar` and `app-backbar__button` for navigation chrome.
+  - `app-alert` variants (`paywall`, `rate`, `auth`, `error`) for state blocks.
+  - `app-tile` variants (`rose`, `honey`, `spark`, `blush`, `aura`) for main-menu cards.
+- Applied the new classes to primary menu tiles and shared state components (`PaywallView`, `ErrorView`, `BackBar`) without changing routing or business logic.

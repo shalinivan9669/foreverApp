@@ -17,24 +17,10 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
     <Link
       href={href}
       aria-label={hasActive ? 'Профиль пары' : 'Поиск пары'}
-      className="
-        group relative row-span-2 col-start-1
-        flex h-full min-h-[10rem] items-center justify-center text-center sm:min-h-[12rem]
-        app-lift app-reveal
-        rounded-2xl border border-emerald-200
-        bg-gradient-to-br from-lime-100 via-emerald-100 to-teal-100
-        shadow-[0_12px_28px_rgba(21,128,61,0.15)] transition-all duration-200
-        hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(21,128,61,0.2)]
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600
-        p-2 text-emerald-950
-      "
+      className="app-tile app-tile-rose app-reveal group relative col-start-1 row-span-2 flex h-full min-h-[10rem] items-center justify-center p-2 text-center sm:min-h-[12rem]"
     >
-      <div
-        className="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-200 group-hover:opacity-100
-                   bg-[radial-gradient(60%_80%_at_50%_0%,rgba(21,128,61,0.18),transparent_72%)]"
-      />
       <div className="relative z-10">
-        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 shadow-sm sm:h-10 sm:w-10">
+        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/85 shadow-sm sm:h-10 sm:w-10">
           {hasActive ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7 7a5 5 0 1 1 10 0v2h1a3 3 0 1 1 0 6h-1v2a5 5 0 1 1-10 0v-2H6a3 3 0 1 1 0-6h1V7z" />
@@ -49,12 +35,12 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
         <div className="text-base font-semibold sm:text-lg">{hasActive ? 'Профиль пары' : 'Поиск пары'}</div>
 
         {hasActive && peer && (
-          <div className="mt-1 flex items-center justify-center gap-2 text-xs text-emerald-900 sm:text-sm">
+          <div className="mt-1 flex items-center justify-center gap-2 text-xs sm:text-sm">
             <Image
               src={`https://cdn.discordapp.com/avatars/${peer.id}/${peer.avatar}.png`}
               width={20}
               height={20}
-              className="rounded-full ring-1 ring-white/60"
+              className="rounded-full ring-1 ring-white/75"
               alt={peer.username}
             />
             <span>@{peer.username}</span>
