@@ -76,3 +76,11 @@
 - Added gentle background and card texture/motion:
   - global background now mixes warm/pink/mint fields with a subtle linear texture overlay.
   - `app-tile` gradients now use a slow `app-gradient-breathe` animation (disabled by existing reduced-motion fallback).
+
+## Profile Surface Fix (2026-02-09)
+- Fixed transparent-looking profile blocks by migrating legacy neutral containers to themed surfaces:
+  - profile overview now wraps radar/insights/preferences in explicit `app-panel` containers.
+  - pair profile sections and KPI mini-cards now use `app-panel` / `app-panel-soft`.
+  - profile tabs (`profile`, `matching`, `activities`, `history`, `settings`) now render with explicit panel backgrounds.
+- Harmonized action controls in pair/profile screens with shared buttons (`app-btn-primary`, `app-btn-secondary`) to avoid bare border-only controls on textured backgrounds.
+- Scope: UI-only; no API contracts, business logic, or state transitions changed.

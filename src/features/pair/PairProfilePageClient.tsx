@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/store/useUserStore';
 import BackBar from '@/components/ui/BackBar';
@@ -106,64 +107,94 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
     }
   };
 
-  const badge =
+  const badgeClass =
     data?.pair.status === 'active'
       ? 'bg-green-100 text-green-700'
       : data?.pair.status === 'paused'
         ? 'bg-amber-100 text-amber-700'
-        : 'bg-gray-100 text-gray-600';
+        : 'bg-slate-100 text-slate-700';
 
   const riskTop = useMemo(() => {
-    const rz = data?.pair.passport?.riskZones ?? [];
-    return rz.slice().sort((a, b) => b.severity - a.severity).slice(0, 3);
+    const riskZones = data?.pair.passport?.riskZones ?? [];
+    return riskZones.slice().sort((a, b) => b.severity - a.severity).slice(0, 3);
   }, [data]);
 
-  if (!user) return <div className="p-4">Нет пользователя</div>;
-  if (resolvingPair) return <div className="p-4">Загрузка пары…</div>;
-  if (!pairId) return <div className="p-4">Пара не найдена</div>;
+  if (!user) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <div className="app-panel-soft p-4 text-sm">Нет пользователя</div>
+      </main>
+    );
+  }
+
+  if (resolvingPair) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <div className="app-panel-soft p-4 text-sm">Загрузка пары...</div>
+      </main>
+    );
+  }
+
+  if (!pairId) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <div className="app-panel-soft p-4 text-sm">Пара не найдена</div>
+      </main>
+    );
+  }
 
   return (
-    <main className="p-4 max-w-4xl mx-auto space-y-6">
+    <main className="app-shell-compact space-y-6 py-3 sm:py-4 lg:py-6">
       <BackBar title="Профиль пары" fallbackHref="/main-menu" />
 
-      {loading && <div className="text-sm text-gray-500">Загрузка…</div>}
-      {!loading && loadError && <div className="text-sm text-red-600">{loadError}</div>}
+      {loading && <div className="app-panel-soft p-3 text-sm app-muted">Загрузка...</div>}
+      {!loading && loadError && <div className="app-alert app-alert-error text-sm">{loadError}</div>}
 
       {data && (
         <>
-          <section className="rounded border p-4">
-            <div className="flex items-center gap-3">
-              <span className={`text-xs px-2 py-0.5 rounded ${badge}`}>{data.pair.status}</span>
-              <div className="text-sm text-gray-500">
-                с {data.pair.createdAt ? new Date(data.pair.createdAt).toLocaleDateString('ru-RU') : '…'}
+          <section className="app-panel app-reveal p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className={`rounded px-2 py-0.5 text-xs ${badgeClass}`}>{data.pair.status}</span>
+              <div className="app-muted text-sm">
+                с {data.pair.createdAt ? new Date(data.pair.createdAt).toLocaleDateString('ru-RU') : '...'}
               </div>
-              <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex flex-wrap gap-2">
                 {data.pair.status === 'active' ? (
-                  <button onClick={onPause} disabled={busy === 'pause'} className="px-3 py-2 rounded border">
+                  <button
+                    type="button"
+                    onClick={onPause}
+                    disabled={busy === 'pause'}
+                    className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60"
+                  >
                     Пауза
                   </button>
                 ) : (
-                  <button onClick={onResume} disabled={busy === 'resume'} className="px-3 py-2 rounded border">
+                  <button
+                    type="button"
+                    onClick={onResume}
+                    disabled={busy === 'resume'}
+                    className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60"
+                  >
                     Возобновить
                   </button>
                 )}
-                <a href="/couple-activity" className="px-3 py-2 rounded bg-black text-white">
+                <Link href="/couple-activity" className="app-btn-primary px-3 py-2 text-sm">
                   К активностям
-                </a>
+                </Link>
               </div>
             </div>
 
-            <div className="mt-3 grid md:grid-cols-3 gap-3">
-              <div className="rounded bg-gray-50 p-3">
-                <div className="text-xs text-gray-500">Серия</div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="app-panel-soft p-3">
+                <div className="app-muted text-xs">Серия</div>
                 <div className="text-lg font-semibold">{data.pair.progress?.streak ?? 0}</div>
               </div>
-              <div className="rounded bg-gray-50 p-3">
-                <div className="text-xs text-gray-500">Выполнено</div>
+              <div className="app-panel-soft p-3">
+                <div className="app-muted text-xs">Выполнено</div>
                 <div className="text-lg font-semibold">{data.pair.progress?.completed ?? 0}</div>
               </div>
-              <div className="rounded bg-gray-50 p-3">
-                <div className="text-xs text-gray-500">Готовность / Усталость</div>
+              <div className="app-panel-soft p-3">
+                <div className="app-muted text-xs">Готовность / Усталость</div>
                 <div className="text-lg font-semibold">
                   {(data.pair.readiness?.score ?? 0).toFixed(2)} / {(data.pair.fatigue?.score ?? 0).toFixed(2)}
                 </div>
@@ -171,100 +202,93 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="rounded border p-4">
-            <div className="flex items-center justify-between">
+          <section className="app-panel app-reveal p-4">
+            <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold">Текущая активность</h3>
-              <a href="/couple-activity" className="text-sm underline">
+              <Link href="/couple-activity" className="text-sm underline">
                 Открыть список
-              </a>
+              </Link>
             </div>
             {data.currentActivity ? (
               <div className="mt-2">
-                <div className="text-sm text-gray-500">
-                  {data.currentActivity.axis.join(', ')}
-                  {' • '}d{data.currentActivity.difficulty} • i{data.currentActivity.intensity}
+                <div className="app-muted text-sm">
+                  {data.currentActivity.axis.join(', ')} • d{data.currentActivity.difficulty} • i{data.currentActivity.intensity}
                 </div>
                 <div className="text-lg font-semibold">{t(data.currentActivity.title)}</div>
               </div>
             ) : (
-              <div className="mt-2 text-sm text-gray-500">Сейчас нет активной активности.</div>
+              <div className="app-muted mt-2 text-sm">Сейчас нет активной активности.</div>
             )}
             <div className="mt-3 text-sm">
               Предложено: <b>{data.suggestedCount}</b>
               {data.suggestedCount === 0 && (
-                <span className="ml-2 text-gray-500">нажмите «Ещё варианты» в разделе «Предложено»</span>
+                <span className="app-muted ml-2">нажмите «Ещё варианты» в разделе «Предложено»</span>
               )}
             </div>
           </section>
 
-          <section className="rounded border p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Паспорт совместимости</h3>
-            </div>
+          <section className="app-panel app-reveal p-4">
+            <h3 className="font-semibold">Паспорт совместимости</h3>
 
-            <div className="mt-3 grid md:grid-cols-3 gap-3">
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
               <div>
-                <div className="text-xs text-gray-500 mb-1">Сильные стороны</div>
-                {(data.pair.passport?.strongSides ?? []).slice(0, 3).map((s, i) => (
-                  <div key={i} className="text-sm">
-                    {s.axis}: {s.facets.join(', ')}
+                <div className="app-muted mb-1 text-xs">Сильные стороны</div>
+                {(data.pair.passport?.strongSides ?? []).slice(0, 3).map((strong, index) => (
+                  <div key={index} className="text-sm">
+                    {strong.axis}: {strong.facets.join(', ')}
                   </div>
                 ))}
-                {!(data.pair.passport?.strongSides?.length ?? 0) && (
-                  <div className="text-sm text-gray-500">Пока пусто</div>
-                )}
+                {!(data.pair.passport?.strongSides?.length ?? 0) && <div className="app-muted text-sm">Пока пусто</div>}
               </div>
 
               <div>
-                <div className="text-xs text-gray-500 mb-1">Зоны риска</div>
-                {riskTop.map((r, i) => (
-                  <div key={i} className="text-sm">
-                    {r.axis}: s{r.severity} {r.facets.length ? `• ${r.facets.join(', ')}` : ''}
+                <div className="app-muted mb-1 text-xs">Зоны риска</div>
+                {riskTop.map((risk, index) => (
+                  <div key={index} className="text-sm">
+                    {risk.axis}: s{risk.severity} {risk.facets.length ? `• ${risk.facets.join(', ')}` : ''}
                   </div>
                 ))}
-                {!riskTop.length && <div className="text-sm text-gray-500">Пока пусто</div>}
+                {!riskTop.length && <div className="app-muted text-sm">Пока пусто</div>}
               </div>
 
               <div>
-                <div className="text-xs text-gray-500 mb-1">Различия уровней</div>
-                {(data.pair.passport?.levelDelta ?? []).slice(0, 3).map((d, i) => (
-                  <div key={i} className="text-sm">
-                    {d.axis}: Δ{d.delta.toFixed(2)}
+                <div className="app-muted mb-1 text-xs">Различия уровней</div>
+                {(data.pair.passport?.levelDelta ?? []).slice(0, 3).map((delta, index) => (
+                  <div key={index} className="text-sm">
+                    {delta.axis}: Δ{delta.delta.toFixed(2)}
                   </div>
                 ))}
-                {!(data.pair.passport?.levelDelta?.length ?? 0) && (
-                  <div className="text-sm text-gray-500">Пока пусто</div>
-                )}
+                {!(data.pair.passport?.levelDelta?.length ?? 0) && <div className="app-muted text-sm">Пока пусто</div>}
               </div>
             </div>
           </section>
 
-          <section className="rounded border p-4">
+          <section className="app-panel app-reveal p-4">
             <h3 className="font-semibold">Исходная заявка</h3>
             {data.lastLike ? (
               <div className="mt-2 text-sm">
-                <div className="text-gray-500">
+                <div className="app-muted">
                   Скор: <b>{Math.round(data.lastLike.matchScore)}%</b>{' '}
-                  {data.lastLike.updatedAt && '• ' + new Date(data.lastLike.updatedAt).toLocaleString('ru-RU')}
+                  {data.lastLike.updatedAt ? `• ${new Date(data.lastLike.updatedAt).toLocaleString('ru-RU')}` : ''}
                 </div>
                 {!!data.lastLike.agreements?.length && (
                   <div className="mt-2">
-                    <div className="text-xs text-gray-500">Согласие</div>
-                    <div>{data.lastLike.agreements.map((v, i) => <span key={i}>{v ? '✅' : '❌'} </span>)}</div>
+                    <div className="app-muted text-xs">Согласие</div>
+                    <div>{data.lastLike.agreements.map((value, index) => <span key={index}>{value ? '✅' : '❌'} </span>)}</div>
                   </div>
                 )}
                 {!!data.lastLike.answers?.length && (
                   <div className="mt-2">
-                    <div className="text-xs text-gray-500">Ответы инициатора</div>
+                    <div className="app-muted text-xs">Ответы инициатора</div>
                     <div>{data.lastLike.answers.join(' • ')}</div>
                   </div>
                 )}
                 {data.lastLike.recipientResponse && (
                   <div className="mt-2">
-                    <div className="text-xs text-gray-500">Ответ получателя</div>
+                    <div className="app-muted text-xs">Ответ получателя</div>
                     <div>
-                      {data.lastLike.recipientResponse.agreements.map((v, i) => (
-                        <span key={i}>{v ? '✅' : '❌'} </span>
+                      {data.lastLike.recipientResponse.agreements.map((value, index) => (
+                        <span key={index}>{value ? '✅' : '❌'} </span>
                       ))}
                     </div>
                     <div className="mt-1">{data.lastLike.recipientResponse.answers.join(' • ')}</div>
@@ -272,7 +296,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
                 )}
               </div>
             ) : (
-              <div className="text-sm text-gray-500 mt-2">Данные заявки не найдены.</div>
+              <div className="app-muted mt-2 text-sm">Данные заявки не найдены.</div>
             )}
           </section>
         </>

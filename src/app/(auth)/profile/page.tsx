@@ -58,49 +58,61 @@ export default function ProfileOverviewPage() {
 
   const ff = data.featureFlags ?? { PERSONAL_ACTIVITIES: false };
 
-  if (!user) return <div className="p-4">Нет пользователя (нужна авторизация).</div>;
+  if (!user) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <div className="app-panel-soft p-4 text-sm">Нет пользователя (нужна авторизация).</div>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <main className="app-shell-compact space-y-3 py-3 sm:py-4">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
         <Skeleton className="h-20" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Skeleton className="h-64" />
           <Skeleton className="h-64" />
         </div>
         <Skeleton className="h-40" />
-      </div>
+      </main>
     );
   }
 
   if (!hasSummary) {
     return (
-      <div className="p-4 space-y-3">
+      <main className="app-shell-compact space-y-3 py-3 sm:py-4">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
-        <div className="border rounded p-4 text-sm text-zinc-600">
+        <div className="app-panel p-4 text-sm app-muted">
           Не удалось загрузить сводку профиля. Попробуйте открыть страницу еще раз.
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="p-4 space-y-3">
+    <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
       <BackBar title="Профиль" fallbackHref="/main-menu" />
 
       <UserHeader user={data.user} pair={data.currentPair} />
 
       <SummaryTiles metrics={data.metrics} readiness={data.readiness} fatigue={data.fatigue} />
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AxisRadar levels={data.passport.levelsByAxis} />
-        <InsightsList items={data.insights} />
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="app-panel p-4">
+          <h2 className="mb-3 text-base font-semibold">Паспорт по осям</h2>
+          <AxisRadar levels={data.passport.levelsByAxis} />
+        </div>
+        <div className="app-panel p-4">
+          <h2 className="mb-3 text-base font-semibold">Инсайты</h2>
+          <InsightsList items={data.insights} />
+        </div>
       </section>
 
       <section className="space-y-2">
@@ -113,9 +125,11 @@ export default function ProfileOverviewPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
-        <PreferencesCard value={data.matching.filters} />
+        <h2 className="text-lg font-semibold">Предпочтения партнера</h2>
+        <div className="app-panel p-4">
+          <PreferencesCard value={data.matching.filters} />
+        </div>
       </section>
-    </div>
+    </main>
   );
 }

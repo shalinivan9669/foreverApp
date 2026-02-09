@@ -281,3 +281,9 @@ Summary:
 - Increased palette diversity across main-menu cards via new tile variants (`app-tile-mint`, `app-tile-plum`) and retuned gradient contrast.
 - Added subtle background texture and slow gradient breathing on tiles (with existing reduced-motion fallback preserved).
 Files: src/app/globals.css, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md
+Date: 2026-02-09
+Summary:
+- Fixed transparent-looking containers in profile and pair-profile screens by replacing legacy border-only blocks with explicit `app-panel` / `app-panel-soft` surfaces.
+- Updated pair/profile action controls to shared themed button classes so controls remain readable on textured backgrounds.
+- Applied the same surfaced treatment to profile tabs (`profile`, `matching`, `activities`, `history`, `settings`) for consistent visual depth.
+Files: src/features/pair/PairProfilePageClient.tsx, src/app/(auth)/profile/page.tsx, src/components/profile/UserHeader.tsx, src/components/profile/SummaryTiles.tsx, src/components/profile/InsightsList.tsx, src/components/profile/PreferencesCard.tsx, src/components/activities/UserActivityCard.tsx, src/components/activities/UserActivitiesPlaceholder.tsx, src/app/profile/(tabs)/profile/page.tsx, src/app/profile/(tabs)/matching/page.tsx, src/app/profile/(tabs)/activities/page.tsx, src/app/profile/(tabs)/history/page.tsx, src/app/profile/(tabs)/settings/page.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md

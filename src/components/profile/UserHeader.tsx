@@ -4,38 +4,61 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function UserHeader({ user, pair }: {
-  user: { id: string; handle: string; avatar: string | null; status: 'solo:new'|'solo:history'|'paired' };
+type UserHeaderProps = {
+  user: {
+    id: string;
+    handle: string;
+    avatar: string | null;
+    status: 'solo:new' | 'solo:history' | 'paired';
+  };
   pair: { id: string; status: string } | null;
-}) {
+};
+
+export default function UserHeader({ user, pair }: UserHeaderProps) {
   return (
-    <header className="border rounded p-4 flex items-center gap-3">
+    <header className="app-panel app-reveal flex flex-wrap items-center gap-3 p-4">
       <Image
         src={user.avatar ?? 'https://cdn.discordapp.com/embed/avatars/0.png'}
         alt={user.handle}
         width={48}
         height={48}
-        className="rounded-full ring-1 ring-zinc-200"
+        className="rounded-full ring-1 ring-white/80"
       />
-      <div className="flex-1">
-        <div className="font-semibold">@{user.handle}</div>
-        <div className="text-sm text-gray-600">
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-semibold">@{user.handle}</div>
+        <div className="app-muted text-sm">
           Статус: {user.status}
           {pair && (
             <>
-              {' · '}
-              <Link href={`/pair/${pair.id}`} className="text-blue-600 hover:underline">Моя пара</Link>
+              {' • '}
+              <Link href={`/pair/${pair.id}`} className="underline">
+                Моя пара
+              </Link>
             </>
           )}
         </div>
       </div>
-      <nav className="hidden md:flex gap-2 text-sm">
-        <Link href="/profile" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Обзор</Link>
-        <Link href="/profile/profile" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Профиль</Link>
-        <Link href="/profile/activities" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Активности</Link>
-        <Link href="/profile/matching" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Матчинг</Link>
-        <Link href="/profile/history" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">История</Link>
-        <Link href="/profile/settings" className="px-3 py-1 rounded bg-zinc-100 hover:bg-zinc-200">Настройки</Link>
+
+      <nav className="hidden flex-wrap gap-2 text-sm md:flex">
+        <Link href="/profile" className="app-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
+          Обзор
+        </Link>
+        <Link href="/profile/profile" className="app-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
+          Профиль
+        </Link>
+        <Link href="/profile/activities" className="app-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
+          Активности
+        </Link>
+        <Link href="/profile/matching" className="app-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
+          Матчинг
+        </Link>
+        <Link href="/profile/history" className="app-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
+          История
+        </Link>
+        <Link href="/profile/settings" className="app-btn-secondary px-3 py-1.5 text-xs sm:text-sm">
+          Настройки
+        </Link>
       </nav>
     </header>
   );
