@@ -13,13 +13,15 @@ type MatchFeedViewProps = {
 
 export default function MatchFeedView({ candidates, onLike }: MatchFeedViewProps) {
   return (
-    <div className="p-4 flex flex-col gap-2">
+    <div className="mx-auto w-full max-w-6xl p-3 sm:p-4 lg:p-6">
       <BackBar title="Поиск пары" fallbackHref="/main-menu" />
       <MatchTabs />
 
-      {candidates.map((candidate) => (
-        <CandidateCard key={candidate.id} c={candidate} onLike={onLike} />
-      ))}
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {candidates.map((candidate) => (
+          <CandidateCard key={candidate.id} c={candidate} onLike={onLike} />
+        ))}
+      </div>
 
       {!candidates.length && (
         <EmptyStateView title="Нет кандидатов" description="Попробуйте обновить список позже." />

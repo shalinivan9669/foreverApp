@@ -27,3 +27,13 @@
 ## Scope limits
 - No API, business logic, state machine, or database behavior changes.
 - No route or navigation changes.
+
+## Responsive range update (2026-02-09)
+- Expanded layout behavior from phone to desktop on core UI surfaces without changing business flows.
+- Updated containers and grids to avoid "mobile-only" narrow layouts on wide screens:
+  - `main-menu` now uses a two-column adaptive shell on tablet/desktop while preserving mobile tile stack.
+  - `match` feed/inbox/details now support wider containers, adaptive grids, and wrapped action rows.
+  - `activities` and `questionnaires` now use responsive card grids and wrapped action controls.
+- Updated modal and card action rows for narrow screens:
+  - action buttons stack on small viewports and return to inline layout on larger breakpoints.
+  - modal sheets keep bottom-sheet behavior on mobile and centered dialog behavior on larger screens.

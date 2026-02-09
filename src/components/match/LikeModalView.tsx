@@ -46,8 +46,8 @@ export default function LikeModalView(props: LikeModalViewProps) {
   if (!open || !candidate) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 sm:items-center">
-      <div className="app-panel w-full overflow-hidden rounded-t-2xl text-slate-900 sm:max-w-lg sm:rounded-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-2 sm:items-center sm:p-3">
+      <div className="app-panel w-full overflow-hidden rounded-t-2xl text-slate-900 sm:max-w-xl sm:rounded-2xl">
         <div className="flex items-center gap-3 border-b border-slate-200 p-4">
           <img
             src={avatarUrl(candidate.id, candidate.avatar)}
@@ -106,7 +106,7 @@ export default function LikeModalView(props: LikeModalViewProps) {
           {error && <p className="text-red-600">{error}</p>}
         </div>
 
-        <div className="flex gap-3 border-t border-slate-200 p-4">
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 p-4 sm:flex-row">
           <button onClick={onClose} className="app-btn-secondary px-4 py-2 text-slate-800">
             Отмена
           </button>

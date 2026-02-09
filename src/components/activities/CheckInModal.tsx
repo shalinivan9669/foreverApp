@@ -67,8 +67,8 @@ export default function CheckInModal(props: {
   const closeDisabled = submitting || retryCompleteLoading;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-3">
-      <div className="app-panel w-full max-w-lg p-4 text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-2 sm:items-center sm:p-3">
+      <div className="app-panel w-full max-w-lg p-3 text-slate-900 sm:p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Оцените: {t(activityItem.title)}</h3>
           <button
@@ -87,13 +87,13 @@ export default function CheckInModal(props: {
           </div>
         )}
 
-        <div className="mt-3 space-y-4">
+        <div className="mt-3 max-h-[60dvh] space-y-4 overflow-y-auto pr-1 sm:max-h-none sm:pr-0">
           {activityItem.checkIns.map((checkIn) => (
             <div key={checkIn.id} className="space-y-1">
               <div className="text-sm">{t(checkIn.text)}</div>
 
               {checkIn.scale === 'likert5' ? (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[1, 2, 3, 4, 5].map((ui) => (
                     <label key={ui} className="flex items-center gap-1 text-xs">
                       <input
@@ -108,7 +108,7 @@ export default function CheckInModal(props: {
                   ))}
                 </div>
               ) : (
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   <label className="flex items-center gap-1 text-xs">
                     <input
                       name={checkIn.id}
@@ -134,7 +134,7 @@ export default function CheckInModal(props: {
           ))}
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}

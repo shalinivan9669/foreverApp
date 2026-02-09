@@ -81,7 +81,7 @@ export default function MatchCardCreatePage() {
   );
 
   return (
-    <div className="p-4 max-w-xl mx-auto flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-4 lg:p-6">
       <h1 className="text-xl font-semibold">Карточка мэтчинга</h1>
       {error && <ErrorView error={error} onRetry={onSubmit} />}
       {localError && <p className="text-red-600">{localError}</p>}
@@ -137,7 +137,7 @@ export default function MatchCardCreatePage() {
       <button
         onClick={() => void onSubmit()}
         disabled={loading}
-        className="bg-blue-600 text-white rounded px-4 py-2 disabled:opacity-60"
+        className="w-full rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60 sm:w-auto sm:self-end"
       >
         {loading ? 'Сохраняем…' : 'Сохранить и перейти к поиску'}
       </button>

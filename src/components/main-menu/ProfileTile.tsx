@@ -10,7 +10,7 @@ export default function ProfileTile() {
   return (
     <Link
       href="/profile"
-      className="group flex min-h-0 items-center justify-center rounded-2xl border border-fuchsia-200 bg-gradient-to-br from-fuchsia-100 via-pink-100 to-rose-100 text-slate-900 shadow-[0_10px_24px_rgba(190,24,93,0.14)] transition hover:-translate-y-0.5"
+      className="group flex h-full min-h-[7rem] items-center justify-center rounded-2xl border border-fuchsia-200 bg-gradient-to-br from-fuchsia-100 via-pink-100 to-rose-100 text-slate-900 shadow-[0_10px_24px_rgba(190,24,93,0.14)] transition hover:-translate-y-0.5 sm:min-h-[8rem]"
     >
       {user ? (
         <img
@@ -18,10 +18,10 @@ export default function ProfileTile() {
           alt={user.username}
           width={68}
           height={68}
-          className="rounded-full ring-2 ring-white/80 shadow-md"
+          className="h-14 w-14 rounded-full ring-2 ring-white/80 shadow-md sm:h-[68px] sm:w-[68px]"
         />
       ) : (
-        <span className="text-sm font-medium text-fuchsia-900">ПРОФИЛЬ</span>
+        <span className="text-xs font-medium text-fuchsia-900 sm:text-sm">ПРОФИЛЬ</span>
       )}
     </Link>
   );

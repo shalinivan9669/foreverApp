@@ -19,7 +19,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
       aria-label={hasActive ? 'Профиль пары' : 'Поиск пары'}
       className="
         group relative row-span-2 col-start-1
-        flex items-center justify-center text-center
+        flex h-full min-h-[10rem] items-center justify-center text-center sm:min-h-[12rem]
         rounded-2xl border border-emerald-200
         bg-gradient-to-br from-lime-100 via-emerald-100 to-teal-100
         shadow-[0_12px_28px_rgba(21,128,61,0.15)] transition-all duration-200
@@ -33,7 +33,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
                    bg-[radial-gradient(60%_80%_at_50%_0%,rgba(21,128,61,0.18),transparent_72%)]"
       />
       <div className="relative z-10">
-        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 shadow-sm">
+        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 shadow-sm sm:h-10 sm:w-10">
           {hasActive ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7 7a5 5 0 1 1 10 0v2h1a3 3 0 1 1 0 6h-1v2a5 5 0 1 1-10 0v-2H6a3 3 0 1 1 0-6h1V7z" />
@@ -45,10 +45,10 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
           )}
         </div>
 
-        <div className="text-lg font-semibold">{hasActive ? 'Профиль пары' : 'Поиск пары'}</div>
+        <div className="text-base font-semibold sm:text-lg">{hasActive ? 'Профиль пары' : 'Поиск пары'}</div>
 
         {hasActive && peer && (
-          <div className="mt-1 flex items-center justify-center gap-2 text-sm text-emerald-900">
+          <div className="mt-1 flex items-center justify-center gap-2 text-xs text-emerald-900 sm:text-sm">
             <Image
               src={`https://cdn.discordapp.com/avatars/${peer.id}/${peer.avatar}.png`}
               width={20}

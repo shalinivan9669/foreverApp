@@ -36,7 +36,7 @@ export default function QuestionnairesPageView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={tabClassName(activeTab === 'personal')} onClick={() => onChangeTab('personal')}>
           Персональные
         </button>
@@ -62,7 +62,7 @@ export default function QuestionnairesPageView({
 
       {loadingCards && cards.length === 0 && <LoadingView compact label="Загрузка анкет..." />}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((questionnaire) => {
           const isCoupleBlocked = questionnaire.scope === 'couple' && !canAccessCouple;
           return (

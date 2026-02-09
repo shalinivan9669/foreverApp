@@ -79,9 +79,9 @@ export default function QuestionnairesPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl p-4">
+    <div className="mx-auto w-full max-w-6xl p-3 sm:p-4 lg:p-6">
       <BackBar title="Анкеты" fallbackHref="/main-menu" />
-      <h1 className="mb-4 text-xl font-semibold">Анкеты</h1>
+      <h1 className="mb-4 text-lg font-semibold sm:text-xl">Анкеты</h1>
 
       <ErrorView
         error={error}

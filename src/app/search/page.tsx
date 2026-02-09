@@ -29,7 +29,7 @@ export default function SearchPage() {
 
   if (error && candidates.length === 0) {
     return (
-      <div className="p-4">
+      <div className="mx-auto w-full max-w-6xl p-3 sm:p-4 lg:p-6">
         <ErrorView error={error} onRetry={() => void refetch()} />
       </div>
     );
@@ -42,7 +42,7 @@ export default function SearchPage() {
       <MatchFeedView candidates={visibleCandidates} onLike={setSelected} />
 
       {error && (
-        <div className="px-4 pb-3">
+        <div className="mx-auto w-full max-w-6xl px-3 pb-3 sm:px-4 lg:px-6">
           <ErrorView error={error} onRetry={() => void refetch()} />
         </div>
       )}

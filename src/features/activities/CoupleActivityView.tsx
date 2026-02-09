@@ -38,7 +38,7 @@ type CoupleActivityViewProps = {
 };
 
 const tabButtonClass = (isActive: boolean): string =>
-  `rounded px-4 py-2 text-sm font-medium ${
+  `rounded px-3 py-2 text-sm font-medium sm:px-4 ${
     isActive ? 'app-btn-primary text-white' : 'app-btn-secondary text-slate-800'
   }`;
 
@@ -71,7 +71,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
   if (!hasPair) {
     return (
-      <main className="mx-auto max-w-3xl space-y-4 p-4">
+      <main className="mx-auto w-full max-w-5xl space-y-4 p-3 sm:p-4 lg:p-6">
         <BackBar title="Активности пары" fallbackHref="/main-menu" />
         <EmptyStateView
           title="Пара не найдена"
@@ -82,11 +82,11 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-4">
+    <main className="mx-auto w-full max-w-5xl space-y-4 p-3 sm:p-4 lg:p-6">
       <BackBar title="Активности пары" fallbackHref="/main-menu" />
-      <h1 className="text-2xl font-bold text-slate-900">Активности пары</h1>
+      <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Активности пары</h1>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>
           Активная
         </button>
@@ -135,12 +135,12 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               />
             </div>
           ) : (
-            <div className="app-panel flex items-center justify-between gap-3 p-4">
+            <div className="app-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="font-medium text-slate-900">Нет активной активности</div>
                 <div className="app-muted text-sm">Предложим подходящее задание</div>
               </div>
-              <button onClick={onSuggestNext} className="app-btn-primary px-3 py-2 text-white">
+              <button onClick={onSuggestNext} className="app-btn-primary w-full px-3 py-2 text-white sm:w-auto">
                 Предложить
               </button>
             </div>
@@ -150,8 +150,8 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
       {!loading && tab === 'suggested' && (
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <button onClick={onSuggestNext} className="app-btn-primary px-3 py-2 text-white">
+          <div className="flex justify-stretch sm:justify-end">
+            <button onClick={onSuggestNext} className="app-btn-primary w-full px-3 py-2 text-white sm:w-auto">
               Еще варианты
             </button>
           </div>
@@ -160,23 +160,25 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
             <EmptyStateView title="Пока пусто" description="Нажмите «Еще варианты», чтобы получить список." />
           )}
 
-          {suggested.map((item) => (
-            <ActivityCard
-              key={item._id}
-              activity={item}
-              locale={locale}
-              variant="suggested"
-              onAccept={() => onAccept(item._id)}
-              onCancel={() => onCancel(item._id)}
-              onComplete={() => onOpenCheckIn(item)}
-              onSuggestNext={() => undefined}
-            />
-          ))}
+          <div className="grid gap-3 lg:grid-cols-2">
+            {suggested.map((item) => (
+              <ActivityCard
+                key={item._id}
+                activity={item}
+                locale={locale}
+                variant="suggested"
+                onAccept={() => onAccept(item._id)}
+                onCancel={() => onCancel(item._id)}
+                onComplete={() => onOpenCheckIn(item)}
+                onSuggestNext={() => undefined}
+              />
+            ))}
+          </div>
         </div>
       )}
 
       {!loading && tab === 'history' && (
-        <div className="space-y-3">
+        <div className="grid gap-3 lg:grid-cols-2">
           {history.length === 0 && <EmptyStateView title="История пока пуста" />}
           {history.map((item) => (
             <ActivityCard

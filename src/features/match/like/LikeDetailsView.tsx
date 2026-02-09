@@ -35,12 +35,12 @@ export default function LikeDetailsView({
   onCreatePair,
 }: LikeDetailsViewProps) {
   return (
-    <main className="max-w-3xl mx-auto p-4 space-y-4">
+    <main className="mx-auto w-full max-w-5xl space-y-4 p-3 sm:p-4 lg:p-6">
       <button onClick={onBack} className="text-sm text-gray-600 hover:underline">
         ← Назад
       </button>
 
-      <header className="flex items-center gap-3">
+      <header className="flex flex-wrap items-center gap-3">
         <img src={like.from.avatar} width={36} height={36} className="rounded-full" alt={like.from.username} />
         <span className="text-sm text-gray-500">→</span>
         <img src={like.to.avatar} width={36} height={36} className="rounded-full" alt={like.to.username} />
@@ -112,7 +112,7 @@ export default function LikeDetailsView({
         </div>
       </section>
 
-      <footer className="flex gap-2">
+      <footer className="flex flex-wrap gap-2">
         {canAcceptReject && (
           <>
             <button

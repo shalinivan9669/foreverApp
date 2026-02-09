@@ -24,7 +24,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
       <p className="text-slate-900">{label}</p>
 
       {q.scale === 'likert5' && (
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {[1, 2, 3, 4, 5].map((i) => {
             const isSel = selected === i;
             return (
@@ -50,7 +50,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
       )}
 
       {q.scale === 'bool' && (
-        <div className="mt-2 flex gap-4">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:gap-4">
           {[
             { val: 1 as const, label: 'Нет' },
             { val: 2 as const, label: 'Да' },
@@ -62,7 +62,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
                 type="button"
                 onClick={() => onAnswer(qid, val)}
                 className={[
-                  'rounded-md border px-4 py-1 transition',
+                  'rounded-md border px-4 py-1 text-left transition sm:text-center',
                   isSel
                     ? 'border-green-600 bg-green-600 text-white'
                     : 'border-gray-400 bg-transparent text-slate-700 hover:bg-green-100',

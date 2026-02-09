@@ -106,7 +106,7 @@ export default function QuestionnaireCard({
     >
       <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-lg ${vectorStripe[q.vector]}`} />
 
-      <div className="flex items-start justify-between gap-3 pl-3">
+      <div className="flex flex-col gap-2 pl-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="app-muted flex items-center gap-2 text-sm">
           <span className="inline-flex h-2 w-2 rounded-full bg-slate-300" />
           <span>{vectorLabel[q.vector]}</span>
@@ -148,7 +148,7 @@ export default function QuestionnaireCard({
         )}
       </div>
 
-      <div className="mt-4 pl-3 flex items-center justify-between gap-3">
+      <div className="mt-4 flex flex-col gap-3 pl-3 sm:flex-row sm:items-center sm:justify-between">
         {q.status === 'in_progress' && (
           <div className="flex-1">
             <div className="h-2 rounded bg-slate-100">

@@ -24,7 +24,7 @@ export default function BackBar({ title, fallbackHref = '/main-menu', rightSlot 
 
   return (
     <div className="sticky top-0 z-10 rounded-xl border border-slate-200 bg-white/85 text-slate-900 backdrop-blur">
-      <div className="mx-auto flex h-12 max-w-5xl items-center gap-3 px-3">
+      <div className="mx-auto flex h-11 max-w-6xl items-center gap-2 px-2 sm:h-12 sm:gap-3 sm:px-3">
         <button
           onClick={goBack}
           aria-label="Back"

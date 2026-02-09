@@ -87,7 +87,7 @@ function Section(props: {
   const { title, rows, onOpen, onAccept, onReject, onCreatePair } = props;
 
   return (
-    <section className="mb-8">
+    <section className="space-y-2">
       <h2 className="mb-2 font-medium">{title}</h2>
       <div className="flex flex-col gap-2">
         {rows.map((row) => {
@@ -95,9 +95,9 @@ function Section(props: {
           const canDecide = row.direction === 'outgoing' && row.status === 'awaiting_initiator';
 
           return (
-            <article key={row.id} className="app-panel p-2">
-              <div className="flex w-full items-center gap-3 text-left">
-                <button type="button" onClick={() => onOpen(row.id)} className="flex flex-1 items-center gap-3">
+            <article key={row.id} className="app-panel p-2 sm:p-3">
+              <div className="flex w-full flex-col gap-3 text-left sm:flex-row sm:items-center">
+                <button type="button" onClick={() => onOpen(row.id)} className="flex min-w-0 flex-1 items-center gap-3">
                   <img
                     src={toAvatarSrc(row.peer.id, row.peer.avatar)}
                     width={40}
@@ -106,7 +106,7 @@ function Section(props: {
                     alt={row.peer.username}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <div className="truncate font-medium">{row.peer.username}</div>
                       <span className={`rounded px-2 py-0.5 text-[11px] ${BADGE_CLASS[row.status]}`}>
                         {STATUS_TEXT[row.direction][row.status]}
@@ -119,12 +119,12 @@ function Section(props: {
                   </div>
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                   {canRespond && (
                     <button
                       type="button"
                       onClick={() => onOpen(row.id)}
-                      className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+                      className="w-full rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700 sm:w-auto"
                     >
                       Ответить
                     </button>
@@ -135,14 +135,14 @@ function Section(props: {
                       <button
                         type="button"
                         onClick={() => onAccept(row.id)}
-                        className="rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700"
+                        className="w-full rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700 sm:w-auto"
                       >
                         Принять
                       </button>
                       <button
                         type="button"
                         onClick={() => onReject(row.id)}
-                        className="rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                        className="w-full rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700 sm:w-auto"
                       >
                         Отклонить
                       </button>
@@ -153,7 +153,7 @@ function Section(props: {
                     <button
                       type="button"
                       onClick={() => onCreatePair(row.id)}
-                      className="rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700"
+                      className="w-full rounded bg-emerald-600 px-2 py-1 text-xs text-white hover:bg-emerald-700 sm:w-auto"
                     >
                       Создать пару
                     </button>
@@ -189,11 +189,11 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
   } = props;
 
   return (
-    <div className="mx-auto max-w-2xl p-4 text-slate-900">
+    <div className="mx-auto w-full max-w-6xl p-3 text-slate-900 sm:p-4 lg:p-6">
       <MatchTabs />
 
-      <div className="mb-4 mt-3 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Потенциальные партнеры</h1>
+      <div className="mb-4 mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-lg font-semibold sm:text-xl">Потенциальные партнеры</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={onRefresh}
@@ -212,27 +212,29 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
         </div>
       )}
 
-      <Section
-        title="Входящие"
-        rows={incoming}
-        onOpen={onOpenIncoming}
-        onAccept={onAccept}
-        onReject={onReject}
-        onCreatePair={onCreatePair}
-      />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Section
+          title="Входящие"
+          rows={incoming}
+          onOpen={onOpenIncoming}
+          onAccept={onAccept}
+          onReject={onReject}
+          onCreatePair={onCreatePair}
+        />
 
-      <Section
-        title="Исходящие"
-        rows={outgoing}
-        onOpen={onOpenOutgoing}
-        onAccept={onAccept}
-        onReject={onReject}
-        onCreatePair={onCreatePair}
-      />
+        <Section
+          title="Исходящие"
+          rows={outgoing}
+          onOpen={onOpenOutgoing}
+          onAccept={onAccept}
+          onReject={onReject}
+          onCreatePair={onCreatePair}
+        />
+      </div>
 
       {respondModal.open && respondModal.like && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 sm:items-center">
-          <div className="app-panel w-full overflow-hidden rounded-t-2xl text-slate-900 sm:max-w-lg sm:rounded-2xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-2 sm:items-center sm:p-3">
+          <div className="app-panel w-full overflow-hidden rounded-t-2xl text-slate-900 sm:max-w-xl sm:rounded-2xl">
             <div className="flex items-center gap-3 border-b border-slate-200 p-4">
               <img
                 src={toAvatarSrc(respondModal.like.from.id, respondModal.like.from.avatar)}
@@ -290,7 +292,7 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
               {respondModal.error && <p className="text-red-600">{respondModal.error}</p>}
             </div>
 
-            <div className="flex gap-3 border-t border-slate-200 p-4">
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 p-4 sm:flex-row">
               <button onClick={onCloseRespondModal} className="app-btn-secondary px-4 py-2 text-slate-800">
                 Отмена
               </button>

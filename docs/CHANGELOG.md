@@ -255,3 +255,10 @@ Summary:
 - Fixed Vercel build failure caused by invalid/non-UTF-8 source encoding in shared UI components.
 - Rewrote BackBar/ErrorView/PaywallView as clean UTF-8 files and verified repository text files are UTF-8.
 Files: src/components/ui/BackBar.tsx, src/components/ui/ErrorView.tsx, src/components/ui/PaywallView.tsx, docs/CHANGELOG.md
+
+Date: 2026-02-09
+Summary:
+- Expanded responsive behavior from mobile to desktop across main navigation and primary feature screens without changing product flows.
+- Reworked main-menu to adaptive grid layout and updated shared cards/modals/tabs/action rows for wrapping and better small-screen ergonomics.
+- Normalized page container widths and grid breakpoints for activities, match, questionnaires, and questionnaire runner screens.
+Files: src/app/main-menu/page.tsx, src/app/match-card/create/page.tsx, src/app/questionnaire/[id]/page.tsx, src/app/questionnaires/page.tsx, src/app/search/page.tsx, src/components/CandidateCard.tsx, src/components/MatchTabs.tsx, src/components/QuestionCard.tsx, src/components/QuestionnaireCard.tsx, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/match/LikeModalView.tsx, src/components/ui/BackBar.tsx, src/features/activities/CoupleActivityView.tsx, src/features/match/feed/MatchFeedView.tsx, src/features/match/inbox/MatchInboxView.tsx, src/features/match/like/LikeDetailsView.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md

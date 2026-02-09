@@ -41,10 +41,10 @@ export default function ActivityCard(props: {
   const badge = a.intent === 'celebrate' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
 
   return (
-    <div className="app-panel p-4 text-slate-900">
+    <div className="app-panel h-full p-4 text-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded px-2 py-0.5 text-xs ${badge}`}>{a.intent}</span>
             {axisText && <span className="app-muted text-xs">{axisText}</span>}
             <span className="app-muted text-xs">- d{a.difficulty} - i{a.intensity}</span>
@@ -60,20 +60,20 @@ export default function ActivityCard(props: {
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {variant === 'suggested' && (
           <>
-            <button onClick={onAccept} className="app-btn-primary px-3 py-2">Принять</button>
-            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">Отклонить</button>
+            <button onClick={onAccept} className="app-btn-primary w-full px-3 py-2 sm:w-auto">Принять</button>
+            <button onClick={onCancel} className="app-btn-secondary w-full px-3 py-2 sm:w-auto">Отклонить</button>
           </>
         )}
 
         {variant === 'active' && (
           <>
-            <button onClick={onComplete} className="app-btn-primary px-3 py-2">Завершить</button>
-            <button onClick={onCancel} className="app-btn-secondary px-3 py-2">Отменить</button>
-            <div className="flex-1" />
-            <button onClick={onSuggestNext} className="app-btn-secondary px-3 py-2">Предложить еще</button>
+            <button onClick={onComplete} className="app-btn-primary w-full px-3 py-2 sm:w-auto">Завершить</button>
+            <button onClick={onCancel} className="app-btn-secondary w-full px-3 py-2 sm:w-auto">Отменить</button>
+            <div className="hidden flex-1 sm:block" />
+            <button onClick={onSuggestNext} className="app-btn-secondary w-full px-3 py-2 sm:w-auto">Предложить еще</button>
           </>
         )}
 
