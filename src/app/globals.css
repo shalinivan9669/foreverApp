@@ -5,6 +5,7 @@
   --app-bg: #eef3fb;
   --app-bg-accent: #dfe8f8;
   --app-surface: #ffffff;
+  --app-surface-raised: #fdfdff;
   --app-surface-soft: #f5f8ff;
   --app-fg: #14213d;
   --app-muted: #4d5b77;
@@ -12,7 +13,10 @@
   --app-primary: #2251b2;
   --app-primary-strong: #173f95;
   --app-primary-contrast: #ffffff;
+  --app-ring: rgba(34, 81, 178, 0.32);
+  --app-shadow-soft: 0 8px 20px rgba(15, 23, 42, 0.06);
   --app-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  --app-shadow-strong: 0 18px 42px rgba(15, 23, 42, 0.14);
 }
 
 @theme inline {
@@ -49,10 +53,14 @@ body {
     linear-gradient(170deg, #f3f7ff 0%, var(--app-bg) 38%, #e7eefb 100%);
   color: var(--app-fg);
   font-family: "Trebuchet MS", "Segoe UI", "Noto Sans", sans-serif;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
 }
 
 a {
   color: var(--app-primary-strong);
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 input,
@@ -62,6 +70,15 @@ select {
   color: var(--app-fg);
   border: 1px solid var(--app-border);
   border-radius: 0.625rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: #7ea0e8;
+  box-shadow: 0 0 0 3px rgba(126, 160, 232, 0.25);
 }
 
 input::placeholder,
@@ -73,21 +90,91 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.app-shell {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+  padding-inline: 0.75rem;
+}
+
+.app-shell-compact {
+  width: min(100%, 60rem);
+  margin-inline: auto;
+  padding-inline: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .app-shell,
+  .app-shell-compact {
+    padding-inline: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell,
+  .app-shell-compact {
+    padding-inline: 1.5rem;
+  }
+}
+
 .app-panel {
-  background-color: var(--app-surface);
+  background:
+    linear-gradient(180deg, var(--app-surface-raised) 0%, var(--app-surface) 100%);
   border: 1px solid var(--app-border);
   border-radius: 0.875rem;
   box-shadow: var(--app-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .app-panel-soft {
-  background-color: var(--app-surface-soft);
+  background: linear-gradient(180deg, #f8faff 0%, var(--app-surface-soft) 100%);
   border: 1px solid var(--app-border);
   border-radius: 0.875rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .app-muted {
   color: var(--app-muted);
+}
+
+.app-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.app-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--app-shadow-strong);
+  border-color: #b7c7e0;
+}
+
+.app-reveal {
+  animation: app-fade-up 0.28s ease both;
+}
+
+@keyframes app-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-btn-primary,
+.app-btn-secondary,
+.app-btn-danger,
+.app-btn-success {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-inline: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .app-btn-primary {
@@ -95,11 +182,11 @@ button:disabled {
   color: var(--app-primary-contrast);
   border: 1px solid #183f95;
   border-radius: 0.625rem;
-  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .app-btn-primary:hover {
   background-color: var(--app-primary-strong);
+  transform: translateY(-1px);
 }
 
 .app-btn-secondary {
@@ -107,11 +194,11 @@ button:disabled {
   color: var(--app-fg);
   border: 1px solid var(--app-border);
   border-radius: 0.625rem;
-  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .app-btn-secondary:hover {
   background-color: #d7e1f3;
+  transform: translateY(-1px);
 }
 
 .app-btn-danger {
@@ -121,9 +208,39 @@ button:disabled {
   border-radius: 0.625rem;
 }
 
+.app-btn-danger:hover {
+  background-color: #991b1b;
+  transform: translateY(-1px);
+}
+
 .app-btn-success {
   background-color: #047857;
   color: #fff;
   border: 1px solid #065f46;
   border-radius: 0.625rem;
+}
+
+.app-btn-success:hover {
+  background-color: #065f46;
+  transform: translateY(-1px);
+}
+
+.app-btn-primary:focus-visible,
+.app-btn-secondary:focus-visible,
+.app-btn-danger:focus-visible,
+.app-btn-success:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--app-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -37,3 +37,15 @@
 - Updated modal and card action rows for narrow screens:
   - action buttons stack on small viewports and return to inline layout on larger breakpoints.
   - modal sheets keep bottom-sheet behavior on mobile and centered dialog behavior on larger screens.
+
+## Visual polish pass (2026-02-09)
+- Added a shared polish layer in `globals.css`:
+  - `app-shell` / `app-shell-compact` for consistent page rhythm and readable line length.
+  - improved `app-panel` and `app-panel-soft` surfaces with soft gradients and clearer depth.
+  - unified button ergonomics (`min-height`, focus rings, hover lift) across all `app-btn-*` variants.
+  - `app-lift` and `app-reveal` helpers for lightweight motion and hover affordance.
+  - `prefers-reduced-motion` fallback to disable animations when needed.
+- Applied the polish layer to core UI flows:
+  - menu tiles, activity cards, questionnaire cards, inbox rows, and state blocks now share the same interaction language.
+  - loading/empty/error/paywall blocks now follow one visual hierarchy.
+- Normalized visible match-flow text to readable Russian in the key screens (`search`, `inbox`, `match-card/create`, `match like details`, and tabs).

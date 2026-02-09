@@ -41,7 +41,7 @@ export default function ActivityCard(props: {
   const badge = a.intent === 'celebrate' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
 
   return (
-    <div className="app-panel h-full p-4 text-slate-900">
+    <div className="app-panel app-lift h-full p-4 text-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">

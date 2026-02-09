@@ -108,7 +108,7 @@ export default function InboxPage() {
   };
 
   if (loading && rows.length === 0) {
-    return <LoadingView label="Загружаем входящие и исходящие…" />;
+    return <LoadingView label="Загружаем входящие и исходящие..." />;
   }
 
   return (

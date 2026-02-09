@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { matchApi } from '@/client/api/match.api';
 import { useApi } from '@/client/hooks/useApi';
+import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
 
 const MAX = { req: 80, give: 80, question: 120 };
@@ -75,72 +76,82 @@ export default function MatchCardCreatePage() {
   };
 
   const counter = (value: string, maxLength: number) => (
-    <span className="text-xs text-gray-500">
+    <span className="app-muted text-xs">
       {value.length}/{maxLength}
     </span>
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-4 lg:p-6">
-      <h1 className="text-xl font-semibold">Карточка мэтчинга</h1>
-      {error && <ErrorView error={error} onRetry={onSubmit} />}
-      {localError && <p className="text-red-600">{localError}</p>}
+    <div className="app-shell">
+      <main className="space-y-4 pb-4 pt-3 sm:space-y-5 sm:pb-6 sm:pt-4">
+        <BackBar title="Карточка мэтчинга" fallbackHref="/main-menu" />
+        <h1 className="text-lg font-semibold text-slate-900 sm:text-xl">Настройка карточки знакомства</h1>
 
-      <section className="space-y-2">
-        <h2 className="font-medium">Мои условия (требуют согласия)</h2>
-        {requirements.map((value, index) => (
-          <div key={index} className="space-y-1">
-            <input
-              value={value}
-              onChange={(event) => setRequirement(index, event.target.value)}
-              placeholder={`Условие ${index + 1}`}
-              maxLength={MAX.req}
-              className="w-full border rounded px-3 py-2"
-            />
-            {counter(value, MAX.req)}
+        {error && <ErrorView error={error} onRetry={onSubmit} />}
+        {localError && <p className="text-red-600">{localError}</p>}
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="app-panel app-lift space-y-2 p-4">
+            <h2 className="font-medium">Мои условия (требуют согласия)</h2>
+            {requirements.map((value, index) => (
+              <div key={index} className="space-y-1">
+                <input
+                  value={value}
+                  onChange={(event) => setRequirement(index, event.target.value)}
+                  placeholder={`Условие ${index + 1}`}
+                  maxLength={MAX.req}
+                  className="w-full rounded border px-3 py-2"
+                />
+                {counter(value, MAX.req)}
+              </div>
+            ))}
+          </section>
+
+          <section className="app-panel app-lift space-y-2 p-4">
+            <h2 className="font-medium">Что я готов(а) дать</h2>
+            {give.map((value, index) => (
+              <div key={index} className="space-y-1">
+                <input
+                  value={value}
+                  onChange={(event) => setGiveValue(index, event.target.value)}
+                  placeholder={`Обещание ${index + 1}`}
+                  maxLength={MAX.give}
+                  className="w-full rounded border px-3 py-2"
+                />
+                {counter(value, MAX.give)}
+              </div>
+            ))}
+          </section>
+        </div>
+
+        <section className="app-panel app-lift space-y-2 p-4">
+          <h2 className="font-medium">Вопросы партнеру</h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {questions.map((value, index) => (
+              <div key={index} className="space-y-1">
+                <input
+                  value={value}
+                  onChange={(event) => setQuestion(index, event.target.value)}
+                  placeholder={`Вопрос ${index + 1}`}
+                  maxLength={MAX.question}
+                  className="w-full rounded border px-3 py-2"
+                />
+                {counter(value, MAX.question)}
+              </div>
+            ))}
           </div>
-        ))}
-      </section>
+        </section>
 
-      <section className="space-y-2">
-        <h2 className="font-medium">Я готов дать</h2>
-        {give.map((value, index) => (
-          <div key={index} className="space-y-1">
-            <input
-              value={value}
-              onChange={(event) => setGiveValue(index, event.target.value)}
-              placeholder={`Обещание ${index + 1}`}
-              maxLength={MAX.give}
-              className="w-full border rounded px-3 py-2"
-            />
-            {counter(value, MAX.give)}
-          </div>
-        ))}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="font-medium">Мои вопросы партнеру</h2>
-        {questions.map((value, index) => (
-          <div key={index} className="space-y-1">
-            <input
-              value={value}
-              onChange={(event) => setQuestion(index, event.target.value)}
-              placeholder={`Вопрос ${index + 1}`}
-              maxLength={MAX.question}
-              className="w-full border rounded px-3 py-2"
-            />
-            {counter(value, MAX.question)}
-          </div>
-        ))}
-      </section>
-
-      <button
-        onClick={() => void onSubmit()}
-        disabled={loading}
-        className="w-full rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60 sm:w-auto sm:self-end"
-      >
-        {loading ? 'Сохраняем…' : 'Сохранить и перейти к поиску'}
-      </button>
+        <div className="flex justify-stretch sm:justify-end">
+          <button
+            onClick={() => void onSubmit()}
+            disabled={loading}
+            className="app-btn-primary w-full px-4 py-2 text-white disabled:opacity-60 sm:w-auto"
+          >
+            {loading ? 'Сохраняем...' : 'Сохранить и перейти к поиску'}
+          </button>
+        </div>
+      </main>
     </div>
   );
 }

@@ -21,7 +21,7 @@ export default function MatchTabs() {
   };
 
   return (
-    <div className="app-panel-soft flex flex-wrap items-center gap-2 p-2.5 sm:p-3">
+    <div className="app-panel-soft app-reveal flex flex-wrap items-center gap-2 p-2.5 sm:p-3">
       <Item href="/search" label="Поиск" />
       <Item href="/match/inbox" label="Потенциальные партнеры" />
     </div>

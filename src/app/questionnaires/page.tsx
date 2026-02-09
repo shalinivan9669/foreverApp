@@ -79,7 +79,7 @@ export default function QuestionnairesPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-3 sm:p-4 lg:p-6">
+    <div className="app-shell py-3 sm:py-4 lg:py-6">
       <BackBar title="Анкеты" fallbackHref="/main-menu" />
       <h1 className="mb-4 text-lg font-semibold sm:text-xl">Анкеты</h1>
 

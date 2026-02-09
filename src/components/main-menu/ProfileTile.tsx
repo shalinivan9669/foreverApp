@@ -10,7 +10,7 @@ export default function ProfileTile() {
   return (
     <Link
       href="/profile"
-      className="group flex h-full min-h-[7rem] items-center justify-center rounded-2xl border border-fuchsia-200 bg-gradient-to-br from-fuchsia-100 via-pink-100 to-rose-100 text-slate-900 shadow-[0_10px_24px_rgba(190,24,93,0.14)] transition hover:-translate-y-0.5 sm:min-h-[8rem]"
+      className="group app-lift app-reveal flex h-full min-h-[7rem] items-center justify-center rounded-2xl border border-fuchsia-200 bg-gradient-to-br from-fuchsia-100 via-pink-100 to-rose-100 text-slate-900 shadow-[0_10px_24px_rgba(190,24,93,0.14)] transition hover:-translate-y-0.5 sm:min-h-[8rem]"
     >
       {user ? (
         <img

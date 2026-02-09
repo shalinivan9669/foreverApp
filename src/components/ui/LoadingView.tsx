@@ -19,9 +19,9 @@ export default function LoadingView({ label = 'Загрузка...', compact = f
 
   return (
     <div className="app-muted flex items-center justify-center py-8">
-      <div className="app-panel flex items-center gap-3 px-4 py-3">
+      <div className="app-panel app-reveal flex items-center gap-3 px-4 py-3">
         <Spinner size={24} />
-        <span>{label}</span>
+        <span className="font-medium">{label}</span>
       </div>
     </div>
   );

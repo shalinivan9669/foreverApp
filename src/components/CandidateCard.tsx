@@ -6,7 +6,7 @@ type Props = {
 
 export default function CandidateCard({ c, onLike }: Props) {
   return (
-    <div className="app-panel flex flex-col gap-3 p-3 text-slate-900 sm:flex-row sm:items-center">
+    <div className="app-panel app-lift flex flex-col gap-3 p-3 text-slate-900 sm:flex-row sm:items-center">
       <img
         src={`https://cdn.discordapp.com/avatars/${c.id}/${c.avatar}.png`}
         width={40}

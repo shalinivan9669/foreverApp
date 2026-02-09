@@ -97,7 +97,7 @@ export default function QuestionnaireCard({
         }
       }}
       className={
-        'app-panel relative block p-4 transition ' +
+        'app-panel app-lift relative block p-4 transition ' +
         'hover:-translate-y-0.5 hover:shadow-md ' +
         (q.status === 'locked' || disabled ? 'opacity-75' : '') +
         (q.isStarter ? ' border-blue-200 bg-blue-50/40' : '')

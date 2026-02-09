@@ -24,12 +24,12 @@ export default function SearchPage() {
   }, [redirectPath, router]);
 
   if (gate === 'checking' && loading && candidates.length === 0) {
-    return <LoadingView label="Проверяем профиль и подбираем кандидатов…" />;
+    return <LoadingView label="Проверяем профиль и подбираем кандидатов..." />;
   }
 
   if (error && candidates.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-6xl p-3 sm:p-4 lg:p-6">
+      <div className="app-shell py-3 sm:py-4 lg:py-6">
         <ErrorView error={error} onRetry={() => void refetch()} />
       </div>
     );
@@ -42,7 +42,7 @@ export default function SearchPage() {
       <MatchFeedView candidates={visibleCandidates} onLike={setSelected} />
 
       {error && (
-        <div className="mx-auto w-full max-w-6xl px-3 pb-3 sm:px-4 lg:px-6">
+        <div className="app-shell pb-3">
           <ErrorView error={error} onRetry={() => void refetch()} />
         </div>
       )}

@@ -9,16 +9,16 @@ type PaywallViewProps = {
 
 export default function PaywallView({ error, onUpgrade }: PaywallViewProps) {
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
-      <p className="font-medium">Higher plan required</p>
+    <div className="app-reveal rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
+      <p className="font-medium">Нужен более высокий тариф</p>
       <p className="mt-1 text-sm">{error.message}</p>
       {onUpgrade && (
         <button
           type="button"
           onClick={onUpgrade}
-          className="mt-3 rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700"
+          className="app-btn-primary mt-3 px-3 py-1.5 text-sm text-white"
         >
-          Upgrade
+          Улучшить тариф
         </button>
       )}
     </div>

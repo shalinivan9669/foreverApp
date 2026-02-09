@@ -20,6 +20,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
       className="
         group relative row-span-2 col-start-1
         flex h-full min-h-[10rem] items-center justify-center text-center sm:min-h-[12rem]
+        app-lift app-reveal
         rounded-2xl border border-emerald-200
         bg-gradient-to-br from-lime-100 via-emerald-100 to-teal-100
         shadow-[0_12px_28px_rgba(21,128,61,0.15)] transition-all duration-200

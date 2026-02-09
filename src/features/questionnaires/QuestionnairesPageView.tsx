@@ -36,7 +36,7 @@ export default function QuestionnairesPageView({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="app-panel-soft flex flex-wrap items-center gap-2 p-1.5">
         <button type="button" className={tabClassName(activeTab === 'personal')} onClick={() => onChangeTab('personal')}>
           Персональные
         </button>

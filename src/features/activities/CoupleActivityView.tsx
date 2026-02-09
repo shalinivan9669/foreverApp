@@ -71,7 +71,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
   if (!hasPair) {
     return (
-      <main className="mx-auto w-full max-w-5xl space-y-4 p-3 sm:p-4 lg:p-6">
+      <main className="app-shell-compact space-y-4 pb-4 pt-3 sm:pb-6 sm:pt-4 lg:pt-6">
         <BackBar title="Активности пары" fallbackHref="/main-menu" />
         <EmptyStateView
           title="Пара не найдена"
@@ -82,11 +82,11 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-4 p-3 sm:p-4 lg:p-6">
+    <main className="app-shell-compact space-y-4 pb-4 pt-3 sm:pb-6 sm:pt-4 lg:pt-6">
       <BackBar title="Активности пары" fallbackHref="/main-menu" />
       <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Активности пары</h1>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="app-panel-soft flex flex-wrap gap-2 p-1.5">
         <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>
           Активная
         </button>
@@ -111,7 +111,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
           {active ? (
             <div className="space-y-3">
               {pendingCompleteActivityId === active._id && pendingCompleteMessage && (
-                <div className="rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                <div className="app-reveal rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
                   <p className="text-sm">{pendingCompleteMessage}</p>
                   <button
                     type="button"
@@ -135,7 +135,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               />
             </div>
           ) : (
-            <div className="app-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="app-panel app-reveal flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="font-medium text-slate-900">Нет активной активности</div>
                 <div className="app-muted text-sm">Предложим подходящее задание</div>

@@ -95,7 +95,7 @@ function Section(props: {
           const canDecide = row.direction === 'outgoing' && row.status === 'awaiting_initiator';
 
           return (
-            <article key={row.id} className="app-panel p-2 sm:p-3">
+            <article key={row.id} className="app-panel app-lift p-2 sm:p-3">
               <div className="flex w-full flex-col gap-3 text-left sm:flex-row sm:items-center">
                 <button type="button" onClick={() => onOpen(row.id)} className="flex min-w-0 flex-1 items-center gap-3">
                   <img
@@ -189,7 +189,7 @@ export default function MatchInboxView(props: MatchInboxViewProps) {
   } = props;
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-3 text-slate-900 sm:p-4 lg:p-6">
+    <div className="app-shell py-3 text-slate-900 sm:py-4 lg:py-6">
       <MatchTabs />
 
       <div className="mb-4 mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
