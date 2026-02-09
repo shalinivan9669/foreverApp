@@ -13,7 +13,7 @@ export default function ProfileDetailsTab() {
         </Link>
       </div>
 
-      <div className="app-panel p-4">
+      <div className="app-panel app-panel-solid p-4">
         <p className="app-muted">
           Расширенные поля паспорта, публичность и тренды будут здесь.
         </p>

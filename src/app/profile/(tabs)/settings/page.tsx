@@ -13,7 +13,7 @@ export default function ProfileSettingsTab() {
         </Link>
       </div>
 
-      <div className="app-panel space-y-3 p-4">
+      <div className="app-panel app-panel-solid space-y-3 p-4">
         <p className="app-muted">Уведомления, приватность, аккаунт, данные — позже.</p>
       </div>
     </main>

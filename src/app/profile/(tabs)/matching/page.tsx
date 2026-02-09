@@ -57,11 +57,11 @@ export default function ProfileMatchingTab() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="app-panel p-4">
+        <div className="app-panel app-panel-solid p-4">
           <div className="app-muted text-sm">Входящие</div>
           <div className="text-2xl font-semibold">{loading ? '...' : inbox ?? 0}</div>
         </div>
-        <div className="app-panel p-4">
+        <div className="app-panel app-panel-solid p-4">
           <div className="app-muted text-sm">Исходящие</div>
           <div className="text-2xl font-semibold">{loading ? '...' : outbox ?? 0}</div>
         </div>

@@ -61,7 +61,7 @@ export default function ProfileOverviewPage() {
   if (!user) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft p-4 text-sm">Нет пользователя (нужна авторизация).</div>
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Нет пользователя (нужна авторизация).</div>
       </main>
     );
   }
@@ -89,7 +89,7 @@ export default function ProfileOverviewPage() {
     return (
       <main className="app-shell-compact space-y-3 py-3 sm:py-4">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
-        <div className="app-panel p-4 text-sm app-muted">
+        <div className="app-panel app-panel-solid p-4 text-sm app-muted">
           Не удалось загрузить сводку профиля. Попробуйте открыть страницу еще раз.
         </div>
       </main>
@@ -105,11 +105,11 @@ export default function ProfileOverviewPage() {
       <SummaryTiles metrics={data.metrics} readiness={data.readiness} fatigue={data.fatigue} />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="app-panel p-4">
+        <div className="app-panel app-panel-solid p-4">
           <h2 className="mb-3 text-base font-semibold">Паспорт по осям</h2>
           <AxisRadar levels={data.passport.levelsByAxis} />
         </div>
-        <div className="app-panel p-4">
+        <div className="app-panel app-panel-solid p-4">
           <h2 className="mb-3 text-base font-semibold">Инсайты</h2>
           <InsightsList items={data.insights} />
         </div>
@@ -126,7 +126,7 @@ export default function ProfileOverviewPage() {
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Предпочтения партнера</h2>
-        <div className="app-panel p-4">
+        <div className="app-panel app-panel-solid p-4">
           <PreferencesCard value={data.matching.filters} />
         </div>
       </section>

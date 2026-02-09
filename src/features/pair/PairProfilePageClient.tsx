@@ -122,7 +122,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
   if (!user) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft p-4 text-sm">Нет пользователя</div>
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Нет пользователя</div>
       </main>
     );
   }
@@ -130,7 +130,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
   if (resolvingPair) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft p-4 text-sm">Загрузка пары...</div>
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Загрузка пары...</div>
       </main>
     );
   }
@@ -138,7 +138,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
   if (!pairId) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft p-4 text-sm">Пара не найдена</div>
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Пара не найдена</div>
       </main>
     );
   }
@@ -147,12 +147,12 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
     <main className="app-shell-compact space-y-6 py-3 sm:py-4 lg:py-6">
       <BackBar title="Профиль пары" fallbackHref="/main-menu" />
 
-      {loading && <div className="app-panel-soft p-3 text-sm app-muted">Загрузка...</div>}
+      {loading && <div className="app-panel-soft app-panel-soft-solid p-3 text-sm app-muted">Загрузка...</div>}
       {!loading && loadError && <div className="app-alert app-alert-error text-sm">{loadError}</div>}
 
       {data && (
         <>
-          <section className="app-panel app-reveal p-4">
+          <section className="app-panel app-panel-solid app-reveal p-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className={`rounded px-2 py-0.5 text-xs ${badgeClass}`}>{data.pair.status}</span>
               <div className="app-muted text-sm">
@@ -185,15 +185,15 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
 
             <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <div className="app-panel-soft p-3">
+              <div className="app-panel-soft app-panel-soft-solid p-3">
                 <div className="app-muted text-xs">Серия</div>
                 <div className="text-lg font-semibold">{data.pair.progress?.streak ?? 0}</div>
               </div>
-              <div className="app-panel-soft p-3">
+              <div className="app-panel-soft app-panel-soft-solid p-3">
                 <div className="app-muted text-xs">Выполнено</div>
                 <div className="text-lg font-semibold">{data.pair.progress?.completed ?? 0}</div>
               </div>
-              <div className="app-panel-soft p-3">
+              <div className="app-panel-soft app-panel-soft-solid p-3">
                 <div className="app-muted text-xs">Готовность / Усталость</div>
                 <div className="text-lg font-semibold">
                   {(data.pair.readiness?.score ?? 0).toFixed(2)} / {(data.pair.fatigue?.score ?? 0).toFixed(2)}
@@ -202,7 +202,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-reveal p-4">
+          <section className="app-panel app-panel-solid app-reveal p-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold">Текущая активность</h3>
               <Link href="/couple-activity" className="text-sm underline">
@@ -227,7 +227,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-reveal p-4">
+          <section className="app-panel app-panel-solid app-reveal p-4">
             <h3 className="font-semibold">Паспорт совместимости</h3>
 
             <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -263,7 +263,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-reveal p-4">
+          <section className="app-panel app-panel-solid app-reveal p-4">
             <h3 className="font-semibold">Исходная заявка</h3>
             {data.lastLike ? (
               <div className="mt-2 text-sm">

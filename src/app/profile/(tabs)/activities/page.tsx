@@ -13,7 +13,7 @@ export default function ProfileActivitiesTab() {
         </Link>
       </div>
 
-      <div className="app-panel p-4">
+      <div className="app-panel app-panel-solid p-4">
         <p className="app-muted">
           Текущая | Предложено | История (будет позже; пока заглушка).
         </p>

@@ -16,7 +16,7 @@ type UserHeaderProps = {
 
 export default function UserHeader({ user, pair }: UserHeaderProps) {
   return (
-    <header className="app-panel app-reveal flex flex-wrap items-center gap-3 p-4">
+    <header className="app-panel app-panel-solid app-reveal flex flex-wrap items-center gap-3 p-4">
       <Image
         src={user.avatar ?? 'https://cdn.discordapp.com/embed/avatars/0.png'}
         alt={user.handle}

@@ -84,3 +84,10 @@
   - profile tabs (`profile`, `matching`, `activities`, `history`, `settings`) now render with explicit panel backgrounds.
 - Harmonized action controls in pair/profile screens with shared buttons (`app-btn-primary`, `app-btn-secondary`) to avoid bare border-only controls on textured backgrounds.
 - Scope: UI-only; no API contracts, business logic, or state transitions changed.
+
+## Opaque Surface Enforcement (2026-02-09)
+- Added dedicated non-transparent surface modifiers for profile-heavy screens:
+  - `app-panel-solid`
+  - `app-panel-soft-solid`
+- These modifiers force opaque warm fills on top of shared panel styles to prevent background pattern bleed-through on profile and pair-profile pages.
+- Applied modifiers to all key profile and pair-profile blocks (overview, tabs, KPI cards, activity placeholders, and pair sections).
