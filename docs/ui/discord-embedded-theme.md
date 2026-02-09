@@ -64,3 +64,15 @@
   - `app-alert` variants (`paywall`, `rate`, `auth`, `error`) for state blocks.
   - `app-tile` variants (`rose`, `honey`, `spark`, `blush`, `aura`) for main-menu cards.
 - Applied the new classes to primary menu tiles and shared state components (`PaywallView`, `ErrorView`, `BackBar`) without changing routing or business logic.
+
+## Depth and contrast refinement (2026-02-09)
+- Reduced perceived flatness across the app by adding layered color depth to shared surfaces:
+  - `app-panel` now has dual radial tints + subtle multi-color top accent line.
+  - `app-panel-soft` now has soft mint highlight for visual separation from default panels.
+  - `app-alert*` variants now include radial tint overlays and vertical edge highlights.
+- Increased palette diversity for main-menu navigation cards:
+  - introduced additional tile variants (`app-tile-mint`, `app-tile-plum`) and retuned existing variants.
+  - updated cards to use more distinct hue families per destination (rose/mint/plum/spark/aura).
+- Added gentle background and card texture/motion:
+  - global background now mixes warm/pink/mint fields with a subtle linear texture overlay.
+  - `app-tile` gradients now use a slow `app-gradient-breathe` animation (disabled by existing reduced-motion fallback).

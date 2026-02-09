@@ -10,7 +10,7 @@ export default function ProfileTile() {
   return (
     <Link
       href="/profile"
-      className="group app-tile app-tile-blush app-reveal flex h-full min-h-[7rem] items-center justify-center sm:min-h-[8rem]"
+      className="group app-tile app-tile-plum app-reveal flex h-full min-h-[7rem] items-center justify-center sm:min-h-[8rem]"
     >
       {user ? (
         <img

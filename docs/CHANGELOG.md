@@ -275,3 +275,9 @@ Summary:
 - Added reusable UI classes for navigation and state surfaces (`app-backbar*`, `app-alert*`, `app-tile*`) and applied them to shared UI components.
 - Restyled main-menu tiles and polished `ErrorView`/`PaywallView`/`BackBar` to align interaction feel with the updated visual language.
 Files: src/app/globals.css, src/components/ui/PaywallView.tsx, src/components/ui/ErrorView.tsx, src/components/ui/BackBar.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/CoupleActivityTile.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md
+Date: 2026-02-09
+Summary:
+- Added a second visual pass to reduce flatness by introducing layered panel/alert surfaces with stronger depth and accent separation.
+- Increased palette diversity across main-menu cards via new tile variants (`app-tile-mint`, `app-tile-plum`) and retuned gradient contrast.
+- Added subtle background texture and slow gradient breathing on tiles (with existing reduced-motion fallback preserved).
+Files: src/app/globals.css, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md
