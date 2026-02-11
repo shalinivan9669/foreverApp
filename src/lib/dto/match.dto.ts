@@ -1,5 +1,6 @@
 import type { LikeStatus, LikeType } from '@/models/Like';
 import type { UserType } from '@/models/User';
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 export type MatchFeedCandidateDTO = {
   id: string;
@@ -81,10 +82,7 @@ const toTuple2String = (items: string[] | undefined): [string, string] | undefin
   return [String(items[0] ?? ''), String(items[1] ?? '')];
 };
 
-const toAvatarUrl = (id: string, avatarHash?: string): string =>
-  avatarHash
-    ? `https://cdn.discordapp.com/avatars/${id}/${avatarHash}.png`
-    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+const toAvatarUrl = (id: string, avatar?: string): string => toDiscordAvatarUrl(id, avatar);
 
 type MatchCardSource = NonNullable<NonNullable<UserType['profile']>['matchCard']>;
 

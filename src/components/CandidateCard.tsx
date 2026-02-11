@@ -1,4 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
+
 type Props = {
   c: { id: string; username: string; avatar: string; score: number };
   onLike?: (c: { id: string; username: string; avatar: string }) => void;
@@ -8,7 +10,7 @@ export default function CandidateCard({ c, onLike }: Props) {
   return (
     <div className="app-panel app-lift flex flex-col gap-3 p-3 text-slate-900 sm:flex-row sm:items-center">
       <img
-        src={`https://cdn.discordapp.com/avatars/${c.id}/${c.avatar}.png`}
+        src={toDiscordAvatarUrl(c.id, c.avatar)}
         width={40}
         height={40}
         className="h-10 w-10 rounded-full ring-1 ring-slate-200"

@@ -293,3 +293,9 @@ Summary:
 - Applied solid surface modifiers to profile overview, profile tabs, pair profile sections, and profile activity/summary/header blocks.
 - Kept logic untouched; only visual surface rendering and component class names were adjusted.
 Files: src/app/globals.css, src/features/pair/PairProfilePageClient.tsx, src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/profile/page.tsx, src/app/profile/(tabs)/matching/page.tsx, src/app/profile/(tabs)/activities/page.tsx, src/app/profile/(tabs)/history/page.tsx, src/app/profile/(tabs)/settings/page.tsx, src/components/profile/UserHeader.tsx, src/components/profile/SummaryTiles.tsx, src/components/profile/InsightsList.tsx, src/components/profile/PreferencesCard.tsx, src/components/activities/UserActivityCard.tsx, src/components/activities/UserActivitiesPlaceholder.tsx, docs/ui/discord-embedded-theme.md, docs/CHANGELOG.md
+Date: 2026-02-11
+Summary:
+- Fixed first-login registration path by handling Discord users without a custom avatar (`avatar = null`) via avatar normalization and safer `/api/users` input validation.
+- Removed the third user gender option from onboarding and constrained `User.personal.gender` to only `male` and `female`.
+- Unified avatar URL resolution (hash/url/fallback) across onboarding, landing, key main-menu cards, match modals, and profile-summary/match DTO mapping.
+Files: src/lib/discord/avatar.ts, src/app/page.tsx, src/components/OnboardingWizard.tsx, src/app/api/users/route.ts, src/models/User.ts, src/lib/dto/match.dto.ts, src/app/api/users/me/profile-summary/route.ts, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/CandidateCard.tsx, src/components/match/LikeModalView.tsx, docs/07-security-privacy.md, docs/CHANGELOG.md

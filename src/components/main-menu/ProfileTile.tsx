@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import { useUserStore } from '@/store/useUserStore';
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 export default function ProfileTile() {
   const user = useUserStore((s) => s.user);
@@ -14,7 +15,7 @@ export default function ProfileTile() {
     >
       {user ? (
         <img
-          src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+          src={toDiscordAvatarUrl(user.id, user.avatar)}
           alt={user.username}
           width={68}
           height={68}

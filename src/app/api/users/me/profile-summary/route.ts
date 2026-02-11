@@ -11,6 +11,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
 import { resolveEntitlements } from '@/lib/entitlements';
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 type Axis =
   | 'communication'
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
     user: {
       id: user.id,
       handle: user.username,
-      avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
+      avatar: user.avatar ? toDiscordAvatarUrl(user.id, user.avatar) : null,
       joinedAt: user.createdAt,
       status,
       lastActiveAt: user.updatedAt,

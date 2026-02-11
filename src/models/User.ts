@@ -5,7 +5,7 @@ export interface UserType {
   username: string;
   avatar: string;
   personal: {
-    gender: 'male' | 'female' | 'other';
+    gender: 'male' | 'female';
     age: number;
     city: string;
     relationshipStatus: 'seeking' | 'in_relationship';
@@ -133,7 +133,7 @@ const userSchema = new Schema<UserType>(
     username: { type: String, required: true },
     avatar:   { type: String, required: true },
     personal: {
-      gender:             { type: String, enum: ['male','female','other'], required: true },
+      gender:             { type: String, enum: ['male','female'], required: true },
       age:                { type: Number, required: true },
       city:               { type: String, required: true },
       relationshipStatus: { type: String, enum: ['seeking','in_relationship'], required: true },

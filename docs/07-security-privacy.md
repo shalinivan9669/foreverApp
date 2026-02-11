@@ -9,7 +9,7 @@
 **Evidence**
 | Факт | Тип | Источник (path:line) | Цитата (?2 строки) |
 |---|---|---|---|
-| User персональные поля | model | `src/models/User.ts:7-45` | `personal: {`<br>`  gender: 'male' | 'female' | 'other';` |
+| User персональные поля | model | `src/models/User.ts:7-45` | `personal: {`<br>`  gender: 'male' | 'female';` |
 | PairActivity answers schema | model | `src/models/PairActivity.ts:4-54` | `export interface Answer {`<br>`  checkInId: string;` |
 | Check-in пишет answers | api | `src/app/api/activities/[id]/checkin/route.ts:10-20` | `const { by, answers } = (await req.json()) as {` |
 | Questionnaire answers schema | model | `src/models/PairQuestionnaireAnswer.ts:3-24` | `questionId: string;`<br>`by: 'A' | 'B';` |

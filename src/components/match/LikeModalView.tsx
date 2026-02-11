@@ -1,6 +1,7 @@
 ﻿'use client';
 
 /* eslint-disable @next/next/no-img-element */
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 type Card = {
   requirements: [string, string, string];
@@ -23,9 +24,7 @@ type LikeModalViewProps = {
 };
 
 const avatarUrl = (id: string, avatar?: string) =>
-  avatar
-    ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`
-    : 'https://cdn.discordapp.com/embed/avatars/0.png';
+  toDiscordAvatarUrl(id, avatar);
 
 export default function LikeModalView(props: LikeModalViewProps) {
   const {

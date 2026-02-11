@@ -8,6 +8,7 @@ import { useUserStore, DiscordUser } from '../store/useUserStore';
 import Spinner from '@/components/ui/Spinner';
 import { usersApi } from '@/client/api/users.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
+import { normalizeDiscordAvatar, toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 export default function DiscordActivityPage() {
   const setUser = useUserStore((s) => s.setUser);
@@ -48,9 +49,20 @@ export default function DiscordActivityPage() {
         if (!userRes.ok) {
           throw new Error(`Failed to fetch profile: ${userRes.status}`);
         }
-        const u = (await userRes.json()) as DiscordUser;
+        const rawUser = (await userRes.json()) as Partial<DiscordUser> & {
+          id?: string;
+          username?: string;
+          avatar?: string | null;
+        };
+        if (!rawUser.id || !rawUser.username) {
+          throw new Error('Invalid Discord profile payload');
+        }
 
-        setUser(u);
+        setUser({
+          id: rawUser.id,
+          username: rawUser.username,
+          avatar: normalizeDiscordAvatar(rawUser.avatar),
+        });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(e);
@@ -103,7 +115,7 @@ export default function DiscordActivityPage() {
             </div>
           )}
           <Image
-            src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+            src={toDiscordAvatarUrl(user.id, user.avatar)}
             alt="Avatar"
             width={128}
             height={128}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
 import { fetchEnvelope } from '@/utils/apiClient';
+import { normalizeDiscordAvatar } from '@/lib/discord/avatar';
 
 export default function OnboardingWizard() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function OnboardingWizard() {
   const [error, setError] = useState<string | null>(null);
 
   // step 1 fields
-  const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
+  const [gender, setGender] = useState<'male' | 'female'>('male');
   const [age, setAge] = useState(18);
   const [status, setStatus] = useState<'seeking' | 'in_relationship'>('seeking');
 
@@ -49,7 +50,7 @@ export default function OnboardingWizard() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: user.username,
-            avatar: user.avatar,
+            avatar: normalizeDiscordAvatar(user.avatar),
             personal: {
               gender,
               age,
@@ -136,12 +137,11 @@ export default function OnboardingWizard() {
             Пол:
             <select
               value={gender}
-              onChange={(e) => setGender(e.target.value as 'male' | 'female' | 'other')}
+              onChange={(e) => setGender(e.target.value as 'male' | 'female')}
               className="ml-2"
             >
               <option value="male">Мужской</option>
               <option value="female">Женский</option>
-              <option value="other">Иной</option>
             </select>
           </label>
           <label>

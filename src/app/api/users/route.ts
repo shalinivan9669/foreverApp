@@ -7,14 +7,24 @@ import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { usersService, type UserProfileUpsertPayload } from '@/domain/services/users.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
+import { normalizeDiscordAvatar } from '@/lib/discord/avatar';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
+
+const personalSchema = z
+  .object({
+    gender: z.enum(['male', 'female']).optional(),
+    age: z.number().optional(),
+    city: z.string().optional(),
+    relationshipStatus: z.enum(['seeking', 'in_relationship']).optional(),
+  })
+  .passthrough();
 
 const userUpdateSchema = z
   .object({
     username: z.string().optional(),
-    avatar: z.string().optional(),
-    personal: z.object({}).passthrough().optional(),
+    avatar: z.string().min(1).nullable().optional(),
+    personal: personalSchema.optional(),
     vectors: z.object({}).passthrough().optional(),
     preferences: z.object({}).passthrough().optional(),
     embeddings: z.object({}).passthrough().optional(),
@@ -37,7 +47,13 @@ export async function POST(request: Request) {
 
   const bodyResult = await parseJson(request, userUpdateSchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const body = bodyResult.data as UserProfileUpsertPayload;
+  const rawBody = bodyResult.data as UserProfileUpsertPayload & { avatar?: string | null };
+  const body: UserProfileUpsertPayload = {
+    ...rawBody,
+    ...(rawBody.avatar !== undefined
+      ? { avatar: normalizeDiscordAvatar(rawBody.avatar) }
+      : {}),
+  };
   const auditRequest = auditContextFromRequest(request, '/api/users');
 
   return withIdempotency({

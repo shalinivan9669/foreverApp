@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { PublicUserDTO } from '@/client/api/types';
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 type SearchPairTileViewProps = {
   hasActive: boolean;
@@ -37,7 +38,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
         {hasActive && peer && (
           <div className="mt-1 flex items-center justify-center gap-2 text-xs sm:text-sm">
             <Image
-              src={`https://cdn.discordapp.com/avatars/${peer.id}/${peer.avatar}.png`}
+              src={toDiscordAvatarUrl(peer.id, peer.avatar)}
               width={20}
               height={20}
               className="rounded-full ring-1 ring-white/75"
