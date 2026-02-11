@@ -112,13 +112,21 @@ export async function POST(req: Request) {
 
   const token = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days
   const res = jsonOk({ access_token: accessToken });
-  const isProd = process.env.NODE_ENV === 'production';
+  const forwardedProto = req.headers.get('x-forwarded-proto');
+  const requestProtocol = (() => {
+    try {
+      return new URL(req.url).protocol;
+    } catch {
+      return null;
+    }
+  })();
+  const isSecureContext = forwardedProto === 'https' || requestProtocol === 'https:';
   res.cookies.set({
     name: 'session',
     value: token,
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    secure: isSecureContext,
+    sameSite: isSecureContext ? 'none' : 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
   });

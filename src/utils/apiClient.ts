@@ -75,7 +75,10 @@ export async function fetchEnvelope<T>(
   options?: FetchEnvelopeOptions
 ): Promise<T> {
   const requestInit = withIdempotencyHeader(init, options);
-  const res = await fetch(url, requestInit);
+  const res = await fetch(url, {
+    ...requestInit,
+    credentials: 'include',
+  });
 
   let payload: EnvelopeLike<T>;
   try {

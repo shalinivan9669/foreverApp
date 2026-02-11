@@ -299,3 +299,9 @@ Summary:
 - Removed the third user gender option from onboarding and constrained `User.personal.gender` to only `male` and `female`.
 - Unified avatar URL resolution (hash/url/fallback) across onboarding, landing, key main-menu cards, match modals, and profile-summary/match DTO mapping.
 Files: src/lib/discord/avatar.ts, src/app/page.tsx, src/components/OnboardingWizard.tsx, src/app/api/users/route.ts, src/models/User.ts, src/lib/dto/match.dto.ts, src/app/api/users/me/profile-summary/route.ts, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/CandidateCard.tsx, src/components/match/LikeModalView.tsx, docs/07-security-privacy.md, docs/CHANGELOG.md
+Date: 2026-02-11
+Summary:
+- Fixed `401 AUTH_REQUIRED` on private client writes by making `fetchEnvelope` always send cookies (`credentials: include`).
+- Updated session cookie policy in `/api/exchange-code` to use secure-context detection (`https` / `x-forwarded-proto`) instead of `NODE_ENV` only.
+- Documented the embedded-session update in security docs.
+Files: src/utils/apiClient.ts, src/app/api/exchange-code/route.ts, docs/07-security-privacy.md, docs/CHANGELOG.md

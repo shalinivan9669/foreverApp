@@ -90,3 +90,11 @@ By default, event metadata must not include:
 
 Enforcement path:
 - `src/lib/audit/emitEvent.ts` metadata sanitizer strips sensitive keys before persist.
+
+## Update 2026-02-11 (Session Cookie in Embedded Context)
+
+- Client envelope transport `fetchEnvelope` now explicitly sends credentials (`credentials: 'include'`) for private API calls.
+- Session cookie flags are now derived from the actual secure context (`https` request / `x-forwarded-proto=https`) instead of `NODE_ENV` only:
+  - secure context: `SameSite=None; Secure`
+  - non-secure local context: `SameSite=Lax`
+- This prevents `401 AUTH_REQUIRED` on first onboarding writes when app runs in embedded/proxied HTTPS contexts.
