@@ -119,7 +119,7 @@ export default function QuestionnaireCard({
       </div>
 
       <div className="mt-3 pl-3">
-        <h3 className="max-h-12 overflow-hidden text-base font-semibold leading-snug text-slate-900">
+        <h3 className="font-display max-h-12 overflow-hidden text-base font-semibold leading-tight text-slate-900">
           {q.title}
         </h3>
         <p className="app-muted mt-1 max-h-10 overflow-hidden text-sm leading-5">

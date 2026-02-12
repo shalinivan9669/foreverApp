@@ -305,3 +305,9 @@ Summary:
 - Updated session cookie policy in `/api/exchange-code` to use secure-context detection (`https` / `x-forwarded-proto`) instead of `NODE_ENV` only.
 - Documented the embedded-session update in security docs.
 Files: src/utils/apiClient.ts, src/app/api/exchange-code/route.ts, docs/07-security-privacy.md, docs/CHANGELOG.md
+Date: 2026-02-12
+Summary:
+- Added `Cormorant Infant` (display) and `Hachi Maru Pop` (accent) via `next/font/google` with Cyrillic + Latin subsets and CSS variables.
+- Introduced typography tokens (`font-sans`, `font-display`, `font-accent`) in Tailwind and base styles; applied display/accent fonts to key tile/card/profile/question components.
+- Added typography specification doc and linked it in docs map.
+Files: src/app/layout.tsx, src/app/globals.css, tailwind.config.ts, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/activities/ActivityCard.tsx, src/components/activities/UserActivityCard.tsx, src/components/profile/UserHeader.tsx, src/components/profile/SummaryTiles.tsx, src/components/QuestionCard.tsx, src/components/QuestionnaireCard.tsx, src/components/ui/EmptyStateView.tsx, docs/08-typography.md, docs/README.md, docs/CHANGELOG.md

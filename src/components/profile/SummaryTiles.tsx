@@ -11,7 +11,7 @@ function Tile({ label, value }: { label: string; value: string }) {
   return (
     <div className="app-panel-soft app-panel-soft-solid p-4">
       <div className="app-muted text-xs">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
+      <div className="font-display text-2xl font-semibold leading-tight">{value}</div>
     </div>
   );
 }

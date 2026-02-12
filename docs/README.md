@@ -16,6 +16,7 @@ If you're adding new code, start with `docs/engineering/README.md`.
 - `docs/03-state-machines.md`
 - `docs/04-api-contracts.md`
 - `docs/05-analytics-events.md`
+- `docs/08-typography.md`
 - `docs/data/questionnaire-flow.md`
 - `docs/ui/questionnaire-cards.md`
 

@@ -50,7 +50,7 @@ export default function ActivityCard(props: {
             <span className="app-muted text-xs">- d{a.difficulty} - i{a.intensity}</span>
           </div>
 
-          <h3 className="mt-1 text-lg font-semibold">{t(a.title)}</h3>
+          <h3 className="font-display mt-1 text-lg font-semibold leading-tight">{t(a.title)}</h3>
 
           {a.description && <p className="app-muted mt-1 text-sm">{t(a.description)}</p>}
 

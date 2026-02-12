@@ -29,8 +29,10 @@
   --color-primary: var(--app-primary);
   --color-primary-strong: var(--app-primary-strong);
   --color-primary-contrast: var(--app-primary-contrast);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Avenir Next", "Trebuchet MS", "Segoe UI", "Noto Sans", sans-serif;
+  --font-display: var(--font-display-face);
+  --font-accent: var(--font-accent-face);
+  --font-mono: "Cascadia Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 *,
@@ -55,9 +57,38 @@ body {
     repeating-linear-gradient(122deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 18px),
     linear-gradient(165deg, #f8e3b2 0%, var(--app-bg) 44%, var(--app-bg-accent) 100%);
   color: var(--app-fg);
-  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", "Noto Sans", sans-serif;
+  font-family: var(--font-sans), sans-serif;
   line-height: 1.45;
   text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), serif;
+  letter-spacing: 0;
+}
+
+h1 {
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+h2 {
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+h3 {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.app-accent,
+.font-accent-ui {
+  font-family: var(--font-accent), cursive;
+  font-weight: 400;
+  line-height: 1.25;
 }
 
 a {

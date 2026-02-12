@@ -22,7 +22,7 @@ export default function ProfileTile() {
           className="h-14 w-14 rounded-full ring-2 ring-white/85 shadow-md sm:h-[68px] sm:w-[68px]"
         />
       ) : (
-        <span className="text-xs font-medium sm:text-sm">ПРОФИЛЬ</span>
+        <span className="font-display text-xs font-semibold leading-tight sm:text-sm">ПРОФИЛЬ</span>
       )}
     </Link>
   );

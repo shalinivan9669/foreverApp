@@ -6,6 +6,8 @@ type EmptyStateViewProps = {
 };
 
 export default function EmptyStateView({ title, description }: EmptyStateViewProps) {
+  const useAccentDescription = Boolean(description && description.length <= 42);
+
   return (
     <div className="app-panel-soft app-reveal border-dashed p-4 text-sm text-slate-700">
       <div className="flex items-start gap-3">
@@ -13,8 +15,12 @@ export default function EmptyStateView({ title, description }: EmptyStateViewPro
           i
         </span>
         <div>
-          <p className="font-semibold text-slate-900">{title}</p>
-          {description && <p className="mt-1 app-muted">{description}</p>}
+          <p className="font-display text-lg font-semibold leading-tight text-slate-900">{title}</p>
+          {description && (
+            <p className={`mt-1 ${useAccentDescription ? 'font-accent text-base leading-snug' : 'app-muted'}`}>
+              {description}
+            </p>
+          )}
         </div>
       </div>
     </div>

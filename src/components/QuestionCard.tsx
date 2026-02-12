@@ -21,7 +21,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
 
   return (
     <div className="app-panel p-4">
-      <p className="text-slate-900">{label}</p>
+      <p className="font-display text-lg font-medium leading-snug text-slate-900">{label}</p>
 
       {q.scale === 'likert5' && (
         <div className="mt-2 flex flex-wrap gap-2">

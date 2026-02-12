@@ -33,7 +33,9 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
           )}
         </div>
 
-        <div className="text-base font-semibold sm:text-lg">{hasActive ? 'Профиль пары' : 'Поиск пары'}</div>
+        <div className="font-display text-base font-semibold leading-tight sm:text-lg">
+          {hasActive ? 'Профиль пары' : 'Поиск пары'}
+        </div>
 
         {hasActive && peer && (
           <div className="mt-1 flex items-center justify-center gap-2 text-xs sm:text-sm">

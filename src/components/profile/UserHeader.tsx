@@ -26,7 +26,7 @@ export default function UserHeader({ user, pair }: UserHeaderProps) {
       />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate font-semibold">@{user.handle}</div>
+        <div className="font-display truncate text-xl font-bold leading-tight">@{user.handle}</div>
         <div className="app-muted text-sm">
           Статус: {user.status}
           {pair && (
