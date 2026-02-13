@@ -25,6 +25,7 @@ export default function PersonalQuestionnaireRunner() {
 
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireDTO | null>(null);
   const [index, setIndex] = useState(0);
+  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, number>>({});
   const { refetch: refetchCurrentUser } = useCurrentUser({ enabled: false });
 
   const {
@@ -48,6 +49,7 @@ export default function PersonalQuestionnaireRunner() {
     const controller = new AbortController();
 
     setIndex(0);
+    setAnswersByQuestionId({});
     setQuestionnaire(null);
     clearLoadError();
 
@@ -77,20 +79,30 @@ export default function PersonalQuestionnaireRunner() {
 
     const normalizedQuestionId = currentQuestion.id ?? currentQuestion._id ?? questionId;
     if (!normalizedQuestionId) return;
+    const nextAnswersByQuestionId = {
+      ...answersByQuestionId,
+      [normalizedQuestionId]: ui,
+    };
+    setAnswersByQuestionId(nextAnswersByQuestionId);
 
     clearSubmitError();
-
-    const saved = await runSubmitSafe(
-      () => questionnairesApi.submitPersonalAnswer(id, { qid: normalizedQuestionId, ui }),
-      { loadingKey: 'questionnaire-personal-submit' }
-    );
-
-    if (!saved) return;
 
     if (index < questions.length - 1) {
       setIndex((prev) => prev + 1);
       return;
     }
+
+    const answers = Object.entries(nextAnswersByQuestionId).map(([qid, answerUi]) => ({
+      qid,
+      ui: answerUi,
+    }));
+
+    const saved = await runSubmitSafe(
+      () => questionnairesApi.submitPersonalAnswers(id, answers),
+      { loadingKey: 'questionnaire-personal-submit' }
+    );
+
+    if (!saved) return;
 
     await refetchCurrentUser();
     await usersApi.getProfileSummary().catch(() => null);

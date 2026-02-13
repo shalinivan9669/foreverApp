@@ -311,3 +311,10 @@ Summary:
 - Introduced typography tokens (`font-sans`, `font-display`, `font-accent`) in Tailwind and base styles; applied display/accent fonts to key tile/card/profile/question components.
 - Added typography specification doc and linked it in docs map.
 Files: src/app/layout.tsx, src/app/globals.css, tailwind.config.ts, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/activities/ActivityCard.tsx, src/components/activities/UserActivityCard.tsx, src/components/profile/UserHeader.tsx, src/components/profile/SummaryTiles.tsx, src/components/QuestionCard.tsx, src/components/QuestionnaireCard.tsx, src/components/ui/EmptyStateView.tsx, docs/08-typography.md, docs/README.md, docs/CHANGELOG.md
+
+Date: 2026-02-13
+Summary:
+- Fixed personal questionnaire vector gain issue by switching `/questionnaire/[id]` submit from per-question POST to one final batched POST.
+- Added `submitPersonalAnswers(...)` client API helper for questionnaire batch payload.
+- Documented updated personal questionnaire apply mode and cooldown behavior impact.
+Files: src/app/questionnaire/[id]/page.tsx, src/client/api/questionnaires.api.ts, docs/data/questionnaire-flow.md, docs/CHANGELOG.md

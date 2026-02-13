@@ -46,4 +46,14 @@ export const questionnairesApi = {
       answer,
       { idempotency: true }
     ),
+
+  submitPersonalAnswers: (
+    questionnaireId: string,
+    answers: { qid: string; ui: number }[]
+  ): Promise<Record<string, never>> =>
+    http.post<Record<string, never>, { answers: { qid: string; ui: number }[] }>(
+      `/api/questionnaires/${questionnaireId}`,
+      { answers },
+      { idempotency: true }
+    ),
 };

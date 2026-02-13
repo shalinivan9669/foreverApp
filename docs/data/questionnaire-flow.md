@@ -56,3 +56,8 @@
 - `sub` в JWT = Discord userId.
 - `meta.isStarter` используется для пометки стартовых анкет.
 - Приоритет статусов: in_progress > completed > required > new; locked для парных анкет без пары.
+
+## Update 2026-02-13 (Personal questionnaire batch submit)
+- Personal questionnaire UI (`/questionnaire/[id]`) now sends answers as one batch at the end instead of one request per question.
+- This prevents triggering personal cooldown after the first answer and applies vector scoring to the full answer set.
+- Couple questionnaire flow is unchanged.
