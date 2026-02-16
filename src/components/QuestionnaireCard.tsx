@@ -43,25 +43,27 @@ const scopeLabel = {
   couple: 'для пары',
 } as const;
 
-const statusBadge = (q: QuestionnaireCardDTO) => {
-  if (q.status === 'required') return 'обязательная';
-  if (q.status === 'locked') return 'нужна пара';
-  if (q.status === 'completed') return 'пройдена';
-  if (q.status === 'in_progress') return 'в процессе';
+const statusBadge = (questionnaire: QuestionnaireCardDTO) => {
+  if (questionnaire.status === 'required') return 'обязательная';
+  if (questionnaire.status === 'locked') return 'нужна пара';
+  if (questionnaire.status === 'completed') return 'пройдена';
+  if (questionnaire.status === 'in_progress') return 'в процессе';
   return null;
 };
 
-const ctaLabel = (q: QuestionnaireCardDTO) => {
-  if (q.cta === 'locked') return 'нужна пара';
-  if (q.cta === 'result') return 'результат';
-  if (q.cta === 'continue') return 'продолжить';
-  if (q.isStarter) return 'начать стартовую';
+const ctaLabel = (questionnaire: QuestionnaireCardDTO) => {
+  if (questionnaire.cta === 'locked') return 'нужна пара';
+  if (questionnaire.cta === 'result') return 'результат';
+  if (questionnaire.cta === 'continue') return 'продолжить';
+  if (questionnaire.isStarter) return 'начать стартовую';
   return 'начать';
 };
 
-const hrefFor = (q: QuestionnaireCardDTO) => {
-  if (q.scope === 'couple' && q.pairId) return `/pair/${q.pairId}/questionnaire/${q.id}`;
-  return `/questionnaire/${q.id}`;
+const hrefFor = (questionnaire: QuestionnaireCardDTO) => {
+  if (questionnaire.scope === 'couple' && questionnaire.pairId) {
+    return `/pair/${questionnaire.pairId}/questionnaire/${questionnaire.id}`;
+  }
+  return `/questionnaire/${questionnaire.id}`;
 };
 
 export default function QuestionnaireCard({
@@ -122,13 +124,13 @@ export default function QuestionnaireCard({
         <h3 className="font-display max-h-12 overflow-hidden text-base font-semibold leading-tight text-slate-900">
           {q.title}
         </h3>
-        <p className="app-muted mt-1 max-h-10 overflow-hidden text-sm leading-5">
-          {q.subtitle}
-        </p>
+        <p className="app-muted mt-1 max-h-10 overflow-hidden text-sm leading-5">{q.subtitle}</p>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 pl-3 text-sm text-slate-700">
-        <span>{q.estMinutesMin}-{q.estMinutesMax} мин</span>
+        <span>
+          {q.estMinutesMin}-{q.estMinutesMax} мин
+        </span>
         <span>{q.questionCount} вопросов</span>
         <span>уровень {q.level}</span>
         {typeof q.rewardCoins === 'number' && <span>{q.rewardCoins} монет</span>}
@@ -152,10 +154,7 @@ export default function QuestionnaireCard({
         {q.status === 'in_progress' && (
           <div className="flex-1">
             <div className="h-2 rounded bg-slate-100">
-              <div
-                className="h-2 rounded bg-blue-600"
-                style={{ width: `${Math.min(100, q.progressPct ?? 0)}%` }}
-              />
+              <div className="h-2 rounded bg-blue-600" style={{ width: `${Math.min(100, q.progressPct ?? 0)}%` }} />
             </div>
             <div className="app-muted mt-1 text-xs">Прогресс {q.progressPct ?? 0}%</div>
           </div>
@@ -177,21 +176,15 @@ export default function QuestionnaireCard({
           disabled={actionDisabled}
           className={
             'rounded px-3 py-1.5 text-sm ' +
-            (actionDisabled
-              ? 'cursor-not-allowed bg-slate-200 text-slate-500'
-              : 'app-btn-primary text-white')
+            (actionDisabled ? 'cursor-not-allowed bg-slate-200 text-slate-500' : 'app-btn-primary text-white')
           }
         >
           {loading ? 'Запускаем...' : ctaLabel(q)}
         </button>
       </div>
 
-      {q.status === 'locked' && q.lockReason && (
-        <div className="app-muted mt-2 pl-3 text-xs">{q.lockReason}</div>
-      )}
-      {!q.lockReason && disabledReason && (
-        <div className="app-muted mt-2 pl-3 text-xs">{disabledReason}</div>
-      )}
+      {q.status === 'locked' && q.lockReason && <div className="app-muted mt-2 pl-3 text-xs">{q.lockReason}</div>}
+      {!q.lockReason && disabledReason && <div className="app-muted mt-2 pl-3 text-xs">{disabledReason}</div>}
     </Link>
   );
 }

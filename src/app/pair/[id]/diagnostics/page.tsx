@@ -1,124 +1,158 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/utils/api';
-import { fetchEnvelope } from '@/utils/apiClient';
-
-type Axis = 'communication' | 'domestic' | 'personalViews' | 'finance' | 'sexuality' | 'psyche';
-
-type Passport = {
-  strongSides: { axis: Axis; facets: string[] }[];
-  riskZones: { axis: Axis; facets: string[]; severity: 1 | 2 | 3 }[];
-  complementMap: { axis: Axis; A_covers_B: string[]; B_covers_A: string[] }[];
-  levelDelta: { axis: Axis; delta: number }[];
-  lastDiagnosticsAt?: string;
-};
-
-type CoupleQuestionnaire = {
-  id?: string;
-  _id?: string;
-};
-
-type DiagnosticsResponse = {
-  pairId: string;
-  passport: Passport;
-};
+import EmptyStateView from '@/components/ui/EmptyStateView';
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
+import { pairsApi } from '@/client/api/pairs.api';
+import { questionnairesApi } from '@/client/api/questionnaires.api';
+import type { PairPassportDTO } from '@/client/api/types';
+import { useApi } from '@/client/hooks/useApi';
 
 export default function PairDiagnosticsPage() {
   const params = useParams<{ id: string }>();
   const pairId = params?.id;
 
-  const [passport, setPassport] = useState<Passport | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [passport, setPassport] = useState<PairPassportDTO | null>(null);
   const [coupleQnId, setCoupleQnId] = useState<string | null>(null);
 
+  const {
+    runSafe: runDiagnosticsSafe,
+    loading,
+    error,
+  } = useApi('pair-diagnostics');
+
   useEffect(() => {
-    let on = true;
-    fetchEnvelope<CoupleQuestionnaire[]>(api('/api/questionnaires?target=couple'))
+    let active = true;
+    const controller = new AbortController();
+
+    questionnairesApi
+      .getQuestionnairesByTarget('couple', controller.signal)
       .then((list) => {
-        if (!on) return;
-        const first = list[0];
+        if (!active) return;
+        const first = Array.isArray(list) ? list[0] : null;
         setCoupleQnId(first?.id ?? first?._id ?? null);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        setCoupleQnId(null);
+      });
+
     return () => {
-      on = false;
+      active = false;
+      controller.abort();
     };
   }, []);
 
   const refresh = useCallback(async () => {
     if (!pairId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const diagnostics = await fetchEnvelope<DiagnosticsResponse>(api(`/api/pairs/${pairId}/diagnostics`));
-      setPassport(diagnostics.passport ?? null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error');
-    } finally {
-      setLoading(false);
-    }
-  }, [pairId]);
+
+    const diagnostics = await runDiagnosticsSafe(
+      () => pairsApi.getDiagnostics(pairId),
+      { loadingKey: 'pair-diagnostics' }
+    );
+    if (!diagnostics) return;
+    setPassport(diagnostics.passport ?? null);
+  }, [pairId, runDiagnosticsSafe]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const fmtDate = (s?: string) => (s ? new Date(s).toLocaleString() : '—');
+  const ctaHref = useMemo(
+    () => (coupleQnId && pairId ? `/pair/${pairId}/questionnaire/${coupleQnId}` : '#'),
+    [coupleQnId, pairId]
+  );
 
-  const severityBadge = (n: 1 | 2 | 3) => (
+  const formatDate = (value?: string): string => (value ? new Date(value).toLocaleString('ru-RU') : '—');
+
+  const severityBadge = (value: 1 | 2 | 3) => (
     <span
       className={`px-2 py-0.5 rounded text-xs ${
-        n === 3 ? 'bg-red-100 text-red-700' : n === 2 ? 'bg-amber-100 text-amber-700' : 'bg-yellow-100 text-yellow-700'
+        value === 3
+          ? 'bg-red-100 text-red-700'
+          : value === 2
+            ? 'bg-amber-100 text-amber-700'
+            : 'bg-yellow-100 text-yellow-700'
       }`}
     >
-      S{n}
+      S{value}
     </span>
   );
 
-  const ctaHref = useMemo(() => (coupleQnId ? `/pair/${pairId}/questionnaire/${coupleQnId}` : '#'), [coupleQnId, pairId]);
+  if (!pairId) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <EmptyStateView
+          title="Пара не найдена"
+          description="Откройте диагностику из профиля пары."
+        />
+      </main>
+    );
+  }
 
   return (
-    <main className="p-4 max-w-3xl mx-auto space-y-4">
+    <main className="app-shell-compact space-y-4 py-3 sm:py-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Диагностика пары</h1>
+        <h1 className="text-xl font-semibold">Диагностика пары</h1>
         <Link href="/main-menu" className="text-sm text-blue-600 hover:underline">
           В меню
         </Link>
       </div>
 
       <div className="flex gap-2">
-        <button onClick={() => void refresh()} disabled={loading} className="px-3 py-2 rounded bg-black text-white disabled:opacity-50">
+        <button
+          type="button"
+          onClick={() => {
+            void refresh();
+          }}
+          disabled={loading}
+          className="app-btn-secondary px-3 py-2 text-sm text-slate-800 disabled:opacity-60"
+        >
           Обновить
         </button>
         {coupleQnId && (
-          <Link href={ctaHref} className="px-3 py-2 rounded bg-yellow-300 text-black">
+          <Link href={ctaHref} className="app-btn-primary px-3 py-2 text-sm text-white">
             Пройти диагностику
           </Link>
         )}
       </div>
 
-      {error && <div className="text-sm text-red-600">{error}</div>}
+      {loading && !passport && <LoadingView compact label="Загрузка диагностики..." />}
+      {error && (
+        <ErrorView
+          error={error}
+          onRetry={() => {
+            void refresh();
+          }}
+        />
+      )}
 
-      {loading && <div className="text-sm text-gray-500">Загрузка…</div>}
+      {!loading && !passport && !error && (
+        <EmptyStateView
+          title="Нет данных диагностики"
+          description="Пройдите парную анкету, чтобы увидеть анализ."
+        />
+      )}
 
       {!loading && passport && (
         <div className="space-y-4">
-          <div className="text-sm text-gray-500">Последнее обновление: {fmtDate(passport.lastDiagnosticsAt)}</div>
+          <div className="text-sm text-gray-500">Последнее обновление: {formatDate(passport.lastDiagnosticsAt)}</div>
 
           <section className="space-y-2">
             <h2 className="font-semibold">Риск-зоны</h2>
-            {passport.riskZones?.length ? (
-              passport.riskZones.map((r, i) => (
-                <div key={`${r.axis}-${i}`} className="flex items-center justify-between border rounded p-3">
+            {passport.riskZones.length > 0 ? (
+              passport.riskZones.map((risk, index) => (
+                <div key={`${risk.axis}-${index}`} className="flex items-center justify-between border rounded p-3">
                   <div>
-                    <div className="font-medium">{r.axis}</div>
-                    {r.facets?.length ? <div className="text-xs text-gray-600">facets: {r.facets.join(', ')}</div> : null}
+                    <div className="font-medium">{risk.axis}</div>
+                    {risk.facets.length > 0 && (
+                      <div className="text-xs text-gray-600">facets: {risk.facets.join(', ')}</div>
+                    )}
                   </div>
-                  {severityBadge(r.severity)}
+                  {severityBadge(risk.severity)}
                 </div>
               ))
             ) : (
@@ -128,11 +162,13 @@ export default function PairDiagnosticsPage() {
 
           <section className="space-y-2">
             <h2 className="font-semibold">Сильные стороны</h2>
-            {passport.strongSides?.length ? (
-              passport.strongSides.map((s, i) => (
-                <div key={`${s.axis}-${i}`} className="border rounded p-3">
-                  <div className="font-medium">{s.axis}</div>
-                  {s.facets?.length ? <div className="text-xs text-gray-600">facets: {s.facets.join(', ')}</div> : null}
+            {passport.strongSides.length > 0 ? (
+              passport.strongSides.map((strong, index) => (
+                <div key={`${strong.axis}-${index}`} className="border rounded p-3">
+                  <div className="font-medium">{strong.axis}</div>
+                  {strong.facets.length > 0 && (
+                    <div className="text-xs text-gray-600">facets: {strong.facets.join(', ')}</div>
+                  )}
                 </div>
               ))
             ) : (
@@ -142,12 +178,16 @@ export default function PairDiagnosticsPage() {
 
           <section className="space-y-2">
             <h2 className="font-semibold">Взаимодополнение</h2>
-            {passport.complementMap?.length ? (
-              passport.complementMap.map((c, i) => (
-                <div key={`${c.axis}-${i}`} className="border rounded p-3 text-sm">
-                  <div className="font-medium">{c.axis}</div>
-                  <div className="text-gray-700">A покрывает B: {c.A_covers_B?.length ? c.A_covers_B.join(', ') : '—'}</div>
-                  <div className="text-gray-700">B покрывает A: {c.B_covers_A?.length ? c.B_covers_A.join(', ') : '—'}</div>
+            {passport.complementMap.length > 0 ? (
+              passport.complementMap.map((item, index) => (
+                <div key={`${item.axis}-${index}`} className="border rounded p-3 text-sm">
+                  <div className="font-medium">{item.axis}</div>
+                  <div className="text-gray-700">
+                    A покрывает B: {item.A_covers_B.length > 0 ? item.A_covers_B.join(', ') : '—'}
+                  </div>
+                  <div className="text-gray-700">
+                    B покрывает A: {item.B_covers_A.length > 0 ? item.B_covers_A.join(', ') : '—'}
+                  </div>
                 </div>
               ))
             ) : (

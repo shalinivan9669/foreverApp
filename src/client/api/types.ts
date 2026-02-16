@@ -25,6 +25,56 @@ export type CurrentUserDTO = PublicUserDTO & {
   updatedAt?: string;
 };
 
+export type UserProfileUpsertRequest = {
+  username?: string;
+  avatar?: string | null;
+  personal?: {
+    gender?: 'male' | 'female';
+    age?: number;
+    city?: string;
+    relationshipStatus?: 'seeking' | 'in_relationship';
+  };
+  vectors?: Record<string, ApiJsonValue>;
+  preferences?: Record<string, ApiJsonValue>;
+  embeddings?: Record<string, ApiJsonValue>;
+  location?: Record<string, ApiJsonValue>;
+};
+
+export type UserOnboardingSeekingPatch = {
+  seeking: {
+    valuedQualities: string[];
+    relationshipPriority:
+      | 'emotional_intimacy'
+      | 'shared_interests'
+      | 'financial_stability'
+      | 'other';
+    minExperience: 'none' | '1-2_years' | 'more_2_years';
+    dealBreakers: string;
+    firstDateSetting: 'cafe' | 'walk' | 'online' | 'other';
+    weeklyTimeCommitment: '<5h' | '5-10h' | '>10h';
+  };
+};
+
+export type UserOnboardingInRelationshipPatch = {
+  inRelationship: {
+    satisfactionRating: number;
+    communicationFrequency: 'daily' | 'weekly' | 'less';
+    jointBudgeting: 'shared' | 'separate';
+    conflictResolutionStyle: 'immediate' | 'cool_off' | 'avoid';
+    sharedActivitiesPerMonth: number;
+    mainGrowthArea:
+      | 'communication'
+      | 'finance'
+      | 'intimacy'
+      | 'domestic'
+      | 'emotional_support';
+  };
+};
+
+export type UserOnboardingPatchRequest =
+  | UserOnboardingSeekingPatch
+  | UserOnboardingInRelationshipPatch;
+
 export type PairStatusDTO =
   | { hasActive: false }
   | {
@@ -60,6 +110,19 @@ export type PairMeDTO = {
   hasActive: boolean;
   hasAny: boolean;
   status: PairState | null;
+};
+
+export type PairPassportDTO = {
+  strongSides: { axis: string; facets: string[] }[];
+  riskZones: { axis: string; facets: string[]; severity: 1 | 2 | 3 }[];
+  complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
+  levelDelta: { axis: string; delta: number }[];
+  lastDiagnosticsAt?: string;
+};
+
+export type PairDiagnosticsDTO = {
+  pairId: string;
+  passport: PairPassportDTO;
 };
 
 export type MatchFeedCandidateDTO = {
@@ -329,6 +392,8 @@ export type QuestionnaireQuestionDTO = {
   weight: number;
   text: Record<string, string>;
 };
+
+export type QuestionDTO = QuestionnaireQuestionDTO;
 
 export type QuestionnaireDTO = {
   id: string;

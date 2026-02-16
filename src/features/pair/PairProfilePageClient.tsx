@@ -14,7 +14,7 @@ type PairProfilePageClientProps = {
 type I18n = Record<string, string>;
 
 export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePageClientProps) {
-  const user = useUserStore((s) => s.user);
+  const user = useUserStore((state) => state.user);
   const [pairId, setPairId] = useState<string | null>(pairIdFromRoute ?? null);
   const [data, setData] = useState<PairSummaryDTO | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,7 +83,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
   }, [pairId, load]);
 
   const locale = 'ru';
-  const t = (txt?: I18n) => (txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] ?? '' : '');
+  const t = (text?: I18n) => (text ? text[locale] ?? text.en ?? Object.values(text)[0] ?? '' : '');
 
   const onPause = async () => {
     if (!pairId) return;
@@ -222,7 +222,9 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             <div className="mt-3 text-sm">
               Предложено: <b>{data.suggestedCount}</b>
               {data.suggestedCount === 0 && (
-                <span className="app-muted ml-2">нажмите «Ещё варианты» в разделе «Предложено»</span>
+                <span className="app-muted ml-2">
+                  нажмите «Еще варианты» в разделе «Предложено»
+                </span>
               )}
             </div>
           </section>
@@ -274,7 +276,11 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
                 {!!data.lastLike.agreements?.length && (
                   <div className="mt-2">
                     <div className="app-muted text-xs">Согласие</div>
-                    <div>{data.lastLike.agreements.map((value, index) => <span key={index}>{value ? '✅' : '❌'} </span>)}</div>
+                    <div>
+                      {data.lastLike.agreements.map((value, index) => (
+                        <span key={index}>{value ? '✔' : '✖'} </span>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {!!data.lastLike.answers?.length && (
@@ -288,7 +294,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
                     <div className="app-muted text-xs">Ответ получателя</div>
                     <div>
                       {data.lastLike.recipientResponse.agreements.map((value, index) => (
-                        <span key={index}>{value ? '✅' : '❌'} </span>
+                        <span key={index}>{value ? '✔' : '✖'} </span>
                       ))}
                     </div>
                     <div className="mt-1">{data.lastLike.recipientResponse.answers.join(' • ')}</div>

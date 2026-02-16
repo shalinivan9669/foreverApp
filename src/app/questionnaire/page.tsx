@@ -1,66 +1,117 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useUserStore }        from '@/store/useUserStore';
-import QuestionCard            from '@/components/QuestionCard';
-import { useRouter }           from 'next/navigation';
-import type { QuestionType }   from '@/models/Question';
-import { fetchEnvelope }       from '@/utils/apiClient';
+
+import { useRouter } from 'next/navigation';
+import QuestionCard from '@/components/QuestionCard';
+import EmptyStateView from '@/components/ui/EmptyStateView';
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
+import { useLegacyQuestionnaireQuickFlow } from '@/client/hooks/useLegacyQuestionnaireQuickFlow';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function QuestionnairePage() {
-  const user    = useUserStore(s => s.user);
-  const router  = useRouter();
-  const [qs, setQs]     = useState<QuestionType[]>([]);
-  const [ans, setAns]   = useState<Record<string, number>>({});
-  const [saving, setSaving] = useState(false);
+  const router = useRouter();
+  const user = useUserStore((state) => state.user);
+  const {
+    questions,
+    answersByQuestionId,
+    loadingQuestions,
+    submitting,
+    loadError,
+    submitError,
+    canSubmit,
+    answerQuestion,
+    refetchQuestions,
+    submitAnswers,
+  } = useLegacyQuestionnaireQuickFlow({
+    enabled: true,
+    limit: 12,
+  });
 
-  useEffect(() => {
-    fetch('/api/questions?limit=12')
-      .then(r => r.json())
-      .then(setQs);
-  }, []);
-
-  const answer = (qid: string, val: number) => {
-    setAns(prev => ({ ...prev, [qid]: val }));
-  };
-
-  const submit = async () => {
+  const onSubmit = async () => {
     if (!user) return;
-    setSaving(true);
-    await fetchEnvelope<Record<string, never>>(
-      '/api/answers/bulk',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          answers: Object.entries(ans).map(([qid, ui]) => ({ qid, ui })),
-        }),
-      },
-      { idempotency: true }
-    );
-    setSaving(false);
+    const saved = await submitAnswers();
+    if (!saved) return;
     router.push('/main-menu');
   };
 
-  // Опционально: блокируем кнопку, пока не ответили на все вопросы
-  const allAnswered = qs.length > 0 && Object.keys(ans).length === qs.length;
+  if (!user) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <EmptyStateView
+          title="Пользователь не найден"
+          description="Перезапустите авторизацию и попробуйте снова."
+        />
+      </main>
+    );
+  }
+
+  if (loadingQuestions && questions.length === 0) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <LoadingView label="Загружаем вопросы..." />
+      </main>
+    );
+  }
+
+  if (loadError && questions.length === 0) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <ErrorView error={loadError} onRetry={() => void refetchQuestions()} />
+      </main>
+    );
+  }
+
+  if (!loadingQuestions && questions.length === 0) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <EmptyStateView
+          title="Вопросы не найдены"
+          description="Попробуйте обновить страницу позже."
+        />
+      </main>
+    );
+  }
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      {qs.map(q => (
-        <QuestionCard
-          key={q._id}
-          q={q}
-          selected={ans[q._id]}      // ← передаём текущее значение
-          onAnswer={answer}
+    <main className="app-shell-compact space-y-3 py-3 sm:py-4">
+      {submitError && (
+        <ErrorView
+          error={submitError}
+          onRetry={() => {
+            void onSubmit();
+          }}
+          onAuthRequired={() => {
+            router.push('/');
+          }}
         />
-      ))}
+      )}
+
+      <div className="space-y-3">
+        {questions.map((question) => {
+          const questionId = question.id ?? question._id;
+          if (!questionId) return null;
+
+          return (
+            <QuestionCard
+              key={questionId}
+              q={question}
+              selected={answersByQuestionId[questionId]}
+              onAnswer={answerQuestion}
+            />
+          );
+        })}
+      </div>
+
       <button
-        disabled={saving || !allAnswered}
-        onClick={submit}
-        className="bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white p-2 rounded transition"
+        type="button"
+        disabled={submitting || !canSubmit}
+        onClick={() => {
+          void onSubmit();
+        }}
+        className="app-btn-primary w-full px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {saving ? 'Сохраняем...' : 'Сохранить'}
+        {submitting ? 'Сохраняем...' : 'Сохранить'}
       </button>
-    </div>
+    </main>
   );
 }

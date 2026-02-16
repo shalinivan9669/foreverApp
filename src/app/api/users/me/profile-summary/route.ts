@@ -30,7 +30,7 @@ const AXES: Axis[] = [
   'psyche',
 ];
 
-// в”Ђв”Ђ Р›РѕРєР°Р»СЊРЅС‹Рµ СЂР°СЃС€РёСЂРµРЅРёСЏ С‚РёРїРѕРІ (С‡С‚РѕР±С‹ РЅРµ РїСЂР°РІРёС‚СЊ РјРѕРґРµР»Рё РїСЂСЏРјРѕ СЃРµР№С‡Р°СЃ) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// Local type extensions (to avoid changing models in this pass).
 type PairLean = PairType & { _id: Types.ObjectId; createdAt: Date };
 type UserExtra = Partial<{
   streak: { individual: number };
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   const user = await User.findOne({ id: userId }).lean<UserType & UserExtra | null>();
   if (!user) return jsonError(404, 'USER_NOT_FOUND', 'no user');
 
-  // РџР°СЂР°: СЃРЅР°С‡Р°Р»Р° Р°РєС‚РёРІРЅР°СЏ/РїР°СѓР·Р°
+  // Pair: prefer active/paused first.
   const activeOrPaused = await Pair.findOne({
     members: userId,
     status: { $in: ['active', 'paused'] },
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .lean<PairLean | null>();
 
-  // Р›СЋР±Р°СЏ РїРѕСЃР»РµРґРЅСЏСЏ вЂ” С‡С‚РѕР±С‹ СЂР°Р·Р»РёС‡РёС‚СЊ solo:new vs solo:history
+  // Latest pair to distinguish solo:new vs solo:history.
   const lastAny =
     activeOrPaused ??
     (await Pair.findOne({ members: userId }).sort({ createdAt: -1 }).lean<PairLean | null>());
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     pairId: currentPair?.id,
   });
 
-  // РЈСЂРѕРІРЅРё РїРѕ 6 РѕСЃСЏРј РёР· user.vectors (0..100)
+  // Levels on 6 axes from user.vectors (0..100).
   const levelsByAxis: Record<Axis, number> = {
     communication: 0,
     domestic: 0,
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
     levelsByAxis[a] = Math.round(clamped * 100);
   });
 
-  // РЎРёР»СЊРЅС‹Рµ/Р·РѕРЅС‹ СЂРѕСЃС‚Р° вЂ” РїСЂРѕСЃС‚Р°СЏ СЌРІСЂРёСЃС‚РёРєР° РїРѕ РєРѕР»РёС‡РµСЃС‚РІСѓ facets
+  // Strong sides / growth areas via simple facets-count heuristic.
   const strongSides: string[] = [];
   const growthAreas: string[] = [];
   const positivesByAxis: Record<Axis, string[]> = {
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
     if (neg >= 2) growthAreas.push(a);
   });
 
-  // РРЅР±РѕРєСЃ/Р°СѓС‚Р±РѕРєСЃ
+  // Inbox / outbox.
   const [inboxCount, outboxCount] = await Promise.all([
     Like.countDocuments({
       toId: userId,
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  // Р¤РёР»СЊС‚СЂС‹/РїСЂРµРґРїРѕС‡С‚РµРЅРёСЏ
+  // Filters / preferences.
   const prefs = (user.preferences ?? {}) as Partial<UserType['preferences']>;
   const filters = {
     age: [prefs?.desiredAgeRange?.min ?? 18, prefs?.desiredAgeRange?.max ?? 99],
@@ -179,8 +179,8 @@ export async function GET(req: NextRequest) {
       updatedAt: user.updatedAt,
     },
     activity: {
-      current: null as null, // РїРµСЂСЃРѕРЅР°Р»СЊРЅС‹Рµ Р°РєС‚РёРІРЅРѕСЃС‚Рё РїРѕРєР° РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅС‹
-      suggested: [] as Array<{ id: string; title?: string }>, // Р·Р°РіР»СѓС€РєР°
+      current: null as null, // Personal activities are not implemented yet.
+      suggested: [] as Array<{ id: string; title?: string }>, // Placeholder.
       historyCount: 0,
     },
     matching: {
@@ -188,7 +188,7 @@ export async function GET(req: NextRequest) {
       outboxCount,
       filters,
     },
-    insights: [] as Array<{ id: string; title?: string; axis?: Axis; delta?: number }>, // Р·Р°РіР»СѓС€РєР° (РґРѕР±Р°РІРёРј, РєРѕРіРґР° РїРѕСЏРІРёС‚СЃСЏ РјРѕРґРµР»СЊ Insight)
+    insights: [] as Array<{ id: string; title?: string; axis?: Axis; delta?: number }>, // Placeholder until Insight model is introduced.
     featureFlags: {
       PERSONAL_ACTIVITIES: entitlements.features['activities.suggestions'],
       PREMIUM_QUESTIONNAIRES: entitlements.features['questionnaires.premium'],

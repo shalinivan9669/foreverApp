@@ -20,7 +20,9 @@ export default function MatchFeedView({ candidates, onLike }: MatchFeedViewProps
 
         <div className="px-1">
           <h1 className="text-lg font-semibold text-slate-900 sm:text-xl">Подбор партнеров</h1>
-          <p className="app-muted mt-1 text-sm">Выберите тех, с кем хотите продолжить знакомство.</p>
+          <p className="app-muted mt-1 text-sm">
+            Выберите тех, с кем хотите продолжить знакомство.
+          </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -32,7 +34,10 @@ export default function MatchFeedView({ candidates, onLike }: MatchFeedViewProps
         </div>
 
         {!candidates.length && (
-          <EmptyStateView title="Нет кандидатов" description="Попробуйте обновить список чуть позже." />
+          <EmptyStateView
+            title="Нет кандидатов"
+            description="Попробуйте обновить список чуть позже."
+          />
         )}
       </main>
     </div>

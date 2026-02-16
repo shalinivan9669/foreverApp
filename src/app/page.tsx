@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
-import { useUserStore, DiscordUser } from '../store/useUserStore';
+import { useUserStore } from '../store/useUserStore';
 import Spinner from '@/components/ui/Spinner';
+import { discordApi } from '@/client/api/discord.api';
 import { usersApi } from '@/client/api/users.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
-import { normalizeDiscordAvatar, toDiscordAvatarUrl } from '@/lib/discord/avatar';
+import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 export default function DiscordActivityPage() {
   const setUser = useUserStore((s) => s.setUser);
@@ -43,26 +44,8 @@ export default function DiscordActivityPage() {
 
         await sdk.commands.authenticate({ access_token: tokenData.access_token });
 
-        const userRes = await fetch('https://discord.com/api/users/@me', {
-          headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-        if (!userRes.ok) {
-          throw new Error(`Failed to fetch profile: ${userRes.status}`);
-        }
-        const rawUser = (await userRes.json()) as Partial<DiscordUser> & {
-          id?: string;
-          username?: string;
-          avatar?: string | null;
-        };
-        if (!rawUser.id || !rawUser.username) {
-          throw new Error('Invalid Discord profile payload');
-        }
-
-        setUser({
-          id: rawUser.id,
-          username: rawUser.username,
-          avatar: normalizeDiscordAvatar(rawUser.avatar),
-        });
+        const profile = await discordApi.getCurrentUser(tokenData.access_token);
+        setUser(profile);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(e);

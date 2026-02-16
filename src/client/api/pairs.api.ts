@@ -1,5 +1,5 @@
 import { http, type HttpRequestOptions } from './http';
-import type { MutationAckDTO } from './types';
+import type { MutationAckDTO, PairDiagnosticsDTO } from './types';
 import {
   normalizePairMe,
   normalizePairStatus,
@@ -31,6 +31,9 @@ export const pairsApi = {
     }
     return summary;
   },
+
+  getDiagnostics: (pairId: string, signal?: AbortSignal): Promise<PairDiagnosticsDTO> =>
+    http.get<PairDiagnosticsDTO>(`/api/pairs/${pairId}/diagnostics`, withSignal(signal)),
 
   pausePair: (pairId: string): Promise<MutationAckDTO> =>
     http.post<MutationAckDTO, Record<string, never>>(`/api/pairs/${pairId}/pause`, {}, { idempotency: true }),

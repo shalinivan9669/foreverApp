@@ -1,23 +1,25 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/store/useUserStore';
-import { fetchEnvelope } from '@/utils/apiClient';
+import EmptyStateView from '@/components/ui/EmptyStateView';
+import ErrorView from '@/components/ui/ErrorView';
+import { usersApi } from '@/client/api/users.api';
+import { useApi } from '@/client/hooks/useApi';
 import { normalizeDiscordAvatar } from '@/lib/discord/avatar';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function OnboardingWizard() {
   const router = useRouter();
-  const user = useUserStore((s) => s.user);
+  const user = useUserStore((state) => state.user);
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // step 1 fields
+  const { runSafe, loading, error, clearError } = useApi('onboarding-wizard');
+
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [age, setAge] = useState(18);
   const [status, setStatus] = useState<'seeking' | 'in_relationship'>('seeking');
 
-  // seeking fields
   const [qualities, setQualities] = useState<string[]>(['', '', '']);
   const [priority, setPriority] = useState<
     'emotional_intimacy' | 'shared_interests' | 'financial_stability' | 'other'
@@ -27,7 +29,6 @@ export default function OnboardingWizard() {
   const [firstDate, setFirstDate] = useState<'cafe' | 'walk' | 'online' | 'other'>('cafe');
   const [weeklyCommit, setWeeklyCommit] = useState<'<5h' | '5-10h' | '>10h'>('<5h');
 
-  // in relationship fields
   const [satisfaction, setSatisfaction] = useState(3);
   const [communication, setCommunication] = useState<'daily' | 'weekly' | 'less'>('daily');
   const [budgeting, setBudgeting] = useState<'shared' | 'separate'>('shared');
@@ -37,40 +38,40 @@ export default function OnboardingWizard() {
     'communication' | 'finance' | 'intimacy' | 'domestic' | 'emotional_support'
   >('communication');
 
-  if (!user) return <div className="text-center mt-4">No user</div>;
+  if (!user) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <EmptyStateView
+          title="Пользователь не найден"
+          description="Перезапустите авторизацию и попробуйте снова."
+        />
+      </main>
+    );
+  }
 
   const submitStep1 = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await fetchEnvelope<{ id: string }>(
-        '/.proxy/api/users',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: user.username,
-            avatar: normalizeDiscordAvatar(user.avatar),
-            personal: {
-              gender,
-              age,
-              city: 'unknown',
-              relationshipStatus: status,
-            },
-          }),
-        },
-        { idempotency: true }
-      );
-    } catch {
-      setLoading(false);
-      setError('Не удалось сохранить профиль. Попробуйте ещё раз.');
-      return;
-    }
-    setLoading(false);
+    clearError();
+    const saved = await runSafe(
+      () =>
+        usersApi.upsertCurrentUserProfile({
+          username: user.username,
+          avatar: normalizeDiscordAvatar(user.avatar),
+          personal: {
+            gender,
+            age,
+            city: 'unknown',
+            relationshipStatus: status,
+          },
+        }),
+      { loadingKey: 'onboarding-step-1' }
+    );
+
+    if (!saved) return;
     setStep(2);
   };
 
   const submitStep2 = async () => {
+    clearError();
     const payload =
       status === 'seeking'
         ? {
@@ -93,24 +94,13 @@ export default function OnboardingWizard() {
               mainGrowthArea: growthArea,
             },
           };
-    setError(null);
-    setLoading(true);
-    try {
-      await fetchEnvelope<{ id: string }>(
-        '/.proxy/api/users/me/onboarding',
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        },
-        { idempotency: true }
-      );
-    } catch {
-      setLoading(false);
-      setError('Не удалось завершить анкету. Попробуйте ещё раз.');
-      return;
-    }
-    setLoading(false);
+
+    const saved = await runSafe(
+      () => usersApi.updateCurrentUserOnboarding(payload),
+      { loadingKey: 'onboarding-step-2' }
+    );
+
+    if (!saved) return;
     setStep(3);
   };
 
@@ -118,10 +108,7 @@ export default function OnboardingWizard() {
     return (
       <div className="p-4 text-center">
         <p>Готово!</p>
-        <button
-          onClick={() => router.push('/main-menu')}
-          className="mt-4 bg-blue-600 text-white p-2 rounded"
-        >
+        <button onClick={() => router.push('/main-menu')} className="mt-4 app-btn-primary px-3 py-2 text-white">
           В главное меню
         </button>
       </div>
@@ -130,47 +117,52 @@ export default function OnboardingWizard() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
-      {error && <p className="text-red-600">{error}</p>}
+      {error && (
+        <ErrorView
+          error={error}
+          onAuthRequired={() => {
+            router.push('/');
+          }}
+        />
+      )}
+
       {step === 1 && (
         <>
           <label>
             Пол:
             <select
               value={gender}
-              onChange={(e) => setGender(e.target.value as 'male' | 'female')}
+              onChange={(event) => setGender(event.target.value as 'male' | 'female')}
               className="ml-2"
             >
               <option value="male">Мужской</option>
               <option value="female">Женский</option>
             </select>
           </label>
+
           <label>
             Возраст:
             <input
               type="number"
               value={age}
-              onChange={(e) => setAge(Number(e.target.value))}
+              onChange={(event) => setAge(Number(event.target.value))}
               className="ml-2 border"
             />
           </label>
+
           <label>
-            Семейное положение:
+            Статус отношений:
             <select
               value={status}
-              onChange={(e) =>
-                setStatus(e.target.value as 'seeking' | 'in_relationship')
-              }
+              onChange={(event) => setStatus(event.target.value as 'seeking' | 'in_relationship')}
               className="ml-2"
             >
               <option value="seeking">Ищу отношения</option>
               <option value="in_relationship">В отношениях</option>
             </select>
           </label>
-          <button
-            onClick={submitStep1}
-            disabled={loading}
-            className="bg-blue-600 text-white p-2 rounded"
-          >
+
+          <button onClick={submitStep1} disabled={loading} className="app-btn-primary px-3 py-2 text-white">
             Далее
           </button>
         </>
@@ -180,27 +172,28 @@ export default function OnboardingWizard() {
         <>
           <label>
             Назовите три качества надёжного партнёра:
-            {qualities.map((q, i) => (
+            {qualities.map((quality, index) => (
               <input
-                key={i}
+                key={index}
                 type="text"
-                value={q}
-                onChange={(e) => {
-                  const arr = [...qualities];
-                  arr[i] = e.target.value;
-                  setQualities(arr);
+                value={quality}
+                onChange={(event) => {
+                  const next = [...qualities];
+                  next[index] = event.target.value;
+                  setQualities(next);
                 }}
                 className="block border mt-1"
               />
             ))}
           </label>
+
           <label>
             Главный приоритет в отношениях:
             <select
               value={priority}
-              onChange={(e) =>
+              onChange={(event) =>
                 setPriority(
-                  e.target.value as
+                  event.target.value as
                     | 'emotional_intimacy'
                     | 'shared_interests'
                     | 'financial_stability'
@@ -215,38 +208,37 @@ export default function OnboardingWizard() {
               <option value="other">Другое</option>
             </select>
           </label>
+
           <label>
             Минимальный опыт отношений:
             <select
               value={experience}
-              onChange={(e) =>
-                setExperience(e.target.value as 'none' | '1-2_years' | 'more_2_years')
+              onChange={(event) =>
+                setExperience(event.target.value as 'none' | '1-2_years' | 'more_2_years')
               }
               className="ml-2"
             >
-              <option value="none">Никогда не был</option>
-              <option value="1-2_years">Был 1-2 года</option>
+              <option value="none">Никогда не был(а) в отношениях</option>
+              <option value="1-2_years">Был(а) 1-2 года</option>
               <option value="more_2_years">Более 2 лет</option>
             </select>
           </label>
+
           <label>
             Неприемлемые качества партнёра:
             <input
               type="text"
               value={dealBreakers}
-              onChange={(e) => setDealBreakers(e.target.value)}
+              onChange={(event) => setDealBreakers(event.target.value)}
               className="ml-2 border"
             />
           </label>
+
           <label>
             Предпочтение для первого свидания:
             <select
               value={firstDate}
-              onChange={(e) =>
-                setFirstDate(
-                  e.target.value as 'cafe' | 'walk' | 'online' | 'other'
-                )
-              }
+              onChange={(event) => setFirstDate(event.target.value as 'cafe' | 'walk' | 'online' | 'other')}
               className="ml-2"
             >
               <option value="cafe">Кафе/ресторан</option>
@@ -255,13 +247,12 @@ export default function OnboardingWizard() {
               <option value="other">Другое</option>
             </select>
           </label>
+
           <label>
             Сколько времени готовы уделять отношениям в неделю:
             <select
               value={weeklyCommit}
-              onChange={(e) =>
-                setWeeklyCommit(e.target.value as '<5h' | '5-10h' | '>10h')
-              }
+              onChange={(event) => setWeeklyCommit(event.target.value as '<5h' | '5-10h' | '>10h')}
               className="ml-2"
             >
               <option value="<5h">&lt;5 ч</option>
@@ -269,11 +260,8 @@ export default function OnboardingWizard() {
               <option value=">10h">&gt;10 ч</option>
             </select>
           </label>
-          <button
-            onClick={submitStep2}
-            disabled={loading}
-            className="bg-blue-600 text-white p-2 rounded"
-          >
+
+          <button onClick={submitStep2} disabled={loading} className="app-btn-primary px-3 py-2 text-white">
             Завершить
           </button>
         </>
@@ -288,17 +276,16 @@ export default function OnboardingWizard() {
               min={1}
               max={5}
               value={satisfaction}
-              onChange={(e) => setSatisfaction(Number(e.target.value))}
+              onChange={(event) => setSatisfaction(Number(event.target.value))}
               className="ml-2 border"
             />
           </label>
+
           <label>
             Как часто обсуждаете важные темы:
             <select
               value={communication}
-              onChange={(e) =>
-                setCommunication(e.target.value as 'daily' | 'weekly' | 'less')
-              }
+              onChange={(event) => setCommunication(event.target.value as 'daily' | 'weekly' | 'less')}
               className="ml-2"
             >
               <option value="daily">Ежедневно</option>
@@ -306,28 +293,24 @@ export default function OnboardingWizard() {
               <option value="less">Реже</option>
             </select>
           </label>
+
           <label>
             Бюджет:
             <select
               value={budgeting}
-              onChange={(e) =>
-                setBudgeting(e.target.value as 'shared' | 'separate')
-              }
+              onChange={(event) => setBudgeting(event.target.value as 'shared' | 'separate')}
               className="ml-2"
             >
               <option value="shared">Общий</option>
               <option value="separate">Раздельный</option>
             </select>
           </label>
+
           <label>
             Как решаете конфликты:
             <select
               value={conflictStyle}
-              onChange={(e) =>
-                setConflictStyle(
-                  e.target.value as 'immediate' | 'cool_off' | 'avoid'
-                )
-              }
+              onChange={(event) => setConflictStyle(event.target.value as 'immediate' | 'cool_off' | 'avoid')}
               className="ml-2"
             >
               <option value="immediate">Обсуждаем сразу</option>
@@ -335,22 +318,24 @@ export default function OnboardingWizard() {
               <option value="avoid">Избегаем темы</option>
             </select>
           </label>
+
           <label>
             Совместных активностей в месяц:
             <input
               type="number"
               value={activities}
-              onChange={(e) => setActivities(Number(e.target.value))}
+              onChange={(event) => setActivities(Number(event.target.value))}
               className="ml-2 border"
             />
           </label>
+
           <label>
-            Основная область работы:
+            Основная зона роста:
             <select
               value={growthArea}
-              onChange={(e) =>
+              onChange={(event) =>
                 setGrowthArea(
-                  e.target.value as
+                  event.target.value as
                     | 'communication'
                     | 'finance'
                     | 'intimacy'
@@ -367,11 +352,8 @@ export default function OnboardingWizard() {
               <option value="emotional_support">Эмоциональная поддержка</option>
             </select>
           </label>
-          <button
-            onClick={submitStep2}
-            disabled={loading}
-            className="bg-blue-600 text-white p-2 rounded"
-          >
+
+          <button onClick={submitStep2} disabled={loading} className="app-btn-primary px-3 py-2 text-white">
             Завершить
           </button>
         </>
@@ -379,5 +361,3 @@ export default function OnboardingWizard() {
     </div>
   );
 }
-
-

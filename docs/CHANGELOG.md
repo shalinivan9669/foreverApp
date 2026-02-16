@@ -218,6 +218,13 @@ Files: src/domain/vectors/types.ts, src/domain/vectors/scoring.ts, src/domain/ve
 Date: 2026-02-08
 Summary:
 - Improved vector stability by introducing weighted per-axis scoring, policy-based apply dampening, and clamp-safe step control in `src/domain/vectors/*`.
+
+Date: 2026-02-15
+Summary:
+- Added a dedicated UI audit doc for React best-practices adoption with gaps, 3-step execution plan, and a ready-to-run prompt for skill-driven refactoring.
+- Documented current UI/doc coverage gaps (main menu, pair profile, couple activity, match inbox, legacy questionnaire quick-flow).
+- Linked the new UI audit document from the main docs map.
+Files: docs/ui/react-best-practices-ui-audit.md, docs/README.md, docs/CHANGELOG.md
 - Added explainability metadata from vector apply (`confidence`, `appliedStepByAxis`, `clampedAxes`, `deltaMagnitude`, `sumWeightsTotal`) into questionnaire audit events.
 - Added pure-function self-check script for vectors policy scenarios (short/long confidence, edge damping, weight influence, clamp bounds).
 Files: src/domain/vectors/types.ts, src/domain/vectors/scoring.ts, src/domain/vectors/apply.ts, src/domain/services/questionnaires.service.ts, src/lib/audit/eventTypes.ts, scripts/vectors-policy.selfcheck.ts, docs/02-domain-model.md, docs/05-analytics-events.md, docs/CHANGELOG.md
@@ -318,3 +325,17 @@ Summary:
 - Added `submitPersonalAnswers(...)` client API helper for questionnaire batch payload.
 - Documented updated personal questionnaire apply mode and cooldown behavior impact.
 Files: src/app/questionnaire/[id]/page.tsx, src/client/api/questionnaires.api.ts, docs/data/questionnaire-flow.md, docs/CHANGELOG.md
+
+Date: 2026-02-15
+Summary:
+- Migrated legacy UI transport in questionnaire/onboarding/pair flows to typed `src/client/api/*` and hook orchestration.
+- Removed page-level direct fetch from Discord landing flow via typed Discord client module.
+- Fixed user-facing mojibake in touched pair/questionnaire/onboarding/match-feed screens and aligned legacy loading/error/empty states to shared UI blocks.
+Files: src/client/api/types.ts, src/client/api/users.api.ts, src/client/api/questionnaires.api.ts, src/client/api/pairs.api.ts, src/client/api/discord.api.ts, src/client/hooks/useLegacyQuestionnaireQuickFlow.ts, src/app/page.tsx, src/app/questionnaire/page.tsx, src/components/OnboardingWizard.tsx, src/app/pair/[id]/diagnostics/page.tsx, src/app/pair/[id]/questionnaire/[qid]/page.tsx, src/components/QuestionnaireCard.tsx, src/features/pair/PairProfilePageClient.tsx, src/features/match/feed/MatchFeedView.tsx, docs/ui/react-best-practices-ui-audit.md, docs/CHANGELOG.md
+
+Date: 2026-02-15
+Summary:
+- Fixed mojibake in user-facing personal activity card strings.
+- Replaced corrupted inline comments in profile-summary and pair-activities API routes with readable text.
+- Recreated questionnaire cards UI doc in clean UTF-8.
+Files: src/components/activities/UserActivityCard.tsx, src/app/api/users/me/profile-summary/route.ts, src/app/api/pairs/[id]/activities/route.ts, docs/ui/questionnaire-cards.md, docs/CHANGELOG.md

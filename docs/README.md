@@ -19,6 +19,7 @@ If you're adding new code, start with `docs/engineering/README.md`.
 - `docs/08-typography.md`
 - `docs/data/questionnaire-flow.md`
 - `docs/ui/questionnaire-cards.md`
+- `docs/ui/react-best-practices-ui-audit.md`
 
 ## Backend rules
 - `docs/engineering/backend-playbook.md`

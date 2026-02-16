@@ -5,6 +5,8 @@ import type {
   ExchangeCodeResponse,
   MutationAckDTO,
   ProfileSummaryDTO,
+  UserOnboardingPatchRequest,
+  UserProfileUpsertRequest,
 } from './types';
 
 const withSignal = (signal?: AbortSignal): HttpRequestOptions | undefined =>
@@ -21,6 +23,20 @@ export const usersApi = {
 
   getCurrentUser: (signal?: AbortSignal): Promise<CurrentUserDTO> =>
     http.get<CurrentUserDTO>('/api/users/me', withSignal(signal)),
+
+  upsertCurrentUserProfile: (payload: UserProfileUpsertRequest): Promise<CurrentUserDTO> =>
+    http.post<CurrentUserDTO, UserProfileUpsertRequest>('/api/users', payload, {
+      idempotency: true,
+    }),
+
+  updateCurrentUserOnboarding: (
+    payload: UserOnboardingPatchRequest
+  ): Promise<CurrentUserDTO> =>
+    http.patch<CurrentUserDTO, UserOnboardingPatchRequest>(
+      '/api/users/me/onboarding',
+      payload,
+      { idempotency: true }
+    ),
 
   getProfileSummary: (signal?: AbortSignal): Promise<ProfileSummaryDTO> =>
     http.get<ProfileSummaryDTO>('/api/users/me/profile-summary', withSignalNoStore(signal)),

@@ -27,7 +27,7 @@ function buildQuery(pairId: string, s?: string) {
   }
   if (bucket === 'current') {
     q.status = { $in: ['accepted', 'in_progress', 'awaiting_checkin'] };
-    return { q, limit: 1 }; // С‚РµРєСѓС‰Р°СЏ вЂ” РѕРґРЅР°
+    return { q, limit: 1 }; // Current activity: only one.
   }
   if (bucket === 'history') {
     q.status = {
@@ -42,7 +42,7 @@ function buildQuery(pairId: string, s?: string) {
     return { q, limit: 50 };
   }
 
-  // РµСЃР»Рё РїСЂРёР»РµС‚РµР» СЂРµР°Р»СЊРЅС‹Р№ СЃС‚Р°С‚СѓСЃ вЂ” С‚РѕР¶Рµ РїРѕРґРґРµСЂР¶РёРј
+  // If a direct status is passed, support it as well.
   q.status = s;
   return { q, limit: 50 };
 }

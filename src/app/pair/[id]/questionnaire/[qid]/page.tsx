@@ -1,175 +1,252 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/utils/api';
-import { useUserStore } from '@/store/useUserStore';
-import { fetchEnvelope } from '@/utils/apiClient';
+import BackBar from '@/components/ui/BackBar';
+import EmptyStateView from '@/components/ui/EmptyStateView';
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
 import { pairsApi } from '@/client/api/pairs.api';
-
-type QItem = {
-  id?: string;
-  _id?: string;
-  text: Record<string, string>;
-  scale: 'likert5' | 'bool';
-  map: number[];
-};
-
-type QuestionnaireDTO = {
-  title?: Record<string, string>;
-  questions?: QItem[];
-};
+import { questionnairesApi } from '@/client/api/questionnaires.api';
+import type { QuestionDTO } from '@/client/api/types';
+import { useApi } from '@/client/hooks/useApi';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function PairQuestionnaireRunner() {
   const params = useParams<{ id: string; qid: string }>();
   const router = useRouter();
-  const user = useUserStore((s) => s.user);
+  const user = useUserStore((state) => state.user);
   const pairId = params?.id;
-  const qnId = params?.qid;
+  const questionnaireId = params?.qid;
 
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<QItem[]>([]);
+  const [questions, setQuestions] = useState<QuestionDTO[]>([]);
   const [title, setTitle] = useState<string>('');
-  const [idx, setIdx] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [index, setIndex] = useState(0);
   const [by, setBy] = useState<'A' | 'B'>('A');
 
+  const {
+    runSafe: runLoadSafe,
+    loading: loading,
+    error: loadError,
+    clearError: clearLoadError,
+  } = useApi('pair-questionnaire-load');
+  const {
+    runSafe: runSubmitSafe,
+    loading: submitting,
+    error: submitError,
+    clearError: clearSubmitError,
+  } = useApi('pair-questionnaire-submit');
+
   useEffect(() => {
-    let on = true;
+    let active = true;
     if (!pairId || !user) return;
 
     pairsApi
       .getSummary(pairId)
       .then((summary) => {
-        if (!on) return;
-        const members: string[] = summary.pair.members ?? [];
-        const which = members[0] === user.id ? 'A' : 'B';
-        setBy(which);
+        if (!active) return;
+        const members = summary.pair.members ?? [];
+        setBy(members[0] === user.id ? 'A' : 'B');
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        setBy('A');
+      });
 
     return () => {
-      on = false;
+      active = false;
     };
   }, [pairId, user]);
 
   useEffect(() => {
-    let on = true;
-    if (!qnId) return;
+    let active = true;
+    const controller = new AbortController();
 
-    fetchEnvelope<QuestionnaireDTO>(api(`/api/questionnaires/${qnId}`))
-      .then((questionnaire) => {
-        if (!on) return;
-        setTitle(questionnaire.title?.ru ?? questionnaire.title?.en ?? 'Анкета');
-        const qs = Array.isArray(questionnaire.questions) ? questionnaire.questions : [];
-        setQuestions(qs);
-      })
-      .catch(() => {});
+    if (!questionnaireId) return;
+
+    setIndex(0);
+    setQuestions([]);
+    setTitle('');
+    clearLoadError();
+
+    runLoadSafe(
+      () => questionnairesApi.getQuestionnaire(questionnaireId, controller.signal),
+      { loadingKey: 'pair-questionnaire-load' }
+    ).then((questionnaire) => {
+      if (!active || !questionnaire) return;
+      setTitle(questionnaire.title?.ru ?? questionnaire.title?.en ?? 'Анкета');
+      setQuestions(Array.isArray(questionnaire.questions) ? questionnaire.questions : []);
+    });
 
     return () => {
-      on = false;
+      active = false;
+      controller.abort();
     };
-  }, [qnId]);
+  }, [clearLoadError, questionnaireId, runLoadSafe]);
 
   useEffect(() => {
-    let on = true;
-    if (!pairId || !qnId) return;
-    fetchEnvelope<{ sessionId: string; status: 'in_progress'; startedAt: string }>(
-      api(`/api/pairs/${pairId}/questionnaires/${qnId}/start`),
-      { method: 'POST' },
-      { idempotency: true }
-    )
-      .then((d) => {
-        if (on) setSessionId(d?.sessionId ?? null);
+    let active = true;
+    if (!pairId || !questionnaireId) return;
+
+    questionnairesApi
+      .startCoupleQuestionnaire(pairId, questionnaireId)
+      .then((response) => {
+        if (!active) return;
+        setSessionId(response.sessionId ?? null);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!active) return;
+        setSessionId(null);
+      });
+
     return () => {
-      on = false;
+      active = false;
     };
-  }, [pairId, qnId]);
+  }, [pairId, questionnaireId]);
 
-  const q = questions[idx];
-  const text = q?.text?.ru ?? q?.text?.en ?? '';
-  const scale = q?.scale ?? 'likert5';
+  const currentQuestion = questions[index];
+  const questionText = currentQuestion?.text?.ru ?? currentQuestion?.text?.en ?? '';
+  const scale = currentQuestion?.scale ?? 'likert5';
 
-  const onAnswer = async (ui: number) => {
-    if (!pairId || !qnId || !q) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const questionId = q.id ?? q._id;
-      if (!questionId) throw new Error('QUESTION_ID_REQUIRED');
+  const totalQuestions = useMemo(() => questions.length || 1, [questions.length]);
 
-      const body = { sessionId, questionId, ui };
-      await fetchEnvelope<Record<string, never>>(
-        api(`/api/pairs/${pairId}/questionnaires/${qnId}/answer`),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-        { idempotency: true }
-      );
-      if (idx < questions.length - 1) setIdx((i) => i + 1);
-      else router.push(`/pair/${pairId}/diagnostics`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка отправки ответа');
-    } finally {
-      setBusy(false);
+  const submitAnswer = async (ui: number) => {
+    if (!pairId || !questionnaireId || !currentQuestion) return;
+
+    const questionId = currentQuestion.id ?? currentQuestion._id;
+    if (!questionId) return;
+
+    clearSubmitError();
+    const saved = await runSubmitSafe(
+      () =>
+        questionnairesApi.submitCoupleAnswer(pairId, questionnaireId, {
+          sessionId,
+          questionId,
+          ui,
+        }),
+      { loadingKey: 'pair-questionnaire-submit' }
+    );
+
+    if (!saved) return;
+    if (index < questions.length - 1) {
+      setIndex((value) => value + 1);
+      return;
     }
+
+    router.push(`/pair/${pairId}/diagnostics`);
   };
 
-  const Likert = () => (
-    <div className="flex gap-2">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          onClick={() => onAnswer(n)}
-          disabled={busy}
-          className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
-        >
-          {n}
-        </button>
-      ))}
-    </div>
-  );
+  if (!pairId || !questionnaireId) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <EmptyStateView title="Анкета недоступна" description="Проверьте ссылку и попробуйте снова." />
+      </main>
+    );
+  }
 
-  const YesNo = () => (
-    <div className="flex gap-2">
-      <button
-        onClick={() => onAnswer(1)}
-        disabled={busy}
-        className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
-      >
-        Да
-      </button>
-      <button
-        onClick={() => onAnswer(2)}
-        disabled={busy}
-        className="px-3 py-2 rounded border hover:bg-gray-50 disabled:opacity-50"
-      >
-        Нет
-      </button>
-    </div>
-  );
+  if (loading && questions.length === 0) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}/diagnostics`} />
+        <LoadingView compact label="Загрузка анкеты..." />
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}/diagnostics`} />
+        <ErrorView
+          error={loadError}
+          onRetry={() => {
+            router.refresh();
+          }}
+          onAuthRequired={() => {
+            router.push('/');
+          }}
+        />
+      </main>
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}/diagnostics`} />
+        <EmptyStateView
+          title="Вопросы не найдены"
+          description="Попробуйте открыть анкету позже."
+        />
+      </main>
+    );
+  }
 
   return (
-    <main className="p-4 max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">{title || 'Анкета'}</h1>
+    <main className="app-shell-compact space-y-4 py-3 sm:py-4">
+      <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}/diagnostics`} />
 
-      <div className="text-sm text-gray-600">
+      <div className="app-muted text-sm">
         Ваша роль в паре: <span className="font-medium">{by}</span>
       </div>
 
-      <div className="border rounded p-4 space-y-3">
+      <div className="app-panel space-y-3 p-4">
         <div className="text-sm text-gray-500">
-          Вопрос {idx + 1} / {questions.length || 1}
+          Вопрос {index + 1} / {totalQuestions}
         </div>
-        <div className="text-lg">{text}</div>
-        {scale === 'bool' ? <YesNo /> : <Likert />}
-        {error && <div className="text-sm text-red-600">{error}</div>}
+        <div className="text-lg text-slate-900">{questionText}</div>
+
+        {scale === 'bool' ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void submitAnswer(1);
+              }}
+              disabled={submitting}
+              className="app-btn-secondary px-3 py-2 text-sm text-slate-900 disabled:opacity-60"
+            >
+              Да
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void submitAnswer(2);
+              }}
+              disabled={submitting}
+              className="app-btn-secondary px-3 py-2 text-sm text-slate-900 disabled:opacity-60"
+            >
+              Нет
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  void submitAnswer(value);
+                }}
+                disabled={submitting}
+                className="app-btn-secondary px-3 py-2 text-sm text-slate-900 disabled:opacity-60"
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {submitError && (
+        <ErrorView
+          error={submitError}
+          onAuthRequired={() => {
+            router.push('/');
+          }}
+        />
+      )}
     </main>
   );
 }
