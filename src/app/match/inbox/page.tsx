@@ -3,8 +3,9 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingView from '@/components/ui/LoadingView';
-import type { MatchLikeDTO } from '@/client/api/types';
 import { useInbox } from '@/client/hooks/useInbox';
+import type { MatchLikeVM } from '@/client/viewmodels/match.viewmodels';
+import { toMatchInboxRowVMList, toMatchLikeVM } from '@/client/viewmodels/match.viewmodels';
 import MatchInboxView from '@/features/match/inbox/MatchInboxView';
 
 export default function InboxPage() {
@@ -26,16 +27,18 @@ export default function InboxPage() {
   } = useInbox();
 
   const [respondLikeId, setRespondLikeId] = useState<string | null>(null);
-  const [respondLike, setRespondLike] = useState<MatchLikeDTO | null>(null);
+  const [respondLike, setRespondLike] = useState<MatchLikeVM | null>(null);
   const [agreements, setAgreements] = useState<[boolean, boolean, boolean]>([false, false, false]);
   const [answers, setAnswers] = useState<[string, string]>(['', '']);
   const [respondError, setRespondError] = useState<string | null>(null);
+  const incomingRows = useMemo(() => toMatchInboxRowVMList(incoming), [incoming]);
+  const outgoingRows = useMemo(() => toMatchInboxRowVMList(outgoing), [outgoing]);
 
   const openRespondModal = async (likeId: string) => {
     const details = await fetchLike(likeId, true);
     if (!details) return;
     setRespondLikeId(likeId);
-    setRespondLike(details);
+    setRespondLike(toMatchLikeVM(details));
     setAgreements([false, false, false]);
     setAnswers(['', '']);
     setRespondError(null);
@@ -113,8 +116,8 @@ export default function InboxPage() {
 
   return (
     <MatchInboxView
-      incoming={incoming}
-      outgoing={outgoing}
+      incoming={incomingRows}
+      outgoing={outgoingRows}
       loading={loading}
       error={error}
       onRefresh={() => void refetch()}

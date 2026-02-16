@@ -1,18 +1,21 @@
 ﻿'use client';
 
 import QuestionnaireCard from '@/components/QuestionnaireCard';
-import type { QuestionnaireCardDTO, QuestionnaireScope } from '@/client/api/types';
 import LoadingView from '@/components/ui/LoadingView';
+import type {
+  QuestionnaireCardVM,
+  QuestionnaireScopeVM,
+} from '@/client/viewmodels/questionnaire.viewmodels';
 
 type QuestionnairesPageViewProps = {
-  activeTab: QuestionnaireScope;
-  onChangeTab: (tab: QuestionnaireScope) => void;
+  activeTab: QuestionnaireScopeVM;
+  onChangeTab: (tab: QuestionnaireScopeVM) => void;
   canAccessCouple: boolean;
-  personalCards: QuestionnaireCardDTO[];
-  coupleCards: QuestionnaireCardDTO[];
+  personalCards: QuestionnaireCardVM[];
+  coupleCards: QuestionnaireCardVM[];
   loadingCards: boolean;
   loadingByQuestionnaireId: Record<string, boolean>;
-  onStartQuestionnaire: (questionnaire: QuestionnaireCardDTO) => Promise<void> | void;
+  onStartQuestionnaire: (questionnaire: QuestionnaireCardVM) => Promise<void> | void;
 };
 
 const tabClassName = (active: boolean, disabled = false): string => {

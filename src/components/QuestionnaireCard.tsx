@@ -2,16 +2,16 @@
 
 import Link from 'next/link';
 import type { MouseEvent } from 'react';
-import type { QuestionnaireCardDTO } from '@/client/api/types';
+import type { QuestionnaireCardVM } from '@/client/viewmodels/questionnaire.viewmodels';
 
-type Axis = QuestionnaireCardDTO['vector'];
+type Axis = QuestionnaireCardVM['vector'];
 
 type QuestionnaireCardProps = {
-  q: QuestionnaireCardDTO;
+  q: QuestionnaireCardVM;
   loading?: boolean;
   disabled?: boolean;
   disabledReason?: string;
-  onStart?: (questionnaire: QuestionnaireCardDTO) => Promise<void> | void;
+  onStart?: (questionnaire: QuestionnaireCardVM) => Promise<void> | void;
 };
 
 const vectorStripe: Record<Axis, string> = {
@@ -43,7 +43,7 @@ const scopeLabel = {
   couple: 'для пары',
 } as const;
 
-const statusBadge = (questionnaire: QuestionnaireCardDTO) => {
+const statusBadge = (questionnaire: QuestionnaireCardVM) => {
   if (questionnaire.status === 'required') return 'обязательная';
   if (questionnaire.status === 'locked') return 'нужна пара';
   if (questionnaire.status === 'completed') return 'пройдена';
@@ -51,7 +51,7 @@ const statusBadge = (questionnaire: QuestionnaireCardDTO) => {
   return null;
 };
 
-const ctaLabel = (questionnaire: QuestionnaireCardDTO) => {
+const ctaLabel = (questionnaire: QuestionnaireCardVM) => {
   if (questionnaire.cta === 'locked') return 'нужна пара';
   if (questionnaire.cta === 'result') return 'результат';
   if (questionnaire.cta === 'continue') return 'продолжить';
@@ -59,7 +59,7 @@ const ctaLabel = (questionnaire: QuestionnaireCardDTO) => {
   return 'начать';
 };
 
-const hrefFor = (questionnaire: QuestionnaireCardDTO) => {
+const hrefFor = (questionnaire: QuestionnaireCardVM) => {
   if (questionnaire.scope === 'couple' && questionnaire.pairId) {
     return `/pair/${questionnaire.pairId}/questionnaire/${questionnaire.id}`;
   }

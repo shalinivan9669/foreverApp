@@ -5,12 +5,12 @@ import QuestionCard from '@/components/QuestionCard';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { useLegacyQuestionnaireQuickFlow } from '@/client/hooks/useLegacyQuestionnaireQuickFlow';
-import { useUserStore } from '@/store/useUserStore';
 
 export default function QuestionnairePage() {
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
+  const { data: currentUser, loading: loadingCurrentUser } = useCurrentUser();
   const {
     questions,
     answersByQuestionId,
@@ -28,13 +28,21 @@ export default function QuestionnairePage() {
   });
 
   const onSubmit = async () => {
-    if (!user) return;
+    if (!currentUser) return;
     const saved = await submitAnswers();
     if (!saved) return;
     router.push('/main-menu');
   };
 
-  if (!user) {
+  if (loadingCurrentUser && !currentUser) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <LoadingView label="Загружаем профиль..." />
+      </main>
+    );
+  }
+
+  if (!currentUser) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <EmptyStateView

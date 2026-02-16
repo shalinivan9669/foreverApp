@@ -4,10 +4,15 @@
 
 import ErrorView from '@/components/ui/ErrorView';
 import MatchTabs from '@/components/MatchTabs';
-import type { MatchDirection, MatchInboxRowDTO, MatchLikeDTO, MatchStatus } from '@/client/api/types';
 import type { UiErrorState } from '@/client/api/errors';
+import type {
+  MatchDirectionVM,
+  MatchInboxRowVM,
+  MatchLikeVM,
+  MatchStatusVM,
+} from '@/client/viewmodels/match.viewmodels';
 
-const STATUS_TEXT: Record<MatchDirection, Record<MatchStatus, string>> = {
+const STATUS_TEXT: Record<MatchDirectionVM, Record<MatchStatusVM, string>> = {
   incoming: {
     sent: 'ожидает вашего ответа',
     viewed: 'ожидает вашего ответа',
@@ -28,7 +33,7 @@ const STATUS_TEXT: Record<MatchDirection, Record<MatchStatus, string>> = {
   },
 };
 
-const BADGE_CLASS: Record<MatchStatus, string> = {
+const BADGE_CLASS: Record<MatchStatusVM, string> = {
   sent: 'bg-gray-100 text-gray-800',
   viewed: 'bg-gray-100 text-gray-800',
   awaiting_initiator: 'bg-amber-100 text-amber-900',
@@ -50,7 +55,7 @@ const toAvatarSrc = (id: string, avatar: string): string =>
 
 type RespondModalState = {
   open: boolean;
-  like: MatchLikeDTO | null;
+  like: MatchLikeVM | null;
   agreements: [boolean, boolean, boolean];
   answers: [string, string];
   canSubmit: boolean;
@@ -59,8 +64,8 @@ type RespondModalState = {
 };
 
 type MatchInboxViewProps = {
-  incoming: MatchInboxRowDTO[];
-  outgoing: MatchInboxRowDTO[];
+  incoming: MatchInboxRowVM[];
+  outgoing: MatchInboxRowVM[];
   loading: boolean;
   error: UiErrorState | null;
   onRefresh: () => void;
@@ -78,7 +83,7 @@ type MatchInboxViewProps = {
 
 function Section(props: {
   title: string;
-  rows: MatchInboxRowDTO[];
+  rows: MatchInboxRowVM[];
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
   onReject: (id: string) => void;

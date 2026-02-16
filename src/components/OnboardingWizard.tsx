@@ -4,14 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
 import { usersApi } from '@/client/api/users.api';
 import { useApi } from '@/client/hooks/useApi';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { normalizeDiscordAvatar } from '@/lib/discord/avatar';
-import { useUserStore } from '@/store/useUserStore';
 
 export default function OnboardingWizard() {
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
+  const { data: currentUser, loading: loadingCurrentUser } = useCurrentUser();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const { runSafe, loading, error, clearError } = useApi('onboarding-wizard');
@@ -38,7 +39,15 @@ export default function OnboardingWizard() {
     'communication' | 'finance' | 'intimacy' | 'domestic' | 'emotional_support'
   >('communication');
 
-  if (!user) {
+  if (loadingCurrentUser && !currentUser) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <LoadingView label="Загружаем профиль..." />
+      </main>
+    );
+  }
+
+  if (!currentUser) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <EmptyStateView
@@ -50,12 +59,13 @@ export default function OnboardingWizard() {
   }
 
   const submitStep1 = async () => {
+    if (!currentUser) return;
     clearError();
     const saved = await runSafe(
       () =>
         usersApi.upsertCurrentUserProfile({
-          username: user.username,
-          avatar: normalizeDiscordAvatar(user.avatar),
+          username: currentUser.username,
+          avatar: normalizeDiscordAvatar(currentUser.avatar),
           personal: {
             gender,
             age,

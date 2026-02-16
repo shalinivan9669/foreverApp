@@ -4,16 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
-import { useUserStore } from '../store/useUserStore';
 import Spinner from '@/components/ui/Spinner';
 import { discordApi } from '@/client/api/discord.api';
 import { usersApi } from '@/client/api/users.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
+type DiscordProfile = Awaited<ReturnType<typeof discordApi.getCurrentUser>>;
+
 export default function DiscordActivityPage() {
-  const setUser = useUserStore((s) => s.setUser);
-  const user = useUserStore((s) => s.user);
+  const [discordUser, setDiscordUser] = useState<DiscordProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
   const didInit = useRef(false);
@@ -45,7 +45,11 @@ export default function DiscordActivityPage() {
         await sdk.commands.authenticate({ access_token: tokenData.access_token });
 
         const profile = await discordApi.getCurrentUser(tokenData.access_token);
-        setUser(profile);
+        await usersApi.upsertCurrentUserProfile({
+          username: profile.username,
+          avatar: profile.avatar,
+        });
+        setDiscordUser(profile);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(e);
@@ -54,10 +58,10 @@ export default function DiscordActivityPage() {
     }
 
     init();
-  }, [setUser]);
+  }, []);
 
   const goToMenu = async () => {
-    if (!user) return;
+    if (!discordUser) return;
 
     usersApi.writeActivityLog().catch(() => {});
 
@@ -77,7 +81,7 @@ export default function DiscordActivityPage() {
   };
 
   if (error) return <div className="mt-8 text-center text-red-500">Error: {error}</div>;
-  if (!user) {
+  if (!discordUser) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-4">
         <div className="app-panel flex items-center gap-3 px-5 py-4 text-slate-900">
@@ -98,7 +102,7 @@ export default function DiscordActivityPage() {
             </div>
           )}
           <Image
-            src={toDiscordAvatarUrl(user.id, user.avatar)}
+            src={toDiscordAvatarUrl(discordUser.id, discordUser.avatar)}
             alt="Avatar"
             width={128}
             height={128}
@@ -107,7 +111,7 @@ export default function DiscordActivityPage() {
             priority
           />
         </div>
-        <h2 className="mt-4 text-lg font-semibold">{user.username}</h2>
+        <h2 className="mt-4 text-lg font-semibold">{discordUser.username}</h2>
 
         <button onClick={goToMenu} className="app-btn-primary mt-6 px-4 py-2 text-white">
           Go to main menu

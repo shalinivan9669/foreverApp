@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useUserStore } from '@/store/useUserStore';
 import type { ProfileSummaryDTO } from '@/client/api/types';
 import { usersApi } from '@/client/api/users.api';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { createEmptyProfileSummary, normalizeProfileSummary } from '@/client/viewmodels';
 
 import BackBar from '@/components/ui/BackBar';
@@ -17,7 +17,7 @@ import UserActivitiesPlaceholder from '@/components/activities/UserActivitiesPla
 import Skeleton from '@/components/common/Skeleton';
 
 export default function ProfileOverviewPage() {
-  const user = useUserStore((s) => s.user);
+  const { data: currentUser } = useCurrentUser();
   const [data, setData] = useState<ProfileSummaryDTO>(createEmptyProfileSummary());
   const [loading, setLoading] = useState(true);
   const [hasSummary, setHasSummary] = useState(false);
@@ -25,7 +25,7 @@ export default function ProfileOverviewPage() {
   useEffect(() => {
     let active = true;
 
-    if (!user) {
+    if (!currentUser) {
       setLoading(false);
       setHasSummary(false);
       setData(createEmptyProfileSummary());
@@ -54,11 +54,11 @@ export default function ProfileOverviewPage() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [currentUser]);
 
   const ff = data.featureFlags ?? { PERSONAL_ACTIVITIES: false };
 
-  if (!user) {
+  if (!currentUser) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Нет пользователя (нужна авторизация).</div>

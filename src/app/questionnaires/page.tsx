@@ -6,15 +6,19 @@ import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
 import { ApiClientError } from '@/client/api/errors';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
-import type { QuestionnaireCardDTO, QuestionnaireScope } from '@/client/api/types';
 import { usePair } from '@/client/hooks/usePair';
 import { useQuestionnaires } from '@/client/hooks/useQuestionnaires';
 import { useApi } from '@/client/hooks/useApi';
+import type {
+  QuestionnaireCardVM,
+  QuestionnaireScopeVM,
+} from '@/client/viewmodels/questionnaire.viewmodels';
+import { toQuestionnaireCardVMList } from '@/client/viewmodels/questionnaire.viewmodels';
 import QuestionnairesPageView from '@/features/questionnaires/QuestionnairesPageView';
 
 export default function QuestionnairesPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<QuestionnaireScope>('personal');
+  const [activeTab, setActiveTab] = useState<QuestionnaireScopeVM>('personal');
   const [loadingByQuestionnaireId, setLoadingByQuestionnaireId] = useState<Record<string, boolean>>({});
 
   const { cards, loading: loadingCards, refetch } = useQuestionnaires();
@@ -22,14 +26,15 @@ export default function QuestionnairesPage() {
   const { error, clearError, setErrorFromException } = useApi('questionnaire-start');
 
   const hasPair = Boolean(pairId || (status && status.hasActive));
+  const cardViewModels = useMemo(() => toQuestionnaireCardVMList(cards), [cards]);
 
   const personalCards = useMemo(
-    () => cards.filter((card) => card.scope === 'personal'),
-    [cards]
+    () => cardViewModels.filter((card) => card.scope === 'personal'),
+    [cardViewModels]
   );
   const coupleCards = useMemo(
-    () => cards.filter((card) => card.scope === 'couple'),
-    [cards]
+    () => cardViewModels.filter((card) => card.scope === 'couple'),
+    [cardViewModels]
   );
 
   useEffect(() => {
@@ -46,7 +51,7 @@ export default function QuestionnairesPage() {
   }, []);
 
   const startQuestionnaire = useCallback(
-    async (questionnaire: QuestionnaireCardDTO) => {
+    async (questionnaire: QuestionnaireCardVM) => {
       clearError();
       setItemLoading(questionnaire.id, true);
 

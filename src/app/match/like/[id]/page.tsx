@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
-import type { MatchCardSnapshotDTO, MatchLikeDTO } from '@/client/api/types';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { useInbox } from '@/client/hooks/useInbox';
+import type { MatchCardSnapshotVM, MatchLikeVM } from '@/client/viewmodels/match.viewmodels';
+import { toMatchLikeVM } from '@/client/viewmodels/match.viewmodels';
 import LikeDetailsView from '@/features/match/like/LikeDetailsView';
 
 export default function LikeDetailsPage() {
@@ -23,7 +24,7 @@ export default function LikeDetailsPage() {
     mutationError,
   } = useInbox({ enabled: false });
 
-  const [like, setLike] = useState<MatchLikeDTO | null>(null);
+  const [like, setLike] = useState<MatchLikeVM | null>(null);
   const [loading, setLoading] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -38,7 +39,7 @@ export default function LikeDetailsPage() {
         return;
       }
       setLocalError(null);
-      setLike(fresh);
+      setLike(toMatchLikeVM(fresh));
     },
     [fetchLike, id, mutationError?.message]
   );
@@ -52,7 +53,7 @@ export default function LikeDetailsPage() {
     return like.from.id === currentUser.id;
   }, [currentUser, like]);
 
-  const visibleSnapshot = useMemo<MatchCardSnapshotDTO | null>(() => {
+  const visibleSnapshot = useMemo<MatchCardSnapshotVM | null>(() => {
     if (!like) return null;
     if (iAmInitiator) return like.cardSnapshot ?? null;
     return like.fromCardSnapshot ?? like.recipientResponse?.initiatorCardSnapshot ?? null;

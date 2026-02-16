@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useUserStore } from '@/store/useUserStore';
 import BackBar from '@/components/ui/BackBar';
 import { pairsApi } from '@/client/api/pairs.api';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import type { PairSummaryDTO } from '@/client/viewmodels/pair.viewmodels';
 
 type PairProfilePageClientProps = {
@@ -14,7 +14,7 @@ type PairProfilePageClientProps = {
 type I18n = Record<string, string>;
 
 export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePageClientProps) {
-  const user = useUserStore((state) => state.user);
+  const { data: currentUser } = useCurrentUser();
   const [pairId, setPairId] = useState<string | null>(pairIdFromRoute ?? null);
   const [data, setData] = useState<PairSummaryDTO | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
   useEffect(() => {
     let active = true;
 
-    if (!user) {
+    if (!currentUser) {
       setPairId(null);
       setData(null);
       return () => {
@@ -58,7 +58,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
     return () => {
       active = false;
     };
-  }, [pairIdFromRoute, user]);
+  }, [currentUser, pairIdFromRoute]);
 
   const load = useCallback(async (id: string) => {
     setLoading(true);
@@ -119,7 +119,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
     return riskZones.slice().sort((a, b) => b.severity - a.severity).slice(0, 3);
   }, [data]);
 
-  if (!user) {
+  if (!currentUser) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Нет пользователя</div>

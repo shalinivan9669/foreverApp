@@ -339,3 +339,10 @@ Summary:
 - Replaced corrupted inline comments in profile-summary and pair-activities API routes with readable text.
 - Recreated questionnaire cards UI doc in clean UTF-8.
 Files: src/components/activities/UserActivityCard.tsx, src/app/api/users/me/profile-summary/route.ts, src/app/api/pairs/[id]/activities/route.ts, docs/ui/questionnaire-cards.md, docs/CHANGELOG.md
+
+Date: 2026-02-16
+Summary:
+- Added dedicated questionnaire/match view-model layers and moved targeted presentation components to VM contracts instead of direct DTO types.
+- Completed store/hook consolidation in auth/profile/questionnaire/pair flows by migrating to `useCurrentUser` and removing legacy `useUserStore`.
+- Updated UI audit documentation to close previously recorded residuals for DTO leakage and mixed store/hook orchestration.
+Files: src/client/viewmodels/questionnaire.viewmodels.ts, src/client/viewmodels/match.viewmodels.ts, src/client/viewmodels/index.ts, src/components/QuestionnaireCard.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, src/features/match/feed/MatchFeedView.tsx, src/features/match/inbox/MatchInboxView.tsx, src/features/match/like/LikeDetailsView.tsx, src/app/questionnaires/page.tsx, src/app/search/page.tsx, src/app/match/inbox/page.tsx, src/app/match/like/[id]/page.tsx, src/app/page.tsx, src/components/OnboardingWizard.tsx, src/app/(auth)/profile/page.tsx, src/features/pair/PairProfilePageClient.tsx, src/app/profile/(tabs)/matching/page.tsx, src/app/questionnaire/page.tsx, src/app/pair/[id]/questionnaire/[qid]/page.tsx, src/components/main-menu/ProfileTile.tsx, src/store/useUserStore.ts, docs/ui/react-best-practices-ui-audit.md, docs/CHANGELOG.md

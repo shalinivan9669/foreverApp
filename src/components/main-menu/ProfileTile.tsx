@@ -2,11 +2,11 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
-import { useUserStore } from '@/store/useUserStore';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 export default function ProfileTile() {
-  const user = useUserStore((s) => s.user);
+  const { data: user } = useCurrentUser();
 
   return (
     <Link

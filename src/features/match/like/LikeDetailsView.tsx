@@ -2,11 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import type { MatchCardSnapshotDTO, MatchLikeDTO } from '@/client/api/types';
+import type { MatchCardSnapshotVM, MatchLikeVM } from '@/client/viewmodels/match.viewmodels';
 
 type LikeDetailsViewProps = {
-  like: MatchLikeDTO;
-  visibleSnapshot: MatchCardSnapshotDTO | null;
+  like: MatchLikeVM;
+  visibleSnapshot: MatchCardSnapshotVM | null;
   canAcceptReject: boolean;
   canCreatePair: boolean;
   busy: boolean;

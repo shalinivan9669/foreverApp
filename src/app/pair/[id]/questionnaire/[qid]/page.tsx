@@ -10,12 +10,12 @@ import { pairsApi } from '@/client/api/pairs.api';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
 import type { QuestionDTO } from '@/client/api/types';
 import { useApi } from '@/client/hooks/useApi';
-import { useUserStore } from '@/store/useUserStore';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 
 export default function PairQuestionnaireRunner() {
   const params = useParams<{ id: string; qid: string }>();
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
+  const { data: currentUser } = useCurrentUser();
   const pairId = params?.id;
   const questionnaireId = params?.qid;
 
@@ -40,14 +40,14 @@ export default function PairQuestionnaireRunner() {
 
   useEffect(() => {
     let active = true;
-    if (!pairId || !user) return;
+    if (!pairId || !currentUser) return;
 
     pairsApi
       .getSummary(pairId)
       .then((summary) => {
         if (!active) return;
         const members = summary.pair.members ?? [];
-        setBy(members[0] === user.id ? 'A' : 'B');
+        setBy(members[0] === currentUser.id ? 'A' : 'B');
       })
       .catch(() => {
         if (!active) return;
@@ -57,7 +57,7 @@ export default function PairQuestionnaireRunner() {
     return () => {
       active = false;
     };
-  }, [pairId, user]);
+  }, [currentUser, pairId]);
 
   useEffect(() => {
     let active = true;

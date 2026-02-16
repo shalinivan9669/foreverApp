@@ -4,10 +4,10 @@ import CandidateCard from '@/components/CandidateCard';
 import MatchTabs from '@/components/MatchTabs';
 import BackBar from '@/components/ui/BackBar';
 import EmptyStateView from '@/components/ui/EmptyStateView';
-import type { MatchFeedCandidateDTO } from '@/client/api/types';
+import type { MatchFeedCandidateVM } from '@/client/viewmodels/match.viewmodels';
 
 type MatchFeedViewProps = {
-  candidates: MatchFeedCandidateDTO[];
+  candidates: MatchFeedCandidateVM[];
   onLike: (candidate: { id: string; username: string; avatar: string }) => void;
 };
 

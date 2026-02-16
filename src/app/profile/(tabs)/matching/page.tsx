@@ -3,12 +3,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useUserStore } from '@/store/useUserStore';
 import { usersApi } from '@/client/api/users.api';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { normalizeProfileSummary } from '@/client/viewmodels';
 
 export default function ProfileMatchingTab() {
-  const user = useUserStore((s) => s.user);
+  const { data: currentUser } = useCurrentUser();
   const [inbox, setInbox] = useState<number | null>(null);
   const [outbox, setOutbox] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export default function ProfileMatchingTab() {
   useEffect(() => {
     let active = true;
 
-    if (!user) {
+    if (!currentUser) {
       setInbox(null);
       setOutbox(null);
       return () => {
@@ -45,7 +45,7 @@ export default function ProfileMatchingTab() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [currentUser]);
 
   return (
     <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">

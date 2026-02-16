@@ -46,6 +46,30 @@
   - `src/features/match/feed/MatchFeedView.tsx`
 
 ## Residual Tech Debt
-- View-level DTO coupling still exists in several flows not fully migrated in this pass.
-- Mixed store/hook orchestration (`useUserStore` + `client/hooks`) remains; full consolidation should be handled as a dedicated migration.
-- `docs/ui/questionnaire-cards.md` still has encoding defects and should be rewritten in clean UTF-8.
+- None in the originally scoped `questionnaires` and `match` view surfaces after the 2026-02-16 follow-up pass.
+
+## Follow-up Fix Pass (2026-02-16)
+- Added dedicated view-model modules for presentation boundaries:
+  - `src/client/viewmodels/questionnaire.viewmodels.ts`
+  - `src/client/viewmodels/match.viewmodels.ts`
+- Removed DTO types from targeted view components and moved them to VM contracts:
+  - `src/components/QuestionnaireCard.tsx`
+  - `src/features/questionnaires/QuestionnairesPageView.tsx`
+  - `src/features/match/feed/MatchFeedView.tsx`
+  - `src/features/match/inbox/MatchInboxView.tsx`
+  - `src/features/match/like/LikeDetailsView.tsx`
+- Updated container pages to map DTO -> VM before render:
+  - `src/app/questionnaires/page.tsx`
+  - `src/app/search/page.tsx`
+  - `src/app/match/inbox/page.tsx`
+  - `src/app/match/like/[id]/page.tsx`
+- Completed store/hook consolidation for auth/profile/questionnaire/pair flows by migrating to `useCurrentUser` and removing legacy `useUserStore`:
+  - `src/app/page.tsx`
+  - `src/components/OnboardingWizard.tsx`
+  - `src/app/(auth)/profile/page.tsx`
+  - `src/features/pair/PairProfilePageClient.tsx`
+  - `src/app/profile/(tabs)/matching/page.tsx`
+  - `src/app/questionnaire/page.tsx`
+  - `src/app/pair/[id]/questionnaire/[qid]/page.tsx`
+  - `src/components/main-menu/ProfileTile.tsx`
+  - deleted `src/store/useUserStore.ts`
