@@ -9,7 +9,7 @@ export type UserProfileUpsertPayload = {
   username?: UserType['username'];
   avatar?: UserType['avatar'];
   personal?: UserType['personal'];
-  vectors?: UserType['vectors'];
+  vectors?: Record<string, JsonValue>;
   preferences?: UserType['preferences'];
   embeddings?: UserType['embeddings'];
   location?: UserType['location'];
@@ -41,6 +41,16 @@ const toUpdateFields = (payload: UserProfileUpsertPayload): Record<string, unkno
     }
   }
   return update;
+};
+
+export const assertSelfUserTarget = (actorUserId: string, targetUserId: string): void => {
+  if (actorUserId !== targetUserId) {
+    throw new DomainError({
+      code: 'ACCESS_DENIED',
+      status: 403,
+      message: 'forbidden',
+    });
+  }
 };
 
 export const usersService = {
@@ -187,6 +197,7 @@ export const usersService = {
     payload: UserProfileUpsertPayload;
     auditRequest?: AuditRequestContext;
   }): Promise<UserType> {
+    assertSelfUserTarget(input.actorUserId, input.targetUserId);
     await connectToDatabase();
 
     const updateFields = toUpdateFields(input.payload);
@@ -227,6 +238,7 @@ export const usersService = {
     patch: Record<string, JsonValue>;
     auditRequest?: AuditRequestContext;
   }): Promise<UserType> {
+    assertSelfUserTarget(input.actorUserId, input.targetUserId);
     await connectToDatabase();
 
     const set: Record<string, JsonValue> = {};

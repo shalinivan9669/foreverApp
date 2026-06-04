@@ -346,3 +346,38 @@ Summary:
 - Completed store/hook consolidation in auth/profile/questionnaire/pair flows by migrating to `useCurrentUser` and removing legacy `useUserStore`.
 - Updated UI audit documentation to close previously recorded residuals for DTO leakage and mixed store/hook orchestration.
 Files: src/client/viewmodels/questionnaire.viewmodels.ts, src/client/viewmodels/match.viewmodels.ts, src/client/viewmodels/index.ts, src/components/QuestionnaireCard.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, src/features/match/feed/MatchFeedView.tsx, src/features/match/inbox/MatchInboxView.tsx, src/features/match/like/LikeDetailsView.tsx, src/app/questionnaires/page.tsx, src/app/search/page.tsx, src/app/match/inbox/page.tsx, src/app/match/like/[id]/page.tsx, src/app/page.tsx, src/components/OnboardingWizard.tsx, src/app/(auth)/profile/page.tsx, src/features/pair/PairProfilePageClient.tsx, src/app/profile/(tabs)/matching/page.tsx, src/app/questionnaire/page.tsx, src/app/pair/[id]/questionnaire/[qid]/page.tsx, src/components/main-menu/ProfileTile.tsx, src/store/useUserStore.ts, docs/ui/react-best-practices-ui-audit.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
+- Added compact Codex/agent navigation, architecture, API, security, testing, review, and troubleshooting entrypoint docs.
+- Added nested `AGENTS.md` files for app, client, components, features, domain, lib, models, scripts, and docs.
+- Updated README and package check scripts for agent-friendly setup and targeted verification.
+Files: AGENTS.md, README.md, package.json, docs/INDEX.md, docs/PROJECT_MAP.md, docs/ARCHITECTURE.md, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/TESTING.md, docs/CODE_REVIEW.md, docs/TROUBLESHOOTING.md, docs/README.md, docs/AGENTS.md, src/app/AGENTS.md, src/client/AGENTS.md, src/components/AGENTS.md, src/features/AGENTS.md, src/domain/AGENTS.md, src/lib/AGENTS.md, src/models/AGENTS.md, scripts/AGENTS.md, .codex/TASK_TEMPLATE.md, .codex/REPORT_TEMPLATE.md, .codex/PLAN_TEMPLATE.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
+- Added agent operating modes, context budgets, task packs, docs status, and retrospective loop for Codex discipline.
+- Added machine-readable agent diagnostics with severity model, allowlist support, changed-only filtering, and compact/JSON output.
+- Updated package scripts to use local `tsx`, ESLint CLI linting, and agent diagnostics in quick checks.
+Files: AGENTS.md, README.md, package.json, package-lock.json, .agent-checks.allowlist.json, scripts/agent-checks.ts, docs/AGENT_OPERATING_MODES.md, docs/CONTEXT_BUDGET.md, docs/TASK_PACKS.md, docs/DOCS_STATUS.md, docs/AGENT_RETROSPECTIVE.md, docs/INDEX.md, docs/TESTING.md, docs/CODE_REVIEW.md, docs/TROUBLESHOOTING.md, docs/README.md, .codex/TASK_TEMPLATE.md, .codex/REPORT_TEMPLATE.md, .codex/PLAN_TEMPLATE.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
+- Closed critical by-id user write access gaps with self-only target enforcement while keeping public user reads DTO-only.
+- Validated Discord OAuth `redirect_uri` against server env, fixed match confirmation safe ordering, and persisted create-like initiator answers.
+- Added derived user lifecycle DTO state, vector-based create-like scores, and a targeted security-critical selfcheck.
+Files: README.md, src/app/api/users/[id]/route.ts, src/domain/services/users.service.ts, src/app/api/exchange-code/route.ts, src/domain/services/match.service.ts, src/lib/dto/user.dto.ts, scripts/security-critical.selfcheck.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/ARCHITECTURE.md, docs/TESTING.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
+- Fixed pair questionnaire vector over-application by applying scoring only for newly answered questions.
+- Completed pair questionnaire sessions once both members answer every questionnaire question.
+- Tightened questionnaire answer `ui` validation and rejected zero-match bulk answer submissions.
+Files: src/domain/services/questionnaires.service.ts, src/app/api/answers/bulk/route.ts, src/app/api/questionnaires/[id]/route.ts, src/app/api/pairs/[id]/questionnaires/[qid]/answer/route.ts, scripts/pair-questionnaire-vectors.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
+- Added MVP-0 layered vector support with legacy flat-vector reads, scoring helpers, VectorSnapshot and ScoringVersion models.
+- Moved pair passport/diagnostic thresholds to a domain service on the `0..1` scale and stopped pair questionnaire answers from mutating user trait vectors.
+- Added profile-summary v2 axis confidence/data-status fields and targeted vector/pair diagnostic selfchecks.
+Files: eslint.config.mjs, package.json, src/models/User.ts, src/models/Pair.ts, src/models/VectorSnapshot.ts, src/models/ScoringVersion.ts, src/domain/services/vectorScoring.service.ts, src/domain/services/pairDiagnostics.service.ts, src/domain/services/pairs.service.ts, src/domain/services/match.service.ts, src/domain/services/questionnaires.service.ts, src/domain/services/users.service.ts, src/domain/vectors/apply.ts, src/lib/audit/eventTypes.ts, src/lib/mongodb.ts, src/app/api/exchange-code/route.ts, src/app/api/users/me/profile-summary/route.ts, src/app/api/pairs/[id]/diagnostics/route.ts, scripts/vector-scoring.selfcheck.ts, scripts/pair-diagnostics.selfcheck.ts, docs/CHANGELOG.md

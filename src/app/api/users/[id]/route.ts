@@ -34,9 +34,6 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   const query = parseQuery(_req, z.object({}).passthrough());
   if (!query.ok) return query.response;
 
-  const auth = requireSession(_req);
-  if (!auth.ok) return auth.response;
-
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
   const { id } = params.data;

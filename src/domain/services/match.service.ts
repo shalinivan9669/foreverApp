@@ -11,6 +11,9 @@ import { matchTransition } from '@/domain/state/matchMachine';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { activityOfferService } from '@/domain/services/activityOffer.service';
+import { distance, score } from '@/utils/calcMatch';
+import { buildPairPassport } from '@/domain/services/pairDiagnostics.service';
+import { readAxisLayer } from '@/domain/services/vectorScoring.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -77,60 +80,33 @@ const AXES: readonly Axis[] = [
   'psyche',
 ] as const;
 
-const HIGH = 2.0;
-const LOW = 0.75;
-const DELTA = 2.0;
+type AxisVector = {
+  level: number;
+  positives: string[];
+  negatives: string[];
+};
 
-const intersect = (left: string[] = [], right: string[] = []): string[] =>
-  left.filter((entry) => right.includes(entry));
+const getAxisVector = (user: UserType, axis: Axis): AxisVector => {
+  const vector = readAxisLayer(user, axis, 'trait');
+  return {
+    level: vector.level,
+    positives: vector.positives,
+    negatives: vector.negatives,
+  };
+};
 
-const buildPassport = (left: UserType, right: UserType) => {
-  const strongSides: { axis: Axis; facets: string[] }[] = [];
-  const riskZones: { axis: Axis; facets: string[]; severity: 1 | 2 | 3 }[] = [];
-  const complementMap: { axis: Axis; A_covers_B: string[]; B_covers_A: string[] }[] = [];
-  const levelDelta: { axis: Axis; delta: number }[] = [];
+const toVectorLevels = (user: UserType): number[] =>
+  AXES.map((axis) => getAxisVector(user, axis).level);
 
-  for (const axis of AXES) {
-    const leftVector = left.vectors[axis];
-    const rightVector = right.vectors[axis];
+const hasUsableVectors = (user: UserType): boolean =>
+  AXES.some((axis) => {
+    const vector = getAxisVector(user, axis);
+    return vector.level !== 0 || vector.positives.length > 0 || vector.negatives.length > 0;
+  });
 
-    const bothHigh = leftVector.level >= HIGH && rightVector.level >= HIGH;
-    const bothLow = leftVector.level <= LOW && rightVector.level <= LOW;
-    const delta = Math.abs(leftVector.level - rightVector.level);
-
-    const positives = intersect(leftVector.positives, rightVector.positives);
-    const negatives = intersect(leftVector.negatives, rightVector.negatives);
-    const leftCoversRight = intersect(leftVector.positives, rightVector.negatives);
-    const rightCoversLeft = intersect(rightVector.positives, leftVector.negatives);
-
-    if (positives.length > 0 || bothHigh) {
-      strongSides.push({ axis, facets: positives });
-    }
-
-    if (negatives.length > 0 || bothLow || delta > DELTA) {
-      const severity: 1 | 2 | 3 =
-        delta > DELTA + 1 ? 3 : bothLow || negatives.length >= 2 ? 2 : 1;
-      riskZones.push({
-        axis,
-        facets: negatives.length > 0 ? negatives : [],
-        severity,
-      });
-    }
-
-    if (leftCoversRight.length > 0 || rightCoversLeft.length > 0) {
-      complementMap.push({
-        axis,
-        A_covers_B: leftCoversRight,
-        B_covers_A: rightCoversLeft,
-      });
-    }
-
-    if (delta > 0.01) {
-      levelDelta.push({ axis, delta });
-    }
-  }
-
-  return { strongSides, riskZones, complementMap, levelDelta };
+const calculateMatchScore = (left: UserType, right: UserType): number => {
+  if (!hasUsableVectors(left) || !hasUsableVectors(right)) return 0;
+  return score(distance(toVectorLevels(left), toVectorLevels(right)));
 };
 
 const seedSuggestionsForPair = async (
@@ -196,7 +172,19 @@ export const matchService = {
       }
     );
 
-    const initiator = await User.findOne({ id: input.currentUserId }).lean<UserType | null>();
+    const [initiator, recipient] = await Promise.all([
+      User.findOne({ id: input.currentUserId }).lean<UserType | null>(),
+      User.findOne({ id: input.toId }).lean<UserType | null>(),
+    ]);
+
+    if (!initiator || !recipient) {
+      throw new DomainError({
+        code: 'NOT_FOUND',
+        status: 404,
+        message: 'Like users are missing',
+      });
+    }
+
     const fromCardSnapshot = buildInitiatorSnapshot(initiator);
 
     if (!fromCardSnapshot) {
@@ -210,12 +198,18 @@ export const matchService = {
       });
     }
 
-    const matchScore = Math.max(0, Math.min(100, 75));
+    const matchScore = calculateMatchScore(initiator, recipient);
     const like = await Like.create({
       fromId: input.currentUserId,
       toId: input.toId,
       matchScore,
       fromCardSnapshot,
+      agreements: input.agreements,
+      answers: [
+        sanitize(input.answers[0], 280),
+        sanitize(input.answers[1], 280),
+      ],
+      cardSnapshot: fromCardSnapshot,
       status: transition.next.status,
     });
 
@@ -503,10 +497,34 @@ export const matchService = {
       });
     }
 
+    const confirmedLike = await Like.findOneAndUpdate(
+      {
+        _id: like._id,
+        fromId: input.currentUserId,
+        status: 'mutual_ready',
+      },
+      {
+        $set: {
+          status: transition.next.status,
+          updatedAt: transition.next.updatedAt ?? new Date(),
+        },
+      },
+      { new: true }
+    ).lean<LikeType | null>();
+
+    if (!confirmedLike) {
+      return stateConflict({
+        likeId: input.likeId,
+        action: 'CONFIRM',
+      });
+    }
+
     const members = [fromUser.id, toUser.id].sort() as [string, string];
     const key = `${members[0]}|${members[1]}`;
     const existingPair = await Pair.findOne({ key }, { _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
 
+    // Safe ordering prevents Pair activation before the Like transition. Without a
+    // MongoDB transaction, later side effects can still fail after the Like is paired.
     const pair = await Pair.findOneAndUpdate(
       { key },
       {
@@ -526,28 +544,8 @@ export const matchService = {
       pair.passport.riskZones.length === 0;
 
     if (requiresPassport) {
-      pair.passport = buildPassport(fromUser, toUser);
+      pair.passport = buildPairPassport(fromUser, toUser);
       await pair.save();
-    }
-
-    const confirmed = await Like.updateOne(
-      {
-        _id: like._id,
-        status: 'mutual_ready',
-      },
-      {
-        $set: {
-          status: transition.next.status,
-          updatedAt: transition.next.updatedAt ?? new Date(),
-        },
-      }
-    );
-
-    if (confirmed.modifiedCount !== 1) {
-      return stateConflict({
-        likeId: input.likeId,
-        action: 'CONFIRM',
-      });
     }
 
     await Like.updateMany(

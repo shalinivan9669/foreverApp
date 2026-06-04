@@ -75,7 +75,6 @@ const PairSchema = new Schema<PairType>(
 );
 
 PairSchema.index({ members: 1, status: 1 });
-PairSchema.index({ key: 1 }, { unique: true });
 
 export const Pair =
   (mongoose.models.Pair as mongoose.Model<PairType>) ||

@@ -3,12 +3,12 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like, type LikeType } from '@/models/Like';
-import type { Axis } from '@/models/ActivityTemplate';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { pairTransition } from '@/domain/state/pairMachine';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
+import { buildPairPassport } from '@/domain/services/pairDiagnostics.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -40,71 +40,6 @@ const ensurePairMember = async (
     throw await guardFailureToDomainError(guard.response);
   }
   return guard.data;
-};
-
-const AXES: readonly Axis[] = [
-  'communication',
-  'domestic',
-  'personalViews',
-  'finance',
-  'sexuality',
-  'psyche',
-] as const;
-
-const HIGH = 2.0;
-const LOW = 0.75;
-const DELTA = 2.0;
-
-const intersect = (left: string[] = [], right: string[] = []): string[] =>
-  left.filter((item) => right.includes(item));
-
-const buildPassport = (left: UserType, right: UserType): NonNullable<PairType['passport']> => {
-  const strongSides: { axis: Axis; facets: string[] }[] = [];
-  const riskZones: { axis: Axis; facets: string[]; severity: 1 | 2 | 3 }[] = [];
-  const complementMap: { axis: Axis; A_covers_B: string[]; B_covers_A: string[] }[] = [];
-  const levelDelta: { axis: Axis; delta: number }[] = [];
-
-  for (const axis of AXES) {
-    const leftVector = left.vectors[axis];
-    const rightVector = right.vectors[axis];
-
-    const bothHigh = leftVector.level >= HIGH && rightVector.level >= HIGH;
-    const bothLow = leftVector.level <= LOW && rightVector.level <= LOW;
-    const delta = Math.abs(leftVector.level - rightVector.level);
-
-    const positives = intersect(leftVector.positives, rightVector.positives);
-    const negatives = intersect(leftVector.negatives, rightVector.negatives);
-    const leftCoversRight = intersect(leftVector.positives, rightVector.negatives);
-    const rightCoversLeft = intersect(rightVector.positives, leftVector.negatives);
-
-    if (positives.length > 0 || bothHigh) {
-      strongSides.push({ axis, facets: positives });
-    }
-
-    if (negatives.length > 0 || bothLow || delta > DELTA) {
-      const severity: 1 | 2 | 3 =
-        delta > DELTA + 1 ? 3 : bothLow || negatives.length >= 2 ? 2 : 1;
-      riskZones.push({
-        axis,
-        facets: negatives.length > 0 ? negatives : [],
-        severity,
-      });
-    }
-
-    if (leftCoversRight.length > 0 || rightCoversLeft.length > 0) {
-      complementMap.push({
-        axis,
-        A_covers_B: leftCoversRight,
-        B_covers_A: rightCoversLeft,
-      });
-    }
-
-    if (delta > 0.01) {
-      levelDelta.push({ axis, delta });
-    }
-  }
-
-  return { strongSides, riskZones, complementMap, levelDelta };
 };
 
 const getPairRole = (members: [string, string], currentUserId: string): 'A' | 'B' =>
@@ -191,7 +126,7 @@ export const pairsService = {
       members,
       key,
       status: transition.next.status,
-      passport: buildPassport(left, right),
+      passport: buildPairPassport(left, right),
       fatigue: { score: 0, updatedAt: new Date() },
       readiness: { score: 0, updatedAt: new Date() },
     } as Partial<PairType>);

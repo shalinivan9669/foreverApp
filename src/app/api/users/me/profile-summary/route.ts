@@ -12,6 +12,12 @@ import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
 import { resolveEntitlements } from '@/lib/entitlements';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
+import {
+  confidenceLabel,
+  dataStatus,
+  readAxisLayer,
+  readDisplayedAxis,
+} from '@/domain/services/vectorScoring.service';
 
 type Axis =
   | 'communication'
@@ -39,6 +45,16 @@ type UserExtra = Partial<{
   fatigue: { score: number; updatedAt: Date };
   passport: { values?: string[]; boundaries?: string[] };
 }>;
+
+type PassportAxisSummary = {
+  level: number;
+  rawLevel: number;
+  confidence: number;
+  confidenceLabel: 'low' | 'medium' | 'high';
+  positives: string[];
+  negatives: string[];
+  dataStatus: 'enough' | 'low_confidence' | 'missing';
+};
 
 // GET /api/users/me/profile-summary
 export async function GET(req: NextRequest) {
@@ -80,7 +96,65 @@ export async function GET(req: NextRequest) {
     pairId: currentPair?.id,
   });
 
-  // Levels on 6 axes from user.vectors (0..100).
+  const avatarUrl = user.avatar ? toDiscordAvatarUrl(user.id, user.avatar) : null;
+
+  // Levels on 6 axes from normalized user vectors. Legacy flat vectors are read as trait.
+  const axes: Record<Axis, PassportAxisSummary> = {
+    communication: {
+      level: 0,
+      rawLevel: 0,
+      confidence: 0,
+      confidenceLabel: 'low',
+      positives: [],
+      negatives: [],
+      dataStatus: 'missing',
+    },
+    domestic: {
+      level: 0,
+      rawLevel: 0,
+      confidence: 0,
+      confidenceLabel: 'low',
+      positives: [],
+      negatives: [],
+      dataStatus: 'missing',
+    },
+    personalViews: {
+      level: 0,
+      rawLevel: 0,
+      confidence: 0,
+      confidenceLabel: 'low',
+      positives: [],
+      negatives: [],
+      dataStatus: 'missing',
+    },
+    finance: {
+      level: 0,
+      rawLevel: 0,
+      confidence: 0,
+      confidenceLabel: 'low',
+      positives: [],
+      negatives: [],
+      dataStatus: 'missing',
+    },
+    sexuality: {
+      level: 0,
+      rawLevel: 0,
+      confidence: 0,
+      confidenceLabel: 'low',
+      positives: [],
+      negatives: [],
+      dataStatus: 'missing',
+    },
+    psyche: {
+      level: 0,
+      rawLevel: 0,
+      confidence: 0,
+      confidenceLabel: 'low',
+      positives: [],
+      negatives: [],
+      dataStatus: 'missing',
+    },
+  };
   const levelsByAxis: Record<Axis, number> = {
     communication: 0,
     domestic: 0,
@@ -89,12 +163,6 @@ export async function GET(req: NextRequest) {
     sexuality: 0,
     psyche: 0,
   };
-  AXES.forEach((a) => {
-    const lvl = Number(user.vectors?.[a]?.level ?? 0);
-    const clamped = Math.max(0, Math.min(1, isFinite(lvl) ? lvl : 0));
-    levelsByAxis[a] = Math.round(clamped * 100);
-  });
-
   // Strong sides / growth areas via simple facets-count heuristic.
   const strongSides: string[] = [];
   const growthAreas: string[] = [];
@@ -115,14 +183,36 @@ export async function GET(req: NextRequest) {
     psyche: [],
   };
   AXES.forEach((a) => {
-    positivesByAxis[a] = user.vectors?.[a]?.positives ?? [];
-    negativesByAxis[a] = user.vectors?.[a]?.negatives ?? [];
+    const trait = readAxisLayer(user, a, 'trait');
+    const displayed = readDisplayedAxis(user, a);
+    const rawLevel = displayed.level;
+    const uiLevel = Math.round(rawLevel * 100);
 
-    const pos = user.vectors?.[a]?.positives?.length ?? 0;
-    const neg = user.vectors?.[a]?.negatives?.length ?? 0;
+    axes[a] = {
+      level: uiLevel,
+      rawLevel,
+      confidence: displayed.confidence,
+      confidenceLabel: confidenceLabel(displayed.confidence),
+      positives: trait.positives,
+      negatives: trait.negatives,
+      dataStatus: dataStatus({
+        confidence: trait.confidence,
+        evidenceCount: trait.evidenceCount,
+      }),
+    };
+
+    levelsByAxis[a] = uiLevel;
+    positivesByAxis[a] = trait.positives;
+    negativesByAxis[a] = trait.negatives;
+
+    const pos = trait.positives.length;
+    const neg = trait.negatives.length;
     if (pos >= 2) strongSides.push(a);
     if (neg >= 2) growthAreas.push(a);
   });
+
+  const psycheState = readAxisLayer(user, 'psyche', 'state');
+  const stateUpdatedAt = psycheState.updatedAt ?? user.updatedAt;
 
   // Inbox / outbox.
   const [inboxCount, outboxCount] = await Promise.all([
@@ -150,8 +240,10 @@ export async function GET(req: NextRequest) {
   const payload = {
     user: {
       id: user.id,
+      name: user.username,
       handle: user.username,
-      avatar: user.avatar ? toDiscordAvatarUrl(user.id, user.avatar) : null,
+      avatar: avatarUrl,
+      avatarUrl,
       joinedAt: user.createdAt,
       status,
       lastActiveAt: user.updatedAt,
@@ -161,6 +253,12 @@ export async function GET(req: NextRequest) {
         LOOTBOXES: entitlements.features['lootboxes.access'],
       },
     },
+    pair: currentPair
+      ? {
+          id: currentPair.id,
+          status: currentPair.status,
+        }
+      : undefined,
     currentPair,
     metrics: {
       streak: { individual: user.streak?.individual ?? 0 },
@@ -169,6 +267,7 @@ export async function GET(req: NextRequest) {
     readiness: user.readiness ?? { score: 0, updatedAt: user.updatedAt },
     fatigue: user.fatigue ?? { score: 0, updatedAt: user.updatedAt },
     passport: {
+      axes,
       levelsByAxis,
       positivesByAxis,
       negativesByAxis,
@@ -189,6 +288,26 @@ export async function GET(req: NextRequest) {
       filters,
     },
     insights: [] as Array<{ id: string; title?: string; axis?: Axis; delta?: number }>, // Placeholder until Insight model is introduced.
+    resource: {
+      fatigue: user.fatigue ?? { score: 0, updatedAt: user.updatedAt },
+      readiness: user.readiness ?? { score: 0, updatedAt: user.updatedAt },
+      stateUpdatedAt,
+      message:
+        psycheState.confidence > 0
+          ? 'Текущий ресурс показан как предварительное наблюдение по ответам.'
+          : 'Данных о текущем ресурсе пока мало.',
+    },
+    strengths: strongSides,
+    growthZones: growthAreas,
+    recommendations: [] as string[],
+    questionnaireProgress: {
+      completedCount: user.completed?.individual ?? 0,
+      recommendedNextQuestionnaireIds: [] as string[],
+    },
+    locked: {
+      advancedInsights: !entitlements.features['questionnaires.premium'],
+      pairDeepDiagnostics: !entitlements.features['activities.suggestions'],
+    },
     featureFlags: {
       PERSONAL_ACTIVITIES: entitlements.features['activities.suggestions'],
       PREMIUM_QUESTIONNAIRES: entitlements.features['questionnaires.premium'],

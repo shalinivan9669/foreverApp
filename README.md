@@ -1,47 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# foreverApp
 
-## Getting Started
+## What this is
 
-First, run the development server:
+foreverApp is a Discord Embedded App for relationship matching and pair activities. It supports onboarding, match cards, likes, pair creation, questionnaires, activity suggestions, check-ins, entitlements, and audit events.
+
+## Tech stack
+
+- Next.js
+- React
+- TypeScript
+- MongoDB/Mongoose
+- Discord Embedded App SDK
+- Zod
+- custom session cookie auth
+
+## Quick start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `MONGODB_URI` | yes | MongoDB connection |
+| `NEXT_PUBLIC_DISCORD_CLIENT_ID` | yes | Discord client ID |
+| `DISCORD_CLIENT_SECRET` | yes | Discord OAuth secret |
+| `DISCORD_REDIRECT_URI` | recommended | Server-side Discord OAuth redirect allowlist value |
+| `NEXT_PUBLIC_DISCORD_REDIRECT_URI` | yes | Discord SDK redirect; server fallback only when `DISCORD_REDIRECT_URI` is absent |
+| `JWT_SECRET` | yes | App session signing |
 
-## Learn More
+## Main commands
 
-To learn more about Next.js, take a look at the following resources:
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start local Next dev server |
+| `npm run build` | Build production app |
+| `npm run start` | Start production server after build |
+| `npm run lint` | Run existing lint command |
+| `npm run check:lint` | Agent alias for lint |
+| `npm run check:types` | Run TypeScript no-emit check |
+| `npm run check:build` | Agent alias for production build |
+| `npm run check:self` | Run fast selfchecks |
+| `npm run check:agents` | Run compact agent diagnostics |
+| `npm run check:agents:json` | Run machine-readable agent diagnostics |
+| `npm run check:agents:changed` | Run agent diagnostics on changed files |
+| `npm run check:quick` | Run types, fast selfchecks, and agent diagnostics |
+| `npm run selfcheck:activity-flow` | Check activity flow invariants |
+| `npm run selfcheck:client-errors` | Check client error mapping |
+| `npm run seed:questions` | Seed questionnaire data |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project map
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See `docs/PROJECT_MAP.md`.
 
-## Deploy on Vercel
+## Working with Codex / agents
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Environment Variables
-
-To run the application locally you need to provide the following variables in a `.env.local` file:
-
-- `MONGODB_URI` – connection string for MongoDB.
-- `NEXT_PUBLIC_DISCORD_CLIENT_ID` – Discord application client id.
-- `DISCORD_CLIENT_SECRET` – secret from the Discord application settings.
-- `NEXT_PUBLIC_DISCORD_REDIRECT_URI` – OAuth redirect URI configured in Discord.
-
-Without these values the API routes will fail and onboarding data will not be saved.
+Start with `AGENTS.md` and `docs/INDEX.md`.

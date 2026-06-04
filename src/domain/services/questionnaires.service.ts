@@ -165,6 +165,38 @@ const toVectorAuditMetrics = (
   };
 };
 
+const validateVectorAnswers = (
+  answers: VectorAnswerInput[],
+  questionMap: Record<string, VectorQuestion>,
+  options: { requireKnownQuestion: boolean }
+) => {
+  for (const answer of answers) {
+    const question = questionMap[answer.qid];
+    if (!question) {
+      if (options.requireKnownQuestion) {
+        throw new DomainError({
+          code: 'VALIDATION_ERROR',
+          status: 400,
+          message: 'Unknown questionnaire question',
+        });
+      }
+      continue;
+    }
+
+    if (
+      !Number.isInteger(answer.ui) ||
+      answer.ui < 1 ||
+      answer.ui > question.map.length
+    ) {
+      throw new DomainError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Answer ui is outside the question scale',
+      });
+    }
+  }
+};
+
 type SessionLean = {
   _id: Types.ObjectId;
   status: PairQuestionnaireSessionType['status'];
@@ -213,6 +245,10 @@ export const questionnairesService = {
       qid: answer.qid,
       ui: answer.ui,
     }));
+
+    validateVectorAnswers(vectorAnswers, questionMap, {
+      requireKnownQuestion: Boolean(input.strictQuestionMatch),
+    });
 
     const delta = scoreAnswersToVectorDelta(vectorAnswers, questionMap);
     if (input.strictQuestionMatch && delta.matchedCount === 0) {
@@ -485,7 +521,25 @@ export const questionnairesService = {
       }
     );
 
-    await PairQuestionnaireAnswer.updateOne(
+    const questionnaire = await Questionnaire.findOne({ _id: input.questionnaireId }).lean<QuestionnaireType | null>();
+    if (!questionnaire) {
+      throw new DomainError({
+        code: 'NOT_FOUND',
+        status: 404,
+        message: 'Questionnaire not found',
+      });
+    }
+
+    const questionMap = buildQuestionMapFromQuestionnaire(questionnaire);
+    const currentVectorAnswer: VectorAnswerInput = {
+      qid: input.questionId,
+      ui: input.ui,
+    };
+    validateVectorAnswers([currentVectorAnswer], questionMap, {
+      requireKnownQuestion: true,
+    });
+
+    const answerWrite = await PairQuestionnaireAnswer.updateOne(
       {
         sessionId: session._id,
         questionId: input.questionId,
@@ -501,65 +555,81 @@ export const questionnairesService = {
       },
       { upsert: true }
     );
+    const insertedNewAnswer = answerWrite.upsertedCount > 0;
+
+    const questionnaireQuestionIds = questionnaire.questions.flatMap((question) => {
+      const ids = [question.id];
+      if (hasStringId(question as object)) {
+        const questionWithId = question as QuestionWithOptionalId;
+        if (questionWithId._id) ids.push(questionWithId._id);
+      }
+      return ids;
+    });
+
+    const answeredCounts = await PairQuestionnaireAnswer.aggregate<{
+      _id: 'A' | 'B';
+      answeredCount: number;
+    }>([
+      {
+        $match: {
+          sessionId: session._id,
+          questionId: { $in: questionnaireQuestionIds },
+        },
+      },
+      { $group: { _id: { by: '$by', questionId: '$questionId' } } },
+      { $group: { _id: '$_id.by', answeredCount: { $sum: 1 } } },
+    ]);
+
+    const answeredCountByRole = new Map<'A' | 'B', number>(
+      answeredCounts.map((item) => [item._id, item.answeredCount])
+    );
+    const questionCount = questionnaire.questions.length;
+    const shouldComplete =
+      questionCount > 0 &&
+      (answeredCountByRole.get('A') ?? 0) >= questionCount &&
+      (answeredCountByRole.get('B') ?? 0) >= questionCount;
+
+    const sessionSet: {
+      status?: PairQuestionnaireSessionType['status'];
+      finishedAt?: Date;
+      meta?: typeof transition.next.meta;
+    } = {
+      meta: transition.next.meta,
+    };
+
+    if (shouldComplete) {
+      const completeTransition = questionnaireTransition(
+        {
+          status: session.status,
+          startedAt: session.startedAt,
+          finishedAt: session.finishedAt,
+        },
+        {
+          type: 'COMPLETE',
+          at: now,
+        },
+        {
+          currentUserId: input.currentUserId,
+          role: pairData.by,
+        }
+      );
+
+      sessionSet.status = completeTransition.next.status;
+      sessionSet.finishedAt = completeTransition.next.finishedAt;
+    }
 
     await PairQuestionnaireSession.updateOne(
-      { _id: session._id },
+      { _id: session._id, status: 'in_progress' },
       {
-        $set: {
-          meta: transition.next.meta,
-        },
+        $set: sessionSet,
       }
     );
 
-    const answers = await PairQuestionnaireAnswer.find({
-      sessionId: session._id,
-      by: pairData.by,
-    }).lean<{ questionId: string; ui: number }[]>();
+    const delta = scoreAnswersToVectorDelta([currentVectorAnswer], questionMap);
+    const vectorAudit = toVectorAuditMetrics(delta);
 
-    const questionnaire = await Questionnaire.findOne({ _id: input.questionnaireId }).lean<QuestionnaireType | null>();
-    if (!questionnaire) {
-      throw new DomainError({
-        code: 'NOT_FOUND',
-        status: 404,
-        message: 'Questionnaire not found',
-      });
-    }
-
-    const questionMap = buildQuestionMapFromQuestionnaire(questionnaire);
-
-    const user = await User.findOne({ id: input.currentUserId }).lean<UserType | null>();
-    if (!user) {
-      throw new DomainError({
-        code: 'NOT_FOUND',
-        status: 404,
-        message: 'User not found',
-      });
-    }
-
-    const vectorAnswers: VectorAnswerInput[] = answers.map((answer) => ({
-      qid: answer.questionId,
-      ui: answer.ui,
-    }));
-
-    const delta = scoreAnswersToVectorDelta(vectorAnswers, questionMap);
-    const applied = applyDeltaToUserVectors(user, delta);
-    const vectorAudit = toVectorAuditMetrics(delta, applied);
-
-    const hasSet = Object.keys(applied.setLevels).length > 0;
-    const hasAddToSet = Object.keys(applied.addToSet).length > 0;
-
-    if (hasSet || hasAddToSet) {
-      const update: {
-        $set: Record<string, number>;
-        $addToSet?: Record<string, { $each: string[] }>;
-      } = { $set: applied.setLevels };
-
-      if (hasAddToSet) {
-        update.$addToSet = applied.addToSet;
-      }
-
-      await User.updateOne({ id: input.currentUserId }, update);
-    }
+    // TODO(src/domain/services/questionnaires.service.ts): recalculate pair-context
+    // passport from PairQuestionnaireAnswer aggregates once pair-context storage exists.
 
     await emitEvent({
       event: 'QUESTIONNAIRE_ANSWERED',
@@ -583,7 +653,8 @@ export const questionnairesService = {
         questionnaireId: input.questionnaireId,
         sessionId: String(session._id),
         questionId: input.questionId,
-        ui: input.ui,
+        insertedNewAnswer,
+        traitMutationApplied: false,
         ...vectorAudit,
       },
     });

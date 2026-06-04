@@ -11,6 +11,20 @@ const bodySchema = z.object({
   redirect_uri: z.string().min(1),
 });
 
+const getExpectedDiscordRedirectUri = (): string | null => {
+  const value =
+    process.env.DISCORD_REDIRECT_URI ??
+    process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI ??
+    null;
+  const trimmed = value?.trim() ?? '';
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const isAllowedDiscordRedirectUri = (
+  redirectUri: string,
+  expectedRedirectUri = getExpectedDiscordRedirectUri()
+): boolean => expectedRedirectUri !== null && redirectUri === expectedRedirectUri;
+
 const isJsonObject = (value: JsonValue): value is { [key: string]: JsonValue } =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -44,14 +58,29 @@ export async function POST(req: Request) {
     await recordAuthFailure('invalid_exchange_payload', 400);
     return body.response;
   }
-  const { code, redirect_uri } = body.data;
+  const { code, redirect_uri: redirectUri } = body.data;
+
+  const expectedRedirectUri = getExpectedDiscordRedirectUri();
+  if (!expectedRedirectUri) {
+    await recordAuthFailure('redirect_uri_not_configured', 500);
+    return jsonError(
+      500,
+      'DISCORD_REDIRECT_URI_NOT_SET',
+      'Discord redirect_uri not configured'
+    );
+  }
+
+  if (!isAllowedDiscordRedirectUri(redirectUri, expectedRedirectUri)) {
+    await recordAuthFailure('invalid_redirect_uri', 400);
+    return jsonError(400, 'INVALID_REDIRECT_URI', 'invalid redirect_uri');
+  }
 
   const params = new URLSearchParams({
     client_id:     process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
     client_secret: process.env.DISCORD_CLIENT_SECRET!,
     grant_type:    'authorization_code',
     code,
-    redirect_uri
+    redirect_uri: expectedRedirectUri
   });
 
   const tokenRes = await fetch('https://discord.com/api/oauth2/token', {

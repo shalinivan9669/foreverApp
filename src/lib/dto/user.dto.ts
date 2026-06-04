@@ -20,6 +20,7 @@ const toTuple2 = (items: string[] | undefined): [string, string] | null => {
 
 export const PUBLIC_USER_FIELDS = ['id', 'username', 'avatar'] as const;
 export const PRIVATE_USER_FIELDS = [
+  'profileStatus',
   'personal',
   'vectors',
   'preferences',
@@ -36,6 +37,8 @@ export type PublicUserDTO = {
   avatar: string;
 };
 
+export type UserProfileStatus = 'auth_created' | 'onboarding_started' | 'complete';
+
 export type UserMatchCardDTO = {
   requirements: [string, string, string];
   give: [string, string, string];
@@ -47,6 +50,7 @@ export type UserMatchCardDTO = {
 export type UserOnboardingDTO = NonNullable<NonNullable<UserType['profile']>['onboarding']>;
 
 export type UserDTO = PublicUserDTO & {
+  profileStatus?: UserProfileStatus;
   personal?: UserType['personal'];
   vectors?: UserType['vectors'];
   preferences?: UserType['preferences'];
@@ -89,6 +93,23 @@ export function toUserMatchCardDTO(card: MatchCardSource | null | undefined): Us
   };
 }
 
+const hasPersonalProfile = (personal: UserSource['personal']): boolean =>
+  Boolean(
+    personal?.gender &&
+      typeof personal.age === 'number' &&
+      personal.city &&
+      personal.relationshipStatus
+  );
+
+const hasOnboardingProfile = (profile: UserSource['profile']): boolean =>
+  Boolean(profile?.onboarding?.seeking || profile?.onboarding?.inRelationship);
+
+export function getUserProfileStatus(user: Pick<UserSource, 'personal' | 'profile'>): UserProfileStatus {
+  if (!hasPersonalProfile(user.personal)) return 'auth_created';
+  if (!hasOnboardingProfile(user.profile)) return 'onboarding_started';
+  return 'complete';
+}
+
 export function toUserDTO(user: UserSource, opts: ToUserDtoOptions = {}): UserDTO {
   const scope = opts.scope ?? 'public';
   const dto: UserDTO = {
@@ -98,6 +119,7 @@ export function toUserDTO(user: UserSource, opts: ToUserDtoOptions = {}): UserDT
   };
 
   if (scope === 'private') {
+    dto.profileStatus = getUserProfileStatus(user);
     if (user.personal) dto.personal = user.personal;
     if (user.vectors) dto.vectors = user.vectors;
     if (user.preferences) dto.preferences = user.preferences;

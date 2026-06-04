@@ -7,6 +7,10 @@ import {
   type UserVectorApplyResult,
   type VectorDelta,
 } from './types';
+import {
+  readAxisLayer,
+  recalculateDisplayedVector,
+} from '@/domain/services/vectorScoring.service';
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 const clamp = (value: number, min: number, max: number): number =>
@@ -17,9 +21,7 @@ const isPositiveFiniteNumber = (value: number | undefined): value is number =>
   isFiniteNumber(value) && value > 0;
 
 const readCurrentLevel = (current: ApplyContext, axis: Axis): number => {
-  const value = Number(current.vectors?.[axis]?.level ?? 0);
-  if (!Number.isFinite(value)) return 0;
-  return clamp01(value);
+  return readAxisLayer(current, axis, 'trait').level;
 };
 
 const resolvePolicy = (
@@ -110,8 +112,27 @@ export const applyDeltaToUserVectors = (
     }
 
     const appliedStep = next - level;
+    const currentTrait = readAxisLayer(current, axis, 'trait');
+    const evidenceCount =
+      currentTrait.evidenceCount + Math.max(0, delta.perAxisMatchedCount[axis] ?? 0);
+    const confidence = Math.max(
+      currentTrait.confidence,
+      clamp(delta.matchedCount / policy.confidenceK, 0, 1)
+    );
+    const displayed = recalculateDisplayedVector({
+      ...currentTrait,
+      level: next,
+      confidence,
+      evidenceCount,
+    });
+
     levelsByAxis[axis] = next;
     setLevels[`vectors.${axis}.level`] = next;
+    setLevels[`vectors.${axis}.trait.level`] = next;
+    setLevels[`vectors.${axis}.trait.confidence`] = confidence;
+    setLevels[`vectors.${axis}.trait.evidenceCount`] = evidenceCount;
+    setLevels[`vectors.${axis}.displayed.level`] = displayed.level;
+    setLevels[`vectors.${axis}.displayed.confidence`] = displayed.confidence;
     appliedStepByAxis[axis] = appliedStep;
   }
 
@@ -120,11 +141,13 @@ export const applyDeltaToUserVectors = (
     const positives = delta.positivesByAxis[axis] ?? [];
     if (positives.length > 0) {
       addToSet[`vectors.${axis}.positives`] = { $each: positives };
+      addToSet[`vectors.${axis}.trait.positives`] = { $each: positives };
     }
 
     const negatives = delta.negativesByAxis[axis] ?? [];
     if (negatives.length > 0) {
       addToSet[`vectors.${axis}.negatives`] = { $each: negatives };
+      addToSet[`vectors.${axis}.trait.negatives`] = { $each: negatives };
     }
   }
 

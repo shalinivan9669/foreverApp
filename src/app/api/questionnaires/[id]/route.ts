@@ -25,6 +25,8 @@ type RouteContext = {
   params: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const answerUiSchema = z.number().int().min(1);
+
 const answersSchema = z
   .object({
     userId: z.string().optional(),
@@ -32,7 +34,7 @@ const answersSchema = z
       .array(
         z.object({
           qid: z.string().min(1),
-          ui: z.number(),
+          ui: answerUiSchema,
         })
       )
       .min(1),
@@ -43,7 +45,7 @@ const singleAnswerSchema = z
   .object({
     userId: z.string().optional(),
     qid: z.string().min(1),
-    ui: z.number(),
+    ui: answerUiSchema,
   })
   .strict();
 

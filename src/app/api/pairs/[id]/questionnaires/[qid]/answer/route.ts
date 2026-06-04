@@ -23,11 +23,13 @@ const paramsSchema = z.object({
   qid: z.string().min(1),
 });
 
+const answerUiSchema = z.number().int().min(1);
+
 const bodySchema = z
   .object({
     sessionId: z.string().optional(),
     questionId: z.string().min(1),
-    ui: z.number(),
+    ui: answerUiSchema,
   })
   .strict();
 

@@ -113,7 +113,8 @@ export type AuditEventMetadataMap = {
     questionnaireId: string;
     sessionId: string;
     questionId: string;
-    ui: number;
+    insertedNewAnswer: boolean;
+    traitMutationApplied: boolean;
     answeredCount: number;
     matchedCount: number;
     confidence: number;

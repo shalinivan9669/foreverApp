@@ -12,6 +12,8 @@ type Body = {
   answers: { qid: string; ui: number }[];
 };
 
+const answerUiSchema = z.number().int().min(1);
+
 const bodySchema = z
   .object({
     userId: z.string().optional(),
@@ -19,7 +21,7 @@ const bodySchema = z
       .array(
         z.object({
           qid: z.string().min(1),
-          ui: z.number(),
+          ui: answerUiSchema,
         })
       )
       .min(1),
@@ -48,6 +50,7 @@ export async function POST(req: NextRequest) {
       questionnairesService.submitBulkAnswers({
         currentUserId,
         answers: payload.answers,
+        strictQuestionMatch: true,
         audience: 'personal',
         auditRequest,
       }),
