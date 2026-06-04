@@ -12,6 +12,8 @@ import {
 } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { User, type UserType } from '@/models/User';
+import { VectorSnapshot } from '@/models/VectorSnapshot';
+import { createVectorSnapshot } from '@/domain/services/vectorScoring.service';
 import {
   AXES,
   applyDeltaToUserVectors,
@@ -27,6 +29,8 @@ import {
   type UserVectorApplyResult,
 } from '@/domain/vectors';
 import { questionnaireTransition } from '@/domain/state/questionnaireMachine';
+import type { VectorSnapshotReasonSource } from '@/models/VectorSnapshot';
+import { buildPairDiagnostics } from '@/domain/services/pairDiagnostics.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -64,6 +68,12 @@ const hasStringId = (obj: object): obj is { _id: string } =>
   '_id' in obj && typeof (obj as WithPossibleId)._id === 'string';
 
 type BulkSubmitAudience = 'personal' | 'couple';
+
+const snapshotSourceForBulk = (audience: BulkSubmitAudience): VectorSnapshotReasonSource =>
+  audience === 'couple' ? 'pair_questionnaire' : 'baseline_questionnaire';
+
+const uniqueQuestionIds = (answers: VectorAnswerInput[]): string[] =>
+  Array.from(new Set(answers.map((answer) => answer.qid)));
 
 const buildQuestionMapFromQuestionDocs = (
   questions: QuestionType[]
@@ -272,7 +282,7 @@ export const questionnairesService = {
     const vectorAudit = toVectorAuditMetrics(delta, applied);
 
     if (applied) {
-      const setPayload: Record<string, number | Date> = { ...applied.setLevels };
+      const setPayload: Record<string, number | string | Date> = { ...applied.setLevels };
       if (audience === 'personal' && delta.matchedCount > 0 && cooldown?.applied) {
         setPayload[
           `vectorsMeta.personalQuestionnaireCooldowns.${cooldown.questionnaireKey}`
@@ -282,7 +292,7 @@ export const questionnairesService = {
       const hasSet = Object.keys(setPayload).length > 0;
       const hasAddToSet = Object.keys(applied.addToSet).length > 0;
       const update: {
-        $set: Record<string, number | Date>;
+        $set: Record<string, number | string | Date>;
         $addToSet?: Record<string, { $each: string[] }>;
       } = { $set: setPayload };
 
@@ -292,6 +302,30 @@ export const questionnairesService = {
         }
 
         await User.updateOne({ id: input.currentUserId }, update);
+
+        const snapshots = AXES.flatMap((axis) => {
+          const snapshot = applied.snapshotByAxis[axis];
+          if (!snapshot) return [];
+          return [
+            createVectorSnapshot({
+              userId: input.currentUserId,
+              layer: 'trait',
+              axis,
+              before: snapshot.before,
+              after: snapshot.after,
+              reason: {
+                source: snapshotSourceForBulk(audience),
+                questionnaireId: input.questionnaireId,
+                questionIds: uniqueQuestionIds(vectorAnswers),
+              },
+              scoringVersion: snapshot.scoringVersion,
+            }),
+          ];
+        });
+
+        if (snapshots.length > 0) {
+          await VectorSnapshot.insertMany(snapshots);
+        }
       }
     }
 
@@ -625,11 +659,28 @@ export const questionnairesService = {
       }
     );
 
+    if (shouldComplete) {
+      const [memberA, memberB] = await Promise.all([
+        User.findOne({ id: pairData.pair.members[0] }).lean<UserType | null>(),
+        User.findOne({ id: pairData.pair.members[1] }).lean<UserType | null>(),
+      ]);
+
+      if (memberA && memberB) {
+        const diagnostics = buildPairDiagnostics(memberA, memberB);
+        await pairData.pair.updateOne({
+          $set: {
+            'passport.strongSides': diagnostics.passport.strongSides,
+            'passport.riskZones': diagnostics.passport.riskZones,
+            'passport.complementMap': diagnostics.passport.complementMap,
+            'passport.levelDelta': diagnostics.passport.levelDelta,
+            'passport.lastDiagnosticsAt': now,
+          },
+        });
+      }
+    }
+
     const delta = scoreAnswersToVectorDelta([currentVectorAnswer], questionMap);
     const vectorAudit = toVectorAuditMetrics(delta);
-
-    // TODO(src/domain/services/questionnaires.service.ts): recalculate pair-context
-    // passport from PairQuestionnaireAnswer aggregates once pair-context storage exists.
 
     await emitEvent({
       event: 'QUESTIONNAIRE_ANSWERED',
@@ -655,6 +706,7 @@ export const questionnairesService = {
         questionId: input.questionId,
         insertedNewAnswer,
         traitMutationApplied: false,
+        pairDiagnosticsRefreshed: shouldComplete,
         ...vectorAudit,
       },
     });

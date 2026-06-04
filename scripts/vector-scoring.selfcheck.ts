@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   DEFAULT_SCORING_CONFIG,
   applyVectorDelta,
+  createAppliedVectorSnapshot,
   createVectorSnapshot,
   dataStatus,
   normalizeAnswer,
@@ -150,11 +153,88 @@ const snapshot = createVectorSnapshot({
   axis: 'communication',
   before: oneAnswerDelta.before,
   after: oneAnswerDelta.after,
-  reason: { source: 'baseline_questionnaire', questionnaireId: 'q1' },
+  reason: { source: 'baseline_questionnaire', questionnaireId: 'q1', questionIds: ['q_reverse'] },
 });
 assert.equal(snapshot.scoringVersion, DEFAULT_SCORING_CONFIG.key);
+assert.equal(snapshot.reason.source, 'baseline_questionnaire');
+assert.equal(snapshot.reason.questionnaireId, 'q1');
+assert.deepEqual(snapshot.reason.questionIds, ['q_reverse']);
+assert.equal(snapshot.layer, 'trait');
+assert.equal(snapshot.axis, 'communication');
+assert.equal(snapshot.before.level, oneAnswerDelta.before.level);
+assert.equal(snapshot.after.level, oneAnswerDelta.after.level);
+assert.equal(snapshot.delta, oneAnswerDelta.after.level - oneAnswerDelta.before.level);
+
+const stateSnapshot = createAppliedVectorSnapshot({
+  userId: 'u1',
+  axis: 'psyche',
+  layer: 'state',
+  applied: stateDelta,
+  reason: {
+    source: 'state_questionnaire',
+    sessionId: 's1',
+    questionIds: ['state_q1'],
+  },
+});
+assert.equal(stateSnapshot.layer, 'state');
+assert.equal(stateSnapshot.reason.source, 'state_questionnaire');
+assert.equal(stateSnapshot.reason.sessionId, 's1');
+assert.equal(stateSnapshot.scoringVersion, stateDelta.scoringVersion);
+
+const matchingDelta = applyVectorDelta({
+  current,
+  target: {
+    axis: 'finance',
+    target01: 1,
+    evidenceCount: 6,
+    questionConfidence: 1,
+    positives: ['planning'],
+    negatives: [],
+  },
+  layer: 'matching',
+  now: new Date('2026-06-04T00:00:00.000Z'),
+});
+const matchingSnapshot = createAppliedVectorSnapshot({
+  userId: 'u1',
+  axis: 'finance',
+  layer: 'matching',
+  applied: matchingDelta,
+  reason: {
+    source: 'manual_recalculation',
+    questionIds: ['matching_q1'],
+  },
+});
+assert.equal(matchingSnapshot.layer, 'matching');
+assert.equal(matchingSnapshot.reason.source, 'manual_recalculation');
+assert.ok(Math.abs(matchingSnapshot.delta) <= DEFAULT_SCORING_CONFIG.maxStepMatching);
 
 const uiLevel = Math.round(oneAnswerDelta.after.level * 100);
 assert.ok(uiLevel >= 0 && uiLevel <= 100);
+
+const questionnaireService = readFileSync(
+  join(process.cwd(), 'src/domain/services/questionnaires.service.ts'),
+  'utf8'
+);
+assert.ok(
+  questionnaireService.includes('VectorSnapshot.insertMany(snapshots)'),
+  'bulk questionnaire vector updates must persist VectorSnapshot rows'
+);
+assert.ok(
+  questionnaireService.includes("source: snapshotSourceForBulk(audience)"),
+  'bulk questionnaire snapshots must keep source metadata'
+);
+
+const activityEffects = readFileSync(
+  join(process.cwd(), 'src/utils/activities.ts'),
+  'utf8'
+);
+assert.ok(
+  activityEffects.includes('VectorSnapshot.insertMany(vectorSnapshots)'),
+  'activity vector updates must persist VectorSnapshot rows'
+);
+assert.ok(
+  activityEffects.includes("source: 'manual_recalculation'"),
+  'activity vector snapshots must keep source metadata'
+);
 
 console.log('vector-scoring.selfcheck passed');

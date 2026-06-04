@@ -80,6 +80,7 @@
 | `/api/pairs/[id]/activities/from-template` | POST | path: `id`; body: `{ templateId }` (`src/app/api/pairs/[id]/activities/from-template/route.ts:12-15`) | `{ ok: true, id }` (`src/app/api/pairs/[id]/activities/from-template/route.ts:58`) | path param only (`src/app/api/pairs/[id]/activities/from-template/route.ts:12-15`) |
 | `/api/pairs/[id]/suggest` | POST | path: `id` (`src/app/api/pairs/[id]/suggest/route.ts:11-13`) | list[] of `{ id, title, difficulty }` (`src/app/api/pairs/[id]/suggest/route.ts:71`) | path param only (`src/app/api/pairs/[id]/suggest/route.ts:11-13`) |
 | `/api/pairs/[id]/diagnostics` | GET | path: `id` (`src/app/api/pairs/[id]/diagnostics/route.ts:43-45`) | `{ pairId, passport }` (`src/app/api/pairs/[id]/diagnostics/route.ts:66`) | path param only (`src/app/api/pairs/[id]/diagnostics/route.ts:43-45`) |
+| `/api/pairs/[id]/insights` | GET | path: `id`; empty query accepted | `{ pairId, insights[] }` where insights are DTOs without raw trigger evidence or answers | session user must be a pair member (`requirePairMember`) |
 | `/api/pairs/[id]/questionnaires/[qid]/start` | POST | path: `id`, `qid` (`src/app/api/pairs/[id]/questionnaires/[qid]/start/route.ts:11-13`) | `{ sessionId, status, startedAt }` (`src/app/api/pairs/[id]/questionnaires/[qid]/start/route.ts:36-37,47`) | path params only (`src/app/api/pairs/[id]/questionnaires/[qid]/start/route.ts:11-13`) |
 | `/api/pairs/[id]/questionnaires/[qid]/answer` | POST | path: `id`, `qid`; body: `{ sessionId?, questionId, ui, by }` (`src/app/api/pairs/[id]/questionnaires/[qid]/answer/route.ts:18-24`) | `{ ok: true }` (`src/app/api/pairs/[id]/questionnaires/[qid]/answer/route.ts:49`) | path params only (`src/app/api/pairs/[id]/questionnaires/[qid]/answer/route.ts:18-24`) |
 
@@ -100,6 +101,7 @@
 | `/api/users/[id]` | PUT | path: `id`, body: partial user (`src/app/api/users/[id]/route.ts:17-26`) | user document or null (`src/app/api/users/[id]/route.ts:27-33`) | path param only (`src/app/api/users/[id]/route.ts:18-26`) |
 | `/api/users/[id]/onboarding` | PATCH | path: `id`, body: onboarding map (`src/app/api/users/[id]/onboarding/route.ts:9-16`) | user document or null (`src/app/api/users/[id]/onboarding/route.ts:19-24`) | path param only (`src/app/api/users/[id]/onboarding/route.ts:10-16`) |
 | `/api/users/me/profile-summary` | GET | query: `userId` (`src/app/api/users/me/profile-summary/route.ts:37-42`) | profile summary payload (`src/app/api/users/me/profile-summary/route.ts:117-157`) | userId in query (`src/app/api/users/me/profile-summary/route.ts:39-42`) |
+| `/api/insights/me` | GET | empty query accepted | `{ insights[] }` where insights are DTOs without raw trigger evidence or answers | session user only (`requireSession`) |
 | `/api/exchange-code` | POST | body: `{ code, redirect_uri }` (`src/app/api/exchange-code/route.ts:3-7`) | `{ access_token }` or OAuth error (`src/app/api/exchange-code/route.ts:23-27`) | OAuth code+redirect_uri (`src/app/api/exchange-code/route.ts:3-7`) |
 | `/api/logs` | POST | body: `{ userId }` (`src/app/api/logs/route.ts:6-8`) | Log entry (`src/app/api/logs/route.ts:10-11`) | userId in body (`src/app/api/logs/route.ts:7`) |
 
@@ -336,3 +338,13 @@ Applied policy groups:
   - success: `jsonOk({})`
   - error: standard envelope/errors.
 - Personal submit still uses existing URL and envelope contract; no endpoint rename and no raw model response.
+
+## Update 2026-06-04 (MVP-0/MVP-1 Vector Snapshots + Insights)
+
+- Personal questionnaire vector writes now persist `VectorSnapshot` rows with before/after level, confidence, evidence count, delta, axis, layer, source, questionnaire id, question ids, and scoring version.
+- Activity effect vector writes also persist `VectorSnapshot` rows using `manual_recalculation` source and pair id context.
+- Pair questionnaire answers remain pair-scoped: they write `PairQuestionnaireAnswer` and do not mutate `User.vectors`.
+- Added deterministic insight endpoints:
+  - `GET /api/insights/me`
+  - `GET /api/pairs/[id]/insights`
+- Insight DTOs expose only safe wording/action metadata and never expose trigger evidence, partner answers, raw `ui`, or question ids.

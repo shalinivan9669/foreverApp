@@ -58,9 +58,23 @@ export const DEFAULT_VECTOR_UPDATE_POLICY: VectorUpdatePolicy = {
 
 export type UserVectorApplyResult = {
   levelsByAxis: Record<Axis, number>;
-  setLevels: Record<string, number>;
+  setLevels: Record<string, number | string | Date>;
   addToSet: Record<string, { $each: string[] }>;
   appliedStepByAxis: Partial<Record<Axis, number>>;
+  snapshotByAxis: Partial<Record<Axis, {
+    before: {
+      level: number;
+      confidence: number;
+      evidenceCount: number;
+    };
+    after: {
+      level: number;
+      confidence: number;
+      evidenceCount: number;
+    };
+    delta: number;
+    scoringVersion: string;
+  }>>;
   clampedAxes: Axis[];
   confidence: number;
   alphaBase: number;

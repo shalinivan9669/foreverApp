@@ -8,6 +8,7 @@ import {
   type VectorDelta,
 } from './types';
 import {
+  DEFAULT_SCORING_CONFIG,
   readAxisLayer,
   recalculateDisplayedVector,
 } from '@/domain/services/vectorScoring.service';
@@ -64,6 +65,7 @@ export const applyDeltaToUserVectors = (
   policyOverrides?: Partial<VectorUpdatePolicy>
 ): UserVectorApplyResult => {
   const policy = resolvePolicy(policyOverrides);
+  const updatedAt = new Date();
   const confidence = clamp(delta.matchedCount / policy.confidenceK, 0, 1);
   const effectiveAlpha = policy.alphaBase * confidence;
 
@@ -79,8 +81,9 @@ export const applyDeltaToUserVectors = (
     psyche: 0,
   });
 
-  const setLevels: Record<string, number> = {};
+  const setLevels: Record<string, number | string | Date> = {};
   const appliedStepByAxis: Partial<Record<Axis, number>> = {};
+  const snapshotByAxis: UserVectorApplyResult['snapshotByAxis'] = {};
   const clampedAxes: Axis[] = [];
 
   for (const axis of AXES) {
@@ -124,6 +127,8 @@ export const applyDeltaToUserVectors = (
       level: next,
       confidence,
       evidenceCount,
+      scoringVersion: DEFAULT_SCORING_CONFIG.key,
+      updatedAt,
     });
 
     levelsByAxis[axis] = next;
@@ -131,9 +136,27 @@ export const applyDeltaToUserVectors = (
     setLevels[`vectors.${axis}.trait.level`] = next;
     setLevels[`vectors.${axis}.trait.confidence`] = confidence;
     setLevels[`vectors.${axis}.trait.evidenceCount`] = evidenceCount;
+    setLevels[`vectors.${axis}.trait.scoringVersion`] = DEFAULT_SCORING_CONFIG.key;
+    setLevels[`vectors.${axis}.trait.updatedAt`] = updatedAt;
     setLevels[`vectors.${axis}.displayed.level`] = displayed.level;
     setLevels[`vectors.${axis}.displayed.confidence`] = displayed.confidence;
+    setLevels[`vectors.${axis}.displayed.source`] = displayed.source;
+    setLevels[`vectors.${axis}.displayed.updatedAt`] = updatedAt;
     appliedStepByAxis[axis] = appliedStep;
+    snapshotByAxis[axis] = {
+      before: {
+        level: currentTrait.level,
+        confidence: currentTrait.confidence,
+        evidenceCount: currentTrait.evidenceCount,
+      },
+      after: {
+        level: next,
+        confidence,
+        evidenceCount,
+      },
+      delta: appliedStep,
+      scoringVersion: DEFAULT_SCORING_CONFIG.key,
+    };
   }
 
   const addToSet: Record<string, { $each: string[] }> = {};
@@ -156,6 +179,7 @@ export const applyDeltaToUserVectors = (
     setLevels,
     addToSet,
     appliedStepByAxis,
+    snapshotByAxis,
     clampedAxes,
     confidence,
     alphaBase: policy.alphaBase,

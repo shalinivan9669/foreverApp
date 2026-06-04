@@ -1,5 +1,11 @@
 # Changelog (Docs & Project Notes)
 
+Date: 2026-06-04
+Summary:
+- Completed MVP-0/MVP-1 bridge for vector snapshots and deterministic insights.
+- Added snapshot persistence for questionnaire and activity vector writes, deterministic insight rules/endpoints, and targeted selfchecks for e2e vector flow, cooldown dedupe, wording safety, and raw-answer privacy.
+Files: package.json, src/models/Insight.ts, src/models/VectorSnapshot.ts, src/domain/services/insightRules.service.ts, src/domain/services/pairDiagnostics.service.ts, src/domain/services/questionnaires.service.ts, src/domain/services/vectorScoring.service.ts, src/domain/vectors/apply.ts, src/domain/vectors/types.ts, src/lib/audit/eventTypes.ts, src/utils/activities.ts, src/app/api/insights/me/route.ts, src/app/api/pairs/[id]/insights/route.ts, scripts/vector-scoring.selfcheck.ts, scripts/vector-e2e.selfcheck.ts, scripts/pair-diagnostics.selfcheck.ts, scripts/insights-safety.selfcheck.ts, docs/04-api-contracts.md, docs/CHANGELOG.md
+
 ## 2026-02-05
 - Initialized docs-as-primary-context workflow.
 - Added rules for keeping docs and changelog in sync after changes.

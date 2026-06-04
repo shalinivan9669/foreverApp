@@ -577,6 +577,32 @@ export const createVectorSnapshot = (input: {
   createdAt: input.createdAt ?? new Date(),
 });
 
+export const createAppliedVectorSnapshot = (input: {
+  userId: string;
+  pairId?: string;
+  axis: Axis;
+  layer: Exclude<VectorLayer, 'displayed'>;
+  applied: AppliedVectorDelta;
+  reason: {
+    source: VectorSnapshotReasonSource;
+    questionnaireId?: string;
+    sessionId?: string;
+    questionIds?: string[];
+  };
+  createdAt?: Date;
+}): VectorSnapshotType =>
+  createVectorSnapshot({
+    userId: input.userId,
+    pairId: input.pairId,
+    layer: input.layer,
+    axis: input.axis,
+    before: input.applied.before,
+    after: input.applied.after,
+    reason: input.reason,
+    scoringVersion: input.applied.scoringVersion,
+    createdAt: input.createdAt,
+  });
+
 export const confidenceLabel = (confidence: number): ConfidenceLabel => {
   if (confidence >= 0.75) return 'high';
   if (confidence >= 0.55) return 'medium';

@@ -1,7 +1,14 @@
 import { Types } from 'mongoose';
 import { User } from '@/models/User';
 import { Pair } from '@/models/Pair'; // нужен value-импорт, т.к. используем typeof Pair ниже
+import { VectorSnapshot, type VectorSnapshotType } from '@/models/VectorSnapshot';
 import type { CheckInTpl, EffectTpl, Axis } from '@/models/ActivityTemplate'; 
+import {
+  DEFAULT_SCORING_CONFIG,
+  createVectorSnapshot,
+  readAxisLayer,
+  recalculateDisplayedVector,
+} from '@/domain/services/vectorScoring.service';
 
 export const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 
@@ -57,18 +64,52 @@ export async function applyEffects(params: {
   const difficultyK = 1;                                   // место для усложнения
   const fatigueK = 1 - Math.pow(pairDoc.fatigue?.score ?? 0, 2); // сильная усталость режет прирост
 
+  const updatedAt = new Date();
+  const vectorSnapshots: VectorSnapshotType[] = [];
+
   for (const eff of effect) {
     const delta = eff.baseDelta * (0.5 + 0.5 * success) * difficultyK * fatigueK;
 
     const bump = (u: (typeof users)[number]) => {
-      const v = u.vectors[eff.axis as Axis];
-      v.level = v.level * 0.9 + delta * 0.1;               // EMA
+      const axis = eff.axis as Axis;
+      const v = u.vectors[axis];
+      const before = readAxisLayer(u, axis, 'trait');
+      const nextLevel = clamp(v.level * 0.9 + delta * 0.1);
+      v.level = nextLevel;
       if (success >= 0.6 && eff.facetsAdd?.length) {
         v.positives = Array.from(new Set([...(v.positives ?? []), ...eff.facetsAdd]));
       }
       if (success < 0.35 && eff.facetsRemove?.length) {
         v.negatives = Array.from(new Set([...(v.negatives ?? []), ...eff.facetsRemove]));
       }
+      const after = {
+        ...before,
+        level: nextLevel,
+        positives: v.positives ?? [],
+        negatives: v.negatives ?? [],
+        scoringVersion: DEFAULT_SCORING_CONFIG.key,
+        updatedAt,
+      };
+      v.trait = after;
+      v.displayed = {
+        ...recalculateDisplayedVector(after),
+        updatedAt,
+      };
+      vectorSnapshots.push(
+        createVectorSnapshot({
+          userId: u.id,
+          pairId: String(pairDoc._id),
+          layer: 'trait',
+          axis,
+          before,
+          after,
+          reason: {
+            source: 'manual_recalculation',
+          },
+          scoringVersion: DEFAULT_SCORING_CONFIG.key,
+          createdAt: updatedAt,
+        })
+      );
     };
 
     const tgt: 'A' | 'B' | 'both' = eff.target ?? 'both';
@@ -78,9 +119,12 @@ export async function applyEffects(params: {
   }
 
   await Promise.all(users.map(u => u.save()));
+  if (vectorSnapshots.length > 0) {
+    await VectorSnapshot.insertMany(vectorSnapshots);
+  }
 
   // усталость/готовность пары
-  pairDoc.fatigue = { score: clamp((pairDoc.fatigue?.score ?? 0) + (fatigueDelta ?? 0)), updatedAt: new Date() };
-  pairDoc.readiness = { score: clamp((pairDoc.readiness?.score ?? 0) + (readinessDelta ?? 0)), updatedAt: new Date() };
+  pairDoc.fatigue = { score: clamp((pairDoc.fatigue?.score ?? 0) + (fatigueDelta ?? 0)), updatedAt };
+  pairDoc.readiness = { score: clamp((pairDoc.readiness?.score ?? 0) + (readinessDelta ?? 0)), updatedAt };
   await pairDoc.save();
 }

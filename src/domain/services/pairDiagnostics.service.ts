@@ -79,7 +79,21 @@ const axisStatus = (
   return 'neutral';
 };
 
+const READABLE_SAFE_WORDING_BY_STATUS: Partial<Record<PairAxisDiagnosticStatus, string>> = {
+  insufficient_data:
+    'Данных пока мало: вывод по этой теме лучше воспринимать как предварительное наблюдение по ответам.',
+  risk:
+    'По ответам видно различие в подходе к этой теме. Это не приговор, но лучше обсудить правила заранее.',
+  strong: 'По ответам видно похожий устойчивый подход к этой теме.',
+  complement:
+    'По ответам видно различие в подходах, которое может дополнять пару при ясных правилах.',
+  neutral: 'По ответам пока нет выраженного сигнала по этой теме.',
+};
+
 const safeWordingForStatus = (status: PairAxisDiagnosticStatus): string => {
+  const readable = READABLE_SAFE_WORDING_BY_STATUS[status];
+  if (readable) return readable;
+
   if (status === 'insufficient_data') {
     return 'Данных пока мало: вывод по этой теме лучше воспринимать как предварительное наблюдение по ответам.';
   }
