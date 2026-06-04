@@ -18,6 +18,7 @@ import {
   readAxisLayer,
   readDisplayedAxis,
 } from '@/domain/services/vectorScoring.service';
+import { listMyInsights } from '@/domain/services/insightRules.service';
 
 type Axis =
   | 'communication'
@@ -236,6 +237,7 @@ export async function GET(req: NextRequest) {
     valuedQualities: (user.profile?.onboarding?.seeking?.valuedQualities ?? []).slice(0, 3),
     excludeTags: [] as string[],
   };
+  const insights = await listMyInsights(userId);
 
   const payload = {
     user: {
@@ -287,7 +289,7 @@ export async function GET(req: NextRequest) {
       outboxCount,
       filters,
     },
-    insights: [] as Array<{ id: string; title?: string; axis?: Axis; delta?: number }>, // Placeholder until Insight model is introduced.
+    insights,
     resource: {
       fatigue: user.fatigue ?? { score: 0, updatedAt: user.updatedAt },
       readiness: user.readiness ?? { score: 0, updatedAt: user.updatedAt },

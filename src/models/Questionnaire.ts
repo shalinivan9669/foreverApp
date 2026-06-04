@@ -10,6 +10,15 @@ export interface QuestionItem {
   map:      number[];                // например [-3,-1,0,1,3]
   weight:   number;
   text:     Record<string,string>;   // {ru,en}
+  polarityNumeric?: 1|-1;
+  reverseScoring?: boolean;
+  confidenceWeight?: number;
+  scope?: 'solo'|'pair'|'pair_or_solo';
+  audience?: 'personal'|'couple'|'weekly';
+  sensitivity?: 'low'|'medium'|'high';
+  locale?: 'ru'|'en';
+  explanation?: string;
+  scoringVersion?: string;
 }
 
 export interface QuestionnaireType {
@@ -41,7 +50,16 @@ const QuestionSchema = new Schema<QuestionItem>({
   scale:    { type: String, enum:['likert5','bool'], required:true },
   map:      { type: [Number], required:true },
   weight:   { type: Number, default:1 },
-  text:     { type: Schema.Types.Mixed, required:true }
+  text:     { type: Schema.Types.Mixed, required:true },
+  polarityNumeric: { type: Number, enum:[1,-1] },
+  reverseScoring: { type: Boolean },
+  confidenceWeight: { type: Number },
+  scope: { type: String, enum:['solo','pair','pair_or_solo'] },
+  audience: { type: String, enum:['personal','couple','weekly'] },
+  sensitivity: { type: String, enum:['low','medium','high'] },
+  locale: { type: String, enum:['ru','en'] },
+  explanation: { type: String },
+  scoringVersion: { type: String }
 }, { _id:false });
 
 const QuestionnaireSchema = new Schema<QuestionnaireType>({

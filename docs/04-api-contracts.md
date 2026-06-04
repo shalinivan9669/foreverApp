@@ -45,6 +45,8 @@
 | Route | Method | Input (path/query/body) | Output | Auth/Access (observed) |
 |---|---|---|---|---|
 | `/api/activities/next` | POST | body: `userId` (`src/app/api/activities/next/route.ts:36-39`) | `{ ok: true, activityId }` (`src/app/api/activities/next/route.ts:136-139`) | userId in body (`src/app/api/activities/next/route.ts:37`) |
+| `/api/checkins/weekly` | POST | body: `{ pairId?, weekKey?, answers }`; `Idempotency-Key` header | weekly check-in DTO with readiness/fatigue and safe insights | session user only; optional pair membership guard |
+| `/api/checkins/weekly/current` | GET | query: `pairId?`, `weekKey?` | `{ checkIn }` for current session user/week | session user only; optional pair membership guard |
 | `/api/activities/[id]/accept` | POST | path: `id` (`src/app/api/activities/[id]/accept/route.ts:8`) | `{ ok: true }` (`src/app/api/activities/[id]/accept/route.ts:17`) | path param only (`src/app/api/activities/[id]/accept/route.ts:8`) |
 | `/api/activities/[id]/cancel` | POST | path: `id` (`src/app/api/activities/[id]/cancel/route.ts:8`) | `{ ok: true }` (`src/app/api/activities/[id]/cancel/route.ts:13`) | path param only (`src/app/api/activities/[id]/cancel/route.ts:8`) |
 | `/api/activities/[id]/checkin` | POST | path: `id` (`src/app/api/activities/[id]/checkin/route.ts:9`); body: `{ by, answers[] }` (`src/app/api/activities/[id]/checkin/route.ts:10-11`) | `{ ok: true, success }` (`src/app/api/activities/[id]/checkin/route.ts:26`) | `by` in body (`src/app/api/activities/[id]/checkin/route.ts:10`) |
@@ -348,3 +350,25 @@ Applied policy groups:
   - `GET /api/insights/me`
   - `GET /api/pairs/[id]/insights`
 - Insight DTOs expose only safe wording/action metadata and never expose trigger evidence, partner answers, raw `ui`, or question ids.
+
+## Update 2026-06-04 (Closed Beta Weekly Check-in + Pair Answer Diagnostics)
+
+- Added weekly check-in API:
+  - `POST /api/checkins/weekly`
+  - `GET /api/checkins/weekly/current`
+- Weekly check-ins update user readiness/fatigue and state vectors only; they do not mutate trait vectors.
+- Weekly state vector changes create `VectorSnapshot` rows with `source = weekly_checkin`.
+- Pair questionnaire completion and pair diagnostics now use pair-answer-aware diagnostics additively, without returning raw partner answers.
+- Added manual, idempotent migration script `npm run backfill:vector-snapshots`; it creates `migration` snapshots and does not mutate vector values.
+
+## Update 2026-06-04 (Closed Beta Questionnaire Seed Set)
+
+- Added manual seed command `npm run seed:beta-questionnaires`.
+- The command upserts four beta questionnaire documents in `questionnaires` and does not delete existing data:
+  - `beta_baseline_communication_style`
+  - `beta_state_resource_fatigue`
+  - `beta_pair_expectations`
+  - `beta_weekly_checkin`
+- Seeded question DTOs include additive metadata fields: `polarityNumeric`, `reverseScoring`, `confidenceWeight`, `scope`, `audience`, `sensitivity`, `locale`, `explanation`, and `scoringVersion`.
+- `/api/questionnaires/cards` and `/api/questionnaires/[id]` continue using existing questionnaire DTOs; the added fields are safe scoring/content metadata and do not expose raw answers or evidence.
+- The seed script is manual and is not run during build/test/checks.

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
+import InsightsList, { type InsightVM } from '@/components/profile/InsightsList';
 import { pairsApi } from '@/client/api/pairs.api';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
 import type { PairPassportDTO } from '@/client/api/types';
@@ -16,6 +17,7 @@ export default function PairDiagnosticsPage() {
   const pairId = params?.id;
 
   const [passport, setPassport] = useState<PairPassportDTO | null>(null);
+  const [insights, setInsights] = useState<InsightVM[]>([]);
   const [coupleQnId, setCoupleQnId] = useState<string | null>(null);
 
   const {
@@ -55,6 +57,8 @@ export default function PairDiagnosticsPage() {
     );
     if (!diagnostics) return;
     setPassport(diagnostics.passport ?? null);
+    const pairInsights = await pairsApi.getInsights(pairId);
+    setInsights(pairInsights.insights);
   }, [pairId, runDiagnosticsSafe]);
 
   useEffect(() => {
@@ -140,6 +144,11 @@ export default function PairDiagnosticsPage() {
       {!loading && passport && (
         <div className="space-y-4">
           <div className="text-sm text-gray-500">Последнее обновление: {formatDate(passport.lastDiagnosticsAt)}</div>
+
+          <section className="space-y-2">
+            <h2 className="font-semibold">Инсайты пары</h2>
+            <InsightsList items={insights} pairId={pairId} />
+          </section>
 
           <section className="space-y-2">
             <h2 className="font-semibold">Риск-зоны</h2>

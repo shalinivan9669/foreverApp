@@ -6,6 +6,52 @@ export type ApiJsonObject = {
 
 export type ApiJsonValue = ApiJsonPrimitive | ApiJsonObject | ApiJsonValue[];
 
+export type InsightDTO = {
+  id: string;
+  ownerType?: 'user' | 'pair';
+  userId?: string;
+  pairId?: string;
+  ruleId?: string;
+  axis?: QuestionnaireAxis;
+  severity?: 1 | 2 | 3;
+  title?: string;
+  safeWording?: string;
+  recommendedAction?: string;
+  activityId?: string;
+  questionnaireId?: string;
+  pairShared?: boolean;
+  cooldownUntil?: string;
+  createdAt?: string;
+  delta?: number;
+};
+
+export type WeeklyCheckInAnswersDTO = {
+  closeness: number;
+  fatigue: number;
+  irritation: number;
+  readiness: number;
+  unresolvedTopic: boolean;
+  note?: string;
+};
+
+export type WeeklyCheckInDTO = {
+  id: string;
+  userId: string;
+  pairId?: string;
+  weekKey: string;
+  answers: WeeklyCheckInAnswersDTO;
+  computed: {
+    userStateDelta: Partial<Record<QuestionnaireAxis, number>>;
+    pairRiskDelta?: number;
+    generatedInsightIds: string[];
+  };
+  readiness: { score: number; updatedAt?: string };
+  fatigue: { score: number; updatedAt?: string };
+  insights: InsightDTO[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type PublicUserDTO = {
   id: string;
   username: string;
@@ -120,9 +166,42 @@ export type PairPassportDTO = {
   lastDiagnosticsAt?: string;
 };
 
+export type PairAxisDiagnosticDTO = {
+  axis: QuestionnaireAxis;
+  status: 'insufficient_data' | 'strong' | 'risk' | 'complement' | 'neutral';
+  a: number;
+  b: number;
+  delta: number;
+  confidence: number;
+  safeWording: string;
+};
+
+export type PairAnswerSignalDTO = {
+  axis: QuestionnaireAxis;
+  a: number;
+  b: number;
+  confidenceA: number;
+  confidenceB: number;
+  pairConfidence: number;
+  delta: number;
+  status: PairAxisDiagnosticDTO['status'];
+  reasons: string[];
+  recommendedAction?: string;
+};
+
 export type PairDiagnosticsDTO = {
   pairId: string;
   passport: PairPassportDTO;
+  axes?: PairAxisDiagnosticDTO[];
+  pairAnswerSignals?: PairAnswerSignalDTO[];
+  overall?: {
+    score: number;
+    confidence: number;
+    status: 'strong' | 'neutral' | 'risk' | 'insufficient_data';
+  };
+  fatigue?: { score: number; updatedAt?: string };
+  readiness?: { score: number; updatedAt?: string };
+  generatedInsightIds?: string[];
 };
 
 export type MatchFeedCandidateDTO = {
@@ -391,6 +470,15 @@ export type QuestionnaireQuestionDTO = {
   map: number[];
   weight: number;
   text: Record<string, string>;
+  polarityNumeric?: 1 | -1;
+  reverseScoring?: boolean;
+  confidenceWeight?: number;
+  scope?: 'solo' | 'pair' | 'pair_or_solo';
+  audience?: 'personal' | 'couple' | 'weekly';
+  sensitivity?: 'low' | 'medium' | 'high';
+  locale?: 'ru' | 'en';
+  explanation?: string;
+  scoringVersion?: string;
 };
 
 export type QuestionDTO = QuestionnaireQuestionDTO;
@@ -478,12 +566,7 @@ export type ProfileSummaryDTO = {
       excludeTags: string[];
     };
   };
-  insights: Array<{
-    id: string;
-    title?: string;
-    axis?: QuestionnaireAxis;
-    delta?: number;
-  }>;
+  insights: InsightDTO[];
   featureFlags: Record<string, boolean>;
   entitlements: {
     plan: 'FREE' | 'SOLO' | 'COUPLE';

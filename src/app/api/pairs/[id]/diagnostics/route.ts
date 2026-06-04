@@ -9,7 +9,7 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { z } from 'zod';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
-import { buildPairDiagnostics } from '@/domain/services/pairDiagnostics.service';
+import { buildPairAnswerDiagnostics } from '@/domain/services/pairAnswerScoring.service';
 
 interface Ctx { params: Promise<{ id: string }> }
 
@@ -40,19 +40,40 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   ]);
   if (!ua || !ub) return jsonError(404, 'USER_NOT_FOUND', 'users missing');
 
-  const diagnostics = buildPairDiagnostics(ua, ub);
+  const diagnostics = await buildPairAnswerDiagnostics({
+    pairId: id,
+    left: ua,
+    right: ub,
+  });
   const passport = diagnostics.passport;
   const lastDiagnosticsAt = new Date();
 
   await Pair.updateOne(
     { _id: pair._id },
-    { $set: { 'passport.strongSides': passport.strongSides, 'passport.riskZones': passport.riskZones, 'passport.complementMap': passport.complementMap, 'passport.levelDelta': passport.levelDelta, 'passport.lastDiagnosticsAt': lastDiagnosticsAt } }
+    {
+      $set: {
+        'passport.strongSides': passport.strongSides,
+        'passport.riskZones': passport.riskZones,
+        'passport.complementMap': passport.complementMap,
+        'passport.levelDelta': passport.levelDelta,
+        'passport.lastDiagnosticsAt': lastDiagnosticsAt,
+        'passport.axes': diagnostics.axes,
+        'passport.pairAnswerSignals': diagnostics.pairAnswerSignals,
+        'passport.overall': diagnostics.overall,
+        'passport.generatedInsightIds': diagnostics.generatedInsightIds,
+      },
+    }
   );
 
   return jsonOk({
     pairId: id,
     passport: { ...passport, lastDiagnosticsAt },
     axes: diagnostics.axes,
+    pairAnswerSignals: diagnostics.pairAnswerSignals,
+    overall: diagnostics.overall,
+    fatigue: pair.fatigue,
+    readiness: pair.readiness,
+    generatedInsightIds: diagnostics.generatedInsightIds,
   });
 }
 

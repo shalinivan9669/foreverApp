@@ -79,14 +79,59 @@ const candidates = buildPairInsightCandidates({
   left,
   right,
   fatigue: { score: 0.82, updatedAt: new Date('2026-06-04T00:00:00.000Z') },
+  readiness: { score: 0.2, updatedAt: new Date('2026-06-04T00:00:00.000Z') },
+  weekly: { fatigue: 0.9, closeness: 0.2 },
 });
 const ruleIds = new Set(candidates.map((candidate) => candidate.trigger.ruleId));
-assert.equal(ruleIds.size, 5);
+const highCommunicationCandidates = buildPairInsightCandidates({
+  pairId: 'pair-2',
+  members: ['left', 'right'],
+  left: makeUser('left-high', {
+    communication: axisVector(0.8, ['directness'], []),
+    finance: axisVector(0.5),
+    domestic: axisVector(0.5),
+    psyche: axisVector(0.5),
+  }),
+  right: makeUser('right-high', {
+    communication: axisVector(0.82, ['directness'], []),
+    finance: axisVector(0.5),
+    domestic: axisVector(0.5),
+    psyche: axisVector(0.5),
+  }),
+});
+for (const candidate of highCommunicationCandidates) {
+  ruleIds.add(candidate.trigger.ruleId);
+}
+const insufficientCandidates = buildPairInsightCandidates({
+  pairId: 'pair-3',
+  members: ['left', 'right'],
+  left: makeUser('left-low-data', {
+    communication: axisVector(0.5, [], [], 0.1, 1),
+    finance: axisVector(0.5, [], [], 0.1, 1),
+    domestic: axisVector(0.5, [], [], 0.1, 1),
+    psyche: axisVector(0.5, [], [], 0.1, 1),
+  }),
+  right: makeUser('right-low-data', {
+    communication: axisVector(0.5, [], [], 0.1, 1),
+    finance: axisVector(0.5, [], [], 0.1, 1),
+    domestic: axisVector(0.5, [], [], 0.1, 1),
+    psyche: axisVector(0.5, [], [], 0.1, 1),
+  }),
+});
+for (const candidate of insufficientCandidates) {
+  ruleIds.add(candidate.trigger.ruleId);
+}
+assert.ok(ruleIds.size >= 10);
 assert.ok(ruleIds.has('both_conflict_avoidance'));
 assert.ok(ruleIds.has('finance_delta_high'));
 assert.ok(ruleIds.has('directness_asymmetry'));
 assert.ok(ruleIds.has('psyche_low_fatigue_high'));
 assert.ok(ruleIds.has('domestic_fairness_risk'));
+assert.ok(ruleIds.has('low_pair_readiness'));
+assert.ok(ruleIds.has('both_high_communication'));
+assert.ok(ruleIds.has('weekly_fatigue_increase'));
+assert.ok(ruleIds.has('shared_time_delta'));
+assert.ok(ruleIds.has('insufficient_data_axis'));
 
 const userCandidates = buildUserInsightCandidates({
   user: left,
@@ -96,6 +141,13 @@ assert.equal(userCandidates[0]?.trigger.ruleId, 'psyche_low_fatigue_high');
 
 const forbiddenWording = [
   'диагноз',
+  'нарцисс',
+  'психопат',
+  'травма',
+  'психическое расстройство',
+  'плохая психика',
+  'вы несовместимы',
+  'отношения обречены',
   'симптом',
   'расстройство',
   'болезнь',

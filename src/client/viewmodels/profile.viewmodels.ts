@@ -72,8 +72,20 @@ type ProfileSummaryInput = {
   insights?: Array<{
     id?: string;
     _id?: string;
+    ownerType?: 'user' | 'pair';
+    userId?: string;
+    pairId?: string;
+    ruleId?: string;
     title?: string;
     axis?: QuestionnaireAxis;
+    severity?: 1 | 2 | 3;
+    safeWording?: string;
+    recommendedAction?: string;
+    activityId?: string;
+    questionnaireId?: string;
+    pairShared?: boolean;
+    cooldownUntil?: string;
+    createdAt?: string;
     delta?: number;
   }>;
   featureFlags?: Record<string, boolean>;
@@ -273,8 +285,20 @@ export const normalizeProfileSummary = (
       input.insights
         ?.map((item) => ({
           id: asId(item.id, item._id),
+          ownerType: item.ownerType,
+          userId: item.userId,
+          pairId: item.pairId,
+          ruleId: item.ruleId,
           title: item.title,
           axis: item.axis,
+          severity: item.severity,
+          safeWording: item.safeWording,
+          recommendedAction: item.recommendedAction,
+          activityId: item.activityId,
+          questionnaireId: item.questionnaireId,
+          pairShared: item.pairShared,
+          cooldownUntil: item.cooldownUntil,
+          createdAt: item.createdAt,
           delta: item.delta,
         }))
         .filter((item) => item.id.length > 0) ?? [],

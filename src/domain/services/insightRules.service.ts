@@ -47,6 +47,8 @@ export type InsightCandidate = {
   title: string;
   safeWording: string;
   recommendedAction: string;
+  activityId?: string;
+  questionnaireId?: string;
   visibility: InsightVisibility;
   cooldownDays?: number;
 };
@@ -64,6 +66,8 @@ export type InsightDTO = {
   title: string;
   safeWording: string;
   recommendedAction: string;
+  activityId?: string;
+  questionnaireId?: string;
   pairShared: boolean;
   cooldownUntil: Date;
   createdAt: Date;
@@ -106,6 +110,95 @@ const userVisibility = (userId: string): InsightVisibility => ({
   pairShared: false,
 });
 
+type InsightCopy = {
+  title: string;
+  safeWording: string;
+  recommendedAction: string;
+  activityId?: string;
+  questionnaireId?: string;
+};
+
+const INSIGHT_COPY: Record<InsightRuleId, InsightCopy> = {
+  both_conflict_avoidance: {
+    title: 'Сложные темы могут откладываться',
+    safeWording:
+      'По ответам видно, что напряженные разговоры могут откладываться. Это не приговор, но нерешенные темы лучше переводить в короткий и спокойный формат.',
+    recommendedAction: 'Проведите короткий разговор на 10 минут с одним понятным вопросом.',
+    activityId: 'short-conflict-conversation',
+    questionnaireId: 'beta_pair_expectations',
+  },
+  finance_delta_high: {
+    title: 'Есть разница в финансовых ожиданиях',
+    safeWording:
+      'По ответам видно различие в подходе к деньгам. Лучше заранее обсудить правила бюджета и крупные траты.',
+    recommendedAction: 'Согласуйте одно правило про общие траты и одну сумму, которую важно обсуждать заранее.',
+    activityId: 'budget-conversation',
+    questionnaireId: 'beta_pair_expectations',
+  },
+  directness_asymmetry: {
+    title: 'Прямота в разговоре может отличаться',
+    safeWording:
+      'Один из вас может быстрее называть проблему, а другому может быть нужно больше времени. Это можно согласовать через темп и уточняющие вопросы.',
+    recommendedAction: 'Начните разговор с правила: один короткий запрос и один уточняющий вопрос без давления.',
+    activityId: 'short-conflict-conversation',
+  },
+  psyche_low_fatigue_high: {
+    title: 'Сейчас ресурс может быть низким',
+    safeWording:
+      'По текущим данным видно сочетание высокой усталости и низкой готовности. Лучше не начинать тяжелый разговор без подготовки.',
+    recommendedAction: 'Выберите легкий check-in или паузу вместо большого разговора.',
+    activityId: 'pause-light-check-in',
+    questionnaireId: 'beta_state_resource_fatigue',
+  },
+  domestic_fairness_risk: {
+    title: 'Бытовую нагрузку стоит сделать явной',
+    safeWording:
+      'По ответам видно, что бытовые задачи могут ощущаться неравномерно. Стоит заранее обсудить зоны ответственности без обвинений.',
+    recommendedAction: 'Запишите три бытовые зоны и договоритесь, кто за что отвечает на этой неделе.',
+    activityId: 'household-task-ownership',
+    questionnaireId: 'beta_pair_expectations',
+  },
+  low_pair_readiness: {
+    title: 'Готовность пары сейчас низкая',
+    safeWording:
+      'По последним данным лучше снизить нагрузку и выбрать короткий формат контакта. Это временный сигнал, а не вывод о паре.',
+    recommendedAction: 'Пройдите weekly check-in и выберите один маленький следующий шаг.',
+    activityId: 'pause-light-check-in',
+    questionnaireId: 'beta_weekly_checkin',
+  },
+  both_high_communication: {
+    title: 'В общении есть общая база',
+    safeWording:
+      'По ответам видно, что у вас обоих есть ресурс для прямого и спокойного разговора. Это не гарантия, но хорошая опора для договоренностей.',
+    recommendedAction: 'Закрепите это коротким разговором о планах на неделю.',
+    activityId: 'shared-time-agreement',
+  },
+  weekly_fatigue_increase: {
+    title: 'Усталость на этой неделе высокая',
+    safeWording:
+      'По weekly check-in видно, что нагрузка выросла. Лучше не начинать сложный разговор без подготовки.',
+    recommendedAction: 'Выберите восстановительное действие или договоритесь о паузе.',
+    activityId: 'pause-light-check-in',
+    questionnaireId: 'beta_weekly_checkin',
+  },
+  shared_time_delta: {
+    title: 'Совместного времени могло быть мало',
+    safeWording:
+      'По weekly check-in видно, что ощущения близости могло быть меньше обычного. Это повод запланировать небольшой общий шаг.',
+    recommendedAction: 'Запланируйте короткое совместное действие на 15 минут.',
+    activityId: 'shared-time-agreement',
+  },
+  insufficient_data_axis: {
+    title: 'По одной теме пока мало данных',
+    safeWording:
+      'Данных пока мало, поэтому вывод по этой зоне лучше воспринимать как предварительный.',
+    recommendedAction: 'Пройдите короткую анкету, чтобы уточнить профиль пары.',
+    questionnaireId: 'beta_pair_expectations',
+  },
+};
+
+const copyFor = (ruleId: InsightRuleId): InsightCopy => INSIGHT_COPY[ruleId];
+
 const pairCandidate = (input: {
   pairId: string;
   members: [string, string];
@@ -115,21 +208,28 @@ const pairCandidate = (input: {
   title: string;
   safeWording: string;
   recommendedAction: string;
+  activityId?: string;
+  questionnaireId?: string;
   evidence: InsightEvidenceValue;
-}): InsightCandidate => ({
-  ownerType: 'pair',
-  pairId: input.pairId,
-  trigger: {
-    ruleId: input.ruleId,
-    axis: input.axis,
-    evidence: input.evidence,
-  },
-  severity: input.severity,
-  title: input.title,
-  safeWording: input.safeWording,
-  recommendedAction: input.recommendedAction,
-  visibility: pairVisibility(input.members),
-});
+}): InsightCandidate => {
+  const copy = copyFor(input.ruleId);
+  return {
+    ownerType: 'pair',
+    pairId: input.pairId,
+    trigger: {
+      ruleId: input.ruleId,
+      axis: input.axis,
+      evidence: input.evidence,
+    },
+    severity: input.severity,
+    title: copy.title,
+    safeWording: copy.safeWording,
+    recommendedAction: copy.recommendedAction,
+    activityId: input.activityId ?? copy.activityId,
+    questionnaireId: input.questionnaireId ?? copy.questionnaireId,
+    visibility: pairVisibility(input.members),
+  };
+};
 
 const userCandidate = (input: {
   userId: string;
@@ -139,21 +239,28 @@ const userCandidate = (input: {
   title: string;
   safeWording: string;
   recommendedAction: string;
+  activityId?: string;
+  questionnaireId?: string;
   evidence: InsightEvidenceValue;
-}): InsightCandidate => ({
-  ownerType: 'user',
-  userId: input.userId,
-  trigger: {
-    ruleId: input.ruleId,
-    axis: input.axis,
-    evidence: input.evidence,
-  },
-  severity: input.severity,
-  title: input.title,
-  safeWording: input.safeWording,
-  recommendedAction: input.recommendedAction,
-  visibility: userVisibility(input.userId),
-});
+}): InsightCandidate => {
+  const copy = copyFor(input.ruleId);
+  return {
+    ownerType: 'user',
+    userId: input.userId,
+    trigger: {
+      ruleId: input.ruleId,
+      axis: input.axis,
+      evidence: input.evidence,
+    },
+    severity: input.severity,
+    title: copy.title,
+    safeWording: copy.safeWording,
+    recommendedAction: copy.recommendedAction,
+    activityId: input.activityId ?? copy.activityId,
+    questionnaireId: input.questionnaireId ?? copy.questionnaireId,
+    visibility: userVisibility(input.userId),
+  };
+};
 
 const effectivePsyche = (user: UserType): NormalizedVectorLayer => {
   const state = readAxisLayer(user, 'psyche', 'state');
@@ -193,6 +300,11 @@ export const buildPairInsightCandidates = (input: {
   left: UserType;
   right: UserType;
   fatigue?: PairType['fatigue'];
+  readiness?: PairType['readiness'];
+  weekly?: {
+    fatigue?: number;
+    closeness?: number;
+  };
 }): InsightCandidate[] => {
   const candidates: InsightCandidate[] = [];
   const communicationLeft = readAxisLayer(input.left, 'communication', 'trait');
@@ -204,6 +316,7 @@ export const buildPairInsightCandidates = (input: {
   const psycheLeft = effectivePsyche(input.left);
   const psycheRight = effectivePsyche(input.right);
   const fatigueScore = clamp01(input.fatigue?.score ?? 0);
+  const readinessScore = clamp01(input.readiness?.score ?? 0.5);
   const financeDelta = Math.abs(financeLeft.level - financeRight.level);
   const directnessAsymmetry =
     (hasFacet(communicationLeft.positives, 'communication', 'directness') &&
@@ -228,6 +341,7 @@ export const buildPairInsightCandidates = (input: {
         safeWording:
           'По ответам видно, что вы оба можете откладывать напряжённые разговоры. Нерешённые темы могут копиться.',
         recommendedAction: 'Короткий структурированный разговор на 10 минут.',
+        questionnaireId: 'couple-communication',
         evidence: {
           leftAvoidance: true,
           rightAvoidance: true,
@@ -339,6 +453,107 @@ export const buildPairInsightCandidates = (input: {
     );
   }
 
+  if (readinessScore <= DEFAULT_SCORING_CONFIG.axisThresholds.low) {
+    candidates.push(
+      pairCandidate({
+        pairId: input.pairId,
+        members: input.members,
+        ruleId: 'low_pair_readiness',
+        axis: 'psyche',
+        severity: 2,
+        title: 'Готовность пары сейчас низкая',
+        safeWording:
+          'По последним данным видно, что сейчас лучше снизить нагрузку и выбрать короткий формат контакта.',
+        recommendedAction: 'Выберите лёгкий weekly check-in или короткое действие без тяжёлого разговора.',
+        evidence: { readinessScore },
+      })
+    );
+  }
+
+  if (
+    communicationLeft.level >= DEFAULT_SCORING_CONFIG.axisThresholds.high &&
+    communicationRight.level >= DEFAULT_SCORING_CONFIG.axisThresholds.high &&
+    Math.min(communicationLeft.confidence, communicationRight.confidence) >=
+      DEFAULT_SCORING_CONFIG.axisThresholds.low
+  ) {
+    candidates.push(
+      pairCandidate({
+        pairId: input.pairId,
+        members: input.members,
+        ruleId: 'both_high_communication',
+        axis: 'communication',
+        severity: 1,
+        title: 'Коммуникация выглядит устойчивой',
+        safeWording:
+          'По ответам видно, что у вас обоих есть ресурс для прямого и спокойного разговора.',
+        recommendedAction: 'Закрепите это коротким разговором о планах на неделю.',
+        evidence: {
+          leftLevel: communicationLeft.level,
+          rightLevel: communicationRight.level,
+        },
+      })
+    );
+  }
+
+  if ((input.weekly?.fatigue ?? 0) >= HIGH_FATIGUE) {
+    candidates.push(
+      pairCandidate({
+        pairId: input.pairId,
+        members: input.members,
+        ruleId: 'weekly_fatigue_increase',
+        axis: 'psyche',
+        severity: 2,
+        title: 'Усталость на этой неделе высокая',
+        safeWording:
+          'По weekly check-in видно, что нагрузка выросла. Лучше не начинать сложный разговор без подготовки.',
+        recommendedAction: 'Выберите восстановительное действие или договоритесь о паузе.',
+        evidence: { weeklyFatigue: input.weekly?.fatigue ?? 0 },
+      })
+    );
+  }
+
+  if ((input.weekly?.closeness ?? 1) <= DEFAULT_SCORING_CONFIG.axisThresholds.low) {
+    candidates.push(
+      pairCandidate({
+        pairId: input.pairId,
+        members: input.members,
+        ruleId: 'shared_time_delta',
+        axis: 'personalViews',
+        severity: 1,
+        title: 'Близости на неделе было мало',
+        safeWording:
+          'По weekly check-in видно, что совместного ресурса могло быть меньше обычного.',
+        recommendedAction: 'Запланируйте короткое совместное действие на 15 минут.',
+        evidence: { weeklyCloseness: input.weekly?.closeness ?? 0 },
+      })
+    );
+  }
+
+  for (const axis of ['communication', 'domestic', 'finance'] as Axis[]) {
+    const leftVector = readAxisLayer(input.left, axis, 'trait');
+    const rightVector = readAxisLayer(input.right, axis, 'trait');
+    if (
+      Math.min(leftVector.confidence, rightVector.confidence) <
+      DEFAULT_SCORING_CONFIG.lowConfidenceThreshold
+    ) {
+      candidates.push(
+        pairCandidate({
+          pairId: input.pairId,
+          members: input.members,
+          ruleId: 'insufficient_data_axis',
+          axis,
+          severity: 1,
+          title: 'По одной теме пока мало данных',
+          safeWording:
+            'Данных пока мало, поэтому вывод по этой теме лучше воспринимать как предварительный.',
+          recommendedAction: 'Пройдите короткую анкету, чтобы уточнить профиль пары.',
+          evidence: { axis },
+        })
+      );
+      break;
+    }
+  }
+
   return candidates;
 };
 
@@ -365,7 +580,7 @@ export const buildUserInsightCandidates = (input: {
       title: 'Сейчас ресурс низкий',
       safeWording:
         'По ответам виден низкий текущий ресурс на фоне высокой усталости. Лучше снизить нагрузку.',
-      recommendedAction: 'Пауза или лёгкий check-in вместо тяжёлого разговора.',
+    recommendedAction: 'Пауза или лёгкий check-in вместо тяжёлого разговора.',
       evidence: {
         fatigueScore,
         psycheLevel: psyche.level,
@@ -417,6 +632,8 @@ export const persistInsightCandidates = async (
     title: candidate.title,
     safeWording: candidate.safeWording,
     recommendedAction: candidate.recommendedAction,
+    activityId: candidate.activityId,
+    questionnaireId: candidate.questionnaireId,
     visibility: candidate.visibility,
     status: 'active' as const,
     cooldownUntil: addDays(now, candidate.cooldownDays ?? INSIGHT_COOLDOWN_DAYS),
@@ -426,39 +643,49 @@ export const persistInsightCandidates = async (
   return created.map((doc) => doc.toObject() as StoredInsight);
 };
 
-export const toInsightDTO = (insight: StoredInsight): InsightDTO => ({
-  id: String(insight._id),
-  ownerType: insight.ownerType,
-  userId: insight.userId,
-  pairId: insight.pairId ? String(insight.pairId) : undefined,
-  ruleId: insight.trigger.ruleId,
-  axis: insight.trigger.axis,
-  severity: insight.severity,
-  title: insight.title,
-  safeWording: insight.safeWording,
-  recommendedAction: insight.recommendedAction,
-  pairShared: insight.visibility.pairShared,
-  cooldownUntil: insight.cooldownUntil,
-  createdAt: insight.createdAt,
-});
+export const toInsightDTO = (insight: StoredInsight): InsightDTO => {
+  const copy = copyFor(insight.trigger.ruleId);
+  return {
+    id: String(insight._id),
+    ownerType: insight.ownerType,
+    userId: insight.userId,
+    pairId: insight.pairId ? String(insight.pairId) : undefined,
+    ruleId: insight.trigger.ruleId,
+    axis: insight.trigger.axis,
+    severity: insight.severity,
+    title: copy.title,
+    safeWording: copy.safeWording,
+    recommendedAction: copy.recommendedAction,
+    activityId: insight.activityId ?? copy.activityId,
+    questionnaireId: insight.questionnaireId ?? copy.questionnaireId,
+    pairShared: insight.visibility.pairShared,
+    cooldownUntil: insight.cooldownUntil,
+    createdAt: insight.createdAt,
+  };
+};
 
 export const toCandidatePreviewDTO = (
   candidate: InsightCandidate,
   now = new Date()
-): Omit<InsightDTO, 'id'> => ({
-  ownerType: candidate.ownerType,
-  userId: candidate.userId,
-  pairId: candidate.pairId,
-  ruleId: candidate.trigger.ruleId,
-  axis: candidate.trigger.axis,
-  severity: candidate.severity,
-  title: candidate.title,
-  safeWording: candidate.safeWording,
-  recommendedAction: candidate.recommendedAction,
-  pairShared: candidate.visibility.pairShared,
-  cooldownUntil: addDays(now, candidate.cooldownDays ?? INSIGHT_COOLDOWN_DAYS),
-  createdAt: now,
-});
+): Omit<InsightDTO, 'id'> => {
+  const copy = copyFor(candidate.trigger.ruleId);
+  return {
+    ownerType: candidate.ownerType,
+    userId: candidate.userId,
+    pairId: candidate.pairId,
+    ruleId: candidate.trigger.ruleId,
+    axis: candidate.trigger.axis,
+    severity: candidate.severity,
+    title: copy.title,
+    safeWording: copy.safeWording,
+    recommendedAction: copy.recommendedAction,
+    activityId: candidate.activityId ?? copy.activityId,
+    questionnaireId: candidate.questionnaireId ?? copy.questionnaireId,
+    pairShared: candidate.visibility.pairShared,
+    cooldownUntil: addDays(now, candidate.cooldownDays ?? INSIGHT_COOLDOWN_DAYS),
+    createdAt: now,
+  };
+};
 
 const uniqueLatestByRule = (insights: StoredInsight[]): StoredInsight[] => {
   const byRule = new Map<string, StoredInsight>();

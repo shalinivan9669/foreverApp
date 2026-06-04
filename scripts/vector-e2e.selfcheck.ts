@@ -162,8 +162,8 @@ assert.ok(
   'pair questionnaire answers must explicitly avoid User trait vector mutation'
 );
 assert.ok(
-  questionnaireService.includes('buildPairDiagnostics(memberA, memberB)'),
-  'completed pair questionnaire sessions must refresh pair diagnostics'
+  questionnaireService.includes('buildPairAnswerDiagnostics({'),
+  'completed pair questionnaire sessions must refresh pair-answer-aware diagnostics'
 );
 assert.ok(
   questionnaireService.includes('pairDiagnosticsRefreshed: shouldComplete'),

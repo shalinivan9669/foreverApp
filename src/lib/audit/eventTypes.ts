@@ -31,6 +31,7 @@ export const AUDIT_EVENT_NAMES = [
   'ENTITLEMENT_GRANTED',
   'LEGACY_RELATIONSHIP_ACTIVITY_VIEWED',
   'SUGGESTIONS_GENERATED',
+  'WEEKLY_CHECKIN_SUBMITTED',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -205,6 +206,13 @@ export type AuditEventMetadataMap = {
     count: number;
     source: 'pairs.suggest' | 'pairs.activities.suggest' | 'activities.next';
   };
+  WEEKLY_CHECKIN_SUBMITTED: {
+    pairId?: string;
+    weekKey: string;
+    snapshotCount: number;
+    generatedInsightCount: number;
+    traitMutationApplied: boolean;
+  };
 };
 
 export type AuditEventMetadata<E extends AuditEventName> = AuditEventMetadataMap[E];
@@ -257,6 +265,7 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   ENTITLEMENT_GRANTED: 'long',
   LEGACY_RELATIONSHIP_ACTIVITY_VIEWED: 'short',
   SUGGESTIONS_GENERATED: 'short',
+  WEEKLY_CHECKIN_SUBMITTED: 'long',
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

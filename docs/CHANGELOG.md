@@ -2,6 +2,19 @@
 
 Date: 2026-06-04
 Summary:
+- Added idempotent beta questionnaire seed set for baseline communication, resource/state, pair expectations, and weekly check-in content.
+- Extended questionnaire question DTO/schema with safe scoring metadata and added a beta questionnaire selfcheck.
+- Fixed readable safe copy for pair-answer diagnostics and canonical insight DTO copy.
+Files: package.json, src/models/Questionnaire.ts, src/lib/dto/questionnaire.dto.ts, src/client/api/types.ts, src/domain/services/pairAnswerScoring.service.ts, src/domain/services/insightRules.service.ts, src/domain/services/weeklyCheckIn.service.ts, scripts/seedBetaQuestionnaires.ts, scripts/beta-questionnaires.selfcheck.ts, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
+- Added closed-beta weekly check-in backend/API/UI, pair-answer-aware diagnostics, pair/profile insights UI wiring, and idempotent vector snapshot backfill script.
+- Expanded insight rules to 10 deterministic safe rules and added weekly/backfill selfchecks.
+Files: package.json, src/models/User.ts, src/models/Insight.ts, src/models/WeeklyCheckIn.ts, src/domain/services/weeklyCheckIn.service.ts, src/domain/services/pairAnswerScoring.service.ts, src/domain/services/insightRules.service.ts, src/domain/services/questionnaires.service.ts, src/app/api/checkins/weekly/route.ts, src/app/api/checkins/weekly/current/route.ts, src/app/api/pairs/[id]/diagnostics/route.ts, src/app/api/users/me/profile-summary/route.ts, src/app/pair/[id]/diagnostics/page.tsx, src/app/(auth)/profile/page.tsx, src/features/pair/PairProfilePageClient.tsx, src/components/checkins/WeeklyCheckInCard.tsx, src/components/profile/InsightsList.tsx, src/client/api/checkins.api.ts, src/client/api/pairs.api.ts, src/client/api/types.ts, src/client/viewmodels/profile.viewmodels.ts, scripts/backfill-vector-snapshots.ts, scripts/backfill-vector-snapshots.selfcheck.ts, scripts/weekly-checkin.selfcheck.ts, scripts/insights-safety.selfcheck.ts, scripts/pair-diagnostics.selfcheck.ts, scripts/vector-e2e.selfcheck.ts, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-06-04
+Summary:
 - Completed MVP-0/MVP-1 bridge for vector snapshots and deterministic insights.
 - Added snapshot persistence for questionnaire and activity vector writes, deterministic insight rules/endpoints, and targeted selfchecks for e2e vector flow, cooldown dedupe, wording safety, and raw-answer privacy.
 Files: package.json, src/models/Insight.ts, src/models/VectorSnapshot.ts, src/domain/services/insightRules.service.ts, src/domain/services/pairDiagnostics.service.ts, src/domain/services/questionnaires.service.ts, src/domain/services/vectorScoring.service.ts, src/domain/vectors/apply.ts, src/domain/vectors/types.ts, src/lib/audit/eventTypes.ts, src/utils/activities.ts, src/app/api/insights/me/route.ts, src/app/api/pairs/[id]/insights/route.ts, scripts/vector-scoring.selfcheck.ts, scripts/vector-e2e.selfcheck.ts, scripts/pair-diagnostics.selfcheck.ts, scripts/insights-safety.selfcheck.ts, docs/04-api-contracts.md, docs/CHANGELOG.md

@@ -10,7 +10,12 @@ export type InsightRuleId =
   | 'finance_delta_high'
   | 'directness_asymmetry'
   | 'psyche_low_fatigue_high'
-  | 'domestic_fairness_risk';
+  | 'domestic_fairness_risk'
+  | 'low_pair_readiness'
+  | 'both_high_communication'
+  | 'weekly_fatigue_increase'
+  | 'shared_time_delta'
+  | 'insufficient_data_axis';
 
 export type InsightEvidenceScalar =
   | string
@@ -37,6 +42,8 @@ export interface InsightType {
   title: string;
   safeWording: string;
   recommendedAction: string;
+  activityId?: string;
+  questionnaireId?: string;
   visibility: {
     showToUserIds: string[];
     pairShared: boolean;
@@ -65,6 +72,11 @@ const insightSchema = new Schema<InsightType>(
           'directness_asymmetry',
           'psyche_low_fatigue_high',
           'domestic_fairness_risk',
+          'low_pair_readiness',
+          'both_high_communication',
+          'weekly_fatigue_increase',
+          'shared_time_delta',
+          'insufficient_data_axis',
         ],
         required: true,
       },
@@ -78,6 +90,8 @@ const insightSchema = new Schema<InsightType>(
     title: { type: String, required: true },
     safeWording: { type: String, required: true },
     recommendedAction: { type: String, required: true },
+    activityId: { type: String },
+    questionnaireId: { type: String },
     visibility: {
       showToUserIds: { type: [String], default: [] },
       pairShared: { type: Boolean, required: true, default: false },

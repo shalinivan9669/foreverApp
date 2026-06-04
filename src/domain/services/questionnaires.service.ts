@@ -30,7 +30,7 @@ import {
 } from '@/domain/vectors';
 import { questionnaireTransition } from '@/domain/state/questionnaireMachine';
 import type { VectorSnapshotReasonSource } from '@/models/VectorSnapshot';
-import { buildPairDiagnostics } from '@/domain/services/pairDiagnostics.service';
+import { buildPairAnswerDiagnostics } from '@/domain/services/pairAnswerScoring.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -666,7 +666,12 @@ export const questionnairesService = {
       ]);
 
       if (memberA && memberB) {
-        const diagnostics = buildPairDiagnostics(memberA, memberB);
+        const diagnostics = await buildPairAnswerDiagnostics({
+          pairId: input.pairId,
+          sessionId: String(session._id),
+          left: memberA,
+          right: memberB,
+        });
         await pairData.pair.updateOne({
           $set: {
             'passport.strongSides': diagnostics.passport.strongSides,
@@ -674,6 +679,10 @@ export const questionnairesService = {
             'passport.complementMap': diagnostics.passport.complementMap,
             'passport.levelDelta': diagnostics.passport.levelDelta,
             'passport.lastDiagnosticsAt': now,
+            'passport.axes': diagnostics.axes,
+            'passport.pairAnswerSignals': diagnostics.pairAnswerSignals,
+            'passport.overall': diagnostics.overall,
+            'passport.generatedInsightIds': diagnostics.generatedInsightIds,
           },
         });
       }

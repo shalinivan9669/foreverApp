@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
+import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
 import { pairsApi } from '@/client/api/pairs.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import type { PairSummaryDTO } from '@/client/viewmodels/pair.viewmodels';
@@ -228,6 +229,8 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
               )}
             </div>
           </section>
+
+          <WeeklyCheckInCard pairId={pairId} />
 
           <section className="app-panel app-panel-solid app-reveal p-4">
             <h3 className="font-semibold">Паспорт совместимости</h3>

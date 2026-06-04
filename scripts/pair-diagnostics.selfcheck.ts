@@ -93,6 +93,10 @@ const questionnaireService = readFileSync(
   join(process.cwd(), 'src/domain/services/questionnaires.service.ts'),
   'utf8'
 );
+const pairAnswerScoringService = readFileSync(
+  join(process.cwd(), 'src/domain/services/pairAnswerScoring.service.ts'),
+  'utf8'
+);
 const forbiddenPairTraitApply = [
   'const applied = insertedNewAnswer ?',
   'applyDeltaToUserVectors',
@@ -105,5 +109,18 @@ assert.ok(
   !questionnaireService.includes(forbiddenPairTraitApply),
   'pair questionnaire answers must not apply user trait vector deltas'
 );
+assert.ok(
+  questionnaireService.includes('buildPairAnswerDiagnostics({'),
+  'pair questionnaire completion must use pair-answer-aware diagnostics'
+);
+assert.ok(
+  pairAnswerScoringService.includes('PairQuestionnaireAnswer.find'),
+  'pair-answer diagnostics must read pair answers'
+);
+assert.ok(
+  !pairAnswerScoringService.includes('User.update'),
+  'pair-answer diagnostics must not mutate users'
+);
+assert.ok(!pairAnswerScoringService.includes('ui,'));
 
 console.log('pair-diagnostics.selfcheck passed');

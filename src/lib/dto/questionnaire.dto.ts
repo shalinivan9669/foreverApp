@@ -11,6 +11,15 @@ export type QuestionDTO = {
   map: number[];
   weight: number;
   text: Record<string, string>;
+  polarityNumeric?: QuestionItem['polarityNumeric'];
+  reverseScoring?: boolean;
+  confidenceWeight?: number;
+  scope?: QuestionItem['scope'];
+  audience?: QuestionItem['audience'];
+  sensitivity?: QuestionItem['sensitivity'];
+  locale?: QuestionItem['locale'];
+  explanation?: string;
+  scoringVersion?: string;
 };
 
 export type QuestionnaireDTO = {
@@ -70,6 +79,15 @@ export function toQuestionDTO(
     map: question.map,
     weight: question.weight,
     text: question.text,
+    polarityNumeric: 'polarityNumeric' in question ? question.polarityNumeric : undefined,
+    reverseScoring: 'reverseScoring' in question ? question.reverseScoring : undefined,
+    confidenceWeight: 'confidenceWeight' in question ? question.confidenceWeight : undefined,
+    scope: 'scope' in question ? question.scope : undefined,
+    audience: 'audience' in question ? question.audience : undefined,
+    sensitivity: 'sensitivity' in question ? question.sensitivity : undefined,
+    locale: 'locale' in question ? question.locale : undefined,
+    explanation: 'explanation' in question ? question.explanation : undefined,
+    scoringVersion: 'scoringVersion' in question ? question.scoringVersion : undefined,
   };
 
   if (includeLegacyId) dto._id = id;

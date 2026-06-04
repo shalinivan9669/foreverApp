@@ -11,6 +11,7 @@ import UserHeader from '@/components/profile/UserHeader';
 import SummaryTiles from '@/components/profile/SummaryTiles';
 import AxisRadar from '@/components/charts/AxisRadar';
 import InsightsList from '@/components/profile/InsightsList';
+import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
 import PreferencesCard from '@/components/profile/PreferencesCard';
 import UserActivityCard from '@/components/activities/UserActivityCard';
 import UserActivitiesPlaceholder from '@/components/activities/UserActivitiesPlaceholder';
@@ -103,6 +104,8 @@ export default function ProfileOverviewPage() {
       <UserHeader user={data.user} pair={data.currentPair} />
 
       <SummaryTiles metrics={data.metrics} readiness={data.readiness} fatigue={data.fatigue} />
+
+      <WeeklyCheckInCard pairId={data.currentPair?.id} />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="app-panel app-panel-solid p-4">

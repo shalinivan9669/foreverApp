@@ -57,6 +57,8 @@ export interface UserType {
       computedAt: Date;
     }[];
   };
+  readiness?: { score: number; updatedAt: Date };
+  fatigue?: { score: number; updatedAt: Date };
   profile?: {
     onboarding?: {
       seeking?: {
@@ -230,6 +232,14 @@ const userSchema = new Schema<UserType>(
           computedAt:  { type: Date, required: true },
         }
       ],
+    },
+    readiness: {
+      score: { type: Number, default: 0, min: 0, max: 1 },
+      updatedAt: { type: Date, default: Date.now },
+    },
+    fatigue: {
+      score: { type: Number, default: 0, min: 0, max: 1 },
+      updatedAt: { type: Date, default: Date.now },
     },
     profile: {
       onboarding: {
