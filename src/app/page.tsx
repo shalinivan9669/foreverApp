@@ -48,10 +48,6 @@ export default function DiscordActivityPage() {
         await sdk.commands.authenticate({ access_token: tokenData.access_token });
 
         const profile = tokenData.user;
-        await usersApi.upsertCurrentUserProfile({
-          username: profile.username,
-          avatar: profile.avatar,
-        });
         setDiscordUser(profile);
       } catch {
         setError('Не удалось подключить Discord профиль. Попробуйте ещё раз.');

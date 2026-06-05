@@ -5,6 +5,8 @@ import { jsonError, jsonOk, type JsonValue } from '@/lib/api/response';
 import { parseJson } from '@/lib/api/validate';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { auditContextFromRequest, emitEvent } from '@/lib/audit/emitEvent';
+import { usersService } from '@/domain/services/users.service';
+import { normalizeDiscordAvatar } from '@/lib/discord/avatar';
 
 const bodySchema = z.object({
   code: z.string().min(1),
@@ -151,6 +153,19 @@ export async function POST(req: Request) {
   if (!secret) {
     await recordAuthFailure('jwt_secret_missing', 500);
     return jsonError(500, 'JWT_SECRET_NOT_SET', 'JWT_SECRET not set');
+  }
+
+  try {
+    await usersService.upsertCurrentUserProfile({
+      currentUserId: userId,
+      payload: {
+        username,
+        avatar: normalizeDiscordAvatar(avatar),
+      },
+      auditRequest,
+    });
+  } catch {
+    return jsonError(500, 'USER_PROFILE_UPSERT_FAILED', 'Failed to create user profile');
   }
 
   const token = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days

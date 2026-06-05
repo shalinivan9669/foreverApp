@@ -418,3 +418,9 @@ Summary:
 - Removed the unused browser-side direct Discord API helper so access-token usage stays in the SDK authentication path.
 - Ignored generated `next-env.d.ts` in ESLint so Next route-type references do not break source linting.
 Files: eslint.config.mjs, next.config.ts, package.json, package-lock.json, next-auth.d.ts, tsconfig.json, scripts/security-critical.selfcheck.ts, src/app/api/activity-templates/route.ts, src/app/api/entitlements/grant/route.ts, src/app/api/exchange-code/route.ts, src/app/api/questionnaires/route.ts, src/app/api/questionnaires/[id]/route.ts, src/app/api/questions/route.ts, src/app/api/users/route.ts, src/app/api/users/me/route.ts, src/app/api/users/[id]/route.ts, src/app/page.tsx, src/client/api/discord.api.ts, src/client/api/types.ts, src/domain/services/users.service.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Made mobile/embedded Discord login persist the basic user profile inside `/api/exchange-code`, avoiding an immediate protected `/api/users` write before the session cookie is reliably available.
+- Kept `/api/users` session-protected and documented the OAuth profile upsert boundary.
+Files: src/app/api/exchange-code/route.ts, src/app/page.tsx, scripts/security-critical.selfcheck.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md

@@ -194,6 +194,11 @@ const run = () => {
   );
   assert.match(
     exchangeCodeRoute,
+    /usersService\.upsertCurrentUserProfile\([\s\S]*currentUserId:\s*userId,[\s\S]*username,[\s\S]*normalizeDiscordAvatar\(avatar\)/,
+    'exchange-code should persist the basic Discord profile before mobile clients rely on the session cookie'
+  );
+  assert.match(
+    exchangeCodeRoute,
     /Cache-Control',\s*'no-store,\s*no-cache,\s*must-revalidate'/,
     'exchange-code token response should not be cached'
   );
@@ -213,6 +218,11 @@ const run = () => {
     appPage,
     /discordApi\.getCurrentUser/,
     'client OAuth flow should not call Discord API directly with the access token'
+  );
+  assert.doesNotMatch(
+    appPage,
+    /upsertCurrentUserProfile\(/,
+    'client OAuth flow should not require an immediate protected /api/users write after session cookie creation'
   );
   assert.doesNotMatch(
     appPage,

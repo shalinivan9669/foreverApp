@@ -10,6 +10,7 @@
 - `/api/exchange-code` must not trust client `redirect_uri`. It is accepted only when it exactly matches `DISCORD_REDIRECT_URI` or the existing `NEXT_PUBLIC_DISCORD_REDIRECT_URI` fallback.
 - `/api/exchange-code` may return the Discord `access_token` only for Discord SDK authentication. Browser code should use the backend-provided minimal Discord profile instead of making extra direct Discord API calls with that token. Token responses must be `no-store`.
 - `/api/exchange-code` must issue the session cookie as `Secure`/`SameSite=None` in production, even when a mobile/embedded proxy omits `x-forwarded-proto`.
+- `/api/exchange-code` may upsert only the basic profile fields from the verified Discord user (`username`, `avatar`) before issuing the session cookie; it must not trust client-provided user ids.
 - User profile write endpoints must not accept `vectors` or `embeddings`; vector writes must go through scoring code and snapshot persistence.
 - `/api/entitlements/grant` must require `ENTITLEMENTS_ADMIN_KEY` when configured. Unkeyed access is local-development only.
 - Closed-beta content endpoints that expose questionnaires, questions, or activity templates should require session auth; questionnaire/question DTOs contain product scoring metadata.
