@@ -480,6 +480,15 @@ export type PairActivityDTO = {
   legacySource?: 'relationship_activity';
   createdAt?: string;
   updatedAt?: string;
+  eventSource?: PairActivityEventSourceDTO;
+};
+
+export type PairActivityEventSourceDTO = {
+  trigger: 'pair_event';
+  eventId?: string;
+  eventType?: string;
+  eventCategory?: string;
+  eventDate?: string;
 };
 
 export type PairActivitySuggestionPlanDTO = {

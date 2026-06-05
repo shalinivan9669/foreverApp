@@ -103,9 +103,16 @@ export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelP
             </div>
             <div className="app-muted mt-3 text-xs">{card.dateLabel}</div>
 
-            {card.generatedActivityCount > 0 && (
+            {card.hasGeneratedActivities && (
               <div className="mt-3 text-sm">
                 Предложено активностей: <b>{card.generatedActivityCount}</b>
+              </div>
+            )}
+
+            {card.isAccepted && card.hasGeneratedActivities && (
+              <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
+                <div className="font-medium">Событие принято</div>
+                <p className="mt-1">Активности уже подготовлены для пары.</p>
               </div>
             )}
 
@@ -140,8 +147,11 @@ export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelP
                   Не сейчас
                 </button>
               )}
-              {card.generatedActivityCount > 0 && (
-                <Link href="/couple-activity" className="app-btn-secondary px-3 py-2 text-sm">
+              {card.hasGeneratedActivities && (
+                <Link
+                  href="/couple-activity"
+                  className={card.isAccepted ? 'app-btn-primary px-3 py-2 text-sm' : 'app-btn-secondary px-3 py-2 text-sm'}
+                >
                   Открыть активности
                 </Link>
               )}

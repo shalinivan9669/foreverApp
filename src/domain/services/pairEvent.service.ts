@@ -1,4 +1,4 @@
-import { Types, type HydratedDocument } from 'mongoose';
+import mongoose, { Types, type ClientSession, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
@@ -86,6 +86,9 @@ const TERMINAL_EVENT_STATUSES: PairEventStatus[] = [
   'completed',
   'declined',
 ];
+const ACCEPTABLE_EVENT_STATUSES: PairEventStatus[] = ['upcoming', 'offered', 'snoozed'];
+const DECLINABLE_EVENT_STATUSES: PairEventStatus[] = ['upcoming', 'offered', 'snoozed'];
+const SNOOZABLE_EVENT_STATUSES: PairEventStatus[] = ['upcoming', 'offered'];
 
 const LOOK_AHEAD_DAYS = 45;
 const LOOK_BACK_DAYS = 14;
@@ -104,6 +107,30 @@ const dateKey = (date: Date): string => date.toISOString().slice(0, 10);
 const inHorizon = (candidate: Pick<PairEventCandidate, 'windowStart' | 'windowEnd'>, now: Date): boolean =>
   candidate.windowEnd.getTime() >= addDays(now, -LOOK_BACK_DAYS).getTime() &&
   candidate.windowStart.getTime() <= addDays(now, LOOK_AHEAD_DAYS).getTime();
+
+export type PairEventLifecycleSnapshot = Pick<
+  PairEventTypeModel,
+  'status' | 'actionPolicy' | 'expiresAt' | 'snoozedUntil'
+>;
+
+const eventExpiredAt = (event: Pick<PairEventLifecycleSnapshot, 'expiresAt'>, now: Date): boolean =>
+  Boolean(event.expiresAt && now > event.expiresAt);
+
+export const eventCanBeAccepted = (event: PairEventLifecycleSnapshot, now: Date): boolean => {
+  if (!event.actionPolicy.canAccept) return false;
+  if (event.status === 'accepted') return true;
+  return ACCEPTABLE_EVENT_STATUSES.includes(event.status) && !eventExpiredAt(event, now);
+};
+
+export const eventCanBeDeclined = (event: PairEventLifecycleSnapshot, now: Date): boolean => {
+  if (!event.actionPolicy.canDecline) return false;
+  return DECLINABLE_EVENT_STATUSES.includes(event.status) && !eventExpiredAt(event, now);
+};
+
+export const eventCanBeSnoozed = (event: PairEventLifecycleSnapshot, now: Date): boolean => {
+  if (!event.actionPolicy.canSnooze) return false;
+  return SNOOZABLE_EVENT_STATUSES.includes(event.status) && !eventExpiredAt(event, now);
+};
 
 export const resolvePairEventStatus = (
   candidate: Pick<PairEventCandidate, 'windowStart' | 'windowEnd' | 'expiresAt'>,
@@ -269,6 +296,7 @@ const relationshipMilestones = (input: PairEventRuleInput): PairEventCandidate[]
 
 const calendarEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
   const year = input.now.getUTCFullYear();
+  // partner_birthday is reserved for a future privacy-reviewed birthday data model.
   const definitions = [
     {
       type: 'valentines_day' as const,
@@ -774,16 +802,46 @@ const createActivitiesFromEvent = async (input: {
   pair: PairDoc;
   event: StoredEvent;
   now: Date;
+  session?: ClientSession;
 }): Promise<StoredActivity[]> => {
   const pairId = input.pair._id as Types.ObjectId;
   if (input.event.generatedActivityIds.length > 0) {
     return PairActivity.find({ _id: { $in: input.event.generatedActivityIds } })
       .sort({ createdAt: -1 })
+      .session(input.session ?? null)
       .lean<StoredActivity[]>();
+  }
+
+  const templates = activityTemplatesForEvent(input.event).slice(0, input.event.actionPolicy.maxGeneratedActivities);
+  const created: StoredActivity[] = [];
+  const missingTemplates: EventActivityTemplate[] = [];
+  for (const template of templates) {
+    const templateId = `event-${input.event.type}-${template.id}`;
+    const existing = await PairActivity.findOne({
+      pairId,
+      'stateMeta.sourceMeta.eventId': String(input.event._id),
+      'stateMeta.templateId': templateId,
+    })
+      .session(input.session ?? null)
+      .lean<StoredActivity | null>();
+    if (existing) {
+      created.push(existing);
+      continue;
+    }
+    missingTemplates.push(template);
+  }
+
+  if (missingTemplates.length === 0) {
+    await PairEvent.updateOne(
+      { _id: input.event._id },
+      { $set: { generatedActivityIds: created.map((activity) => activity._id) } }
+    ).session(input.session ?? null);
+    return created;
   }
 
   const active = await PairActivity.findOne({ pairId, status: { $in: ACTIVE_ACTIVITY_STATUSES } })
     .select({ _id: 1 })
+    .session(input.session ?? null)
     .lean<Pick<StoredActivity, '_id'> | null>();
   if (active) {
     throw new DomainError({
@@ -793,7 +851,8 @@ const createActivitiesFromEvent = async (input: {
     });
   }
 
-  const offeredCount = await PairActivity.countDocuments({ pairId, status: 'offered' });
+  const offeredCount = await PairActivity.countDocuments({ pairId, status: 'offered' })
+    .session(input.session ?? null);
   const slots = Math.max(0, 3 - offeredCount);
   if (slots === 0) {
     throw new DomainError({
@@ -803,14 +862,11 @@ const createActivitiesFromEvent = async (input: {
     });
   }
 
-  const templates = activityTemplatesForEvent(input.event).slice(
-    0,
-    Math.min(slots, input.event.actionPolicy.maxGeneratedActivities)
-  );
   const members = await resolveMembers(input.pair.members as [string, string]);
-  const created: StoredActivity[] = [];
-  for (const template of templates) {
-    const activity = await PairActivity.create({
+  for (const template of missingTemplates.slice(0, slots)) {
+    const templateId = `event-${input.event.type}-${template.id}`;
+
+    const [activity] = await PairActivity.create([{
       pairId,
       members,
       intent: template.intent,
@@ -836,7 +892,7 @@ const createActivitiesFromEvent = async (input: {
       requiresConsent: template.axis.includes('sexuality'),
       status: 'offered',
       stateMeta: {
-        templateId: `event-${input.event.type}-${template.id}`,
+        templateId,
         source: input.event.category,
         sourceMeta: {
           trigger: 'pair_event',
@@ -862,44 +918,21 @@ const createActivitiesFromEvent = async (input: {
       fatigueDeltaOnComplete: template.intent === 'celebrate' ? -0.04 : 0.02,
       readinessDeltaOnComplete: template.intent === 'celebrate' ? 0.08 : 0.05,
       createdBy: 'system',
-    });
+    }], { session: input.session });
     created.push(activity.toObject() as StoredActivity);
   }
 
   await PairEvent.updateOne(
     { _id: input.event._id },
     { $set: { generatedActivityIds: created.map((activity) => activity._id) } }
-  );
+  ).session(input.session ?? null);
   return created;
-};
-
-const assertEventCanGenerateActivities = async (
-  pairId: Types.ObjectId
-): Promise<void> => {
-  const active = await PairActivity.findOne({ pairId, status: { $in: ACTIVE_ACTIVITY_STATUSES } })
-    .select({ _id: 1 })
-    .lean<Pick<StoredActivity, '_id'> | null>();
-  if (active) {
-    throw new DomainError({
-      code: 'STATE_CONFLICT',
-      status: 409,
-      message: 'Сначала завершите текущую активность, затем примите событие.',
-    });
-  }
-
-  const offeredCount = await PairActivity.countDocuments({ pairId, status: 'offered' });
-  if (offeredCount >= 3) {
-    throw new DomainError({
-      code: 'STATE_CONFLICT',
-      status: 409,
-      message: 'Too many active or offered activities',
-    });
-  }
 };
 
 const findEventForMutation = async (
   pairId: Types.ObjectId,
-  eventId: string
+  eventId: string,
+  session?: ClientSession
 ): Promise<StoredEvent> => {
   if (!Types.ObjectId.isValid(eventId)) {
     throw new DomainError({
@@ -908,7 +941,9 @@ const findEventForMutation = async (
       message: 'event not found',
     });
   }
-  const event = await PairEvent.findOne({ _id: eventId, pairId }).lean<StoredEvent | null>();
+  const event = await PairEvent.findOne({ _id: eventId, pairId })
+    .session(session ?? null)
+    .lean<StoredEvent | null>();
   if (!event) {
     throw new DomainError({
       code: 'NOT_FOUND',
@@ -919,15 +954,21 @@ const findEventForMutation = async (
   return event;
 };
 
-const eventCanBeAccepted = (event: StoredEvent, now: Date): void => {
-  if (!event.actionPolicy.canAccept) {
+const assertEventCanBeAccepted = (event: StoredEvent, now: Date): void => {
+  if (!eventCanBeAccepted(event, now)) {
     throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be accepted' });
   }
-  if (event.status === 'declined' || event.status === 'expired' || event.status === 'completed') {
-    throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event is not active' });
+};
+
+const assertEventCanBeDeclined = (event: StoredEvent, now: Date): void => {
+  if (!eventCanBeDeclined(event, now)) {
+    throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be declined' });
   }
-  if (event.expiresAt && now > event.expiresAt) {
-    throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event expired' });
+};
+
+const assertEventCanBeSnoozed = (event: StoredEvent, now: Date): void => {
+  if (!eventCanBeSnoozed(event, now)) {
+    throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be snoozed' });
   }
 };
 
@@ -969,22 +1010,35 @@ export const pairEventService = {
 
     const now = input.now ?? new Date();
     const pairId = pair._id as Types.ObjectId;
-    const event = await findEventForMutation(pairId, input.eventId);
-    eventCanBeAccepted(event, now);
-    if (event.status !== 'accepted' && event.generatedActivityIds.length === 0) {
-      await assertEventCanGenerateActivities(pairId);
+    let updated: StoredEvent | null = null;
+    let activities: StoredActivity[] = [];
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const event = await findEventForMutation(pairId, input.eventId, session);
+        assertEventCanBeAccepted(event, now);
+
+        const accepted = await PairEvent.findOneAndUpdate(
+          { _id: event._id, pairId, status: { $in: [...ACCEPTABLE_EVENT_STATUSES, 'accepted'] } },
+          { $set: { status: 'accepted', acceptedAt: event.acceptedAt ?? now } },
+          { new: true, session }
+        ).lean<StoredEvent | null>();
+        if (!accepted) {
+          throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be accepted' });
+        }
+
+        activities = await createActivitiesFromEvent({ pair, event: accepted, now, session });
+        updated = await PairEvent.findById(event._id)
+          .session(session)
+          .lean<StoredEvent | null>();
+        if (!updated) {
+          throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
+        }
+      });
+    } finally {
+      await session.endSession();
     }
 
-    await PairEvent.updateOne(
-      { _id: event._id, status: { $ne: 'accepted' } },
-      { $set: { status: 'accepted', acceptedAt: now } }
-    );
-    const accepted = await PairEvent.findById(event._id).lean<StoredEvent | null>();
-    if (!accepted) {
-      throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
-    }
-    const activities = await createActivitiesFromEvent({ pair, event: accepted, now });
-    const updated = await PairEvent.findById(event._id).lean<StoredEvent | null>();
     if (!updated) {
       throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
     }
@@ -999,17 +1053,15 @@ export const pairEventService = {
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
     const event = await findEventForMutation(pairId, input.eventId);
-    if (!event.actionPolicy.canDecline) {
-      throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be declined' });
-    }
     const now = input.now ?? new Date();
-    const updated = await PairEvent.findByIdAndUpdate(
-      event._id,
+    assertEventCanBeDeclined(event, now);
+    const updated = await PairEvent.findOneAndUpdate(
+      { _id: event._id, pairId, status: { $in: DECLINABLE_EVENT_STATUSES } },
       { $set: { status: 'declined', declinedAt: now } },
       { new: true }
     ).lean<StoredEvent | null>();
     if (!updated) {
-      throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
+      throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be declined' });
     }
     return { event: toPairEventDTO(updated) };
   },
@@ -1019,13 +1071,8 @@ export const pairEventService = {
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
     const event = await findEventForMutation(pairId, input.eventId);
-    if (!event.actionPolicy.canSnooze) {
-      throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be snoozed' });
-    }
-    if (event.status === 'declined' || event.status === 'completed' || event.status === 'expired') {
-      throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event is not active' });
-    }
     const now = input.now ?? new Date();
+    assertEventCanBeSnoozed(event, now);
     const snoozedUntil = addDays(now, input.days ?? 3);
     if (event.expiresAt && snoozedUntil > event.expiresAt) {
       throw new DomainError({
@@ -1034,13 +1081,13 @@ export const pairEventService = {
         message: 'Snooze would exceed event window',
       });
     }
-    const updated = await PairEvent.findByIdAndUpdate(
-      event._id,
+    const updated = await PairEvent.findOneAndUpdate(
+      { _id: event._id, pairId, status: { $in: SNOOZABLE_EVENT_STATUSES } },
       { $set: { status: 'snoozed', snoozedUntil } },
       { new: true }
     ).lean<StoredEvent | null>();
     if (!updated) {
-      throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
+      throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be snoozed' });
     }
     return { event: toPairEventDTO(updated) };
   },

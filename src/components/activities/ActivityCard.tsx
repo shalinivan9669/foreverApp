@@ -81,6 +81,12 @@ export default function ActivityCard(props: {
                 Только по взаимному согласию
               </span>
             )}
+            {activity.eventSourceBadge && (
+              <span className="rounded bg-violet-50 px-2 py-0.5 text-xs text-violet-700">
+                {activity.eventSourceBadge.label}
+                {activity.eventSourceBadge.reason ? ` · ${activity.eventSourceBadge.reason}` : ''}
+              </span>
+            )}
           </div>
 
           <h3 className="font-display mt-1 text-lg font-semibold leading-tight">

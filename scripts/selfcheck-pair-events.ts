@@ -1,8 +1,14 @@
 import {
   buildPairEventCandidates,
+  eventCanBeAccepted,
+  eventCanBeDeclined,
+  eventCanBeSnoozed,
   resolvePairEventStatus,
+  type PairEventLifecycleSnapshot,
   type PairEventRuleInput,
 } from '../src/domain/services/pairEvent.service';
+import { toPairEventCardVM } from '../src/client/viewmodels/pairEvent.viewmodels';
+import type { PairEventDTO } from '../src/client/api/types';
 import type { PairWeeklyCheckInSummaryDTO } from '../src/domain/services/weeklyCheckIn.service';
 
 const assert = (condition: boolean, message: string): void => {
@@ -51,6 +57,39 @@ const base = (overrides: Partial<PairEventRuleInput>): PairEventRuleInput => ({
 const hasType = (input: PairEventRuleInput, type: string): boolean =>
   buildPairEventCandidates(input).some((event) => event.type === type);
 
+const lifecycle = (
+  status: PairEventLifecycleSnapshot['status'],
+  overrides: Partial<PairEventLifecycleSnapshot> = {}
+): PairEventLifecycleSnapshot => ({
+  status,
+  actionPolicy: {
+    canAccept: true,
+    canDecline: true,
+    canSnooze: true,
+    maxGeneratedActivities: 2,
+  },
+  ...overrides,
+});
+
+const eventDto = (overrides: Partial<PairEventDTO>): PairEventDTO => ({
+  id: '650000000000000000000010',
+  pairId: '64f000000000000000000001',
+  category: 'calendar_event',
+  type: 'new_year',
+  title: { ru: 'Событие', en: 'Event' },
+  description: { ru: 'Описание', en: 'Description' },
+  why: { ru: 'Причина', en: 'Reason' },
+  windowStart: utc(2026, 1, 1).toISOString(),
+  windowEnd: utc(2026, 1, 10).toISOString(),
+  status: 'offered',
+  priority: 2,
+  canAccept: true,
+  canDecline: true,
+  canSnooze: true,
+  generatedActivityIds: [],
+  ...overrides,
+});
+
 assert(hasType(base({ pairCreatedAt: utc(2026, 1, 5), now: utc(2026, 2, 5) }), 'first_month'), 'first_month candidate missing');
 assert(hasType(base({ pairCreatedAt: utc(2025, 12, 5), now: utc(2026, 3, 5) }), 'three_months'), 'three_months candidate missing');
 assert(hasType(base({ pairCreatedAt: utc(2025, 9, 5), now: utc(2026, 3, 5) }), 'six_months'), 'six_months candidate missing');
@@ -87,6 +126,7 @@ assert(
 const duplicated = buildPairEventCandidates(base({ completedActivityCountLast14Days: 0 }));
 assert(new Set(duplicated.map((event) => event.key)).size === duplicated.length, 'duplicate event keys generated');
 assert(buildPairEventCandidates(base({ pairStatus: 'ended' })).length === 0, 'ended pair should not generate new active events');
+assert(!hasType(base({ now: utc(2026, 6, 1) }), 'partner_birthday'), 'partner_birthday should stay reserved without birthday data');
 
 const expired = resolvePairEventStatus(
   {
@@ -109,5 +149,31 @@ const declined = resolvePairEventStatus(
   utc(2026, 1, 5)
 );
 assert(declined === 'declined', 'declined event should stay declined');
+
+assert(eventCanBeAccepted(lifecycle('upcoming'), utc(2026, 1, 1)), 'upcoming should be acceptable');
+assert(eventCanBeAccepted(lifecycle('offered'), utc(2026, 1, 1)), 'offered should be acceptable');
+assert(eventCanBeAccepted(lifecycle('snoozed'), utc(2026, 1, 1)), 'snoozed should be acceptable before expiry');
+assert(eventCanBeAccepted(lifecycle('accepted'), utc(2026, 1, 1)), 'accepted should support idempotent accept');
+assert(!eventCanBeAccepted(lifecycle('expired'), utc(2026, 1, 1)), 'expired should not be acceptable');
+assert(
+  !eventCanBeAccepted(lifecycle('snoozed', { expiresAt: utc(2026, 1, 1) }), utc(2026, 1, 2)),
+  'expired snoozed event should not be acceptable'
+);
+assert(!eventCanBeDeclined(lifecycle('accepted'), utc(2026, 1, 1)), 'accepted should not be declinable');
+assert(!eventCanBeDeclined(lifecycle('completed'), utc(2026, 1, 1)), 'completed should not be declinable');
+assert(!eventCanBeDeclined(lifecycle('expired'), utc(2026, 1, 1)), 'expired should not be declinable');
+assert(!eventCanBeDeclined(lifecycle('declined'), utc(2026, 1, 1)), 'declined should not be declinable');
+assert(eventCanBeSnoozed(lifecycle('upcoming'), utc(2026, 1, 1)), 'upcoming should be snoozable');
+assert(eventCanBeSnoozed(lifecycle('offered'), utc(2026, 1, 1)), 'offered should be snoozable');
+assert(!eventCanBeSnoozed(lifecycle('accepted'), utc(2026, 1, 1)), 'accepted should not be snoozable');
+assert(!eventCanBeSnoozed(lifecycle('snoozed'), utc(2026, 1, 1)), 'active snooze should not be snoozable again');
+
+const acceptedVm = toPairEventCardVM(eventDto({
+  status: 'accepted',
+  generatedActivityIds: ['650000000000000000000011'],
+}));
+assert(!acceptedVm.canDecline, 'accepted VM should not show decline');
+assert(!acceptedVm.canSnooze, 'accepted VM should not show snooze');
+assert(acceptedVm.hasGeneratedActivities, 'accepted VM should expose generated activities');
 
 console.log('pair events selfcheck passed');

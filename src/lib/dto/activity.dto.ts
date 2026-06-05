@@ -64,6 +64,15 @@ export type PairActivityDTO = {
   legacySource?: 'relationship_activity';
   createdAt?: string;
   updatedAt?: string;
+  eventSource?: PairActivityEventSourceDTO;
+};
+
+export type PairActivityEventSourceDTO = {
+  trigger: 'pair_event';
+  eventId?: string;
+  eventType?: string;
+  eventCategory?: string;
+  eventDate?: string;
 };
 
 export type ActivityResultSummaryDTO = Omit<
@@ -186,6 +195,7 @@ export function toPairActivityDTO(
     createdBy: activity.createdBy,
     createdAt: toIso(activity.createdAt),
     updatedAt: toIso(activity.updatedAt),
+    eventSource: extractPairActivityEventSource(activity.stateMeta),
   };
 
   if (includeLegacyId) dto._id = id;
@@ -225,6 +235,21 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const toOptionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+
+const extractPairActivityEventSource = (
+  stateMeta: PairActivityType['stateMeta']
+): PairActivityEventSourceDTO | undefined => {
+  if (!isRecord(stateMeta)) return undefined;
+  const sourceMeta = stateMeta.sourceMeta;
+  if (!isRecord(sourceMeta) || sourceMeta.trigger !== 'pair_event') return undefined;
+  return {
+    trigger: 'pair_event',
+    eventId: toOptionalString(sourceMeta.eventId),
+    eventType: toOptionalString(sourceMeta.eventType),
+    eventCategory: toOptionalString(sourceMeta.eventCategory),
+    eventDate: toOptionalString(sourceMeta.eventDate),
+  };
+};
 
 const toStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];

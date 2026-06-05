@@ -2,6 +2,13 @@
 
 Date: 2026-06-05
 Summary:
+- Hardened Pair Events lifecycle rules for accept/decline/snooze and made accept generation transactional with deterministic anti-duplicate activity lookup.
+- Connected and expanded the pair-events selfcheck, including reserved `partner_birthday` coverage and accepted-state UI action checks.
+- Added privacy-safe event source visibility to activity DTO/viewmodel/cards and clarified Stage 5 API behavior.
+Files: package.json, src/domain/services/pairEvent.service.ts, src/client/hooks/usePairEvents.ts, src/client/viewmodels/pairEvent.viewmodels.ts, src/components/events/PairEventsPanel.tsx, src/lib/dto/activity.dto.ts, src/client/api/types.ts, src/client/viewmodels/activity.viewmodels.ts, src/components/activities/ActivityCard.tsx, scripts/selfcheck-pair-events.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
 - Added PairEvent model, DTO, lazy event generation, events API, event accept/decline/snooze flow, and event-sourced PairActivity offer creation.
 - Added pair events client API/hook/viewmodel and embedded PairEventsPanel into the pair profile after weekly check-in.
 - Documented new pair events API contracts and added a pure rules selfcheck for event candidates/status behavior.

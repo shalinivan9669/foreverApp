@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { pairEventsApi } from '@/client/api/pairEvents.api';
+import { isApiClientError } from '@/client/api/errors';
 import type { PairActivityDTO, PairEventDTO } from '@/client/api/types';
+
+const mutationErrorMessage = (error: Error, fallback: string): string =>
+  isApiClientError(error) && error.message.trim().length > 0 ? error.message : fallback;
 
 export function usePairEvents(pairId?: string | null) {
   const [events, setEvents] = useState<PairEventDTO[]>([]);
@@ -50,8 +54,9 @@ export function usePairEvents(pairId?: string | null) {
         current.map((event) => (event.id === result.event.id ? result.event : event))
       );
       await refetch();
-    } catch {
-      setError('Не удалось принять событие. Проверьте текущую активность пары.');
+    } catch (error) {
+      const fallback = 'Не удалось принять событие. Проверьте текущую активность пары.';
+      setError(error instanceof Error ? mutationErrorMessage(error, fallback) : fallback);
     } finally {
       setMutationLoading(false);
     }
@@ -64,8 +69,9 @@ export function usePairEvents(pairId?: string | null) {
     try {
       const result = await pairEventsApi.declinePairEvent(pairId, eventId);
       setEvents((current) => current.filter((event) => event.id !== result.event.id));
-    } catch {
-      setError('Не удалось скрыть событие.');
+    } catch (error) {
+      const fallback = 'Не удалось скрыть событие.';
+      setError(error instanceof Error ? mutationErrorMessage(error, fallback) : fallback);
     } finally {
       setMutationLoading(false);
     }
@@ -80,8 +86,9 @@ export function usePairEvents(pairId?: string | null) {
       setEvents((current) =>
         current.map((event) => (event.id === result.event.id ? result.event : event))
       );
-    } catch {
-      setError('Не удалось отложить событие.');
+    } catch (error) {
+      const fallback = 'Не удалось отложить событие.';
+      setError(error instanceof Error ? mutationErrorMessage(error, fallback) : fallback);
     } finally {
       setMutationLoading(false);
     }

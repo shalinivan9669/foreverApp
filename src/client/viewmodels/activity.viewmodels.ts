@@ -35,8 +35,41 @@ export type ActivityCardVM = {
   checkIns: PairActivityDTO['checkIns'];
   successScore?: number;
   resultSummary?: PairActivityDTO['resultSummary'];
+  eventSourceBadge?: {
+    label: string;
+    reason?: string;
+  };
   isAwaitingCheckin: boolean;
   isHistory: boolean;
+};
+
+const EVENT_REASON_LABELS: Record<string, string> = {
+  first_month: 'первый месяц',
+  three_months: 'три месяца',
+  six_months: 'полгода',
+  anniversary: 'годовщина',
+  valentines_day: 'день внимания',
+  march_8: '8 марта',
+  new_year: 'новый год',
+  inactive_pair: 'пауза в активностях',
+  failed_activity_recovery: 'восстановление после неудачной активности',
+  high_fatigue_recovery: 'высокая усталость',
+  weekly_divergence_repair: 'расхождение недели',
+  weekly_success_celebration: 'успешная неделя',
+  diagnostics_risk_focus: 'диагностический фокус',
+};
+
+const eventSourceBadge = (
+  activity: PairActivityDTO
+): ActivityCardVM['eventSourceBadge'] => {
+  if (activity.eventSource?.trigger !== 'pair_event') return undefined;
+  const reason = activity.eventSource.eventType
+    ? EVENT_REASON_LABELS[activity.eventSource.eventType] ?? activity.eventSource.eventType
+    : undefined;
+  return {
+    label: 'Из события пары',
+    reason: reason ? `Повод: ${reason}` : undefined,
+  };
 };
 
 export const toActivityId = (activity: PairActivityDTO): string => activity._id ?? activity.id;
@@ -60,6 +93,7 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   checkIns: activity.checkIns,
   successScore: activity.successScore,
   resultSummary: activity.resultSummary,
+  eventSourceBadge: eventSourceBadge(activity),
   isAwaitingCheckin: isAwaitingCheckinStatus(activity.status),
   isHistory: isHistoryActivityStatus(activity.status),
 });

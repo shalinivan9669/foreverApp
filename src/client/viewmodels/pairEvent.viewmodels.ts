@@ -32,6 +32,10 @@ const formatWindow = (event: PairEventDTO): string => {
   return `${start} - ${end}`;
 };
 
+const DECLINABLE_STATUSES: PairEventStatus[] = ['upcoming', 'offered', 'snoozed'];
+const SNOOZABLE_STATUSES: PairEventStatus[] = ['upcoming', 'offered'];
+const ACCEPTABLE_STATUSES: PairEventStatus[] = ['upcoming', 'offered', 'snoozed'];
+
 export type PairEventCardVM = {
   id: string;
   title: string;
@@ -45,6 +49,8 @@ export type PairEventCardVM = {
   canDecline: boolean;
   canSnooze: boolean;
   generatedActivityCount: number;
+  hasGeneratedActivities: boolean;
+  isAccepted: boolean;
   isActionable: boolean;
 };
 
@@ -61,10 +67,12 @@ export function toPairEventCardVM(event: PairEventDTO): PairEventCardVM {
     priorityLabel: PRIORITY_LABELS[event.priority],
     severityLabel: event.severity ? SEVERITY_LABELS[event.severity] : undefined,
     dateLabel: formatWindow(event),
-    canAccept: event.canAccept && ['upcoming', 'offered', 'snoozed'].includes(event.status),
-    canDecline: event.canDecline && !['declined', 'completed', 'expired'].includes(event.status),
-    canSnooze: event.canSnooze && ['upcoming', 'offered'].includes(event.status),
+    canAccept: event.canAccept && ACCEPTABLE_STATUSES.includes(event.status),
+    canDecline: event.canDecline && DECLINABLE_STATUSES.includes(event.status),
+    canSnooze: event.canSnooze && SNOOZABLE_STATUSES.includes(event.status),
     generatedActivityCount: event.generatedActivityIds.length,
-    isActionable: ['upcoming', 'offered', 'snoozed'].includes(event.status),
+    hasGeneratedActivities: event.generatedActivityIds.length > 0,
+    isAccepted: event.status === 'accepted',
+    isActionable: ACCEPTABLE_STATUSES.includes(event.status),
   };
 }
