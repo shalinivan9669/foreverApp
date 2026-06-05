@@ -1,4 +1,12 @@
-import type { PairDTO, PairMeDTO, PairState, PairStatusDTO, PublicUserDTO } from '@/client/api/types';
+import type {
+  PairDTO,
+  PairDashboardDiagnosticsDTO,
+  PairMeDTO,
+  PairNextStepDTO,
+  PairState,
+  PairStatusDTO,
+  PublicUserDTO,
+} from '@/client/api/types';
 
 export type PairInput = {
   id?: string;
@@ -43,6 +51,24 @@ type PairPassport = {
   riskZones: { axis: string; facets: string[]; severity: 1 | 2 | 3 }[];
   complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
   levelDelta: { axis: string; delta: number }[];
+  lastDiagnosticsAt?: string;
+};
+
+type PairMember = PublicUserDTO & {
+  avatarUrl?: string | null;
+};
+
+type PairDashboardDiagnosticsInput = {
+  overall?: {
+    score?: number;
+    confidence?: number;
+    status?: 'strong' | 'neutral' | 'risk' | 'insufficient_data';
+  };
+  strongSides?: { axis?: string; facets?: string[] }[];
+  riskZones?: { axis?: string; facets?: string[]; severity?: 1 | 2 | 3 }[];
+  complementMap?: { axis?: string; A_covers_B?: string[]; B_covers_A?: string[] }[];
+  levelDelta?: { axis?: string; delta?: number }[];
+  lastDiagnosticsAt?: string;
 };
 
 type PairSummaryPairInput = PairInput & {
@@ -51,6 +77,7 @@ type PairSummaryPairInput = PairInput & {
     riskZones?: { axis?: string; facets?: string[]; severity?: 1 | 2 | 3 }[];
     complementMap?: { axis?: string; A_covers_B?: string[]; B_covers_A?: string[] }[];
     levelDelta?: { axis?: string; delta?: number }[];
+    lastDiagnosticsAt?: string;
   };
 };
 
@@ -66,8 +93,13 @@ type PairSummaryActivityInput = {
 
 export type PairSummaryInput = {
   pair?: PairSummaryPairInput | null;
+  members?: PairMember[];
+  peer?: PairMember | null;
   currentActivity?: PairSummaryActivityInput | null;
   suggestedCount?: number;
+  diagnostics?: PairDashboardDiagnosticsInput | null;
+  hasCurrentWeeklyCheckIn?: boolean;
+  nextStep?: Partial<PairNextStepDTO> | null;
   lastLike?: {
     id?: string;
     matchScore?: number;
@@ -85,6 +117,8 @@ export type PairSummaryDTO = {
   pair: PairDTO & {
     passport?: PairPassport;
   };
+  members: PairMember[];
+  peer: PairMember | null;
   currentActivity: {
     id: string;
     title: { ru: string; en: string };
@@ -94,6 +128,9 @@ export type PairSummaryDTO = {
     axis: string[];
   } | null;
   suggestedCount: number;
+  diagnostics: PairDashboardDiagnosticsDTO;
+  hasCurrentWeeklyCheckIn: boolean;
+  nextStep: PairNextStepDTO;
   lastLike: {
     id: string;
     matchScore: number;
@@ -112,6 +149,9 @@ const asNonEmptyString = (value?: string): string | null =>
 
 const asFiniteNumber = (value: number | undefined, fallback = 0): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+const asBoolean = (value: boolean | undefined, fallback = false): boolean =>
+  typeof value === 'boolean' ? value : fallback;
 
 const asPairState = (value?: PairState | null): PairState =>
   value === 'paused' || value === 'ended' ? value : 'active';
@@ -200,7 +240,97 @@ const normalizePassport = (passport?: PairSummaryPairInput['passport']): PairPas
       axis: item.axis ?? '',
       delta: asFiniteNumber(item.delta),
     })) ?? [],
+  lastDiagnosticsAt: asNonEmptyString(passport?.lastDiagnosticsAt) ?? undefined,
 });
+
+const normalizeMember = (member?: PairMember | null): PairMember | null => {
+  if (!member) return null;
+  const id = asNonEmptyString(member.id);
+  if (!id) return null;
+
+  return {
+    id,
+    username: asNonEmptyString(member.username) ?? 'Участник пары',
+    avatar: asNonEmptyString(member.avatar) ?? '',
+    avatarUrl: asNonEmptyString(member.avatarUrl ?? undefined),
+  };
+};
+
+const normalizeOverallStatus = (
+  status?: NonNullable<PairDashboardDiagnosticsInput['overall']>['status']
+): NonNullable<PairDashboardDiagnosticsDTO['overall']>['status'] =>
+  status === 'strong' || status === 'neutral' || status === 'risk'
+    ? status
+    : 'insufficient_data';
+
+const normalizeDashboardDiagnostics = (
+  diagnostics?: PairDashboardDiagnosticsInput | null,
+  fallbackPassport?: PairPassport
+): PairDashboardDiagnosticsDTO => {
+  const strongSides =
+    diagnostics?.strongSides?.map((item) => ({
+      axis: item.axis ?? '',
+      facets: item.facets ?? [],
+    })) ?? fallbackPassport?.strongSides ?? [];
+  const riskZones =
+    diagnostics?.riskZones?.map((item) => ({
+      axis: item.axis ?? '',
+      facets: item.facets ?? [],
+      severity: item.severity ?? 1,
+    })) ?? fallbackPassport?.riskZones ?? [];
+  const complementMap =
+    diagnostics?.complementMap?.map((item) => ({
+      axis: item.axis ?? '',
+      A_covers_B: item.A_covers_B ?? [],
+      B_covers_A: item.B_covers_A ?? [],
+    })) ?? fallbackPassport?.complementMap ?? [];
+  const levelDelta =
+    diagnostics?.levelDelta?.map((item) => ({
+      axis: item.axis ?? '',
+      delta: asFiniteNumber(item.delta),
+    })) ?? fallbackPassport?.levelDelta ?? [];
+
+  return {
+    overall: diagnostics?.overall
+      ? {
+          score: asFiniteNumber(diagnostics.overall.score),
+          confidence: asFiniteNumber(diagnostics.overall.confidence),
+          status: normalizeOverallStatus(diagnostics.overall.status),
+        }
+      : undefined,
+    strongSides,
+    riskZones,
+    complementMap,
+    levelDelta,
+    lastDiagnosticsAt:
+      asNonEmptyString(diagnostics?.lastDiagnosticsAt) ??
+      fallbackPassport?.lastDiagnosticsAt,
+  };
+};
+
+const normalizeNextStep = (nextStep?: Partial<PairNextStepDTO> | null): PairNextStepDTO => {
+  const kind = nextStep?.kind;
+  const normalizedKind =
+    kind === 'complete_weekly_checkin' ||
+    kind === 'complete_current_activity' ||
+    kind === 'run_pair_diagnostics' ||
+    kind === 'review_risk_zone' ||
+    kind === 'suggest_activity'
+      ? kind
+      : 'none';
+
+  return {
+    kind: normalizedKind,
+    title: asNonEmptyString(nextStep?.title) ?? 'Следующий шаг пока не определён',
+    description:
+      asNonEmptyString(nextStep?.description) ??
+      'Пока можно открыть активности пары и выбрать короткое действие.',
+    href: asNonEmptyString(nextStep?.href) ?? undefined,
+    ctaLabel: asNonEmptyString(nextStep?.ctaLabel) ?? undefined,
+    axis: asNonEmptyString(nextStep?.axis) ?? undefined,
+    severity: nextStep?.severity,
+  };
+};
 
 const normalizeCurrentActivity = (
   currentActivity?: PairSummaryActivityInput | null
@@ -232,14 +362,22 @@ export const normalizePairSummary = (
 ): PairSummaryDTO | null => {
   const pair = normalizePair(summary?.pair);
   if (!pair) return null;
+  const passport = normalizePassport(summary?.pair?.passport);
 
   return {
     pair: {
       ...pair,
-      passport: normalizePassport(summary?.pair?.passport),
+      passport,
     },
+    members:
+      summary?.members?.map(normalizeMember).filter((member): member is PairMember => member !== null) ??
+      [],
+    peer: normalizeMember(summary?.peer),
     currentActivity: normalizeCurrentActivity(summary?.currentActivity),
     suggestedCount: asFiniteNumber(summary?.suggestedCount),
+    diagnostics: normalizeDashboardDiagnostics(summary?.diagnostics, passport),
+    hasCurrentWeeklyCheckIn: asBoolean(summary?.hasCurrentWeeklyCheckIn),
+    nextStep: normalizeNextStep(summary?.nextStep),
     lastLike: summary?.lastLike
       ? {
           id: asNonEmptyString(summary.lastLike.id) ?? '',

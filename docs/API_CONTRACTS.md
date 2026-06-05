@@ -52,6 +52,7 @@ HTTP status must remain semantic. The envelope does not replace `400`, `401`, `4
 - Questionnaire answer writes (`/api/answers/bulk`, `/api/questionnaires/[id]`, `/api/pairs/[id]/questionnaires/[qid]/answer`) require integer `ui >= 1`; domain scoring additionally rejects values above the target question `map.length`.
 - `/api/answers/bulk` rejects submissions where provided question ids do not match known questions instead of returning a successful zero-match vector audit.
 - Pair questionnaire answers apply vector scoring only for newly answered questions and complete the pair session after both pair members have answered every question in the questionnaire.
+- `GET /api/pairs/[id]/summary` requires session auth and `requirePairMember`. It returns the pair DTO plus dashboard read-model fields: public `members`, relative `peer`, `currentActivity`, `suggestedCount`, `lastLike`, compact `diagnostics`, `hasCurrentWeeklyCheckIn`, and deterministic `nextStep`. It must not return raw Pair/User/Like/WeeklyCheckIn documents or weekly check-in answers.
 
 ## References
 

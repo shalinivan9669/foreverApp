@@ -2,15 +2,12 @@
 import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
-import { PairActivity } from '@/models/PairActivity';
-import { Like } from '@/models/Like';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
-import { toLikeSummaryDTO, toPairActivityDTO, toPairDTO } from '@/lib/dto';
+import { buildPairDashboardSummary } from '@/domain/services/pairDashboardSummary.service';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -57,36 +54,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     return pairGuard.response;
   }
 
-  await connectToDatabase();
-  const pair = pairGuard.data.pair;
-  const pairId = pair._id as Types.ObjectId;
-
-  // текущая активность
-  const current = await PairActivity.findOne({
-    pairId,
-    status: { $in: ['accepted', 'in_progress', 'awaiting_checkin'] },
-  })
-    .sort({ createdAt: -1 })
-    .lean();
-
-  // количество предложенных
-  const suggestedCount = await PairActivity.countDocuments({ pairId, status: 'offered' });
-
-  // последний лайк, по которому пара образована
-  const [a, b] = pair.members;
-  const lastLike = await Like.findOne({
-    status: 'paired',
-    $or: [{ fromId: a, toId: b }, { fromId: b, toId: a }],
-  })
-    .sort({ updatedAt: -1 })
-    .lean();
-
-  return jsonOk({
-    pair: toPairDTO(pair, { includePassport: true, includeMetrics: true }),
-    currentActivity: current
-      ? toPairActivityDTO(current, { includeAnswers: false })
-      : null,
-    suggestedCount,
-    lastLike: lastLike ? toLikeSummaryDTO(lastLike) : null,
-  });
+  return jsonOk(
+    await buildPairDashboardSummary({
+      pair: pairGuard.data.pair,
+      currentUserId,
+    })
+  );
 }

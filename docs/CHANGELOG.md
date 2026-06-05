@@ -1,5 +1,11 @@
 # Changelog (Docs & Project Notes)
 
+Date: 2026-06-05
+Summary:
+- Implemented Pair Profile 2.0 dashboard with hero, pair state, next step, current activity, weekly check-in, compatibility preview, pair insights, and source match block.
+- Extended pair summary with public members, peer, compact diagnostics, current-week check-in signal, and deterministic next-step recommendation.
+Files: src/app/api/pairs/[id]/summary/route.ts, src/domain/services/pairDashboardSummary.service.ts, src/client/api/types.ts, src/client/viewmodels/pair.viewmodels.ts, src/features/pair/PairProfilePageClient.tsx, src/components/profile/InsightsList.tsx, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
 Date: 2026-06-04
 Summary:
 - Added idempotent beta questionnaire seed set for baseline communication, resource/state, pair expectations, and weekly check-in content.

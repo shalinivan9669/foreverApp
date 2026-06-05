@@ -18,6 +18,21 @@ type InsightsListProps = {
   pairId?: string;
 };
 
+const AXIS_LABELS: Record<Axis, string> = {
+  communication: 'Коммуникация',
+  domestic: 'Быт',
+  personalViews: 'Личные взгляды',
+  finance: 'Финансы',
+  sexuality: 'Близость',
+  psyche: 'Ресурс',
+};
+
+const SEVERITY_LABELS: Record<1 | 2 | 3, string> = {
+  1: 'слабый сигнал',
+  2: 'средний риск',
+  3: 'высокий риск',
+};
+
 const actionHref = (item: InsightVM, pairId?: string): string | null => {
   if (item.activityId) return '/couple-activity';
   if (!item.questionnaireId) return null;
@@ -43,10 +58,12 @@ export default function InsightsList({ items, pairId }: InsightsListProps) {
         return (
           <li key={item.id} className="app-panel-soft app-panel-soft-solid p-3 text-sm">
             <div className="flex items-start justify-between gap-3">
-              <div className="font-medium">{item.title ?? item.axis ?? 'Инсайт'}</div>
+              <div className="font-medium">
+                {item.title ?? (item.axis ? AXIS_LABELS[item.axis] : 'Инсайт')}
+              </div>
               {item.severity && (
                 <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                  S{item.severity}
+                  {SEVERITY_LABELS[item.severity]}
                 </span>
               )}
             </div>
@@ -59,16 +76,16 @@ export default function InsightsList({ items, pairId }: InsightsListProps) {
             )}
             {typeof item.delta === 'number' && (
               <div className="app-muted mt-1">
-                {item.delta > 0 ? `+${item.delta}` : item.delta}
+                Разница: {item.delta > 0 ? `+${item.delta}` : item.delta}
               </div>
             )}
             {href ? (
               <a href={href} className="app-btn-secondary mt-3 inline-flex px-3 py-2">
-                Попробовать короткое действие
+                Открыть следующий шаг
               </a>
             ) : (
               item.recommendedAction && (
-                <div className="app-muted mt-3 text-xs">Попробовать короткое действие</div>
+                <div className="app-muted mt-3 text-xs">Следующий шаг можно выбрать в активностях.</div>
               )
             )}
           </li>

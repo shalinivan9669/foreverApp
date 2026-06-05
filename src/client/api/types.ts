@@ -56,6 +56,7 @@ export type PublicUserDTO = {
   id: string;
   username: string;
   avatar: string;
+  avatarUrl?: string | null;
 };
 
 export type CurrentUserDTO = PublicUserDTO & {
@@ -165,6 +166,37 @@ export type PairPassportDTO = {
   complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
   levelDelta: { axis: string; delta: number }[];
   lastDiagnosticsAt?: string;
+};
+
+export type PairDashboardDiagnosticsDTO = {
+  overall?: {
+    score: number;
+    confidence: number;
+    status: 'strong' | 'neutral' | 'risk' | 'insufficient_data';
+  };
+  strongSides: { axis: string; facets: string[] }[];
+  riskZones: { axis: string; facets: string[]; severity: 1 | 2 | 3 }[];
+  complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
+  levelDelta: { axis: string; delta: number }[];
+  lastDiagnosticsAt?: string;
+};
+
+export type PairNextStepKind =
+  | 'complete_weekly_checkin'
+  | 'complete_current_activity'
+  | 'run_pair_diagnostics'
+  | 'review_risk_zone'
+  | 'suggest_activity'
+  | 'none';
+
+export type PairNextStepDTO = {
+  kind: PairNextStepKind;
+  title: string;
+  description: string;
+  href?: string;
+  ctaLabel?: string;
+  axis?: string;
+  severity?: 1 | 2 | 3;
 };
 
 export type PairAxisDiagnosticDTO = {
