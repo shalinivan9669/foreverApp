@@ -33,6 +33,38 @@ const contributionLevelLabels: Record<
   strong: 'сильный',
 };
 
+const experienceToneLabels: Record<
+  ProfileSummaryDTO['experienceSummary']['tone'],
+  string
+> = {
+  empty: 'Начало',
+  calm: 'Спокойный темп',
+  good: 'Всё в порядке',
+  attention: 'Стоит обратить внимание',
+  warning: 'Нужна бережность',
+};
+
+const axisStatusLabels: Record<
+  ProfileSummaryDTO['personalAxisCards'][number]['status'],
+  string
+> = {
+  strength: 'Сильная сторона',
+  growth: 'Зона роста',
+  low_data: 'Мало данных',
+  balanced: 'Баланс',
+};
+
+const needsSourceLabels: Record<
+  ProfileSummaryDTO['needsAndBoundariesLite']['source'],
+  string
+> = {
+  low_data: 'предварительно',
+  onboarding: 'из анкеты',
+  weekly_checkin: 'по check-in',
+  passport: 'по паспорту',
+  mixed: 'по профилю',
+};
+
 const genderLabels: Record<'male' | 'female', string> = {
   male: 'Мужской',
   female: 'Женский',
@@ -73,15 +105,40 @@ const formatPercent = (value: number | undefined): string =>
     ? `${Math.round(value * 100)}%`
     : '-';
 
-function ProfileNextStepCard({ nextStep }: { nextStep: ProfileSummaryDTO['nextStep'] }) {
+function ExperienceSummaryCard({
+  experience,
+}: {
+  experience: ProfileSummaryDTO['experienceSummary'];
+}) {
   return (
-    <section className="app-panel app-panel-solid p-4">
-      <div className="app-muted text-xs">Главный следующий шаг</div>
-      <h2 className="mt-2 text-lg font-semibold">{nextStep.title}</h2>
-      <p className="app-muted mt-2 text-sm">{nextStep.description}</p>
-      <Link href={nextStep.href} className="app-btn mt-4 inline-flex px-4 py-2 text-sm">
-        {nextStep.ctaLabel}
-      </Link>
+    <section className="app-panel app-panel-solid p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="app-muted text-xs">Сегодня</div>
+        <div className="app-panel-soft app-panel-soft-solid rounded-full px-3 py-1 text-xs">
+          {experienceToneLabels[experience.tone]}
+        </div>
+      </div>
+      <h2 className="mt-3 font-display text-xl font-semibold">{experience.title}</h2>
+      <p className="mt-2 text-sm">{experience.message}</p>
+      {experience.reason && (
+        <p className="app-muted mt-2 text-sm">{experience.reason}</p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href={experience.primaryAction.href}
+          className="app-btn inline-flex px-4 py-2 text-sm"
+        >
+          {experience.primaryAction.label}
+        </Link>
+        {experience.secondaryAction && (
+          <Link
+            href={experience.secondaryAction.href}
+            className="app-btn-secondary inline-flex px-4 py-2 text-sm"
+          >
+            {experience.secondaryAction.label}
+          </Link>
+        )}
+      </div>
     </section>
   );
 }
@@ -167,7 +224,7 @@ function ProfileCompletionPanel({
 }
 
 function ProfileHero({ summary }: ProfileSummaryProps) {
-  const { user, profileMode, profileCompletion, nextStep, relationshipContext } = summary;
+  const { user, profileMode, profileCompletion, relationshipContext } = summary;
   const currentPair = relationshipContext.currentPair;
 
   return (
@@ -197,14 +254,11 @@ function ProfileHero({ summary }: ProfileSummaryProps) {
           )}
         </div>
 
-        <div className="flex flex-col items-start gap-2 sm:items-end">
+        <div className="flex flex-col items-start sm:items-end">
           <div className="app-panel-soft app-panel-soft-solid px-3 py-2 text-sm">
             <span className="app-muted">Заполнено </span>
             <span className="font-semibold">{profileCompletion.score}%</span>
           </div>
-          <Link href={nextStep.href} className="app-btn px-4 py-2 text-sm">
-            {nextStep.ctaLabel}
-          </Link>
         </div>
       </div>
     </header>
@@ -253,13 +307,118 @@ export default function ModeAwareProfileOverview({ summary }: ProfileSummaryProp
   return (
     <div className="space-y-4">
       <ProfileHero summary={summary} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ProfileNextStepCard nextStep={summary.nextStep} />
-        </div>
-        <ModeContextPanel summary={summary} />
+      <ExperienceSummaryCard experience={summary.experienceSummary} />
+      <ModeContextPanel summary={summary} />
+    </div>
+  );
+}
+
+function MeAsPartnerSection({ summary }: ProfileSummaryProps) {
+  const title =
+    summary.profileMode.kind === 'paired' ? 'Я как партнёр' : 'Мой личный профиль';
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="app-muted mt-1 text-sm">
+          Оси переведены в короткие выводы о том, как данные могут проявляться в отношениях.
+        </p>
       </div>
-      <ProfileCompletionPanel completion={summary.profileCompletion} />
+      {summary.personalAxisCards.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {summary.personalAxisCards.map((card) => (
+            <article key={card.axis} className="app-panel app-panel-solid p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="app-muted text-xs">{card.label}</div>
+                  <h3 className="mt-1 font-semibold">{card.title}</h3>
+                </div>
+                <div className="app-panel-soft app-panel-soft-solid shrink-0 rounded-full px-2.5 py-1 text-xs">
+                  {axisStatusLabels[card.status]}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/10">
+                  <div
+                    className="h-full rounded-full bg-[var(--app-accent,#8b5cf6)]"
+                    style={{ width: `${card.level}%` }}
+                  />
+                </div>
+                <span className="app-muted text-xs">{card.level}%</span>
+              </div>
+              <p className="app-muted mt-3 text-sm">{card.description}</p>
+              <p className="mt-3 text-sm">{card.relationshipImpact}</p>
+              {card.nextAction && (
+                <Link
+                  href={card.nextAction.href}
+                  className="app-btn-secondary mt-4 inline-flex px-3 py-2 text-sm"
+                >
+                  {card.nextAction.label}
+                </Link>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="app-panel app-panel-solid p-4 text-sm app-muted">
+          Пройди несколько анкет, чтобы здесь появились персональные выводы.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PartnerHelpfulNotesCard({ summary }: ProfileSummaryProps) {
+  const title =
+    summary.profileMode.kind === 'paired'
+      ? 'Что партнёру полезно знать обо мне'
+      : 'Что будущему партнёру полезно знать обо мне';
+
+  return (
+    <section className="app-panel app-panel-solid p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <div className="app-panel-soft app-panel-soft-solid rounded-full px-2.5 py-1 text-xs">
+          пока видно только тебе
+        </div>
+      </div>
+      <ul className="mt-4 space-y-2 text-sm">
+        {summary.partnerHelpfulNotes.items.map((item) => (
+          <li key={item} className="app-panel-soft app-panel-soft-solid p-3">
+            {item}
+          </li>
+        ))}
+      </ul>
+      <p className="app-muted mt-3 text-xs">{summary.partnerHelpfulNotes.disclaimer}</p>
+    </section>
+  );
+}
+
+function NeedsAndBoundariesCard({ summary }: ProfileSummaryProps) {
+  const value = summary.needsAndBoundariesLite;
+  return (
+    <section className="app-panel app-panel-solid p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h2 className="text-lg font-semibold">{value.title}</h2>
+        <div className="app-muted text-xs">{needsSourceLabels[value.source]}</div>
+      </div>
+      <ul className="mt-4 space-y-2 text-sm">
+        {value.items.map((item) => (
+          <li key={item} className="app-panel-soft app-panel-soft-solid p-3">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function PersonalGuidanceGrid({ summary }: ProfileSummaryProps) {
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <PartnerHelpfulNotesCard summary={summary} />
+      <NeedsAndBoundariesCard summary={summary} />
     </div>
   );
 }
@@ -284,6 +443,15 @@ export function SoloProfileDashboard({ summary }: ProfileSummaryProps) {
 
   return (
     <div className="space-y-4">
+      <ProfileCompletionPanel completion={summary.profileCompletion} />
+      <MeAsPartnerSection summary={summary} />
+      <PersonalGuidanceGrid summary={summary} />
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
+        <div className="app-panel app-panel-solid p-4">
+          <PreferencesCard value={summary.matching.filters} />
+        </div>
+      </section>
       <SummaryTiles metrics={summary.metrics} readiness={summary.readiness} fatigue={summary.fatigue} />
       <WeeklyCheckInCard pairId={summary.currentPair?.id} />
       <PassportAndInsights summary={summary} />
@@ -294,12 +462,6 @@ export function SoloProfileDashboard({ summary }: ProfileSummaryProps) {
         ) : (
           <UserActivitiesPlaceholder />
         )}
-      </section>
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
-        <div className="app-panel app-panel-solid p-4">
-          <PreferencesCard value={summary.matching.filters} />
-        </div>
       </section>
     </div>
   );
@@ -435,6 +597,8 @@ export function PairedProfileDashboard({ summary }: ProfileSummaryProps) {
         <MyRelationshipStateCard state={state} />
         <MyContributionPanel state={state} />
       </div>
+      <MeAsPartnerSection summary={summary} />
+      <PersonalGuidanceGrid summary={summary} />
       <section id="weekly-checkin">
         <WeeklyCheckInCard pairId={state.pairId} />
       </section>

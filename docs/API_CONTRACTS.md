@@ -74,6 +74,8 @@ HTTP status must remain semantic. The envelope does not replace `400`, `401`, `4
 - `GET /api/users/me/profile-summary` returns account-profile mode fields: `profileMode`, `relationshipContext`, `profileCompletion`, `pairedProfileState`, and `nextStep`. Paused pairs are treated as paired mode, `relationshipContext.currentPair` can be active or paused, and ended pairs are history only. Legacy `user.status` and `currentPair` are preserved for compatibility.
 - `pairedProfileState` is `null` for solo users and contains DTO-safe paired-user read-model fields for active/paused pairs: current weekly check-in state, pair weekly status, current pair activity state, contribution score, and a non-medical `resourceMessage`.
 - Profile `nextStep` uses paired context before falling back to generic profile steps: missing weekly check-in, activity feedback, current activity, weak passport, open pair, or paused-pair resume.
+- `GET /api/users/me/profile-summary` also returns a relationship experience layer: `experienceSummary`, six `personalAxisCards`, private-preview `partnerHelpfulNotes`, and `needsAndBoundariesLite`. These fields are derived from existing completion, passport, onboarding, pair, and weekly check-in data; they do not add storage or sharing behavior.
+- Experience copy must remain non-medical and non-accusatory: no diagnosis or therapy claims, toxic labels, blame wording, or statements that a partner is obligated to act. Client normalization provides safe low-data fallbacks when a deployment temporarily omits the new fields.
 
 ## References
 

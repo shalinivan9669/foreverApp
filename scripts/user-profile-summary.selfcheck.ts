@@ -12,6 +12,13 @@ import {
   buildPairedProfileState,
   buildResourceMessage,
 } from '@/domain/services/pairedUserProfileState.service';
+import {
+  buildExperienceSummary,
+  buildNeedsAndBoundariesLite,
+  buildPartnerHelpfulNotes,
+  buildPersonalAxisCards,
+  type ProfileExperienceAxisInput,
+} from '@/domain/services/profileExperience.service';
 
 const assert = (condition: boolean, message: string): void => {
   if (!condition) {
@@ -33,6 +40,54 @@ const axesWithThreeDataPoints = (): Record<string, PassportCompletionAxisInput> 
   communication: { dataStatus: 'enough', confidence: 0.7, evidenceCount: 5 },
   domestic: { dataStatus: 'low_confidence', confidence: 0.25, evidenceCount: 2 },
   finance: { dataStatus: 'enough', confidence: 0.8, evidenceCount: 7 },
+});
+
+const experienceAxes = (): Record<
+  'communication' | 'domestic' | 'personalViews' | 'finance' | 'sexuality' | 'psyche',
+  ProfileExperienceAxisInput
+> => ({
+  communication: {
+    level: 70,
+    confidenceLabel: 'high',
+    positives: ['direct', 'clear'],
+    negatives: [],
+    dataStatus: 'enough',
+  },
+  domestic: {
+    level: 40,
+    confidenceLabel: 'medium',
+    positives: [],
+    negatives: ['routine', 'planning'],
+    dataStatus: 'enough',
+  },
+  personalViews: {
+    level: 50,
+    confidenceLabel: 'medium',
+    positives: ['values'],
+    negatives: ['expectations'],
+    dataStatus: 'enough',
+  },
+  finance: {
+    level: 0,
+    confidenceLabel: 'low',
+    positives: [],
+    negatives: [],
+    dataStatus: 'missing',
+  },
+  sexuality: {
+    level: 55,
+    confidenceLabel: 'medium',
+    positives: ['clarity'],
+    negatives: [],
+    dataStatus: 'enough',
+  },
+  psyche: {
+    level: 60,
+    confidenceLabel: 'medium',
+    positives: ['pause'],
+    negatives: [],
+    dataStatus: 'enough',
+  },
 });
 
 const completedPersonal = {
@@ -423,5 +478,212 @@ assert(
   contribution.completedThisWeek.every((item) => item.trim().length > 0),
   'completedThisWeek should not contain empty strings'
 );
+
+const personalAxisCards = buildPersonalAxisCards(experienceAxes());
+assert(personalAxisCards.length === 6, 'six personal axis cards expected');
+assert(
+  personalAxisCards.find((card) => card.axis === 'finance')?.status === 'low_data',
+  'missing axis should be low_data'
+);
+assert(
+  personalAxisCards.find((card) => card.axis === 'communication')?.status === 'strength',
+  'two positives should produce strength'
+);
+assert(
+  personalAxisCards.find((card) => card.axis === 'domestic')?.status === 'growth',
+  'two negatives should produce growth'
+);
+assert(
+  personalAxisCards.find((card) => card.axis === 'personalViews')?.status === 'balanced',
+  'mixed axis should produce balanced'
+);
+assert(
+  personalAxisCards.every((card) => card.label.trim().length > 0),
+  'axis labels should be non-empty'
+);
+
+const soloEmptyExperience = buildExperienceSummary({
+  mode: soloNewMode,
+  completion: soloNewCompletion,
+  pairedProfileState: null,
+  nextStep: soloNewNextStep,
+});
+assert(soloEmptyExperience.tone === 'empty', 'empty solo experience expected');
+assert(
+  soloEmptyExperience.primaryAction.href === soloNewNextStep.href,
+  'solo experience should use next step action'
+);
+
+const soloMissingCardExperience = buildExperienceSummary({
+  mode: soloCardMode,
+  completion: soloCardCompletion,
+  pairedProfileState: null,
+  nextStep: buildProfileNextStep({
+    mode: soloCardMode,
+    completion: soloCardCompletion,
+    relationshipContext: soloCardContext,
+  }),
+});
+assert(
+  soloMissingCardExperience.tone === 'attention',
+  'missing match card should need attention'
+);
+
+const noWeeklyExperience = buildExperienceSummary({
+  mode: activeMode,
+  completion: activeCompletion,
+  pairedProfileState: pairedNoWeeklyState,
+  nextStep: buildPairedProfileNextStep({
+    mode: activeMode,
+    completion: activeCompletion,
+    pairedProfileState: pairedNoWeeklyState,
+  }) as NonNullable<ReturnType<typeof buildPairedProfileNextStep>>,
+});
+assert(noWeeklyExperience.tone === 'attention', 'missing weekly should need attention');
+assert(
+  noWeeklyExperience.primaryAction.href === '/profile#weekly-checkin',
+  'missing weekly should link to check-in'
+);
+
+const tiredState = {
+  ...noPendingState,
+  resourceMessage: buildResourceMessage({
+    submitted: true,
+    readiness: 0.4,
+    fatigue: 0.8,
+  }),
+};
+const tiredExperience = buildExperienceSummary({
+  mode: activeMode,
+  completion: activeCompletion,
+  pairedProfileState: tiredState,
+  nextStep: activeNextStep,
+});
+assert(tiredExperience.tone === 'attention', 'tired experience should need attention');
+
+const tenseState = {
+  ...noPendingState,
+  resourceMessage: buildResourceMessage({
+    submitted: true,
+    readiness: 0.8,
+    fatigue: 0.2,
+    irritation: 0.8,
+  }),
+};
+const tenseExperience = buildExperienceSummary({
+  mode: activeMode,
+  completion: activeCompletion,
+  pairedProfileState: tenseState,
+  nextStep: activeNextStep,
+});
+assert(tenseExperience.tone === 'warning', 'tense experience should warn softly');
+
+const stableExperience = buildExperienceSummary({
+  mode: activeMode,
+  completion: activeCompletion,
+  pairedProfileState: noPendingState,
+  nextStep: activeNextStep,
+});
+assert(stableExperience.tone === 'good', 'stable experience should be good');
+
+const pausedExperience = buildExperienceSummary({
+  mode: pausedMode,
+  completion: pausedCompletion,
+  pairedProfileState: { ...noPendingState, pairStatus: 'paused' },
+  nextStep: pausedNextStep,
+});
+assert(pausedExperience.tone === 'calm', 'paused experience should be calm');
+
+const lowDataExperienceAxes = experienceAxes();
+for (const axis of Object.keys(lowDataExperienceAxes) as Array<
+  keyof typeof lowDataExperienceAxes
+>) {
+  lowDataExperienceAxes[axis] = {
+    level: 0,
+    confidenceLabel: 'low',
+    positives: [],
+    negatives: [],
+    dataStatus: 'missing',
+  };
+}
+
+const lowDataNotes = buildPartnerHelpfulNotes({
+  mode: soloNewMode,
+  pairedProfileState: null,
+  personalAxisCards: buildPersonalAxisCards(lowDataExperienceAxes),
+});
+assert(lowDataNotes.items.length === 1, 'low data should return one safe note');
+assert(
+  lowDataNotes.disclaimer.includes('только тебе'),
+  'helpful notes disclaimer should state private visibility'
+);
+
+const tiredNotes = buildPartnerHelpfulNotes({
+  mode: activeMode,
+  pairedProfileState: tiredState,
+  personalAxisCards,
+});
+assert(
+  tiredNotes.items.some((item) => item.includes('короткого разговора')),
+  'tired notes should recommend a short conversation'
+);
+assert(tiredNotes.items.length <= 5, 'helpful notes should be limited to five');
+assert(tiredNotes.items.every((item) => item.trim().length > 0), 'notes should be non-empty');
+
+const tiredNeeds = buildNeedsAndBoundariesLite({
+  mode: activeMode,
+  pairedProfileState: tiredState,
+  personalAxisCards,
+});
+assert(
+  tiredNeeds.items.some((item) => item.includes('коротких и спокойных')),
+  'tired needs should prefer short calm actions'
+);
+
+const tenseNeeds = buildNeedsAndBoundariesLite({
+  mode: activeMode,
+  pairedProfileState: tenseState,
+  personalAxisCards,
+});
+assert(
+  tenseNeeds.items.some((item) => item.includes('без обвинений')),
+  'tense needs should avoid blame'
+);
+
+const soloNeeds = buildNeedsAndBoundariesLite({
+  mode: soloNewMode,
+  pairedProfileState: null,
+  personalAxisCards: lowDataNotes.items.length ? [] : personalAxisCards,
+});
+assert(soloNeeds.items.length > 0, 'solo needs fallback should be non-empty');
+
+const generatedText = JSON.stringify({
+  personalAxisCards,
+  soloEmptyExperience,
+  soloMissingCardExperience,
+  noWeeklyExperience,
+  tiredExperience,
+  tenseExperience,
+  stableExperience,
+  pausedExperience,
+  lowDataNotes,
+  tiredNotes,
+  tiredNeeds,
+  tenseNeeds,
+  soloNeeds,
+}).toLowerCase();
+const forbiddenPhrases = [
+  'диагноз',
+  'депрессия',
+  'тревожность',
+  'лечиться',
+  'токсичный',
+  'психическое расстройство',
+  'партнёр должен',
+  'ты обязан',
+];
+for (const phrase of forbiddenPhrases) {
+  assert(!generatedText.includes(phrase), `forbidden wording found: ${phrase}`);
+}
 
 console.log('user-profile-summary selfcheck passed');

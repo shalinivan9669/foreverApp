@@ -1,3 +1,12 @@
+**Relationship Experience Layer (2026-06-05)**
+
+- `GET /api/users/me/profile-summary` now includes `experienceSummary`, `personalAxisCards`, `partnerHelpfulNotes`, and `needsAndBoundariesLite`.
+- `experienceSummary` powers the profile's primary "Сегодня" card with one contextual action and an optional pair shortcut.
+- `personalAxisCards` converts the six passport axes into `strength`, `growth`, `low_data`, or `balanced` guidance with relationship-safe wording.
+- `partnerHelpfulNotes` is a private preview only. It does not persist sharing preferences and does not expose notes to the partner.
+- `needsAndBoundariesLite` is a derived lightweight summary from existing onboarding, passport, and weekly check-in signals.
+- Generated wording must not contain diagnoses, therapy claims, blame, toxic labels, or obligation language.
+
 **API Standard (2026-02-07, PROB-005 + PROB-016)**
 
 1. Unified response envelope for every `/api/*` handler:

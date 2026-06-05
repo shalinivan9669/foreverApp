@@ -2,6 +2,13 @@
 
 Date: 2026-06-05
 Summary:
+- Added the relationship experience layer to the private profile summary: "Сегодня", personal axis guidance, private helpful notes, and lightweight needs/boundaries.
+- Reordered solo and paired profile dashboards around the new guidance while keeping legacy profile-summary fields compatible.
+- Extended the profile selfcheck with scenario coverage and forbidden-wording assertions.
+Files: src/domain/services/profileExperience.service.ts, src/app/api/users/me/profile-summary/route.ts, src/client/api/types.ts, src/client/viewmodels/profile.viewmodels.ts, src/components/profile/ModeAwareProfileOverview.tsx, scripts/user-profile-summary.selfcheck.ts, docs/API_CONTRACTS.md, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
 - Hardened Pair Events lifecycle rules for accept/decline/snooze and made accept generation transactional with deterministic anti-duplicate activity lookup.
 - Connected and expanded the pair-events selfcheck, including reserved `partner_birthday` coverage and accepted-state UI action checks.
 - Added privacy-safe event source visibility to activity DTO/viewmodel/cards and clarified Stage 5 API behavior.

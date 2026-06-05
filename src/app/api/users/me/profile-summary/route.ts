@@ -34,6 +34,7 @@ import {
   buildPairedProfileNextStep,
   buildPairedProfileState,
 } from '@/domain/services/pairedUserProfileState.service';
+import { buildProfileExperience } from '@/domain/services/profileExperience.service';
 
 type Axis =
   | 'communication'
@@ -382,6 +383,14 @@ export async function GET(req: NextRequest) {
       completion: profileCompletion,
       pairedProfileState,
     }) ?? baseNextStep;
+  const profileExperience = buildProfileExperience({
+    mode: profileMode,
+    completion: profileCompletion,
+    pairedProfileState,
+    nextStep,
+    axes,
+    seeking: user.profile?.onboarding?.seeking,
+  });
 
   const payload = {
     user: {
@@ -417,6 +426,7 @@ export async function GET(req: NextRequest) {
     profileCompletion,
     pairedProfileState,
     nextStep,
+    ...profileExperience,
     metrics: {
       streak: { individual: user.streak?.individual ?? 0 },
       completed: { individual: user.completed?.individual ?? 0 },

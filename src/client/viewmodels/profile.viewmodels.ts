@@ -39,6 +39,10 @@ type ProfileSummaryInput = {
   };
   pairedProfileState?: Partial<NonNullable<ProfileSummaryDTO['pairedProfileState']>> | null;
   nextStep?: Partial<ProfileSummaryDTO['nextStep']>;
+  experienceSummary?: Partial<ProfileSummaryDTO['experienceSummary']>;
+  personalAxisCards?: Array<Partial<ProfileSummaryDTO['personalAxisCards'][number]>>;
+  partnerHelpfulNotes?: Partial<ProfileSummaryDTO['partnerHelpfulNotes']>;
+  needsAndBoundariesLite?: Partial<ProfileSummaryDTO['needsAndBoundariesLite']>;
   metrics?: {
     streak?: {
       individual?: number;
@@ -389,6 +393,92 @@ const normalizePairedProfileState = (
   };
 };
 
+const normalizeExperienceSummary = (
+  input: ProfileSummaryInput['experienceSummary'],
+  fallback: ProfileSummaryDTO['experienceSummary']
+): ProfileSummaryDTO['experienceSummary'] => {
+  const tone = input?.tone;
+  const secondaryLabel = asString(input?.secondaryAction?.label);
+  const secondaryHref = asString(input?.secondaryAction?.href);
+  return {
+    mode: input?.mode === 'paired' || input?.mode === 'solo' ? input.mode : fallback.mode,
+    tone:
+      tone === 'empty' ||
+      tone === 'calm' ||
+      tone === 'good' ||
+      tone === 'attention' ||
+      tone === 'warning'
+        ? tone
+        : fallback.tone,
+    title: asString(input?.title) ?? fallback.title,
+    message: asString(input?.message) ?? fallback.message,
+    reason: asString(input?.reason),
+    primaryAction: {
+      label: asString(input?.primaryAction?.label) ?? fallback.primaryAction.label,
+      href: asString(input?.primaryAction?.href) ?? fallback.primaryAction.href,
+    },
+    ...(secondaryLabel && secondaryHref
+      ? {
+          secondaryAction: {
+            label: secondaryLabel,
+            href: secondaryHref,
+          },
+        }
+      : {}),
+  };
+};
+
+const normalizePersonalAxisCards = (
+  input: ProfileSummaryInput['personalAxisCards']
+): ProfileSummaryDTO['personalAxisCards'] => {
+  const normalized = input
+    ?.filter(
+      (card) =>
+        card.axis &&
+        AXES.includes(card.axis) &&
+        asString(card.label) &&
+        asString(card.title) &&
+        asString(card.description) &&
+        asString(card.relationshipImpact)
+    )
+    .map((card): ProfileSummaryDTO['personalAxisCards'][number] => {
+      const nextActionLabel = asString(card.nextAction?.label);
+      const nextActionHref = asString(card.nextAction?.href);
+      const confidenceLabel: ProfileSummaryDTO['personalAxisCards'][number]['confidenceLabel'] =
+        card.confidenceLabel === 'high' || card.confidenceLabel === 'medium'
+          ? card.confidenceLabel
+          : 'low';
+      const status: ProfileSummaryDTO['personalAxisCards'][number]['status'] =
+        card.status === 'strength' ||
+        card.status === 'growth' ||
+        card.status === 'balanced'
+          ? card.status
+          : 'low_data';
+
+      return {
+        axis: card.axis as QuestionnaireAxis,
+        label: card.label as string,
+        level: asPercent(card.level),
+        confidenceLabel,
+        status,
+        title: card.title as string,
+        description: card.description as string,
+        relationshipImpact: card.relationshipImpact as string,
+        ...(nextActionLabel && nextActionHref
+          ? {
+              nextAction: {
+                label: nextActionLabel,
+                href: nextActionHref,
+              },
+            }
+          : {}),
+      };
+    })
+    .slice(0, 6);
+
+  return normalized ?? [];
+};
+
 export const profileCompletionLevelLabel = (
   level: ProfileSummaryDTO['profileCompletion']['level']
 ): string => {
@@ -444,6 +534,30 @@ export const createEmptyProfileSummary = (): ProfileSummaryDTO => ({
     href: '/profile/profile',
     ctaLabel: 'Заполнить профиль',
     priority: 1,
+  },
+  experienceSummary: {
+    mode: 'solo',
+    tone: 'empty',
+    title: 'Профиль только начинается',
+    message: 'Добавь базовые данные, чтобы увидеть персональные подсказки.',
+    primaryAction: {
+      label: 'Заполнить профиль',
+      href: '/profile/profile',
+    },
+  },
+  personalAxisCards: [],
+  partnerHelpfulNotes: {
+    visibility: 'private_preview',
+    items: [
+      'Пока данных мало. После нескольких анкет профиль сможет точнее подсказать, как со мной лучше строить контакт.',
+    ],
+    disclaimer:
+      'Пока это видно только тебе. Позже можно будет выбирать, чем делиться с партнёром.',
+  },
+  needsAndBoundariesLite: {
+    title: 'В отношениях мне может быть важно',
+    items: ['Честный диалог.', 'Уважение границ.'],
+    source: 'low_data',
   },
   metrics: {
     streak: { individual: 0 },
@@ -513,6 +627,14 @@ export const normalizeProfileSummary = (
   );
   const pairedProfileState = normalizePairedProfileState(input.pairedProfileState);
   const nextStep = normalizeNextStep(input.nextStep, fallback.nextStep);
+  const experienceSummary = normalizeExperienceSummary(
+    input.experienceSummary,
+    fallback.experienceSummary
+  );
+  const personalAxisCards = normalizePersonalAxisCards(input.personalAxisCards);
+  const helpfulItems = normalizeStringList(input.partnerHelpfulNotes?.items).slice(0, 5);
+  const needsItems = normalizeStringList(input.needsAndBoundariesLite?.items).slice(0, 5);
+  const needsSource = input.needsAndBoundariesLite?.source;
 
   return {
     user: {
@@ -549,6 +671,31 @@ export const normalizeProfileSummary = (
     profileCompletion,
     pairedProfileState,
     nextStep,
+    experienceSummary,
+    personalAxisCards,
+    partnerHelpfulNotes: {
+      visibility: 'private_preview',
+      items:
+        helpfulItems.length > 0
+          ? helpfulItems
+          : fallback.partnerHelpfulNotes.items,
+      disclaimer:
+        asString(input.partnerHelpfulNotes?.disclaimer) ??
+        fallback.partnerHelpfulNotes.disclaimer,
+    },
+    needsAndBoundariesLite: {
+      title:
+        asString(input.needsAndBoundariesLite?.title) ??
+        fallback.needsAndBoundariesLite.title,
+      items: needsItems.length > 0 ? needsItems : fallback.needsAndBoundariesLite.items,
+      source:
+        needsSource === 'onboarding' ||
+        needsSource === 'weekly_checkin' ||
+        needsSource === 'passport' ||
+        needsSource === 'mixed'
+          ? needsSource
+          : 'low_data',
+    },
     metrics: {
       streak: {
         individual: asFiniteNumber(input.metrics?.streak?.individual),

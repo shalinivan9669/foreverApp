@@ -881,6 +881,49 @@ export type PairedProfileStateDTO = null | {
   };
 };
 
+export type ExperienceSummaryDTO = {
+  mode: 'solo' | 'paired';
+  tone: 'empty' | 'calm' | 'good' | 'attention' | 'warning';
+  title: string;
+  message: string;
+  reason?: string;
+  primaryAction: {
+    label: string;
+    href: string;
+  };
+  secondaryAction?: {
+    label: string;
+    href: string;
+  };
+};
+
+export type PersonalAxisCardDTO = {
+  axis: QuestionnaireAxis;
+  label: string;
+  level: number;
+  confidenceLabel: 'low' | 'medium' | 'high';
+  status: 'strength' | 'growth' | 'low_data' | 'balanced';
+  title: string;
+  description: string;
+  relationshipImpact: string;
+  nextAction?: {
+    label: string;
+    href: string;
+  };
+};
+
+export type PartnerHelpfulNotesDTO = {
+  visibility: 'private_preview';
+  items: string[];
+  disclaimer: string;
+};
+
+export type NeedsAndBoundariesLiteDTO = {
+  title: string;
+  items: string[];
+  source: 'low_data' | 'onboarding' | 'weekly_checkin' | 'passport' | 'mixed';
+};
+
 export type ProfileSummaryDTO = {
   user: {
     id: string;
@@ -900,6 +943,10 @@ export type ProfileSummaryDTO = {
   profileCompletion: ProfileCompletionDTO;
   pairedProfileState: PairedProfileStateDTO;
   nextStep: ProfileNextStepDTO;
+  experienceSummary: ExperienceSummaryDTO;
+  personalAxisCards: PersonalAxisCardDTO[];
+  partnerHelpfulNotes: PartnerHelpfulNotesDTO;
+  needsAndBoundariesLite: NeedsAndBoundariesLiteDTO;
   metrics: {
     streak: {
       individual: number;
