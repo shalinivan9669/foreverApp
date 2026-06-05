@@ -183,6 +183,7 @@ const axisLabel = (axis?: string): string => (axis ? AXIS_LABELS[axis] ?? 'эт�
 
 const buildNextStep = (input: {
   pairId: string;
+  pairStatus: PairType['status'];
   diagnostics: PairCompactDiagnosticsDTO;
   weekly: PairWeeklyCheckInSummaryDTO;
   hasCurrentActivity: boolean;
@@ -191,6 +192,28 @@ const buildNextStep = (input: {
   const topRisk = input.diagnostics.riskZones
     .slice()
     .sort((left, right) => right.severity - left.severity)[0];
+
+  if (input.pairStatus !== 'active') {
+    return {
+      kind: 'none',
+      title: input.pairStatus === 'paused' ? 'Пара сейчас на паузе' : 'Пара завершена',
+      description:
+        input.pairStatus === 'paused'
+          ? 'Возобновите пару, чтобы получать новые совместные активности.'
+          : 'Для завершённой пары новые активности не создаются.',
+    };
+  }
+
+  if (input.hasCurrentActivity) {
+    return {
+      kind: 'complete_current_activity',
+      title: 'Завершите текущую активность',
+      description:
+        'У пары уже есть активная задача. Лучше завершить её, прежде чем брать новую.',
+      href: '/couple-activity',
+      ctaLabel: 'Открыть активность',
+    };
+  }
 
   if (!input.weekly.currentUser.submitted) {
     return {
@@ -334,6 +357,7 @@ export const buildPairDashboardSummary = async (input: {
   const diagnostics = toCompactDiagnostics(pair.passport);
   const nextStep = buildNextStep({
     pairId: String(pairId),
+    pairStatus: pair.status,
     diagnostics,
     weekly: weeklySummary,
     hasCurrentActivity: Boolean(current),

@@ -14,6 +14,7 @@ import type {
   MutationAckDTO,
   NextActivityResponse,
   PairActivityDTO,
+  PairActivitySuggestionResponse,
 } from './types';
 
 const withSignal = (signal?: AbortSignal): HttpRequestOptions | undefined =>
@@ -34,8 +35,8 @@ export const activitiesApi = {
   ): Promise<PairActivityDTO[]> =>
     http.get<PairActivityDTO[]>(`/api/pairs/${pairId}/activities?s=${bucket}`, withSignal(signal)),
 
-  suggestPairActivities: (pairId: string): Promise<ActivityOfferDTO[]> =>
-    http.post<ActivityOfferDTO[], Record<string, never>>(`/api/pairs/${pairId}/suggest`, {}, {
+  suggestPairActivities: (pairId: string): Promise<PairActivitySuggestionResponse> =>
+    http.post<PairActivitySuggestionResponse, Record<string, never>>(`/api/pairs/${pairId}/suggest`, {}, {
       idempotency: true,
     }),
 

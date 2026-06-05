@@ -2,11 +2,10 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
-import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams } from '@/lib/api/validate';
 import { activityOfferService } from '@/domain/services/activityOffer.service';
-import { asError, toDomainError } from '@/domain/errors';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import {
   assertEntitlement,
   assertQuota,
@@ -32,39 +31,34 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     `/api/pairs/${params.data.id}/suggest`
   );
 
-  try {
-    const snapshot = await resolveEntitlements({
-      currentUserId: auth.data.userId,
-      pairId: params.data.id,
-    });
-    await assertEntitlement({
-      req,
-      route: `/api/pairs/${params.data.id}/suggest`,
-      snapshot,
-      key: 'activities.suggestions',
-    });
-    await assertQuota({
-      req,
-      route: `/api/pairs/${params.data.id}/suggest`,
-      snapshot,
-      key: 'activities.suggestions.per_day',
-    });
+  return withIdempotency({
+    req,
+    route: `/api/pairs/${params.data.id}/suggest`,
+    userId: auth.data.userId,
+    requestBody: {},
+    execute: async () => {
+      const snapshot = await resolveEntitlements({
+        currentUserId: auth.data.userId,
+        pairId: params.data.id,
+      });
+      await assertEntitlement({
+        req,
+        route: `/api/pairs/${params.data.id}/suggest`,
+        snapshot,
+        key: 'activities.suggestions',
+      });
+      await assertQuota({
+        req,
+        route: `/api/pairs/${params.data.id}/suggest`,
+        snapshot,
+        key: 'activities.suggestions.per_day',
+      });
 
-    const data = await activityOfferService.suggestActivities({
-      pairId: params.data.id,
-      currentUserId: auth.data.userId,
-      dedupeAgainstLastOffered: false,
-      source: 'pairs.suggest',
-      auditRequest,
-    });
-    return jsonOk(data);
-  } catch (error: unknown) {
-    const domainError = toDomainError(asError(error));
-    return jsonError(
-      domainError.status,
-      domainError.code,
-      domainError.message,
-      domainError.details
-    );
-  }
+      return activityOfferService.suggestPairActivities({
+        pairId: params.data.id,
+        currentUserId: auth.data.userId,
+        auditRequest,
+      });
+    },
+  });
 }

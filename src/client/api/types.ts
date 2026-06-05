@@ -431,13 +431,18 @@ export type PairActivityDTO = {
   pairId: string;
   title: ActivityI18nText;
   description?: ActivityI18nText;
+  why: ActivityI18nText;
   axis: string[];
   archetype: string;
   intent: 'improve' | 'celebrate';
+  mode: 'together' | 'soloA' | 'soloB';
+  sync: 'sync' | 'async';
   difficulty: 1 | 2 | 3 | 4 | 5;
   intensity: 1 | 2 | 3;
   timeEstimateMin?: number;
   dueAt?: string;
+  cooldownDays?: number;
+  requiresConsent?: boolean;
   status: ActivityStatus;
   checkIns: ActivityCheckInDTO[];
   offerSource?: OfferSource;
@@ -446,6 +451,61 @@ export type PairActivityDTO = {
   legacySource?: 'relationship_activity';
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type PairActivitySuggestionPlanDTO = {
+  pairId: string;
+  status:
+    | 'blocked_by_current_activity'
+    | 'blocked_by_pair_state'
+    | 'needs_diagnostics'
+    | 'needs_weekly_checkin'
+    | 'ready';
+  primaryReason:
+    | 'current_activity'
+    | 'pair_paused'
+    | 'pair_ended'
+    | 'insufficient_diagnostics'
+    | 'missing_weekly_checkin'
+    | 'high_fatigue'
+    | 'weekly_divergence'
+    | 'risk_zone'
+    | 'low_closeness'
+    | 'maintenance';
+  axis?: QuestionnaireAxis;
+  severity?: 1 | 2 | 3;
+  fatigue?: number;
+  readiness?: number;
+  closeness?: number;
+  irritation?: number;
+  preferredDifficulty: 1 | 2 | 3 | 4 | 5;
+  maxIntensity: 1 | 2 | 3;
+  preferredArchetypes: string[];
+  requiredMode?: 'together' | 'soloA' | 'soloB';
+  requiredSync?: 'sync' | 'async';
+  explanation: {
+    ru: string;
+    en?: string;
+  };
+  source: 'diagnostics' | 'weekly_checkin' | 'dashboard' | 'manual';
+  sourceMeta: {
+    trigger?: string;
+    weekKey?: string;
+    axis?: string;
+    severity?: 1 | 2 | 3;
+    divergenceMetric?: 'readiness' | 'fatigue' | 'closeness' | 'irritation';
+    decisionVersion: 'activity-decision-v1';
+    eventType?: 'first_month' | 'anniversary' | 'march_8' | 'valentines_day';
+    eventDate?: string;
+  };
+};
+
+export type PairActivitySuggestionResponse = {
+  plan: PairActivitySuggestionPlanDTO;
+  currentActivity: PairActivityDTO | null;
+  offers: PairActivityDTO[];
+  createdCount: number;
+  skippedReason?: string;
 };
 
 export type ActivityOfferDTO = {

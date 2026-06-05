@@ -20,12 +20,16 @@ export type ActivityCardVM = {
   _id: string;
   title: Record<string, string>;
   description?: Record<string, string>;
+  why: Record<string, string>;
   axis: string[] | string;
   archetype: string;
   intent: 'improve' | 'celebrate';
+  mode: 'together' | 'soloA' | 'soloB';
+  sync: 'sync' | 'async';
   difficulty: 1 | 2 | 3 | 4 | 5;
   intensity: 1 | 2 | 3;
   timeEstimateMin?: number;
+  requiresConsent?: boolean;
   dueAt?: string;
   status: PairActivityDTO['status'];
   checkIns: PairActivityDTO['checkIns'];
@@ -39,12 +43,16 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   _id: toActivityId(activity),
   title: activity.title,
   description: activity.description,
+  why: activity.why,
   axis: activity.axis,
   archetype: activity.archetype,
   intent: activity.intent,
+  mode: activity.mode,
+  sync: activity.sync,
   difficulty: activity.difficulty,
   intensity: activity.intensity,
   timeEstimateMin: activity.timeEstimateMin,
+  requiresConsent: activity.requiresConsent,
   dueAt: activity.dueAt,
   status: activity.status,
   checkIns: activity.checkIns,

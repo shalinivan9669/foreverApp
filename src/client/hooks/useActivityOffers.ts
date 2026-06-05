@@ -7,8 +7,8 @@ import type {
   ActivityCheckInResponse,
   ActivityCompleteResponse,
   ActivityCheckInRequest,
-  ActivityOfferDTO,
   PairActivityDTO,
+  PairActivitySuggestionPlanDTO,
 } from '@/client/api/types';
 import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
 import { useApi } from './useApi';
@@ -63,7 +63,9 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
   }, [getActivitiesList, pairId]);
 
   const [buckets, setBuckets] = useState<ActivityBuckets>(initialBuckets);
-  const [lastOfferBatch, setLastOfferBatch] = useState<ActivityOfferDTO[]>([]);
+  const [lastOfferBatch, setLastOfferBatch] = useState<PairActivityDTO[]>([]);
+  const [suggestionPlan, setSuggestionPlan] =
+    useState<PairActivitySuggestionPlanDTO | null>(null);
 
   const {
     runSafe: runLoadSafe,
@@ -115,9 +117,10 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
 
   const suggestNext = useCallback(async (): Promise<boolean> => {
     if (!pairId) return false;
-    const offers = await runMutationSafe(() => activitiesApi.suggestPairActivities(pairId));
-    if (!offers) return false;
-    setLastOfferBatch(offers);
+    const result = await runMutationSafe(() => activitiesApi.suggestPairActivities(pairId));
+    if (!result) return false;
+    setLastOfferBatch(result.offers);
+    setSuggestionPlan(result.plan);
     await refetch();
     return true;
   }, [pairId, refetch, runMutationSafe]);
@@ -270,6 +273,7 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     mutationLoading,
     mutationError,
     lastOfferBatch,
+    suggestionPlan,
     refetch,
     suggestNext,
     createFromTemplate,
