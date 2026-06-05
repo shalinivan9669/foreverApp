@@ -403,6 +403,11 @@ Files: eslint.config.mjs, package.json, src/models/User.ts, src/models/Pair.ts, 
 
 Date: 2026-06-05
 Summary:
+- Fixed mobile/embedded login session cookie handling by treating production `/api/exchange-code` responses as secure even when proxy headers are incomplete.
+Files: src/app/api/exchange-code/route.ts, scripts/security-critical.selfcheck.ts, docs/SECURITY.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
 - Updated vulnerable direct dependencies and removed unused `next-auth`, eliminating the vulnerable `uuid` chain.
 - Blocked client profile writes to `vectors` and `embeddings`, tightened `location` validation, and kept vector mutations behind scoring/snapshot services.
 - Hardened entitlement grants with constant-time admin key comparison and local-only unkeyed development access; reduced browser Discord token exposure by returning a minimal profile from `/api/exchange-code`.

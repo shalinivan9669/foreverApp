@@ -164,7 +164,7 @@ export async function POST(req: Request) {
   });
   res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.headers.set('Pragma', 'no-cache');
-  const forwardedProto = req.headers.get('x-forwarded-proto');
+  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
   const requestProtocol = (() => {
     try {
       return new URL(req.url).protocol;
@@ -172,7 +172,10 @@ export async function POST(req: Request) {
       return null;
     }
   })();
-  const isSecureContext = forwardedProto === 'https' || requestProtocol === 'https:';
+  const isSecureContext =
+    process.env.NODE_ENV === 'production' ||
+    forwardedProto === 'https' ||
+    requestProtocol === 'https:';
   res.cookies.set({
     name: 'session',
     value: token,

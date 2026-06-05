@@ -197,6 +197,11 @@ const run = () => {
     /Cache-Control',\s*'no-store,\s*no-cache,\s*must-revalidate'/,
     'exchange-code token response should not be cached'
   );
+  assert.match(
+    exchangeCodeRoute,
+    /process\.env\.NODE_ENV === 'production'[\s\S]*forwardedProto === 'https'[\s\S]*requestProtocol === 'https:'/,
+    'production Discord session cookie should be Secure/SameSite=None even if proxy headers are incomplete'
+  );
 
   const appPage = readProjectFile('src/app/page.tsx');
   assert.equal(
