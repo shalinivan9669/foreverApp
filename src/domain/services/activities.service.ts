@@ -3,7 +3,10 @@ import {
   buildActivityResultSummary,
   clamp,
   effectiveActivityCheckIns,
+  hasActivityFeedback,
+  refineActivityResultSummary,
   replaceActivityAnswers,
+  shouldApplyActivityEffect,
   successScore,
 } from '@/utils/activities';
 import { requireActivityMember } from '@/lib/auth/resourceGuards';
@@ -237,6 +240,16 @@ export const activitiesService = {
         message: 'Completed pairs cannot submit activity feedback',
       });
     }
+    if (
+      data.activity.status === 'completed_success' ||
+      data.activity.status === 'failed'
+    ) {
+      throw new DomainError({
+        code: 'ACTIVITY_RESULT_FINALIZED',
+        status: 409,
+        message: 'Activity feedback is already final',
+      });
+    }
 
     const checkIns = effectiveActivityCheckIns(data.activity.checkIns);
     validateFeedback(checkIns, input.answers);
@@ -282,15 +295,10 @@ export const activitiesService = {
       completedAt: data.activity.resultSummary?.completedAt,
     });
     if (updatesPreliminaryResult && data.activity.resultSummary) {
-      result = {
-        ...result,
-        effectApplied: data.activity.resultSummary.effectApplied,
-        effect: data.activity.resultSummary.effect,
-        effectExplanation: {
-          ru: `${result.effectExplanation.ru} Итог уточнён без повторного усиления эффекта.`,
-          en: `${result.effectExplanation.en ?? ''} The result was refined without applying the effect twice.`.trim(),
-        },
-      };
+      result = refineActivityResultSummary({
+        previous: data.activity.resultSummary,
+        next: result,
+      });
       data.activity.status = result.status;
       data.activity.resultSummary = result;
     }
@@ -374,12 +382,20 @@ export const activitiesService = {
       };
     }
 
-    if (resultSummary.submittedCount === 0) {
+    if (!hasActivityFeedback(resultSummary)) {
       throw new DomainError({
         code: 'ACTIVITY_FEEDBACK_REQUIRED',
         status: 409,
         message: 'Activity feedback is required before completion',
       });
+    }
+
+    if (alreadyCompleted && resultSummary.effectApplied) {
+      return {
+        success: clamp(resultSummary.successScore),
+        status: resultSummary.status,
+        resultSummary,
+      };
     }
 
     if (!alreadyCompleted) {
@@ -406,7 +422,7 @@ export const activitiesService = {
       await data.activity.save();
     }
 
-    if (!resultSummary.effectApplied) {
+    if (shouldApplyActivityEffect(resultSummary)) {
       const effect = await applyEffects({
         pairDoc: data.pair,
         members: data.activity.members,

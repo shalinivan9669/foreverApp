@@ -238,6 +238,27 @@ export const buildActivityResultSummary = (input: {
   };
 };
 
+export const hasActivityFeedback = (
+  result: Pick<ActivityResultSummary, 'submittedCount'>
+): boolean => result.submittedCount > 0;
+
+export const shouldApplyActivityEffect = (
+  result: Pick<ActivityResultSummary, 'effectApplied'>
+): boolean => !result.effectApplied;
+
+export const refineActivityResultSummary = (input: {
+  previous: ActivityResultSummary;
+  next: ActivityResultSummary;
+}): ActivityResultSummary => ({
+  ...input.next,
+  effectApplied: input.previous.effectApplied,
+  effect: input.previous.effect,
+  effectExplanation: {
+    ru: `${input.next.effectExplanation.ru} Итог уточнён без повторного усиления эффекта.`,
+    en: `${input.next.effectExplanation.en ?? ''} The result was refined without applying the effect twice.`.trim(),
+  },
+});
+
 export const activityEffectMultiplier = (
   result: Pick<
     ActivityResultSummary,

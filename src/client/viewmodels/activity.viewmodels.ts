@@ -33,6 +33,8 @@ export type ActivityCardVM = {
   dueAt?: string;
   status: PairActivityDTO['status'];
   checkIns: PairActivityDTO['checkIns'];
+  successScore?: number;
+  resultSummary?: PairActivityDTO['resultSummary'];
   isAwaitingCheckin: boolean;
   isHistory: boolean;
 };
@@ -56,6 +58,8 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   dueAt: activity.dueAt,
   status: activity.status,
   checkIns: activity.checkIns,
+  successScore: activity.successScore,
+  resultSummary: activity.resultSummary,
   isAwaitingCheckin: isAwaitingCheckinStatus(activity.status),
   isHistory: isHistoryActivityStatus(activity.status),
 });

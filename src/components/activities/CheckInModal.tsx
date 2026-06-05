@@ -111,7 +111,7 @@ export default function CheckInModal(props: {
                     </label>
                   ))}
                   <div className="app-muted basis-full text-xs">
-                    1 — скорее нет или стало хуже, 5 — скорее да или стало лучше
+                    1 — совсем нет / стало хуже, 3 — нейтрально, 5 — да / стало лучше
                   </div>
                 </div>
               ) : (

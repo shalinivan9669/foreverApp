@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { UiErrorState } from '@/client/api/errors';
 import type { ActivityCompleteResponse } from '@/client/api/types';
 import { useActivityOffers } from '@/client/hooks/useActivityOffers';
@@ -26,13 +26,22 @@ type PendingCompleteState = {
 
 const toCompletionMessage = (result: ActivityCompleteResponse): string => {
   const summary = result.resultSummary;
-  const feedback = summary.bothSubmitted
-    ? 'Ответили оба.'
-    : 'Результат предварительный: ответил 1 из 2 участников.';
-  const effect = summary.effectApplied
-    ? ' Эффект обновил состояние пары.'
-    : '';
-  return `Результат сохранён. ${feedback}${effect}`;
+  const refined = summary.effectExplanation.ru.includes('уточнён');
+  if (summary.status === 'failed') {
+    return refined
+      ? 'Итог уточнён: формат не зашёл. Эффект повторно не применялся.'
+      : 'Результат сохранён: формат не зашёл. В следующий раз лучше выбрать более мягкую активность.';
+  }
+  if (refined) {
+    return 'Итог уточнён после ответа партнёра без повторного усиления эффекта.';
+  }
+  if (!summary.effectApplied) {
+    return 'Результат сохранён без изменения состояния пары.';
+  }
+  if (!summary.bothSubmitted) {
+    return 'Результат сохранён предварительно: ответил 1 из 2. Эффект применён осторожно.';
+  }
+  return 'Результат сохранён: оба ответили. Состояние пары обновлено.';
 };
 
 export default function CoupleActivityPage() {
@@ -60,31 +69,20 @@ export default function CoupleActivityPage() {
     completeActivityDetailed,
     clearMutationError,
     suggestionPlan,
+    lastSuggestionSkippedReason,
+    lastCreatedCount,
   } = useActivityOffers({
     pairId,
     enabled: Boolean(pairId),
   });
 
-  const withResult = useCallback(
-    (activity: Parameters<typeof toActivityCardVM>[0]) => ({
-      ...toActivityCardVM(activity),
-      successScore: activity.successScore,
-      resultSummary: activity.resultSummary,
-    }),
-    []
-  );
-  const activeVm = useMemo(() => (active ? withResult(active) : null), [active, withResult]);
-  const suggestedVm = useMemo(() => suggested.map(withResult), [suggested, withResult]);
-  const historyVm = useMemo(() => history.map(withResult), [history, withResult]);
+  const activeVm = useMemo(() => (active ? toActivityCardVM(active) : null), [active]);
+  const suggestedVm = useMemo(() => suggested.map(toActivityCardVM), [suggested]);
+  const historyVm = useMemo(() => history.map(toActivityCardVM), [history]);
   const pendingCompleteMessage = useMemo(
     () => toCompleteRetryMessage(pendingComplete?.error ?? null),
     [pendingComplete]
   );
-
-  useEffect(() => {
-    if (!suggestionPlan) return;
-    setActivityFlowMessage(suggestionPlan.explanation.ru);
-  }, [suggestionPlan]);
 
   const handleCompleteFailure = useCallback(
     async (
@@ -234,6 +232,9 @@ export default function CoupleActivityPage() {
       pendingCompleteMessage={pendingCompleteMessage}
       pendingCompleteInFlight={retryCompleteSubmitting}
       activityFlowMessage={activityFlowMessage}
+      suggestionPlan={suggestionPlan}
+      lastSuggestionSkippedReason={lastSuggestionSkippedReason}
+      lastCreatedCount={lastCreatedCount}
       onRetryComplete={(activityId) => {
         void retryComplete(activityId);
       }}

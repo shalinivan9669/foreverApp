@@ -452,3 +452,10 @@ Summary:
 - Added bounded result-based vector/readiness/fatigue effects with `activity_completion` snapshots and privacy-safe completion audit metadata.
 - Added result/effect history UI, second-participant result refinement, completion notifications, and recent-result signals for future suggestions.
 Files: scripts/activity-flow.selfcheck.ts, src/app/couple-activity/page.tsx, src/client/api/types.ts, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/domain/services/activities.service.ts, src/domain/services/activityOffer.service.ts, src/features/activities/CoupleActivityView.tsx, src/lib/audit/eventTypes.ts, src/lib/dto/activity.dto.ts, src/models/PairActivity.ts, src/models/VectorSnapshot.ts, src/utils/activities.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Stabilized the activity result path through the canonical client viewmodel and added legacy-history fallbacks.
+- Added persistent suggestion-plan/skip context, status-aware completion messages, and clearer feedback scale/privacy UX.
+- Made repeated completion side-effect free and covered late-peer refinement, DTO privacy, and viewmodel propagation in the activity selfcheck.
+Files: scripts/activity-flow.selfcheck.ts, src/app/couple-activity/page.tsx, src/client/hooks/useActivityOffers.ts, src/client/viewmodels/activity.viewmodels.ts, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/domain/services/activities.service.ts, src/features/activities/CoupleActivityView.tsx, src/utils/activities.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md

@@ -444,7 +444,10 @@ export type ActivityResultSummaryDTO = {
       delta: number;
     }>;
   };
-  effectExplanation: ActivityI18nText;
+  effectExplanation: {
+    ru: string;
+    en?: string;
+  };
   completedAt?: string;
   resultVersion: 'activity-result-v1';
 };

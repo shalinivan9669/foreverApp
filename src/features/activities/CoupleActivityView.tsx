@@ -7,6 +7,10 @@ import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
 import type { UiErrorState } from '@/client/api/errors';
+import type {
+  PairActivitySuggestionPlanDTO,
+  PairActivitySuggestionResponse,
+} from '@/client/api/types';
 import type { ActivityCardVM } from '@/client/viewmodels';
 
 type Tab = 'active' | 'suggested' | 'history';
@@ -33,6 +37,9 @@ type CoupleActivityViewProps = {
   pendingCompleteMessage: string | null;
   pendingCompleteInFlight: boolean;
   activityFlowMessage: string | null;
+  suggestionPlan: PairActivitySuggestionPlanDTO | null;
+  lastSuggestionSkippedReason: PairActivitySuggestionResponse['skippedReason'];
+  lastCreatedCount: number | null;
   onRetryComplete: (activityId: string) => void;
   onSubmitCheckIn: (activityId: string, answers: Array<{ checkInId: string; ui: number }>) => void;
 };
@@ -41,6 +48,16 @@ const tabButtonClass = (isActive: boolean): string =>
   `rounded px-3 py-2 text-sm font-medium sm:px-4 ${
     isActive ? 'app-btn-primary text-white' : 'app-btn-secondary text-slate-800'
   }`;
+
+const SKIPPED_REASON_LABELS: Record<string, string> = {
+  current_activity: 'у пары уже есть активная задача',
+  pair_paused: 'пара сейчас на паузе',
+  pair_ended: 'пара завершена',
+  offered_limit: 'уже есть 3 предложенные задачи',
+  plan_blocked: 'сейчас лучше не создавать новые задачи',
+  all_templates_in_cooldown: 'похожие задачи недавно уже предлагались',
+  no_templates: 'нет подходящих шаблонов',
+};
 
 export default function CoupleActivityView(props: CoupleActivityViewProps) {
   const {
@@ -65,6 +82,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     pendingCompleteMessage,
     pendingCompleteInFlight,
     activityFlowMessage,
+    suggestionPlan,
+    lastSuggestionSkippedReason,
+    lastCreatedCount,
     onRetryComplete,
     onSubmitCheckIn,
   } = props;
@@ -150,6 +170,28 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
       {!loading && tab === 'suggested' && (
         <div className="space-y-3">
+          {suggestionPlan && (
+            <div className="app-panel-soft rounded-lg p-4 text-sm text-slate-800">
+              <div className="font-medium text-slate-900">
+                Почему такие предложения?
+              </div>
+              <p className="mt-1">{suggestionPlan.explanation.ru}</p>
+              {lastSuggestionSkippedReason && (
+                <p className="mt-2 text-amber-800">
+                  Новые варианты не созданы:{' '}
+                  {SKIPPED_REASON_LABELS[lastSuggestionSkippedReason] ??
+                    'сейчас новые варианты недоступны'}.
+                </p>
+              )}
+              {!lastSuggestionSkippedReason &&
+                typeof lastCreatedCount === 'number' && (
+                  <p className="app-muted mt-2 text-xs">
+                    Создано новых вариантов: {lastCreatedCount}.
+                  </p>
+                )}
+            </div>
+          )}
+
           <div className="flex justify-stretch sm:justify-end">
             <button onClick={onSuggestNext} className="app-btn-primary w-full px-3 py-2 text-white sm:w-auto">
               Еще варианты

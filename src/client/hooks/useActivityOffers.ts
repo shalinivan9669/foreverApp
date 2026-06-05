@@ -9,6 +9,7 @@ import type {
   ActivityCheckInRequest,
   PairActivityDTO,
   PairActivitySuggestionPlanDTO,
+  PairActivitySuggestionResponse,
 } from '@/client/api/types';
 import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
 import { useApi } from './useApi';
@@ -66,6 +67,9 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
   const [lastOfferBatch, setLastOfferBatch] = useState<PairActivityDTO[]>([]);
   const [suggestionPlan, setSuggestionPlan] =
     useState<PairActivitySuggestionPlanDTO | null>(null);
+  const [lastSuggestionSkippedReason, setLastSuggestionSkippedReason] =
+    useState<PairActivitySuggestionResponse['skippedReason']>(undefined);
+  const [lastCreatedCount, setLastCreatedCount] = useState<number | null>(null);
 
   const {
     runSafe: runLoadSafe,
@@ -121,6 +125,8 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     if (!result) return false;
     setLastOfferBatch(result.offers);
     setSuggestionPlan(result.plan);
+    setLastSuggestionSkippedReason(result.skippedReason);
+    setLastCreatedCount(result.createdCount);
     await refetch();
     return true;
   }, [pairId, refetch, runMutationSafe]);
@@ -274,6 +280,8 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     mutationError,
     lastOfferBatch,
     suggestionPlan,
+    lastSuggestionSkippedReason,
+    lastCreatedCount,
     refetch,
     suggestNext,
     createFromTemplate,
