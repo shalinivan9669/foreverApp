@@ -7,7 +7,7 @@ import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { createEmptyProfileSummary, normalizeProfileSummary } from '@/client/viewmodels';
 
 import BackBar from '@/components/ui/BackBar';
-import UserHeader from '@/components/profile/UserHeader';
+import ModeAwareProfileOverview from '@/components/profile/ModeAwareProfileOverview';
 import SummaryTiles from '@/components/profile/SummaryTiles';
 import AxisRadar from '@/components/charts/AxisRadar';
 import InsightsList from '@/components/profile/InsightsList';
@@ -62,7 +62,9 @@ export default function ProfileOverviewPage() {
   if (!currentUser) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">Нет пользователя (нужна авторизация).</div>
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
+          Нет пользователя: нужна авторизация.
+        </div>
       </main>
     );
   }
@@ -91,7 +93,7 @@ export default function ProfileOverviewPage() {
       <main className="app-shell-compact space-y-3 py-3 sm:py-4">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
         <div className="app-panel app-panel-solid p-4 text-sm app-muted">
-          Не удалось загрузить сводку профиля. Попробуйте открыть страницу еще раз.
+          Не удалось загрузить сводку профиля. Попробуйте открыть страницу ещё раз.
         </div>
       </main>
     );
@@ -101,7 +103,7 @@ export default function ProfileOverviewPage() {
     <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
       <BackBar title="Профиль" fallbackHref="/main-menu" />
 
-      <UserHeader user={data.user} pair={data.currentPair} />
+      <ModeAwareProfileOverview summary={data} />
 
       <SummaryTiles metrics={data.metrics} readiness={data.readiness} fatigue={data.fatigue} />
 
@@ -128,7 +130,7 @@ export default function ProfileOverviewPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Предпочтения партнера</h2>
+        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
         <div className="app-panel app-panel-solid p-4">
           <PreferencesCard value={data.matching.filters} />
         </div>

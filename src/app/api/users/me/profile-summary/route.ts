@@ -19,6 +19,14 @@ import {
   readDisplayedAxis,
 } from '@/domain/services/vectorScoring.service';
 import { listMyInsights } from '@/domain/services/insightRules.service';
+import {
+  buildProfileCompletion,
+  buildProfileMode,
+  buildProfileNextStep,
+  buildRelationshipContext,
+  toLegacyProfileStatus,
+  type PassportCompletionAxisInput,
+} from '@/domain/services/userProfileSummary.service';
 
 type Axis =
   | 'communication'
@@ -84,13 +92,25 @@ export async function GET(req: NextRequest) {
     activeOrPaused ??
     (await Pair.findOne({ members: userId }).sort({ createdAt: -1 }).lean<PairLean | null>());
 
-  const status: 'solo:new' | 'solo:history' | 'paired' =
-    activeOrPaused?.status === 'active' ? 'paired' : lastAny ? 'solo:history' : 'solo:new';
-
-  const currentPair =
-    activeOrPaused && activeOrPaused.status === 'active'
-      ? { id: String(activeOrPaused._id), status: activeOrPaused.status, since: activeOrPaused.createdAt }
-      : null;
+  const relationshipContext = buildRelationshipContext({
+    activeOrPausedPair: activeOrPaused
+      ? {
+          id: String(activeOrPaused._id),
+          status: activeOrPaused.status,
+          createdAt: activeOrPaused.createdAt,
+        }
+      : null,
+    lastAnyPair: lastAny
+      ? {
+          id: String(lastAny._id),
+          status: lastAny.status,
+          createdAt: lastAny.createdAt,
+        }
+      : null,
+  });
+  const profileMode = buildProfileMode(relationshipContext);
+  const status = toLegacyProfileStatus(profileMode);
+  const currentPair = relationshipContext.currentPair;
 
   const entitlements = await resolveEntitlements({
     currentUserId: userId,
@@ -183,11 +203,23 @@ export async function GET(req: NextRequest) {
     sexuality: [],
     psyche: [],
   };
+  const passportCompletionAxes: Record<Axis, PassportCompletionAxisInput> = {
+    communication: { dataStatus: 'missing', confidence: 0, evidenceCount: 0 },
+    domestic: { dataStatus: 'missing', confidence: 0, evidenceCount: 0 },
+    personalViews: { dataStatus: 'missing', confidence: 0, evidenceCount: 0 },
+    finance: { dataStatus: 'missing', confidence: 0, evidenceCount: 0 },
+    sexuality: { dataStatus: 'missing', confidence: 0, evidenceCount: 0 },
+    psyche: { dataStatus: 'missing', confidence: 0, evidenceCount: 0 },
+  };
   AXES.forEach((a) => {
     const trait = readAxisLayer(user, a, 'trait');
     const displayed = readDisplayedAxis(user, a);
     const rawLevel = displayed.level;
     const uiLevel = Math.round(rawLevel * 100);
+    const axisDataStatus = dataStatus({
+      confidence: trait.confidence,
+      evidenceCount: trait.evidenceCount,
+    });
 
     axes[a] = {
       level: uiLevel,
@@ -196,10 +228,12 @@ export async function GET(req: NextRequest) {
       confidenceLabel: confidenceLabel(displayed.confidence),
       positives: trait.positives,
       negatives: trait.negatives,
-      dataStatus: dataStatus({
-        confidence: trait.confidence,
-        evidenceCount: trait.evidenceCount,
-      }),
+      dataStatus: axisDataStatus,
+    };
+    passportCompletionAxes[a] = {
+      dataStatus: axisDataStatus,
+      confidence: trait.confidence,
+      evidenceCount: trait.evidenceCount,
     };
 
     levelsByAxis[a] = uiLevel;
@@ -238,6 +272,19 @@ export async function GET(req: NextRequest) {
     excludeTags: [] as string[],
   };
   const insights = await listMyInsights(userId);
+  const profileCompletion = buildProfileCompletion({
+    mode: profileMode,
+    relationshipContext,
+    personal: user.personal,
+    preferences: user.preferences,
+    matchCard: user.profile?.matchCard ?? null,
+    passportAxes: passportCompletionAxes,
+  });
+  const nextStep = buildProfileNextStep({
+    mode: profileMode,
+    completion: profileCompletion,
+    relationshipContext,
+  });
 
   const payload = {
     user: {
@@ -249,6 +296,12 @@ export async function GET(req: NextRequest) {
       joinedAt: user.createdAt,
       status,
       lastActiveAt: user.updatedAt,
+      personal: {
+        gender: user.personal?.gender ?? null,
+        age: user.personal?.age ?? null,
+        city: user.personal?.city ?? '',
+        relationshipStatus: user.personal?.relationshipStatus ?? null,
+      },
       featureFlags: {
         PERSONAL_ACTIVITIES: entitlements.features['activities.suggestions'],
         PREMIUM_QUESTIONNAIRES: entitlements.features['questionnaires.premium'],
@@ -262,6 +315,10 @@ export async function GET(req: NextRequest) {
         }
       : undefined,
     currentPair,
+    relationshipContext,
+    profileMode,
+    profileCompletion,
+    nextStep,
     metrics: {
       streak: { individual: user.streak?.individual ?? 0 },
       completed: { individual: user.completed?.individual ?? 0 },

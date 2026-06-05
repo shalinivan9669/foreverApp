@@ -756,21 +756,107 @@ export type QuestionnaireDTO = {
   questions: QuestionnaireQuestionDTO[];
 };
 
+export type ProfilePersonalDTO = {
+  gender: 'male' | 'female' | null;
+  age: number | null;
+  city: string;
+  relationshipStatus: 'seeking' | 'in_relationship' | null;
+};
+
+export type ProfileModeDTO = {
+  kind: 'solo' | 'paired';
+  status: 'solo_new' | 'solo_with_history' | 'paired_active' | 'paired_paused';
+  label: string;
+  description: string;
+};
+
+export type ProfileCurrentPairDTO = null | {
+  id: string;
+  status: 'active' | 'paused';
+  since: string;
+  daysTogether?: number;
+};
+
+export type RelationshipContextDTO = {
+  currentPair: ProfileCurrentPairDTO;
+  hasPairHistory: boolean;
+};
+
+export type ProfileCompletionLevelDTO = 'empty' | 'basic' | 'good' | 'strong';
+
+export type ProfileCompletionDTO = {
+  score: number;
+  level: ProfileCompletionLevelDTO;
+  missing: Array<{
+    key: string;
+    label: string;
+    href: string;
+  }>;
+  sections: {
+    account: {
+      score: number;
+      completed: boolean;
+      missing: string[];
+    };
+    matchCard: {
+      score: number;
+      completed: boolean;
+      isActive: boolean;
+      missing: string[];
+    };
+    preferences: {
+      score: number;
+      completed: boolean;
+      missing: string[];
+    };
+    passport: {
+      score: number;
+      completed: boolean;
+      missing: string[];
+    };
+    pairContext?: {
+      score: number;
+      completed: boolean;
+      missing: string[];
+    };
+  };
+};
+
+export type ProfileNextStepDTO = {
+  kind:
+    | 'complete_account'
+    | 'create_match_card'
+    | 'improve_match_card'
+    | 'open_search'
+    | 'open_pair'
+    | 'resume_pair'
+    | 'weekly_checkin'
+    | 'questionnaire';
+  title: string;
+  description: string;
+  href: string;
+  ctaLabel: string;
+  priority: 1 | 2 | 3;
+};
+
 export type ProfileSummaryDTO = {
   user: {
     id: string;
+    name?: string;
     handle: string;
     avatar: string | null;
+    avatarUrl?: string | null;
     joinedAt?: string;
     status: 'solo:new' | 'solo:history' | 'paired';
     lastActiveAt?: string;
+    personal: ProfilePersonalDTO;
     featureFlags: Record<string, boolean>;
   };
-  currentPair: null | {
-    id: string;
-    status: PairState;
-    since: string;
-  };
+  currentPair: ProfileCurrentPairDTO;
+  relationshipContext: RelationshipContextDTO;
+  profileMode: ProfileModeDTO;
+  profileCompletion: ProfileCompletionDTO;
+  nextStep: ProfileNextStepDTO;
   metrics: {
     streak: {
       individual: number;

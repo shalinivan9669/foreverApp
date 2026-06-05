@@ -180,6 +180,20 @@
 - Fixed client pages that used array operators (`filter`/`map`) on raw API JSON by switching to `fetchEnvelope` and explicit `Array.isArray` fallback.
 - Added a minimal GET /lootboxes UI route (src/app/lootboxes/page.tsx) to prevent main-menu prefetch/navigation 404.
 
+## Update 2026-06-05 (Account Profile Core)
+
+`GET /api/users/me/profile-summary` keeps the existing profile summary fields and now also returns account-mode fields for the profile UI:
+
+- `profileMode`: `{ kind, status, label, description }`, where `status` is `solo_new`, `solo_with_history`, `paired_active`, or `paired_paused`.
+- `relationshipContext`: `{ currentPair, hasPairHistory }`. `currentPair` is returned for active and paused pairs only, includes `{ id, status, since, daysTogether }`, and never points to an ended pair.
+- `profileCompletion`: weighted account completion with account, match-card, preferences, passport, and paired-only pair context sections plus up to five missing items with `href`.
+- `nextStep`: the single primary CTA for the current mode, including solo setup/search actions and paired active/paused pair actions.
+
+Compatibility notes:
+- Existing `user.status` remains: `paired` for active and paused pairs, `solo:history` for ended-pair history, and `solo:new` when no pair history exists.
+- Existing `currentPair` remains, but it can now represent a paused pair as well as an active pair.
+- `/profile/profile` is no longer a placeholder; it displays account details, product status, profile completion, match-card status, and passport data summary from the same DTO.
+
 ## Update 2026-02-07 (Core Refactor: Domain Services + Idempotency)
 
 ### Thin controller contract for critical mutations

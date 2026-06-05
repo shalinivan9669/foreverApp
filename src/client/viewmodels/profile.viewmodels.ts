@@ -6,11 +6,14 @@ type ProfileSummaryInput = {
   user?: {
     id?: string;
     _id?: string;
+    name?: string;
     handle?: string;
     avatar?: string | null;
+    avatarUrl?: string | null;
     joinedAt?: string;
     status?: ProfileStatus;
     lastActiveAt?: string;
+    personal?: Partial<ProfileSummaryDTO['user']['personal']>;
     featureFlags?: Record<string, boolean>;
   };
   currentPair?: {
@@ -18,7 +21,23 @@ type ProfileSummaryInput = {
     _id?: string;
     status?: PairState;
     since?: string;
+    daysTogether?: number;
   } | null;
+  relationshipContext?: {
+    currentPair?: {
+      id?: string;
+      _id?: string;
+      status?: PairState;
+      since?: string;
+      daysTogether?: number;
+    } | null;
+    hasPairHistory?: boolean;
+  };
+  profileMode?: Partial<ProfileSummaryDTO['profileMode']>;
+  profileCompletion?: Partial<ProfileSummaryDTO['profileCompletion']> & {
+    sections?: Partial<ProfileSummaryDTO['profileCompletion']['sections']>;
+  };
+  nextStep?: Partial<ProfileSummaryDTO['nextStep']>;
   metrics?: {
     streak?: {
       individual?: number;
@@ -110,6 +129,12 @@ const asString = (value?: string | null): string | undefined =>
 const asId = (id?: string, legacyId?: string): string =>
   asString(id) ?? asString(legacyId) ?? '';
 
+const asPercent = (value: number | undefined): number =>
+  Math.max(0, Math.min(100, Math.round(asFiniteNumber(value))));
+
+const asBoolean = (value: boolean | undefined, fallback = false): boolean =>
+  typeof value === 'boolean' ? value : fallback;
+
 const defaultAxisLevels = (): Record<QuestionnaireAxis, number> => ({
   communication: 0,
   domestic: 0,
@@ -149,15 +174,194 @@ const normalizeAxisKeywords = (
   return normalized;
 };
 
+const normalizeCurrentPair = (
+  pair?: ProfileSummaryInput['currentPair']
+): ProfileSummaryDTO['currentPair'] => {
+  if (!pair) return null;
+  const id = asId(pair.id, pair._id);
+  if (!id || (pair.status !== 'active' && pair.status !== 'paused')) return null;
+
+  return {
+    id,
+    status: pair.status,
+    since: pair.since ?? '',
+    daysTogether: asFiniteNumber(pair.daysTogether),
+  };
+};
+
+const normalizeProfileMode = (
+  input: ProfileSummaryInput['profileMode'] | undefined,
+  fallback: ProfileSummaryDTO['profileMode']
+): ProfileSummaryDTO['profileMode'] => {
+  const status = input?.status;
+  const kind = input?.kind;
+  if (
+    (kind !== 'solo' && kind !== 'paired') ||
+    (status !== 'solo_new' &&
+      status !== 'solo_with_history' &&
+      status !== 'paired_active' &&
+      status !== 'paired_paused')
+  ) {
+    return fallback;
+  }
+
+  return {
+    kind,
+    status,
+    label: asString(input?.label) ?? fallback.label,
+    description: asString(input?.description) ?? fallback.description,
+  };
+};
+
+const normalizeCompletionSection = (
+  input:
+    | Partial<ProfileSummaryDTO['profileCompletion']['sections']['account']>
+    | undefined,
+  fallback: ProfileSummaryDTO['profileCompletion']['sections']['account']
+): ProfileSummaryDTO['profileCompletion']['sections']['account'] => ({
+  score: asPercent(input?.score ?? fallback.score),
+  completed: asBoolean(input?.completed, fallback.completed),
+  missing: input?.missing ?? fallback.missing,
+});
+
+const normalizeMatchCardSection = (
+  input:
+    | Partial<ProfileSummaryDTO['profileCompletion']['sections']['matchCard']>
+    | undefined,
+  fallback: ProfileSummaryDTO['profileCompletion']['sections']['matchCard']
+): ProfileSummaryDTO['profileCompletion']['sections']['matchCard'] => ({
+  ...normalizeCompletionSection(input, fallback),
+  isActive: asBoolean(input?.isActive, fallback.isActive),
+});
+
+const normalizeProfileCompletion = (
+  input: ProfileSummaryInput['profileCompletion'] | undefined,
+  fallback: ProfileSummaryDTO['profileCompletion']
+): ProfileSummaryDTO['profileCompletion'] => {
+  const sections = input?.sections;
+  const pairContext = sections?.pairContext
+    ? normalizeCompletionSection(
+        sections.pairContext,
+        fallback.sections.pairContext ?? { score: 0, completed: false, missing: [] }
+      )
+    : fallback.sections.pairContext;
+
+  return {
+    score: asPercent(input?.score ?? fallback.score),
+    level:
+      input?.level === 'basic' ||
+      input?.level === 'good' ||
+      input?.level === 'strong' ||
+      input?.level === 'empty'
+        ? input.level
+        : fallback.level,
+    missing:
+      input?.missing
+        ?.filter((item) => asString(item.key) && asString(item.label) && asString(item.href))
+        .map((item) => ({
+          key: item.key,
+          label: item.label,
+          href: item.href,
+        }))
+        .slice(0, 5) ?? fallback.missing,
+    sections: {
+      account: normalizeCompletionSection(sections?.account, fallback.sections.account),
+      matchCard: normalizeMatchCardSection(sections?.matchCard, fallback.sections.matchCard),
+      preferences: normalizeCompletionSection(
+        sections?.preferences,
+        fallback.sections.preferences
+      ),
+      passport: normalizeCompletionSection(sections?.passport, fallback.sections.passport),
+      ...(pairContext ? { pairContext } : {}),
+    },
+  };
+};
+
+const normalizeNextStep = (
+  input: ProfileSummaryInput['nextStep'] | undefined,
+  fallback: ProfileSummaryDTO['nextStep']
+): ProfileSummaryDTO['nextStep'] => {
+  const allowedKinds: ProfileSummaryDTO['nextStep']['kind'][] = [
+    'complete_account',
+    'create_match_card',
+    'improve_match_card',
+    'open_search',
+    'open_pair',
+    'resume_pair',
+    'weekly_checkin',
+    'questionnaire',
+  ];
+  const kind = input?.kind && allowedKinds.includes(input.kind) ? input.kind : fallback.kind;
+  const priority =
+    input?.priority === 1 || input?.priority === 2 || input?.priority === 3
+      ? input.priority
+      : fallback.priority;
+
+  return {
+    kind,
+    title: asString(input?.title) ?? fallback.title,
+    description: asString(input?.description) ?? fallback.description,
+    href: asString(input?.href) ?? fallback.href,
+    ctaLabel: asString(input?.ctaLabel) ?? fallback.ctaLabel,
+    priority,
+  };
+};
+
+export const profileCompletionLevelLabel = (
+  level: ProfileSummaryDTO['profileCompletion']['level']
+): string => {
+  if (level === 'strong') return 'Сильный';
+  if (level === 'good') return 'Хороший';
+  if (level === 'basic') return 'Базовый';
+  return 'Пустой';
+};
+
 export const createEmptyProfileSummary = (): ProfileSummaryDTO => ({
   user: {
     id: '',
+    name: '',
     handle: '',
     avatar: null,
+    avatarUrl: null,
     status: 'solo:new',
+    personal: {
+      gender: null,
+      age: null,
+      city: '',
+      relationshipStatus: null,
+    },
     featureFlags: {},
   },
   currentPair: null,
+  relationshipContext: {
+    currentPair: null,
+    hasPairHistory: false,
+  },
+  profileMode: {
+    kind: 'solo',
+    status: 'solo_new',
+    label: 'Профиль ещё настраивается',
+    description: 'Заполни базовые данные и карточку, чтобы начать пользоваться продуктом.',
+  },
+  profileCompletion: {
+    score: 0,
+    level: 'empty',
+    missing: [],
+    sections: {
+      account: { score: 0, completed: false, missing: [] },
+      matchCard: { score: 0, completed: false, isActive: false, missing: [] },
+      preferences: { score: 0, completed: false, missing: [] },
+      passport: { score: 0, completed: false, missing: [] },
+    },
+  },
+  nextStep: {
+    kind: 'complete_account',
+    title: 'Заполни базовые данные',
+    description: 'Это поможет профилю корректно работать в поиске и личном обзоре.',
+    href: '/profile/profile',
+    ctaLabel: 'Заполнить профиль',
+    priority: 1,
+  },
   metrics: {
     streak: { individual: 0 },
     completed: { individual: 0 },
@@ -210,24 +414,56 @@ export const normalizeProfileSummary = (
   const currentActivityId = input.activity?.current
     ? asId(input.activity.current.id, input.activity.current._id)
     : '';
+  const currentPair = normalizeCurrentPair(input.currentPair);
+  const relationshipContext = {
+    currentPair:
+      normalizeCurrentPair(input.relationshipContext?.currentPair ?? currentPair) ?? currentPair,
+    hasPairHistory:
+      typeof input.relationshipContext?.hasPairHistory === 'boolean'
+        ? input.relationshipContext.hasPairHistory
+        : Boolean(currentPair),
+  };
+  const profileMode = normalizeProfileMode(input.profileMode, fallback.profileMode);
+  const profileCompletion = normalizeProfileCompletion(
+    input.profileCompletion,
+    fallback.profileCompletion
+  );
+  const nextStep = normalizeNextStep(input.nextStep, fallback.nextStep);
 
   return {
     user: {
       id: asId(input.user?.id, input.user?._id),
+      name: input.user?.name ?? input.user?.handle ?? '',
       handle: input.user?.handle ?? '',
       avatar: input.user?.avatar ?? null,
+      avatarUrl: input.user?.avatarUrl ?? input.user?.avatar ?? null,
       joinedAt: asString(input.user?.joinedAt),
       status: input.user?.status ?? fallback.user.status,
       lastActiveAt: asString(input.user?.lastActiveAt),
+      personal: {
+        gender:
+          input.user?.personal?.gender === 'male' || input.user?.personal?.gender === 'female'
+            ? input.user.personal.gender
+            : null,
+        age:
+          typeof input.user?.personal?.age === 'number' &&
+          Number.isFinite(input.user.personal.age)
+            ? input.user.personal.age
+            : null,
+        city: input.user?.personal?.city ?? '',
+        relationshipStatus:
+          input.user?.personal?.relationshipStatus === 'seeking' ||
+          input.user?.personal?.relationshipStatus === 'in_relationship'
+            ? input.user.personal.relationshipStatus
+            : null,
+      },
       featureFlags: input.user?.featureFlags ?? fallback.user.featureFlags,
     },
-    currentPair: input.currentPair
-      ? {
-          id: asId(input.currentPair.id, input.currentPair._id),
-          status: input.currentPair.status ?? 'active',
-          since: input.currentPair.since ?? '',
-        }
-      : null,
+    currentPair,
+    relationshipContext,
+    profileMode,
+    profileCompletion,
+    nextStep,
     metrics: {
       streak: {
         individual: asFiniteNumber(input.metrics?.streak?.individual),

@@ -473,3 +473,10 @@ Summary:
 - Added persistent suggestion-plan/skip context, status-aware completion messages, and clearer feedback scale/privacy UX.
 - Made repeated completion side-effect free and covered late-peer refinement, DTO privacy, and viewmodel propagation in the activity selfcheck.
 Files: scripts/activity-flow.selfcheck.ts, src/app/couple-activity/page.tsx, src/client/hooks/useActivityOffers.ts, src/client/viewmodels/activity.viewmodels.ts, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/domain/services/activities.service.ts, src/features/activities/CoupleActivityView.tsx, src/utils/activities.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Added account profile mode, relationship context, profile completion, and primary next-step fields to `/api/users/me/profile-summary`.
+- Fixed paused pairs so they stay in paired mode and expose a paused `currentPair` instead of looking like solo/history.
+- Replaced the `/profile/profile` placeholder with a read-only account details page and added a mode-aware hero/completion/CTA overview to `/profile`.
+Files: package.json, src/app/api/users/me/profile-summary/route.ts, src/domain/services/userProfileSummary.service.ts, src/client/api/types.ts, src/client/viewmodels/profile.viewmodels.ts, src/components/profile/ModeAwareProfileOverview.tsx, src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/profile/page.tsx, scripts/user-profile-summary.selfcheck.ts, docs/API_CONTRACTS.md, docs/04-api-contracts.md, docs/CHANGELOG.md
