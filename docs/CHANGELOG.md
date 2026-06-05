@@ -2,6 +2,13 @@
 
 Date: 2026-06-05
 Summary:
+- Added PairEvent model, DTO, lazy event generation, events API, event accept/decline/snooze flow, and event-sourced PairActivity offer creation.
+- Added pair events client API/hook/viewmodel and embedded PairEventsPanel into the pair profile after weekly check-in.
+- Documented new pair events API contracts and added a pure rules selfcheck for event candidates/status behavior.
+Files: src/models/PairEvent.ts, src/lib/dto/pairEvent.dto.ts, src/domain/services/pairEvent.service.ts, src/app/api/pairs/[id]/events/route.ts, src/app/api/pairs/[id]/events/[eventId]/[action]/route.ts, src/client/api/types.ts, src/client/api/pairEvents.api.ts, src/client/hooks/usePairEvents.ts, src/client/viewmodels/pairEvent.viewmodels.ts, src/components/events/PairEventsPanel.tsx, src/features/pair/PairProfilePageClient.tsx, scripts/selfcheck-pair-events.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
 - Implemented Pair Profile 2.0 dashboard with hero, pair state, next step, current activity, weekly check-in, compatibility preview, pair insights, and source match block.
 - Extended pair summary with public members, peer, compact diagnostics, current-week check-in signal, and deterministic next-step recommendation.
 Files: src/app/api/pairs/[id]/summary/route.ts, src/domain/services/pairDashboardSummary.service.ts, src/client/api/types.ts, src/client/viewmodels/pair.viewmodels.ts, src/features/pair/PairProfilePageClient.tsx, src/components/profile/InsightsList.tsx, docs/API_CONTRACTS.md, docs/CHANGELOG.md

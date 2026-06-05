@@ -544,6 +544,76 @@ export type PairActivitySuggestionResponse = {
   skippedReason?: string;
 };
 
+export type PairEventCategory =
+  | 'relationship_milestone'
+  | 'calendar_event'
+  | 'behavioral_event'
+  | 'system_signal';
+
+export type PairEventType =
+  | 'first_month'
+  | 'three_months'
+  | 'six_months'
+  | 'anniversary'
+  | 'valentines_day'
+  | 'march_8'
+  | 'new_year'
+  | 'partner_birthday'
+  | 'inactive_pair'
+  | 'failed_activity_recovery'
+  | 'high_fatigue_recovery'
+  | 'weekly_divergence_repair'
+  | 'weekly_success_celebration'
+  | 'diagnostics_risk_focus';
+
+export type PairEventStatus =
+  | 'upcoming'
+  | 'offered'
+  | 'accepted'
+  | 'declined'
+  | 'snoozed'
+  | 'expired'
+  | 'completed';
+
+export type PairEventDTO = {
+  id: string;
+  pairId: string;
+  category: PairEventCategory;
+  type: PairEventType;
+  title: ActivityI18nText;
+  description: ActivityI18nText;
+  why: ActivityI18nText;
+  eventDate?: string;
+  windowStart: string;
+  windowEnd: string;
+  status: PairEventStatus;
+  priority: 1 | 2 | 3;
+  severity?: 1 | 2 | 3;
+  axis?: QuestionnaireAxis[];
+  canAccept: boolean;
+  canDecline: boolean;
+  canSnooze: boolean;
+  generatedActivityIds: string[];
+  acceptedAt?: string;
+  declinedAt?: string;
+  snoozedUntil?: string;
+  completedAt?: string;
+  expiresAt?: string;
+};
+
+export type PairEventListResponse = {
+  events: PairEventDTO[];
+};
+
+export type PairEventAcceptResponse = {
+  event: PairEventDTO;
+  activities: PairActivityDTO[];
+};
+
+export type PairEventMutationResponse = {
+  event: PairEventDTO;
+};
+
 export type ActivityOfferDTO = {
   id: string;
   templateId?: string;

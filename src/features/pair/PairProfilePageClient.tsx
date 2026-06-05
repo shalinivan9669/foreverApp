@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
 import PairWeeklyCheckInPanel from '@/components/checkins/PairWeeklyCheckInPanel';
+import PairEventsPanel from '@/components/events/PairEventsPanel';
 import InsightsList from '@/components/profile/InsightsList';
 import { pairsApi } from '@/client/api/pairs.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
@@ -537,6 +538,8 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
               onSummaryChanged={() => load(pairId)}
             />
           </section>
+
+          <PairEventsPanel pairId={pairId} pairStatus={data.pair.status} />
 
           <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
