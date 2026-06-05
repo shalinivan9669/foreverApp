@@ -425,6 +425,30 @@ export type ActivityCheckInDTO = {
   weight?: number;
 };
 
+export type ActivityResultSummaryDTO = {
+  submittedBy: Array<'A' | 'B'>;
+  submittedCount: number;
+  bothSubmitted: boolean;
+  successScore: number;
+  status: 'completed_success' | 'completed_partial' | 'failed';
+  usefulnessAvg?: number;
+  comfortAvg?: number;
+  tensionAvg?: number;
+  wantsSimilarRatio?: number;
+  effectApplied: boolean;
+  effect: {
+    fatigueDelta: number;
+    readinessDelta: number;
+    axisDeltas: Array<{
+      axis: QuestionnaireAxis;
+      delta: number;
+    }>;
+  };
+  effectExplanation: ActivityI18nText;
+  completedAt?: string;
+  resultVersion: 'activity-result-v1';
+};
+
 export type PairActivityDTO = {
   id: string;
   _id?: string;
@@ -445,6 +469,8 @@ export type PairActivityDTO = {
   requiresConsent?: boolean;
   status: ActivityStatus;
   checkIns: ActivityCheckInDTO[];
+  successScore?: number;
+  resultSummary?: ActivityResultSummaryDTO;
   offerSource?: OfferSource;
   offerReason?: OfferReasonMeta;
   legacy?: boolean;
@@ -498,6 +524,13 @@ export type PairActivitySuggestionPlanDTO = {
     eventType?: 'first_month' | 'anniversary' | 'march_8' | 'valentines_day';
     eventDate?: string;
   };
+  recentActivitySignals: {
+    lastCompletedStatus?: 'completed_success' | 'completed_partial' | 'failed';
+    lastAxis?: QuestionnaireAxis[];
+    lastArchetype?: string;
+    lowComfortRecently: boolean;
+    wantsSimilarRecently: boolean;
+  };
 };
 
 export type PairActivitySuggestionResponse = {
@@ -536,11 +569,14 @@ export type ActivityCheckInRequest = {
 
 export type ActivityCheckInResponse = {
   success: number;
+  submittedCount: number;
+  bothSubmitted: boolean;
 };
 
 export type ActivityCompleteResponse = {
   success: number;
   status: 'completed_success' | 'completed_partial' | 'failed';
+  resultSummary: ActivityResultSummaryDTO;
 };
 
 export type NextActivityResponse = {

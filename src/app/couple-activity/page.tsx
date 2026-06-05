@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { UiErrorState } from '@/client/api/errors';
+import type { ActivityCompleteResponse } from '@/client/api/types';
 import { useActivityOffers } from '@/client/hooks/useActivityOffers';
 import { usePair } from '@/client/hooks/usePair';
 import { toActivityCardVM, type ActivityCardVM } from '@/client/viewmodels';
@@ -21,6 +22,17 @@ type PendingCompleteState = {
   activityId: string;
   attempt: CheckinCompleteAttempt;
   error: UiErrorState | null;
+};
+
+const toCompletionMessage = (result: ActivityCompleteResponse): string => {
+  const summary = result.resultSummary;
+  const feedback = summary.bothSubmitted
+    ? 'Ответили оба.'
+    : 'Результат предварительный: ответил 1 из 2 участников.';
+  const effect = summary.effectApplied
+    ? ' Эффект обновил состояние пары.'
+    : '';
+  return `Результат сохранён. ${feedback}${effect}`;
 };
 
 export default function CoupleActivityPage() {
@@ -47,18 +59,32 @@ export default function CoupleActivityPage() {
     checkInActivityDetailed,
     completeActivityDetailed,
     clearMutationError,
+    suggestionPlan,
   } = useActivityOffers({
     pairId,
     enabled: Boolean(pairId),
   });
 
-  const activeVm = useMemo(() => (active ? toActivityCardVM(active) : null), [active]);
-  const suggestedVm = useMemo(() => suggested.map(toActivityCardVM), [suggested]);
-  const historyVm = useMemo(() => history.map(toActivityCardVM), [history]);
+  const withResult = useCallback(
+    (activity: Parameters<typeof toActivityCardVM>[0]) => ({
+      ...toActivityCardVM(activity),
+      successScore: activity.successScore,
+      resultSummary: activity.resultSummary,
+    }),
+    []
+  );
+  const activeVm = useMemo(() => (active ? withResult(active) : null), [active, withResult]);
+  const suggestedVm = useMemo(() => suggested.map(withResult), [suggested, withResult]);
+  const historyVm = useMemo(() => history.map(withResult), [history, withResult]);
   const pendingCompleteMessage = useMemo(
     () => toCompleteRetryMessage(pendingComplete?.error ?? null),
     [pendingComplete]
   );
+
+  useEffect(() => {
+    if (!suggestionPlan) return;
+    setActivityFlowMessage(suggestionPlan.explanation.ru);
+  }, [suggestionPlan]);
 
   const handleCompleteFailure = useCallback(
     async (
@@ -118,6 +144,7 @@ export default function CoupleActivityPage() {
         setActiveAttempt(null);
         setCheckInFor(null);
         clearMutationError();
+        setActivityFlowMessage(toCompletionMessage(completeResult.data));
         setCheckInSubmitting(false);
         return;
       }
@@ -159,6 +186,7 @@ export default function CoupleActivityPage() {
         setActiveAttempt(null);
         setCheckInFor(null);
         clearMutationError();
+        setActivityFlowMessage(toCompletionMessage(completeResult.data));
         setRetryCompleteSubmitting(false);
         return;
       }

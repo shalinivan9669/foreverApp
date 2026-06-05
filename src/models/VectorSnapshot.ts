@@ -8,6 +8,7 @@ export type VectorSnapshotReasonSource =
   | 'state_questionnaire'
   | 'pair_questionnaire'
   | 'weekly_checkin'
+  | 'activity_completion'
   | 'manual_recalculation'
   | 'migration';
 
@@ -32,6 +33,12 @@ export interface VectorSnapshotType {
     questionnaireId?: string | Types.ObjectId;
     sessionId?: string | Types.ObjectId;
     questionIds?: Array<string | Types.ObjectId>;
+    activityId?: string | Types.ObjectId;
+    resultVersion?: 'activity-result-v1';
+    successScore?: number;
+    status?: 'completed_success' | 'completed_partial' | 'failed';
+    primaryReason?: string;
+    templateId?: string;
   };
   scoringVersion: string;
   createdAt: Date;
@@ -72,6 +79,7 @@ const vectorSnapshotSchema = new Schema<VectorSnapshotType>(
           'state_questionnaire',
           'pair_questionnaire',
           'weekly_checkin',
+          'activity_completion',
           'manual_recalculation',
           'migration',
         ],
@@ -80,6 +88,15 @@ const vectorSnapshotSchema = new Schema<VectorSnapshotType>(
       questionnaireId: { type: Schema.Types.Mixed },
       sessionId: { type: Schema.Types.Mixed },
       questionIds: { type: [Schema.Types.Mixed], default: [] },
+      activityId: { type: Schema.Types.Mixed },
+      resultVersion: { type: String, enum: ['activity-result-v1'] },
+      successScore: { type: Number, min: 0, max: 1 },
+      status: {
+        type: String,
+        enum: ['completed_success', 'completed_partial', 'failed'],
+      },
+      primaryReason: { type: String },
+      templateId: { type: String },
     },
     scoringVersion: { type: String, required: true },
     createdAt: { type: Date, required: true, default: Date.now },

@@ -8,6 +8,20 @@ type CheckIn = {
   text: I18nText;
   weight?: number;
 };
+type ActivityResultSummary = {
+  submittedCount: number;
+  bothSubmitted: boolean;
+  successScore: number;
+  status: 'completed_success' | 'completed_partial' | 'failed';
+  effectApplied: boolean;
+  effect: {
+    fatigueDelta: number;
+    readinessDelta: number;
+    axisDeltas: Array<{ axis: string; delta: number }>;
+  };
+  effectExplanation: I18nText;
+  completedAt?: string;
+};
 
 export type ActivityVM = {
   _id: string;
@@ -26,6 +40,8 @@ export type ActivityVM = {
   dueAt?: string;
   status: string;
   checkIns: CheckIn[];
+  successScore?: number;
+  resultSummary?: ActivityResultSummary;
 };
 
 export default function ActivityCard(props: {
@@ -51,8 +67,8 @@ export default function ActivityCard(props: {
   };
   const statusLabels: Record<string, string> = {
     completed_success: 'Выполнено',
-    completed_partial: 'Выполнено частично',
-    failed: 'Не завершено',
+    completed_partial: 'Частично',
+    failed: 'Не зашло',
     cancelled: 'Отложено',
     expired: 'Срок завершён',
   };
@@ -61,6 +77,10 @@ export default function ActivityCard(props: {
   const difficultyText = a.difficulty <= 2 ? 'Легко' : a.difficulty === 3 ? 'Средне' : 'Сложно';
   const intensityText = a.intensity === 1 ? 'Мягко' : a.intensity === 2 ? 'Умеренно' : 'Интенсивно';
   const badge = a.intent === 'celebrate' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+  const result = a.resultSummary;
+  const percent = Math.round((result?.successScore ?? a.successScore ?? 0) * 100);
+  const signedPercent = (value: number): string =>
+    `${value > 0 ? '+' : ''}${Math.round(value * 100)}%`;
 
   return (
     <div className="app-panel app-lift h-full p-4 text-slate-900">
@@ -94,6 +114,42 @@ export default function ActivityCard(props: {
           {a.timeEstimateMin ? <div className="app-muted mt-2 text-xs">Примерно {a.timeEstimateMin} мин</div> : null}
 
           {a.dueAt ? <div className="app-muted text-xs">до {new Date(a.dueAt).toLocaleString('ru-RU')}</div> : null}
+
+          {variant === 'active' && a.status === 'awaiting_checkin' && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Ожидает обратную связь. Можно завершить с одним ответом, но результат
+              останется предварительным.
+            </div>
+          )}
+
+          {variant === 'history' && result && (
+            <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{statusLabels[result.status]}</span>
+                <span className="app-muted">результат {percent}%</span>
+                <span className="app-muted">
+                  {result.bothSubmitted ? 'ответили оба' : `ответил ${result.submittedCount} из 2`}
+                </span>
+              </div>
+              <p className="text-slate-700">{t(result.effectExplanation)}</p>
+              {result.effectApplied && (
+                <div className="app-muted flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  <span>Готовность {signedPercent(result.effect.readinessDelta)}</span>
+                  <span>Усталость {signedPercent(result.effect.fatigueDelta)}</span>
+                  {result.effect.axisDeltas.map((item) => (
+                    <span key={item.axis}>
+                      {axisLabels[item.axis] ?? item.axis} {signedPercent(item.delta)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {result.completedAt && (
+                <div className="app-muted text-xs">
+                  {new Date(result.completedAt).toLocaleString('ru-RU')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -107,15 +163,27 @@ export default function ActivityCard(props: {
 
         {variant === 'active' && (
           <>
-            <button onClick={onComplete} className="app-btn-primary w-full px-3 py-2 sm:w-auto">Завершить</button>
+            <button onClick={onComplete} className="app-btn-primary w-full px-3 py-2 sm:w-auto">
+              {a.status === 'awaiting_checkin' ? 'Оставить отзыв / завершить' : 'Завершить'}
+            </button>
             <button onClick={onCancel} className="app-btn-secondary w-full px-3 py-2 sm:w-auto">Отменить</button>
           </>
         )}
 
         {variant === 'history' && (
-          <span className="app-muted self-center text-xs">
-            {statusLabels[a.status] ?? 'Завершено'}
-          </span>
+          <>
+            <span className="app-muted self-center text-xs">
+              {statusLabels[a.status] ?? 'Завершено'}
+            </span>
+            {result?.submittedCount === 1 && (
+              <button
+                onClick={onComplete}
+                className="app-btn-secondary w-full px-3 py-2 sm:w-auto"
+              >
+                Добавить или обновить отзыв
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

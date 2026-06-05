@@ -97,12 +97,25 @@ export type AuditEventMetadataMap = {
     activityId: string;
     answersCount: number;
     success: number;
-    status: Extract<PairActivityType['status'], 'awaiting_checkin'>;
+    status: Extract<
+      PairActivityType['status'],
+      'awaiting_checkin' | 'completed_success' | 'completed_partial' | 'failed'
+    >;
+    submittedCount: number;
+    bothSubmitted: boolean;
+    resultVersion: 'activity-result-v1';
   };
   ACTIVITY_COMPLETED: {
     activityId: string;
+    pairId: string;
     success: number;
     status: Extract<PairActivityType['status'], 'completed_success' | 'completed_partial' | 'failed'>;
+    submittedCount: number;
+    bothSubmitted: boolean;
+    effectApplied: boolean;
+    fatigueDelta: number;
+    readinessDelta: number;
+    resultVersion: 'activity-result-v1';
   };
   QUESTIONNAIRE_STARTED: {
     pairId: string;

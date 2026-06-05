@@ -1,5 +1,9 @@
 import type { ActivityTemplateType, Axis, CheckInTpl, EffectTpl } from '@/models/ActivityTemplate';
-import type { PairActivityType } from '@/models/PairActivity';
+import type {
+  ActivityResultSummary,
+  PairActivityType,
+} from '@/models/PairActivity';
+import { effectiveActivityCheckIns } from '@/utils/activities';
 
 type IdLike = string | { toString(): string };
 type DateLike = Date | string | undefined | null;
@@ -50,13 +54,8 @@ export type PairActivityDTO = {
   visibility?: PairActivityType['visibility'];
   status: PairActivityType['status'];
   checkIns: CheckInTpl[];
-  answers?: {
-    checkInId: string;
-    by: 'A' | 'B';
-    ui: number;
-    at: string;
-  }[];
   successScore?: number;
+  resultSummary?: ActivityResultSummaryDTO;
   effect?: EffectTpl[];
   fatigueDeltaOnComplete?: number;
   readinessDeltaOnComplete?: number;
@@ -65,6 +64,13 @@ export type PairActivityDTO = {
   legacySource?: 'relationship_activity';
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type ActivityResultSummaryDTO = Omit<
+  ActivityResultSummary,
+  'completedAt'
+> & {
+  completedAt?: string;
 };
 
 export type ActivityTemplateDTO = {
@@ -114,7 +120,6 @@ export function toPairActivityDTO(
   opts: ToPairActivityDtoOptions = {}
 ): PairActivityDTO {
   const includeLegacyId = opts.includeLegacyId ?? false;
-  const includeAnswers = opts.includeAnswers ?? false;
   const legacy = opts.legacy ?? false;
 
   const id = toId(activity._id);
@@ -148,8 +153,33 @@ export function toPairActivityDTO(
     consentB: activity.consentB,
     visibility: activity.visibility,
     status: activity.status,
-    checkIns: activity.checkIns,
+    checkIns: effectiveActivityCheckIns(activity.checkIns),
     successScore: activity.successScore,
+    resultSummary: activity.resultSummary
+      ? {
+          submittedBy: [...activity.resultSummary.submittedBy],
+          submittedCount: activity.resultSummary.submittedCount,
+          bothSubmitted: activity.resultSummary.bothSubmitted,
+          successScore: activity.resultSummary.successScore,
+          status: activity.resultSummary.status,
+          usefulnessAvg: activity.resultSummary.usefulnessAvg,
+          comfortAvg: activity.resultSummary.comfortAvg,
+          tensionAvg: activity.resultSummary.tensionAvg,
+          wantsSimilarRatio: activity.resultSummary.wantsSimilarRatio,
+          effectApplied: activity.resultSummary.effectApplied,
+          effect: {
+            fatigueDelta: activity.resultSummary.effect.fatigueDelta,
+            readinessDelta: activity.resultSummary.effect.readinessDelta,
+            axisDeltas: activity.resultSummary.effect.axisDeltas.map((item) => ({
+              axis: item.axis,
+              delta: item.delta,
+            })),
+          },
+          effectExplanation: activity.resultSummary.effectExplanation,
+          completedAt: toIso(activity.resultSummary.completedAt),
+          resultVersion: activity.resultSummary.resultVersion,
+        }
+      : undefined,
     effect: activity.effect,
     fatigueDeltaOnComplete: activity.fatigueDeltaOnComplete,
     readinessDeltaOnComplete: activity.readinessDeltaOnComplete,
@@ -162,15 +192,6 @@ export function toPairActivityDTO(
   if (legacy) {
     dto.legacy = true;
     dto.legacySource = 'relationship_activity';
-  }
-
-  if (includeAnswers) {
-    dto.answers = (activity.answers ?? []).map((answer) => ({
-      checkInId: answer.checkInId,
-      by: answer.by,
-      ui: answer.ui,
-      at: toIso(answer.at) ?? '',
-    }));
   }
 
   return dto;

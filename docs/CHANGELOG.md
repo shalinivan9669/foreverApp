@@ -445,3 +445,10 @@ Summary:
 - Reworked pair suggestion generation with idempotency, offered limits, cooldown/deduplication, consent-safe sensitive templates, and a 24-template system fallback catalog.
 - Extended the suggestion response with a typed plan and explanation, updated activity cards with human-readable labels, and aligned pair dashboard current-activity priority.
 Files: src/domain/services/pairActivityDecision.service.ts, src/domain/services/activityOffer.service.ts, src/app/api/pairs/[id]/suggest/route.ts, src/client/api/types.ts, src/client/api/activities.api.ts, src/client/hooks/useActivityOffers.ts, src/client/viewmodels/activity.viewmodels.ts, src/components/activities/ActivityCard.tsx, src/domain/services/pairDashboardSummary.service.ts, scripts/pair-activity-decision.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Added universal activity completion feedback, pair-aware result summaries, replace-on-retry answers, and preliminary one-participant completion.
+- Added bounded result-based vector/readiness/fatigue effects with `activity_completion` snapshots and privacy-safe completion audit metadata.
+- Added result/effect history UI, second-participant result refinement, completion notifications, and recent-result signals for future suggestions.
+Files: scripts/activity-flow.selfcheck.ts, src/app/couple-activity/page.tsx, src/client/api/types.ts, src/components/activities/ActivityCard.tsx, src/components/activities/CheckInModal.tsx, src/domain/services/activities.service.ts, src/domain/services/activityOffer.service.ts, src/features/activities/CoupleActivityView.tsx, src/lib/audit/eventTypes.ts, src/lib/dto/activity.dto.ts, src/models/PairActivity.ts, src/models/VectorSnapshot.ts, src/utils/activities.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md

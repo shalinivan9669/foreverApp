@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { UiErrorState } from '../src/client/api/errors';
 import {
   CONFLICT_RESOLVED_MESSAGE,
@@ -7,6 +9,25 @@ import {
   isConflictResolvedByRefetch,
   toCompleteRetryMessage,
 } from '../src/features/activities/checkinCompleteFlow';
+import {
+  UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS,
+  activityEffectMultiplier,
+  buildActivityResultSummary,
+  effectiveActivityCheckIns,
+  replaceActivityAnswers,
+  scaleActivityPairDeltas,
+} from '../src/utils/activities';
+
+const feedback = (
+  by: 'A' | 'B',
+  values: [number, number, number, number]
+) =>
+  UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS.map((checkIn, index) => ({
+    checkInId: checkIn.id,
+    by,
+    ui: values[index],
+    at: new Date('2026-06-05T00:00:00.000Z'),
+  }));
 
 const makeError = (input: Partial<UiErrorState>): UiErrorState => ({
   kind: 'generic',
@@ -88,6 +109,74 @@ const run = () => {
     /state has already changed/i,
     'conflict resolved helper message should be user-facing'
   );
+
+  assert.equal(
+    effectiveActivityCheckIns([]).length,
+    4,
+    'activities without custom check-ins should use universal feedback'
+  );
+
+  const oneHigh = buildActivityResultSummary({
+    checkIns: [],
+    answers: feedback('A', [5, 5, 5, 2]),
+  });
+  assert.equal(oneHigh.status, 'completed_partial');
+  assert.equal(oneHigh.submittedCount, 1);
+  assert.equal(oneHigh.bothSubmitted, false);
+
+  const bothHigh = buildActivityResultSummary({
+    checkIns: [],
+    answers: [
+      ...feedback('A', [5, 5, 5, 2]),
+      ...feedback('B', [5, 5, 5, 2]),
+    ],
+  });
+  assert.equal(bothHigh.status, 'completed_success');
+  assert.equal(bothHigh.bothSubmitted, true);
+
+  const bothLow = buildActivityResultSummary({
+    checkIns: [],
+    answers: [
+      ...feedback('A', [1, 1, 1, 1]),
+      ...feedback('B', [1, 1, 1, 1]),
+    ],
+  });
+  assert.equal(bothLow.status, 'failed');
+  assert.equal(
+    activityEffectMultiplier(bothLow),
+    0,
+    'failed activity must not receive positive vector effect'
+  );
+
+  const replaced = replaceActivityAnswers({
+    existing: feedback('A', [1, 1, 1, 1]),
+    incoming: UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS.map((checkIn) => ({
+      checkInId: checkIn.id,
+      ui: checkIn.scale === 'bool' ? 2 : 5,
+    })),
+    role: 'A',
+    at: new Date('2026-06-05T01:00:00.000Z'),
+  });
+  assert.equal(replaced.length, 4, 'retry should replace answers, not append');
+  assert.equal(
+    new Set(replaced.map((answer) => `${answer.by}:${answer.checkInId}`)).size,
+    4
+  );
+
+  const recoveryDeltas = scaleActivityPairDeltas({
+    result: bothHigh,
+    fatigueDelta: -0.2,
+    readinessDelta: 0.2,
+  });
+  assert.equal(recoveryDeltas.fatigueDelta, -0.08);
+  assert.equal(recoveryDeltas.readinessDelta, 0.06);
+
+  const activityUtilsSource = readFileSync(
+    resolve(process.cwd(), 'src/utils/activities.ts'),
+    'utf8'
+  );
+  assert.match(activityUtilsSource, /source: 'activity_completion'/);
+  assert.doesNotMatch(activityUtilsSource, /source: 'manual_recalculation'/);
 
   console.log('Activity flow self-check passed.');
 };

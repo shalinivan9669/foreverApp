@@ -188,7 +188,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               variant="history"
               onAccept={() => undefined}
               onCancel={() => undefined}
-              onComplete={() => undefined}
+              onComplete={() => onOpenCheckIn(item)}
               onSuggestNext={() => undefined}
             />
           ))}

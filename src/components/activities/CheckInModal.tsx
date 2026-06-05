@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 type I18nText = Record<string, string>;
 type CheckIn = {
@@ -39,32 +39,32 @@ export default function CheckInModal(props: {
 
   const t = (txt?: I18nText) => (txt ? txt[locale] ?? txt.en ?? Object.values(txt)[0] : '');
 
-  const initialAnswers = useMemo(
-    () => Object.fromEntries(activityItem.checkIns.map((checkIn) => [checkIn.id, 1])) as Record<string, number>,
-    [activityItem.checkIns]
-  );
-
-  const answersRef = useRef<Record<string, number>>(initialAnswers);
+  const [answers, setAnswers] =
+    useState<Partial<Record<string, number>>>({});
 
   useEffect(() => {
-    answersRef.current = initialAnswers;
-  }, [initialAnswers, activityItem._id]);
+    setAnswers({});
+  }, [activityItem._id]);
 
   const handleChange = (id: string, ui: number) => {
     if (submitting || pendingComplete) return;
-    answersRef.current[id] = ui;
+    setAnswers((current) => ({ ...current, [id]: ui }));
   };
 
   const submit = () => {
     if (submitting || pendingComplete) return;
-    const answers: CheckInAnswer[] = activityItem.checkIns.map((checkIn) => ({
+    if (activityItem.checkIns.some((checkIn) => !answers[checkIn.id])) return;
+    const submittedAnswers: CheckInAnswer[] = activityItem.checkIns.map((checkIn) => ({
       checkInId: checkIn.id,
-      ui: Number(answersRef.current[checkIn.id] ?? 1),
+      ui: Number(answers[checkIn.id]),
     }));
-    onSubmit(answers);
+    onSubmit(submittedAnswers);
   };
 
   const closeDisabled = submitting || retryCompleteLoading;
+  const allAnswered = activityItem.checkIns.every(
+    (checkIn) => typeof answers[checkIn.id] === 'number'
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-2 sm:items-center sm:p-3">
@@ -80,6 +80,10 @@ export default function CheckInModal(props: {
             x
           </button>
         </div>
+        <p className="app-muted mt-2 text-sm">
+          Ответ нужен, чтобы понять, подошла ли задача вашей паре. Партнёр увидит
+          только общий результат, не ваши отдельные ответы.
+        </p>
 
         {pendingComplete && pendingCompleteMessage && (
           <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -99,35 +103,39 @@ export default function CheckInModal(props: {
                       <input
                         name={checkIn.id}
                         type="radio"
-                        defaultChecked={ui === 1}
+                        checked={answers[checkIn.id] === ui}
                         disabled={submitting || pendingComplete}
                         onChange={() => handleChange(checkIn.id, ui)}
                       />
                       {ui}
                     </label>
                   ))}
+                  <div className="app-muted basis-full text-xs">
+                    1 — скорее нет или стало хуже, 5 — скорее да или стало лучше
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-3">
-                  <label className="flex items-center gap-1 text-xs">
-                    <input
-                      name={checkIn.id}
-                      type="radio"
-                      defaultChecked
-                      disabled={submitting || pendingComplete}
-                      onChange={() => handleChange(checkIn.id, 1)}
-                    />
-                    Да
-                  </label>
-                  <label className="flex items-center gap-1 text-xs">
-                    <input
-                      name={checkIn.id}
-                      type="radio"
-                      disabled={submitting || pendingComplete}
-                      onChange={() => handleChange(checkIn.id, 2)}
-                    />
-                    Нет
-                  </label>
+                  {[1, 2].map((ui) => {
+                    const otherUi = ui === 1 ? 2 : 1;
+                    const label =
+                      (checkIn.map[ui - 1] ?? 0) >=
+                      (checkIn.map[otherUi - 1] ?? 0)
+                        ? 'Да'
+                        : 'Нет';
+                    return (
+                      <label key={ui} className="flex items-center gap-1 text-xs">
+                        <input
+                          name={checkIn.id}
+                          type="radio"
+                          checked={answers[checkIn.id] === ui}
+                          disabled={submitting || pendingComplete}
+                          onChange={() => handleChange(checkIn.id, ui)}
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -156,7 +164,7 @@ export default function CheckInModal(props: {
             <button
               type="button"
               onClick={submit}
-              disabled={submitting}
+              disabled={submitting || !allAnswered}
               className="app-btn-primary px-3 py-2 text-white disabled:opacity-60"
             >
               {submitting ? 'Отправка...' : 'Отправить'}

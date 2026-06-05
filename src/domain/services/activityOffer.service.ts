@@ -25,6 +25,7 @@ import {
   type PairActivitySuggestionPlan,
   type SystemActivityTemplate,
 } from '@/domain/services/pairActivityDecision.service';
+import { effectiveActivityCheckIns } from '@/utils/activities';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -44,11 +45,24 @@ type TemplateCandidate = ActivityTemplateType & {
 };
 
 export type PairActivitySuggestionResult = {
-  plan: PairActivitySuggestionPlan;
+  plan: PairActivitySuggestionPlan & {
+    recentActivitySignals: RecentActivitySignals;
+  };
   currentActivity: PairActivityDTO | null;
   offers: PairActivityDTO[];
   createdCount: number;
   skippedReason?: string;
+};
+
+export type RecentActivitySignals = {
+  lastCompletedStatus?: Extract<
+    PairActivityType['status'],
+    'completed_success' | 'completed_partial' | 'failed'
+  >;
+  lastAxis?: Axis[];
+  lastArchetype?: PairActivityType['archetype'];
+  lowComfortRecently: boolean;
+  wantsSimilarRecently: boolean;
 };
 
 const ACTIVE_STATUSES: PairActivityType['status'][] = [
@@ -160,6 +174,73 @@ const emitSuggestionsGenerated = async (input: {
 const readTemplateId = (activity: Pick<PairActivityType, 'stateMeta'>): string | null => {
   const value = activity.stateMeta?.templateId;
   return typeof value === 'string' && value.trim() ? value : null;
+};
+
+const recentActivitySignals = (
+  recentActivities: StoredActivity[]
+): RecentActivitySignals => {
+  const latest = recentActivities.find((activity) =>
+    ['completed_success', 'completed_partial', 'failed'].includes(activity.status)
+  );
+  return {
+    lastCompletedStatus: latest?.status as RecentActivitySignals['lastCompletedStatus'],
+    lastAxis: latest?.axis,
+    lastArchetype: latest?.archetype,
+    lowComfortRecently:
+      typeof latest?.resultSummary?.comfortAvg === 'number' &&
+      latest.resultSummary.comfortAvg < 0.4,
+    wantsSimilarRecently:
+      typeof latest?.resultSummary?.wantsSimilarRatio === 'number' &&
+      latest.resultSummary.wantsSimilarRatio >= 0.65,
+  };
+};
+
+const applyRecentActivitySignals = (
+  plan: PairActivitySuggestionPlan,
+  signals: RecentActivitySignals
+): PairActivitySuggestionResult['plan'] => {
+  const preferredArchetypes = [...plan.preferredArchetypes];
+  if (
+    signals.wantsSimilarRecently &&
+    signals.lastArchetype &&
+    preferredArchetypes.includes(signals.lastArchetype)
+  ) {
+    preferredArchetypes.splice(preferredArchetypes.indexOf(signals.lastArchetype), 1);
+    preferredArchetypes.unshift(signals.lastArchetype);
+  }
+  if (
+    signals.lastCompletedStatus === 'failed' &&
+    signals.lastArchetype &&
+    preferredArchetypes.length > 1
+  ) {
+    const index = preferredArchetypes.indexOf(signals.lastArchetype);
+    if (index >= 0) {
+      preferredArchetypes.splice(index, 1);
+      preferredArchetypes.push(signals.lastArchetype);
+    }
+  }
+
+  const lowComfortNote = signals.lowComfortRecently
+    ? ' Недавний формат был не очень комфортным, поэтому новые варианты сделаны мягче.'
+    : '';
+  const failedNote =
+    signals.lastCompletedStatus === 'failed'
+      ? ' Предыдущий формат не дал устойчивого результата и не повторяется сразу.'
+      : '';
+
+  return {
+    ...plan,
+    preferredDifficulty: signals.lowComfortRecently
+      ? Math.min(plan.preferredDifficulty, 2) as 1 | 2 | 3 | 4 | 5
+      : plan.preferredDifficulty,
+    maxIntensity: signals.lowComfortRecently ? 1 : plan.maxIntensity,
+    preferredArchetypes,
+    explanation: {
+      ...plan.explanation,
+      ru: `${plan.explanation.ru}${lowComfortNote}${failedNote}`,
+    },
+    recentActivitySignals: signals,
+  };
 };
 
 const diagnosticsFromPair = (pair: {
@@ -378,7 +459,7 @@ const createOffer = async (input: {
       apiSource: input.source,
       ...(stepsPreview ? { stepsPreview } : {}),
     },
-    checkIns: candidate.checkIns,
+    checkIns: effectiveActivityCheckIns(candidate.checkIns),
     effect: candidate.effect,
     fatigueDeltaOnComplete: fallback.fatigueDeltaOnComplete,
     readinessDeltaOnComplete: fallback.readinessDeltaOnComplete,
@@ -425,15 +506,18 @@ const smartSuggest = async (
       .lean<StoredActivity[]>(),
   ]);
 
-  const plan = buildPairActivitySuggestionPlan({
-    pairId: String(pairId),
-    pairStatus: pair.status,
-    fatigue: pair.fatigue?.score,
-    readiness: pair.readiness?.score,
-    diagnostics: diagnosticsFromPair(pair),
-    weekly,
-    hasCurrentActivity: Boolean(current),
-  });
+  const plan = applyRecentActivitySignals(
+    buildPairActivitySuggestionPlan({
+      pairId: String(pairId),
+      pairStatus: pair.status,
+      fatigue: pair.fatigue?.score,
+      readiness: pair.readiness?.score,
+      diagnostics: diagnosticsFromPair(pair),
+      weekly,
+      hasCurrentActivity: Boolean(current),
+    }),
+    recentActivitySignals(recent)
+  );
   const requestedCount = input.count
     ? Math.min(3, Math.max(0, input.count))
     : targetCountForPlan(plan, offered.length);
@@ -676,7 +760,7 @@ export const activityOfferService = {
           ? { stepsPreview: buildStepsPreview(candidate) }
           : {}),
       },
-      checkIns: candidate.checkIns,
+      checkIns: effectiveActivityCheckIns(candidate.checkIns),
       effect: candidate.effect,
       fatigueDeltaOnComplete: fallback.fatigueDeltaOnComplete,
       readinessDeltaOnComplete: fallback.readinessDeltaOnComplete,

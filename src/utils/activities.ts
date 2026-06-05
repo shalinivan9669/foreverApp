@@ -1,8 +1,13 @@
 import { Types } from 'mongoose';
 import { User } from '@/models/User';
-import { Pair } from '@/models/Pair'; // нужен value-импорт, т.к. используем typeof Pair ниже
+import { Pair } from '@/models/Pair';
 import { VectorSnapshot, type VectorSnapshotType } from '@/models/VectorSnapshot';
-import type { CheckInTpl, EffectTpl, Axis } from '@/models/ActivityTemplate'; 
+import type { CheckInTpl, EffectTpl, Axis } from '@/models/ActivityTemplate';
+import type {
+  ActivityCompletedStatus,
+  ActivityResultSummary,
+  Answer,
+} from '@/models/PairActivity';
 import {
   DEFAULT_SCORING_CONFIG,
   createVectorSnapshot,
@@ -10,121 +15,396 @@ import {
   recalculateDisplayedVector,
 } from '@/domain/services/vectorScoring.service';
 
-export const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+export const clamp = (x: number, a = 0, b = 1) =>
+  Math.max(a, Math.min(b, x));
 
-export function normalizeUI(ci: CheckInTpl, ui: number): number {
-  const idx = Math.max(0, Math.min((ui ?? 1) - 1, ci.map.length - 1));
-  const num = ci.map[idx];              // -3..3
-  return Math.abs(num) / 3;             // 0..1
+export const UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS: CheckInTpl[] = [
+  {
+    id: 'usefulness',
+    scale: 'likert5',
+    text: {
+      ru: 'Насколько это было полезно?',
+      en: 'How useful was this?',
+    },
+    map: [-2, -1, 0, 1, 2],
+    weight: 1.2,
+  },
+  {
+    id: 'comfort',
+    scale: 'likert5',
+    text: {
+      ru: 'Насколько комфортно это было?',
+      en: 'How comfortable was this?',
+    },
+    map: [-2, -1, 0, 1, 2],
+    weight: 1,
+  },
+  {
+    id: 'tension',
+    scale: 'likert5',
+    text: {
+      ru: 'После задания стало спокойнее или напряжённее?',
+      en: 'Did it reduce or increase tension?',
+    },
+    map: [-2, -1, 0, 1, 2],
+    weight: 1,
+  },
+  {
+    id: 'want_similar',
+    scale: 'bool',
+    text: {
+      ru: 'Хотите похожие задания в будущем?',
+      en: 'Would you like similar activities in the future?',
+    },
+    map: [0, 1],
+    weight: 0.6,
+  },
+];
+
+export const effectiveActivityCheckIns = (
+  checkIns?: CheckInTpl[]
+): CheckInTpl[] =>
+  checkIns?.length ? checkIns : UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS;
+
+export const replaceActivityAnswers = (input: {
+  existing: Answer[];
+  incoming: Array<{ checkInId: string; ui: number }>;
+  role: 'A' | 'B';
+  at: Date;
+}): Answer[] => {
+  const incomingIds = new Set(input.incoming.map((answer) => answer.checkInId));
+  return [
+    ...input.existing.filter(
+      (answer) =>
+        answer.by !== input.role || !incomingIds.has(answer.checkInId)
+    ),
+    ...input.incoming.map((answer) => ({
+      ...answer,
+      by: input.role,
+      at: input.at,
+    })),
+  ];
+};
+
+export function normalizeUI(checkIn: CheckInTpl, ui: number): number {
+  const idx = Math.max(0, Math.min((ui ?? 1) - 1, checkIn.map.length - 1));
+  const value = checkIn.map[idx] ?? 0;
+  const min = Math.min(...checkIn.map);
+  const max = Math.max(...checkIn.map);
+  if (min === max) return value > 0 ? 1 : 0;
+  return clamp((value - min) / (max - min));
 }
 
 export function successScore(
   checkIns: CheckInTpl[],
   answers: Array<{ checkInId: string; by: 'A' | 'B'; ui: number }>
 ): number {
-  if (!checkIns.length) return 1;
+  if (!checkIns.length) return 0;
 
   const grouped = new Map<string, number[]>();
-
-  for (const a of answers) {
-    const ci = checkIns.find(c => c.id === a.checkInId);
-    if (!ci) continue;
-    const v = normalizeUI(ci, a.ui);
-    grouped.set(ci.id, [...(grouped.get(ci.id) ?? []), v]);
+  for (const answer of answers) {
+    const checkIn = checkIns.find((item) => item.id === answer.checkInId);
+    if (!checkIn) continue;
+    const value = normalizeUI(checkIn, answer.ui);
+    grouped.set(checkIn.id, [...(grouped.get(checkIn.id) ?? []), value]);
   }
 
-  let num = 0, den = 0;
-
-  for (const ci of checkIns) {
-    const vals = grouped.get(ci.id) ?? [];
-    if (!vals.length) continue;
-    const v = vals.reduce((s, x) => s + x, 0) / vals.length;
-    const w = ci.weight ?? 1;
-    num += v * w;
-    den += w;
+  let numerator = 0;
+  let denominator = 0;
+  for (const checkIn of checkIns) {
+    const values = grouped.get(checkIn.id) ?? [];
+    if (!values.length) continue;
+    const value =
+      values.reduce((sum, current) => sum + current, 0) / values.length;
+    const weight = checkIn.weight ?? 1;
+    numerator += value * weight;
+    denominator += weight;
   }
 
-  return den ? clamp(num / den) : 0;
+  return denominator ? clamp(numerator / denominator) : 0;
 }
 
-// допускаем целевой участник в эффекте (опционально)
-type Eff = EffectTpl & { target?: 'A' | 'B' | 'both' };
+const averageForCheckIn = (
+  checkIns: CheckInTpl[],
+  answers: Answer[],
+  checkInId: string
+): number | undefined => {
+  const checkIn = checkIns.find((item) => item.id === checkInId);
+  if (!checkIn) return undefined;
+  const values = answers
+    .filter((answer) => answer.checkInId === checkInId)
+    .map((answer) => normalizeUI(checkIn, answer.ui));
+  if (!values.length) return undefined;
+  return clamp(values.reduce((sum, value) => sum + value, 0) / values.length);
+};
+
+const roleScore = (
+  checkIns: CheckInTpl[],
+  answers: Answer[],
+  role: 'A' | 'B'
+): number | undefined => {
+  const roleAnswers = answers.filter((answer) => answer.by === role);
+  return roleAnswers.length ? successScore(checkIns, roleAnswers) : undefined;
+};
+
+const resultExplanation = (
+  status: ActivityCompletedStatus,
+  bothSubmitted: boolean
+): ActivityResultSummary['effectExplanation'] => {
+  if (!bothSubmitted) {
+    return {
+      ru: 'Результат предварительный: ответил один участник. Эффект применён осторожно.',
+      en: 'The result is preliminary because one participant responded. The effect was limited.',
+    };
+  }
+  if (status === 'completed_success') {
+    return {
+      ru: 'Активность подошла хорошо. Состояние пары обновлено умеренно.',
+      en: 'The activity worked well. The pair state was updated moderately.',
+    };
+  }
+  if (status === 'failed') {
+    return {
+      ru: 'Формат не дал устойчивого положительного результата. Положительный эффект не применён.',
+      en: 'The format did not produce a reliable positive result. No positive effect was applied.',
+    };
+  }
+  return {
+    ru: 'Активность подошла частично. Следующий формат лучше сделать мягче.',
+    en: 'The activity worked partially. A gentler next format is preferable.',
+  };
+};
+
+export const buildActivityResultSummary = (input: {
+  checkIns?: CheckInTpl[];
+  answers?: Answer[];
+  completedAt?: Date;
+}): ActivityResultSummary => {
+  const checkIns = effectiveActivityCheckIns(input.checkIns);
+  const answers = input.answers ?? [];
+  const submittedBy = (['A', 'B'] as const).filter((role) =>
+    answers.some((answer) => answer.by === role)
+  );
+  const bothSubmitted = submittedBy.length === 2;
+  const score = successScore(checkIns, answers);
+  const usefulnessAvg = averageForCheckIn(checkIns, answers, 'usefulness');
+  const comfortAvg = averageForCheckIn(checkIns, answers, 'comfort');
+  const calmnessAvg = averageForCheckIn(checkIns, answers, 'tension');
+  const tensionAvg =
+    typeof calmnessAvg === 'number' ? clamp(1 - calmnessAvg) : undefined;
+  const wantsSimilarRatio = averageForCheckIn(
+    checkIns,
+    answers,
+    'want_similar'
+  );
+  const aScore = roleScore(checkIns, answers, 'A');
+  const bScore = roleScore(checkIns, answers, 'B');
+  const strongDivergence =
+    typeof aScore === 'number' &&
+    typeof bScore === 'number' &&
+    Math.abs(aScore - bScore) >= 0.35;
+  const clearlyNegative =
+    bothSubmitted &&
+    (score < 0.35 ||
+      (typeof comfortAvg === 'number' && comfortAvg < 0.3) ||
+      (typeof tensionAvg === 'number' && tensionAvg > 0.7));
+
+  let status: ActivityCompletedStatus = 'completed_partial';
+  if (clearlyNegative) {
+    status = 'failed';
+  } else if (bothSubmitted && score >= 0.7 && !strongDivergence) {
+    status = 'completed_success';
+  }
+
+  return {
+    submittedBy,
+    submittedCount: submittedBy.length,
+    bothSubmitted,
+    successScore: clamp(score),
+    status,
+    usefulnessAvg,
+    comfortAvg,
+    tensionAvg,
+    wantsSimilarRatio,
+    effectApplied: false,
+    effect: {
+      fatigueDelta: 0,
+      readinessDelta: 0,
+      axisDeltas: [],
+    },
+    effectExplanation: resultExplanation(status, bothSubmitted),
+    completedAt: input.completedAt,
+    resultVersion: 'activity-result-v1',
+  };
+};
+
+export const activityEffectMultiplier = (
+  result: Pick<
+    ActivityResultSummary,
+    'successScore' | 'status' | 'bothSubmitted' | 'comfortAvg'
+  >
+): number => {
+  if (result.status === 'failed') return 0;
+  if (typeof result.comfortAvg === 'number' && result.comfortAvg < 0.35) {
+    return 0;
+  }
+  const score = result.successScore;
+  const base =
+    score >= 0.75 ? 1 : score >= 0.5 ? 0.5 : score >= 0.35 ? 0.15 : 0;
+  return result.bothSubmitted ? base : Math.min(base, 0.5);
+};
+
+export const scaleActivityPairDeltas = (input: {
+  result: Pick<
+    ActivityResultSummary,
+    'successScore' | 'status' | 'bothSubmitted' | 'comfortAvg'
+  >;
+  fatigueDelta: number;
+  readinessDelta: number;
+}): { fatigueDelta: number; readinessDelta: number } => {
+  const multiplier = activityEffectMultiplier(input.result);
+  return {
+    fatigueDelta: clamp(input.fatigueDelta * multiplier, -0.08, 0.08),
+    readinessDelta:
+      input.result.status === 'failed'
+        ? Math.min(0, input.readinessDelta)
+        : clamp(input.readinessDelta * multiplier, -0.06, 0.06),
+  };
+};
+
+type EffectWithTarget = EffectTpl & { target?: 'A' | 'B' | 'both' };
 
 export async function applyEffects(params: {
   pairDoc: InstanceType<typeof Pair>;
   members: [Types.ObjectId, Types.ObjectId];
-  effect: Eff[];
-  success: number;              // 0..1
+  effect: EffectWithTarget[];
+  result: ActivityResultSummary;
   fatigueDelta?: number;
   readinessDelta?: number;
-}) {
-  const { pairDoc, members, effect, success, fatigueDelta = 0, readinessDelta = 0 } = params;
-
+  activityId: string;
+  templateId?: string;
+  primaryReason?: string;
+}): Promise<ActivityResultSummary['effect']> {
+  const {
+    pairDoc,
+    members,
+    effect,
+    result,
+    fatigueDelta = 0,
+    readinessDelta = 0,
+  } = params;
+  const multiplier = activityEffectMultiplier(result);
   const users = await User.find({ _id: { $in: members } });
-  const difficultyK = 1;                                   // место для усложнения
-  const fatigueK = 1 - Math.pow(pairDoc.fatigue?.score ?? 0, 2); // сильная усталость режет прирост
-
+  const usersById = new Map(users.map((user) => [String(user._id), user]));
+  const fatigueFactor = 1 - Math.pow(pairDoc.fatigue?.score ?? 0, 2);
   const updatedAt = new Date();
   const vectorSnapshots: VectorSnapshotType[] = [];
+  const axisDeltaTotals = new Map<Axis, { total: number; count: number }>();
 
-  for (const eff of effect) {
-    const delta = eff.baseDelta * (0.5 + 0.5 * success) * difficultyK * fatigueK;
+  for (const item of effect) {
+    const delta = item.baseDelta * multiplier * fatigueFactor;
 
-    const bump = (u: (typeof users)[number]) => {
-      const axis = eff.axis as Axis;
-      const v = u.vectors[axis];
-      const before = readAxisLayer(u, axis, 'trait');
-      const nextLevel = clamp(v.level * 0.9 + delta * 0.1);
-      v.level = nextLevel;
-      if (success >= 0.6 && eff.facetsAdd?.length) {
-        v.positives = Array.from(new Set([...(v.positives ?? []), ...eff.facetsAdd]));
-      }
-      if (success < 0.35 && eff.facetsRemove?.length) {
-        v.negatives = Array.from(new Set([...(v.negatives ?? []), ...eff.facetsRemove]));
+    const bump = (user: (typeof users)[number]) => {
+      const axis = item.axis as Axis;
+      const vector = user.vectors[axis];
+      const before = readAxisLayer(user, axis, 'trait');
+      const nextLevel = clamp(vector.level + delta * 0.1);
+      const appliedDelta = nextLevel - before.level;
+      vector.level = nextLevel;
+      if (
+        result.successScore >= 0.6 &&
+        multiplier > 0 &&
+        item.facetsAdd?.length
+      ) {
+        vector.positives = Array.from(
+          new Set([...(vector.positives ?? []), ...item.facetsAdd])
+        );
       }
       const after = {
         ...before,
         level: nextLevel,
-        positives: v.positives ?? [],
-        negatives: v.negatives ?? [],
+        positives: vector.positives ?? [],
+        negatives: vector.negatives ?? [],
         scoringVersion: DEFAULT_SCORING_CONFIG.key,
         updatedAt,
       };
-      v.trait = after;
-      v.displayed = {
+      vector.trait = after;
+      vector.displayed = {
         ...recalculateDisplayedVector(after),
         updatedAt,
       };
-      vectorSnapshots.push(
-        createVectorSnapshot({
-          userId: u.id,
-          pairId: String(pairDoc._id),
-          layer: 'trait',
-          axis,
-          before,
-          after,
-          reason: {
-            source: 'manual_recalculation',
-          },
-          scoringVersion: DEFAULT_SCORING_CONFIG.key,
-          createdAt: updatedAt,
-        })
-      );
+
+      const snapshot = createVectorSnapshot({
+        userId: user.id,
+        pairId: String(pairDoc._id),
+        layer: 'trait',
+        axis,
+        before,
+        after,
+        reason: {
+          source: 'activity_completion',
+        },
+        scoringVersion: DEFAULT_SCORING_CONFIG.key,
+        createdAt: updatedAt,
+      });
+      snapshot.reason.activityId = params.activityId;
+      snapshot.reason.resultVersion = result.resultVersion;
+      snapshot.reason.successScore = result.successScore;
+      snapshot.reason.status = result.status;
+      snapshot.reason.primaryReason = params.primaryReason;
+      snapshot.reason.templateId = params.templateId;
+      vectorSnapshots.push(snapshot);
+
+      const current = axisDeltaTotals.get(axis) ?? { total: 0, count: 0 };
+      axisDeltaTotals.set(axis, {
+        total: current.total + appliedDelta,
+        count: current.count + 1,
+      });
     };
 
-    const tgt: 'A' | 'B' | 'both' = eff.target ?? 'both';
-    if (tgt === 'A') bump(users[0]);
-    else if (tgt === 'B') bump(users[1]);
-    else { bump(users[0]); bump(users[1]); }
+    const target = item.target ?? 'both';
+    const userA = usersById.get(String(members[0]));
+    const userB = usersById.get(String(members[1]));
+    if (target === 'A' && userA) {
+      bump(userA);
+    } else if (target === 'B' && userB) {
+      bump(userB);
+    } else {
+      if (userA) bump(userA);
+      if (userB) bump(userB);
+    }
   }
 
-  await Promise.all(users.map(u => u.save()));
+  await Promise.all(users.map((user) => user.save()));
   if (vectorSnapshots.length > 0) {
     await VectorSnapshot.insertMany(vectorSnapshots);
   }
 
-  // усталость/готовность пары
-  pairDoc.fatigue = { score: clamp((pairDoc.fatigue?.score ?? 0) + (fatigueDelta ?? 0)), updatedAt };
-  pairDoc.readiness = { score: clamp((pairDoc.readiness?.score ?? 0) + (readinessDelta ?? 0)), updatedAt };
+  const scaledPairDeltas = scaleActivityPairDeltas({
+    result,
+    fatigueDelta,
+    readinessDelta,
+  });
+  const previousFatigue = pairDoc.fatigue?.score ?? 0;
+  const previousReadiness = pairDoc.readiness?.score ?? 0;
+  const nextFatigue = clamp(previousFatigue + scaledPairDeltas.fatigueDelta);
+  const nextReadiness = clamp(
+    previousReadiness + scaledPairDeltas.readinessDelta
+  );
+  pairDoc.fatigue = { score: nextFatigue, updatedAt };
+  pairDoc.readiness = { score: nextReadiness, updatedAt };
+  pairDoc.progress = {
+    streak: pairDoc.progress?.streak ?? 0,
+    completed: (pairDoc.progress?.completed ?? 0) + 1,
+  };
   await pairDoc.save();
+
+  return {
+    fatigueDelta: nextFatigue - previousFatigue,
+    readinessDelta: nextReadiness - previousReadiness,
+    axisDeltas: Array.from(axisDeltaTotals.entries()).map(([axis, value]) => ({
+      axis,
+      delta: value.count ? value.total / value.count : 0,
+    })),
+  };
 }

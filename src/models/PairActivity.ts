@@ -8,6 +8,38 @@ export interface Answer {
   at: Date;
 }
 
+export type ActivityCompletedStatus =
+  | 'completed_success'
+  | 'completed_partial'
+  | 'failed';
+
+export interface ActivityResultSummary {
+  submittedBy: Array<'A' | 'B'>;
+  submittedCount: number;
+  bothSubmitted: boolean;
+  successScore: number;
+  status: ActivityCompletedStatus;
+  usefulnessAvg?: number;
+  comfortAvg?: number;
+  tensionAvg?: number;
+  wantsSimilarRatio?: number;
+  effectApplied: boolean;
+  effect: {
+    fatigueDelta: number;
+    readinessDelta: number;
+    axisDeltas: Array<{
+      axis: Axis;
+      delta: number;
+    }>;
+  };
+  effectExplanation: {
+    ru: string;
+    en?: string;
+  };
+  completedAt?: Date;
+  resultVersion: 'activity-result-v1';
+}
+
 export interface PairActivityType {
   pairId: Types.ObjectId;
   members: [Types.ObjectId, Types.ObjectId];
@@ -53,6 +85,7 @@ export interface PairActivityType {
   answers?: Answer[];
   successScore?: number;
   effect?: Effect[];
+  resultSummary?: ActivityResultSummary;
 
   fatigueDeltaOnComplete?: number;
   readinessDeltaOnComplete?: number;
@@ -69,6 +102,57 @@ const AnswerSchema = new Schema<Answer>(
     by:        { type: String, enum: ['A','B'], required: true },
     ui:        { type: Number, required: true },
     at:        { type: Date,   required: true },
+  },
+  { _id: false }
+);
+
+const ActivityResultSummarySchema = new Schema<ActivityResultSummary>(
+  {
+    submittedBy: { type: [String], enum: ['A', 'B'], default: [] },
+    submittedCount: { type: Number, required: true, min: 0, max: 2 },
+    bothSubmitted: { type: Boolean, required: true },
+    successScore: { type: Number, required: true, min: 0, max: 1 },
+    status: {
+      type: String,
+      enum: ['completed_success', 'completed_partial', 'failed'],
+      required: true,
+    },
+    usefulnessAvg: { type: Number, min: 0, max: 1 },
+    comfortAvg: { type: Number, min: 0, max: 1 },
+    tensionAvg: { type: Number, min: 0, max: 1 },
+    wantsSimilarRatio: { type: Number, min: 0, max: 1 },
+    effectApplied: { type: Boolean, required: true, default: false },
+    effect: {
+      fatigueDelta: { type: Number, required: true, default: 0 },
+      readinessDelta: { type: Number, required: true, default: 0 },
+      axisDeltas: {
+        type: [
+          new Schema(
+            {
+              axis: {
+                type: String,
+                enum: ['communication', 'domestic', 'personalViews', 'finance', 'sexuality', 'psyche'],
+                required: true,
+              },
+              delta: { type: Number, required: true },
+            },
+            { _id: false }
+          ),
+        ],
+        default: [],
+      },
+    },
+    effectExplanation: {
+      ru: { type: String, required: true },
+      en: { type: String },
+    },
+    completedAt: { type: Date },
+    resultVersion: {
+      type: String,
+      enum: ['activity-result-v1'],
+      required: true,
+      default: 'activity-result-v1',
+    },
   },
   { _id: false }
 );
@@ -133,6 +217,7 @@ const PairActivitySchema = new Schema<PairActivityType>(
     answers:  { type: [AnswerSchema],  default: [] },
     successScore: { type: Number },
     effect:      { type: [EffectSchema], default: [] },
+    resultSummary: { type: ActivityResultSummarySchema },
 
     fatigueDeltaOnComplete:   { type: Number },
     readinessDeltaOnComplete: { type: Number },
