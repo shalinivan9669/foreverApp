@@ -37,11 +37,15 @@ HTTP status must remain semantic. The envelope does not replace `400`, `401`, `4
 
 ## Active endpoint notes
 
-- `GET /api/users/[id]` is a public read endpoint and returns only public user DTO fields.
+- `GET /api/users/[id]` requires session auth and returns only public user DTO fields.
 - By-id user writes are self-only. The authenticated subject comes from `requireSession`; a mismatched `params.id` returns `403 ACCESS_DENIED`.
 - Self writes should use `/api/users/me` and `/api/users/me/onboarding`.
+- User profile writes (`/api/users`, `/api/users/me`, `/api/users/[id]`) do not accept `vectors` or `embeddings`; vector changes must go through scoring services and `VectorSnapshot` persistence.
 - `GET /api/users/me` includes private DTO fields and a derived `profileStatus`: `auth_created`, `onboarding_started`, or `complete`.
-- `POST /api/exchange-code` validates client `redirect_uri` against `DISCORD_REDIRECT_URI`, falling back to `NEXT_PUBLIC_DISCORD_REDIRECT_URI`. Mismatch returns `400 INVALID_REDIRECT_URI`.
+- User profile `location`, when provided, must be a strict GeoJSON `Point` with longitude/latitude bounds.
+- `POST /api/exchange-code` validates client `redirect_uri` against `DISCORD_REDIRECT_URI`, falling back to `NEXT_PUBLIC_DISCORD_REDIRECT_URI`. Mismatch returns `400 INVALID_REDIRECT_URI`. The response includes the Discord `access_token` for SDK authentication and a minimal `{ id, username, avatar }` user profile so the browser does not need a second direct Discord API call.
+- `POST /api/entitlements/grant` requires `x-entitlements-admin-key` when `ENTITLEMENTS_ADMIN_KEY` is configured. Without a configured key, it is available only from localhost in non-production.
+- Closed-beta content endpoints (`GET /api/activity-templates`, `GET /api/questionnaires`, `GET /api/questionnaires/[id]`, `GET /api/questions`) require session auth even when they return only catalog/scoring content.
 - `POST /api/match/like` accepts `agreements` and `answers` because they are persisted on the Like as the initiator response snapshot fields.
 - Like `matchScore` is computed from existing vector distance scoring. If either side has no usable vectors yet, create-like returns score `0` instead of a placeholder.
 - `POST /api/match/confirm` transitions the Like from `mutual_ready` to `paired` with an atomic `findOneAndUpdate` scoped by like id, initiator id, and status before Pair upsert/activation.

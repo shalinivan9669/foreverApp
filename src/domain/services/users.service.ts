@@ -9,9 +9,7 @@ export type UserProfileUpsertPayload = {
   username?: UserType['username'];
   avatar?: UserType['avatar'];
   personal?: UserType['personal'];
-  vectors?: Record<string, JsonValue>;
   preferences?: UserType['preferences'];
-  embeddings?: UserType['embeddings'];
   location?: UserType['location'];
 };
 
@@ -26,9 +24,7 @@ const profileUpsertFields = [
   'username',
   'avatar',
   'personal',
-  'vectors',
   'preferences',
-  'embeddings',
   'location',
 ] as const;
 

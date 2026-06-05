@@ -6,8 +6,13 @@
 - Client-provided `userId`, `fromId`, and `actorId` are not authoritative.
 - By-id write endpoints must be self-only or admin-only.
 - Public endpoints must make their public scope explicit.
-- `GET /api/users/[id]` is public read only; by-id `PUT` and onboarding `PATCH` must reject actor/target mismatches with `ACCESS_DENIED`.
+- `GET /api/users/[id]` requires session auth and returns public DTO fields only; by-id `PUT` and onboarding `PATCH` must reject actor/target mismatches with `ACCESS_DENIED`.
 - `/api/exchange-code` must not trust client `redirect_uri`. It is accepted only when it exactly matches `DISCORD_REDIRECT_URI` or the existing `NEXT_PUBLIC_DISCORD_REDIRECT_URI` fallback.
+- `/api/exchange-code` may return the Discord `access_token` only for Discord SDK authentication. Browser code should use the backend-provided minimal Discord profile instead of making extra direct Discord API calls with that token. Token responses must be `no-store`.
+- User profile write endpoints must not accept `vectors` or `embeddings`; vector writes must go through scoring code and snapshot persistence.
+- `/api/entitlements/grant` must require `ENTITLEMENTS_ADMIN_KEY` when configured. Unkeyed access is local-development only.
+- Closed-beta content endpoints that expose questionnaires, questions, or activity templates should require session auth; questionnaire/question DTOs contain product scoring metadata.
+- Security headers should preserve Discord iframe embedding. Do not add `X-Frame-Options`; use CSP `frame-ancestors` instead.
 
 ## Resource authorization
 

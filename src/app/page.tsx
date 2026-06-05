@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import Spinner from '@/components/ui/Spinner';
-import { discordApi } from '@/client/api/discord.api';
 import { usersApi } from '@/client/api/users.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
-type DiscordProfile = Awaited<ReturnType<typeof discordApi.getCurrentUser>>;
+type DiscordProfile = {
+  id: string;
+  username: string;
+  avatar: string;
+};
 
 export default function DiscordActivityPage() {
   const [discordUser, setDiscordUser] = useState<DiscordProfile | null>(null);
@@ -44,16 +47,14 @@ export default function DiscordActivityPage() {
 
         await sdk.commands.authenticate({ access_token: tokenData.access_token });
 
-        const profile = await discordApi.getCurrentUser(tokenData.access_token);
+        const profile = tokenData.user;
         await usersApi.upsertCurrentUserProfile({
           username: profile.username,
           avatar: profile.avatar,
         });
         setDiscordUser(profile);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error(e);
-        setError(msg);
+      } catch {
+        setError('Не удалось подключить Discord профиль. Попробуйте ещё раз.');
       }
     }
 

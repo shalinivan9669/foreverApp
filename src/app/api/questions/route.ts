@@ -7,6 +7,7 @@ import type { PipelineStage } from 'mongoose';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
 import { toQuestionDTO } from '@/lib/dto';
+import { requireSession } from '@/lib/auth/guards';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -18,6 +19,9 @@ const querySchema = z
   .passthrough();
 
 export async function GET(req: NextRequest) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const query = parseQuery(req, querySchema);
   if (!query.ok) return query.response;
 

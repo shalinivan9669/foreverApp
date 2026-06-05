@@ -6,6 +6,7 @@ import type { QuestionnaireType } from '@/models/Questionnaire';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
 import { toQuestionnaireDTO } from '@/lib/dto';
+import { requireSession } from '@/lib/auth/guards';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -18,6 +19,9 @@ const querySchema = z
 
 // GET /api/questionnaires?target=couple|individual
 export async function GET(req: NextRequest) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const query = parseQuery(req, querySchema);
   if (!query.ok) return query.response;
 

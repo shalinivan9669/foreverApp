@@ -14,10 +14,17 @@ import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 const userUpdateSchema = z
   .object({
     personal: z.object({}).passthrough().optional(),
-    vectors: z.object({}).passthrough().optional(),
     preferences: z.object({}).passthrough().optional(),
-    embeddings: z.object({}).passthrough().optional(),
-    location: z.object({}).passthrough().optional(),
+    location: z
+      .object({
+        type: z.literal('Point'),
+        coordinates: z.tuple([
+          z.number().min(-180).max(180),
+          z.number().min(-90).max(90),
+        ]),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

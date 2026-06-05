@@ -133,6 +133,20 @@ export async function POST(req: Request) {
     return jsonError(502, 'DISCORD_USER_ID_MISSING', 'missing discord user id');
   }
 
+  const username =
+    isJsonObject(userData) && typeof userData.username === 'string'
+      ? userData.username
+      : undefined;
+  if (!username) {
+    await recordAuthFailure('discord_username_missing', 502);
+    return jsonError(502, 'DISCORD_USERNAME_MISSING', 'missing discord username');
+  }
+
+  const avatar =
+    isJsonObject(userData) && typeof userData.avatar === 'string'
+      ? userData.avatar
+      : '';
+
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     await recordAuthFailure('jwt_secret_missing', 500);
@@ -140,7 +154,16 @@ export async function POST(req: Request) {
   }
 
   const token = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days
-  const res = jsonOk({ access_token: accessToken });
+  const res = jsonOk({
+    access_token: accessToken,
+    user: {
+      id: userId,
+      username,
+      avatar,
+    },
+  });
+  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.headers.set('Pragma', 'no-cache');
   const forwardedProto = req.headers.get('x-forwarded-proto');
   const requestProtocol = (() => {
     try {

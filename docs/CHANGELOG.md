@@ -400,3 +400,16 @@ Summary:
 - Moved pair passport/diagnostic thresholds to a domain service on the `0..1` scale and stopped pair questionnaire answers from mutating user trait vectors.
 - Added profile-summary v2 axis confidence/data-status fields and targeted vector/pair diagnostic selfchecks.
 Files: eslint.config.mjs, package.json, src/models/User.ts, src/models/Pair.ts, src/models/VectorSnapshot.ts, src/models/ScoringVersion.ts, src/domain/services/vectorScoring.service.ts, src/domain/services/pairDiagnostics.service.ts, src/domain/services/pairs.service.ts, src/domain/services/match.service.ts, src/domain/services/questionnaires.service.ts, src/domain/services/users.service.ts, src/domain/vectors/apply.ts, src/lib/audit/eventTypes.ts, src/lib/mongodb.ts, src/app/api/exchange-code/route.ts, src/app/api/users/me/profile-summary/route.ts, src/app/api/pairs/[id]/diagnostics/route.ts, scripts/vector-scoring.selfcheck.ts, scripts/pair-diagnostics.selfcheck.ts, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Updated vulnerable direct dependencies and removed unused `next-auth`, eliminating the vulnerable `uuid` chain.
+- Blocked client profile writes to `vectors` and `embeddings`, tightened `location` validation, and kept vector mutations behind scoring/snapshot services.
+- Hardened entitlement grants with constant-time admin key comparison and local-only unkeyed development access; reduced browser Discord token exposure by returning a minimal profile from `/api/exchange-code`.
+- Marked `/api/exchange-code` token responses as non-cacheable.
+- Required session auth for closed-beta catalog/questionnaire/question endpoints that expose product content or scoring metadata.
+- Required session auth for `GET /api/users/[id]` to avoid unauthenticated user enumeration while preserving public-scope DTO output.
+- Added baseline security headers while preserving Discord iframe embedding via CSP instead of `X-Frame-Options`.
+- Removed the unused browser-side direct Discord API helper so access-token usage stays in the SDK authentication path.
+- Ignored generated `next-env.d.ts` in ESLint so Next route-type references do not break source linting.
+Files: eslint.config.mjs, next.config.ts, package.json, package-lock.json, next-auth.d.ts, tsconfig.json, scripts/security-critical.selfcheck.ts, src/app/api/activity-templates/route.ts, src/app/api/entitlements/grant/route.ts, src/app/api/exchange-code/route.ts, src/app/api/questionnaires/route.ts, src/app/api/questionnaires/[id]/route.ts, src/app/api/questions/route.ts, src/app/api/users/route.ts, src/app/api/users/me/route.ts, src/app/api/users/[id]/route.ts, src/app/page.tsx, src/client/api/discord.api.ts, src/client/api/types.ts, src/domain/services/users.service.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md

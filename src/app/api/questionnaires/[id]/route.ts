@@ -52,9 +52,12 @@ const singleAnswerSchema = z
 const bodySchema = z.union([answersSchema, singleAnswerSchema]);
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: RouteContext
 ) {
+  const auth = requireSession(req);
+  if (!auth.ok) return auth.response;
+
   const paramsInput = await context.params;
   const rawId = paramsInput.id;
   const normalizedId =

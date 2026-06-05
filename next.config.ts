@@ -1,4 +1,18 @@
 /** @type {import('next').NextConfig} */
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'no-referrer' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  ...(process.env.NODE_ENV === 'production'
+    ? [
+        {
+          key: 'Strict-Transport-Security',
+          value: 'max-age=31536000; includeSubDomains; preload',
+        },
+      ]
+    : []),
+];
+
 module.exports = {
   images: {
     remotePatterns: [
@@ -25,6 +39,7 @@ module.exports = {
       {
         source: '/(.*)',   // можно делать уже конкретнее, но для начала —
         headers: [
+          ...securityHeaders,
           {
             key: 'Content-Security-Policy',
             // Включаем свой домен (self) и домен Discord

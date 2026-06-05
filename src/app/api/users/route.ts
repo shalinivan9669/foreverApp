@@ -20,15 +20,23 @@ const personalSchema = z
   })
   .passthrough();
 
+const locationSchema = z
+  .object({
+    type: z.literal('Point'),
+    coordinates: z.tuple([
+      z.number().min(-180).max(180),
+      z.number().min(-90).max(90),
+    ]),
+  })
+  .strict();
+
 const userUpdateSchema = z
   .object({
     username: z.string().optional(),
     avatar: z.string().min(1).nullable().optional(),
     personal: personalSchema.optional(),
-    vectors: z.object({}).passthrough().optional(),
     preferences: z.object({}).passthrough().optional(),
-    embeddings: z.object({}).passthrough().optional(),
-    location: z.object({}).passthrough().optional(),
+    location: locationSchema.optional(),
   })
   .strict();
 

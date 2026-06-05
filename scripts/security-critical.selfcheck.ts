@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { matchTransition } from '../src/domain/state/matchMachine';
 import { getUserProfileStatus, toUserDTO } from '../src/lib/dto/user.dto';
 
 const readProjectFile = (path: string): string =>
   readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+const extractBetween = (source: string, start: string, end: string): string => {
+  const startIndex = source.indexOf(start);
+  assert.ok(startIndex >= 0, `missing source marker: ${start}`);
+  const endIndex = source.indexOf(end, startIndex);
+  assert.ok(endIndex > startIndex, `missing source marker: ${end}`);
+  return source.slice(startIndex, endIndex);
+};
 
 const isAllowedRedirect = (redirectUri: string, expectedRedirectUri: string | null): boolean =>
   expectedRedirectUri !== null && redirectUri === expectedRedirectUri;
@@ -28,6 +36,51 @@ const run = () => {
     /currentUserId:\s*userId/,
     '/api/users/me should pass the session user id into the service'
   );
+
+  const usersRoute = readProjectFile('src/app/api/users/route.ts');
+  const usersByIdRoute = readProjectFile('src/app/api/users/[id]/route.ts');
+  assert.match(
+    usersByIdRoute,
+    /export async function GET\(req: NextRequest[\s\S]*requireSession\(req\)/,
+    'GET /api/users/[id] should require session auth to prevent unauthenticated user enumeration'
+  );
+  assert.match(
+    usersByIdRoute,
+    /toUserDTO\(doc,\s*{\s*scope:\s*'public'\s*}\)/,
+    'GET /api/users/[id] should keep returning only public DTO fields'
+  );
+  const userProfileUpsertType = extractBetween(
+    readProjectFile('src/client/api/types.ts'),
+    'export type UserProfileUpsertRequest',
+    'export type UserOnboardingSeekingPatch'
+  );
+  for (const [name, source] of [
+    ['users.service', usersService],
+    ['/api/users', usersRoute],
+    ['/api/users/me', usersMeRoute],
+    ['/api/users/[id]', usersByIdRoute],
+    ['UserProfileUpsertRequest', userProfileUpsertType],
+  ] as const) {
+    assert.doesNotMatch(
+      source,
+      /\bvectors\b/,
+      `${name} must not accept direct profile vector writes`
+    );
+    assert.doesNotMatch(
+      source,
+      /\bembeddings\b/,
+      `${name} must not accept direct profile embedding writes`
+    );
+  }
+  for (const [name, source] of [
+    ['/api/users', usersRoute],
+    ['/api/users/me', usersMeRoute],
+    ['/api/users/[id]', usersByIdRoute],
+  ] as const) {
+    assert.match(source, /type:\s*z\.literal\('Point'\)/, `${name} should require GeoJSON Point`);
+    assert.match(source, /z\.number\(\)\.min\(-180\)\.max\(180\)/, `${name} should bound longitude`);
+    assert.match(source, /z\.number\(\)\.min\(-90\)\.max\(90\)/, `${name} should bound latitude`);
+  }
 
   const publicUser = toUserDTO(
     {
@@ -126,8 +179,119 @@ const run = () => {
   );
   assert.match(
     exchangeCodeRoute,
+    /DISCORD_REDIRECT_URI_NOT_SET/,
+    'OAuth exchange should fail closed when the expected redirect_uri is not configured'
+  );
+  assert.match(
+    exchangeCodeRoute,
     /metadata:\s*{\s*reason,\s*status,\s*}/,
     'OAuth audit failure metadata should stay reason/status only'
+  );
+  assert.match(
+    exchangeCodeRoute,
+    /user:\s*{[\s\S]*id:\s*userId,[\s\S]*username,[\s\S]*avatar,[\s\S]*}/,
+    'exchange-code should return a minimal Discord profile so browser code avoids a second tokened Discord API call'
+  );
+  assert.match(
+    exchangeCodeRoute,
+    /Cache-Control',\s*'no-store,\s*no-cache,\s*must-revalidate'/,
+    'exchange-code token response should not be cached'
+  );
+
+  const appPage = readProjectFile('src/app/page.tsx');
+  assert.equal(
+    existsSync(new URL('../src/client/api/discord.api.ts', import.meta.url)),
+    false,
+    'client direct Discord API helper should stay removed'
+  );
+  assert.doesNotMatch(
+    appPage,
+    /discordApi\.getCurrentUser/,
+    'client OAuth flow should not call Discord API directly with the access token'
+  );
+  assert.doesNotMatch(
+    appPage,
+    /console\.error/,
+    'client OAuth flow should not log raw errors that may contain token or request details'
+  );
+
+  const entitlementsGrantRoute = readProjectFile('src/app/api/entitlements/grant/route.ts');
+  assert.match(
+    entitlementsGrantRoute,
+    /timingSafeEqual/,
+    'entitlements admin key comparison should use timing-safe comparison'
+  );
+  assert.match(
+    entitlementsGrantRoute,
+    /process\.env\.ENTITLEMENTS_ADMIN_KEY\?\.trim\(\)/,
+    'entitlements grant should respect the configured admin key in every environment'
+  );
+  assert.match(
+    entitlementsGrantRoute,
+    /process\.env\.NODE_ENV !== 'production' && isLocalRequest\(req\)/,
+    'unkeyed entitlement grants should be local-development only'
+  );
+  assert.doesNotMatch(
+    entitlementsGrantRoute,
+    /NODE_ENV !== 'production'[\s\S]{0,80}return true/,
+    'non-production entitlement grants must not be globally open'
+  );
+
+  for (const routePath of [
+    'src/app/api/activity-templates/route.ts',
+    'src/app/api/questionnaires/route.ts',
+    'src/app/api/questionnaires/[id]/route.ts',
+    'src/app/api/questions/route.ts',
+  ]) {
+    const routeSource = readProjectFile(routePath);
+    assert.match(
+      routeSource,
+      /requireSession/,
+      `${routePath} should require session auth for closed-beta content`
+    );
+    assert.match(
+      routeSource,
+      /if \(!auth\.ok\) return auth\.response/,
+      `${routePath} should return the centralized auth response`
+    );
+  }
+
+  const nextConfig = readProjectFile('next.config.ts');
+  assert.match(
+    nextConfig,
+    /X-Content-Type-Options[\s\S]*nosniff/,
+    'Next config should send a MIME-sniffing protection header'
+  );
+  assert.match(
+    nextConfig,
+    /Referrer-Policy[\s\S]*no-referrer/,
+    'Next config should send a strict referrer policy'
+  );
+  assert.match(
+    nextConfig,
+    /Permissions-Policy/,
+    'Next config should send a restrictive permissions policy'
+  );
+  assert.doesNotMatch(
+    nextConfig,
+    /X-Frame-Options/,
+    'Discord embedded app should not set X-Frame-Options; use CSP frame-ancestors instead'
+  );
+  assert.match(
+    nextConfig,
+    /frame-ancestors 'self' https:\/\/discord\.com/,
+    'CSP should preserve Discord iframe embedding'
+  );
+
+  const packageJson = readProjectFile('package.json');
+  const tsconfigJson = readProjectFile('tsconfig.json');
+  const packageLock = readProjectFile('package-lock.json');
+  assert.doesNotMatch(packageJson, /"next-auth"/, 'unused next-auth dependency should stay removed');
+  assert.doesNotMatch(tsconfigJson, /next-auth/, 'tsconfig should not reference removed next-auth types');
+  assert.doesNotMatch(
+    packageLock,
+    /node_modules\/next-auth/,
+    'package-lock should not include the removed next-auth dependency'
   );
 
   assert.throws(

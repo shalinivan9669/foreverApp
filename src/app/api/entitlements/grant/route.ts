@@ -1,5 +1,6 @@
 // DTO rule: return only DTO/view model (never raw DB model shape).
 import { NextRequest } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { parseJson, parseQuery } from '@/lib/api/validate';
 import { jsonError, jsonOk } from '@/lib/api/response';
@@ -19,17 +20,30 @@ const bodySchema = z
   })
   .strict();
 
-const canGrant = (req: NextRequest): boolean => {
-  if (process.env.NODE_ENV !== 'production') {
-    return true;
-  }
-
-  const configuredKey = process.env.ENTITLEMENTS_ADMIN_KEY;
-  if (!configuredKey) {
+const isLocalRequest = (req: NextRequest): boolean => {
+  try {
+    const hostname = new URL(req.url).hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
     return false;
   }
+};
 
-  return req.headers.get(ADMIN_HEADER) === configuredKey;
+const safeCompare = (left: string, right: string): boolean => {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const canGrant = (req: NextRequest): boolean => {
+  const configuredKey = process.env.ENTITLEMENTS_ADMIN_KEY?.trim();
+  if (!configuredKey) {
+    return process.env.NODE_ENV !== 'production' && isLocalRequest(req);
+  }
+
+  const providedKey = req.headers.get(ADMIN_HEADER)?.trim() ?? '';
+  return safeCompare(providedKey, configuredKey);
 };
 
 export async function POST(req: NextRequest) {

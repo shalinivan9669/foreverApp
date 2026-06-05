@@ -80,10 +80,11 @@ export type UserProfileUpsertRequest = {
     city?: string;
     relationshipStatus?: 'seeking' | 'in_relationship';
   };
-  vectors?: Record<string, ApiJsonValue>;
   preferences?: Record<string, ApiJsonValue>;
-  embeddings?: Record<string, ApiJsonValue>;
-  location?: Record<string, ApiJsonValue>;
+  location?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
 };
 
 export type UserOnboardingSeekingPatch = {
@@ -582,6 +583,11 @@ export type ExchangeCodeRequest = {
 
 export type ExchangeCodeResponse = {
   access_token: string;
+  user: {
+    id: string;
+    username: string;
+    avatar: string;
+  };
 };
 
 export type EntitlementsGrantRequest = {
