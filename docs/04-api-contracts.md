@@ -194,6 +194,20 @@ Compatibility notes:
 - Existing `currentPair` remains, but it can now represent a paused pair as well as an active pair.
 - `/profile/profile` is no longer a placeholder; it displays account details, product status, profile completion, match-card status, and passport data summary from the same DTO.
 
+## Update 2026-06-05 (Paired User State & Contribution Dashboard)
+
+`GET /api/users/me/profile-summary` now also returns `pairedProfileState`:
+
+- `null` for solo users.
+- Object for paired active/paused users with `myWeeklyCheckIn`, `pairWeeklyCheckIn`, `myActivityState`, `contribution`, and `resourceMessage`.
+- Weekly fields reuse the pair weekly check-in summary service and never expose raw weekly notes or raw Mongoose documents.
+- Activity fields are read-only summary fields for the current pair activity; this does not change Activity Completion lifecycle.
+- `resourceMessage` uses safe non-medical wording only.
+
+`nextStep` for paired active users now prioritizes missing weekly check-in, activity feedback, current activity, weak passport, then opening the pair. Paired paused users keep `resume_pair`.
+
+The `/profile` UI now splits into a solo dashboard and paired dashboard. Paired users see relationship state, contribution, weekly check-in, pair/activity shortcuts, passport, and insights instead of the solo personal-activity placeholder.
+
 ## Update 2026-02-07 (Core Refactor: Domain Services + Idempotency)
 
 ### Thin controller contract for critical mutations

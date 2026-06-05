@@ -7,6 +7,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like } from '@/models/Like';
+import { PairActivity, type PairActivityType } from '@/models/PairActivity';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
@@ -27,6 +28,12 @@ import {
   toLegacyProfileStatus,
   type PassportCompletionAxisInput,
 } from '@/domain/services/userProfileSummary.service';
+import { buildPairWeeklyCheckInSummary } from '@/domain/services/weeklyCheckIn.service';
+import {
+  buildMyActivityState,
+  buildPairedProfileNextStep,
+  buildPairedProfileState,
+} from '@/domain/services/pairedUserProfileState.service';
 
 type Axis =
   | 'communication'
@@ -48,6 +55,7 @@ const AXES: Axis[] = [
 // Local type extensions (to avoid changing models in this pass).
 type PairLean = PairType & { _id: Types.ObjectId; createdAt: Date };
 type UserExtra = Partial<{
+  _id: Types.ObjectId;
   streak: { individual: number };
   completed: { individual: number };
   readiness: { score: number; updatedAt: Date };
@@ -63,6 +71,44 @@ type PassportAxisSummary = {
   positives: string[];
   negatives: string[];
   dataStatus: 'enough' | 'low_confidence' | 'missing';
+};
+
+type PairActivityLean = PairActivityType & {
+  _id: Types.ObjectId;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+const currentActivityStatuses: PairActivityType['status'][] = [
+  'offered',
+  'accepted',
+  'in_progress',
+  'awaiting_checkin',
+  'completed_partial',
+];
+
+const activityTitle = (activity: PairActivityLean | null): string | undefined => {
+  const title = activity?.title?.ru?.trim() || activity?.title?.en?.trim();
+  return title && title.length > 0 ? title : undefined;
+};
+
+const submittedByFromActivity = (activity: PairActivityLean | null): Array<'A' | 'B'> => {
+  if (!activity) return [];
+  if (activity.resultSummary?.submittedBy.length) {
+    return [...activity.resultSummary.submittedBy];
+  }
+  return Array.from(new Set((activity.answers ?? []).map((answer) => answer.by)));
+};
+
+const roleForUser = (
+  activity: PairActivityLean | null,
+  userObjectId: Types.ObjectId | undefined
+): 'A' | 'B' | undefined => {
+  if (!activity || !userObjectId) return undefined;
+  const currentId = String(userObjectId);
+  if (String(activity.members[0]) === currentId) return 'A';
+  if (String(activity.members[1]) === currentId) return 'B';
+  return undefined;
 };
 
 // GET /api/users/me/profile-summary
@@ -280,11 +326,62 @@ export async function GET(req: NextRequest) {
     matchCard: user.profile?.matchCard ?? null,
     passportAxes: passportCompletionAxes,
   });
-  const nextStep = buildProfileNextStep({
+  const pairObjectId = currentPair?.id && Types.ObjectId.isValid(currentPair.id)
+    ? new Types.ObjectId(currentPair.id)
+    : null;
+  const [pairDocForWeekly, currentPairActivity] =
+    profileMode.kind === 'paired' && currentPair
+      ? await Promise.all([
+          Pair.findById(currentPair.id),
+          pairObjectId
+            ? PairActivity.findOne({
+                pairId: pairObjectId,
+                status: { $in: currentActivityStatuses },
+              })
+                .sort({ updatedAt: -1 })
+                .lean<PairActivityLean | null>()
+            : Promise.resolve(null),
+        ])
+      : [null, null];
+  const weeklySummary =
+    pairDocForWeekly && currentPair
+      ? await buildPairWeeklyCheckInSummary({
+          pair: pairDocForWeekly,
+          currentUserId: userId,
+        })
+      : null;
+  const myActivityState = buildMyActivityState(
+    currentPairActivity
+      ? {
+          hasCurrentActivity: true,
+          currentActivityId: String(currentPairActivity._id),
+          currentActivityTitle: activityTitle(currentPairActivity),
+          status: currentPairActivity.status,
+          currentUserRole: roleForUser(currentPairActivity, user._id),
+          submittedBy: submittedByFromActivity(currentPairActivity),
+        }
+      : null
+  );
+  const pairedProfileState =
+    profileMode.kind === 'paired' && currentPair
+      ? buildPairedProfileState({
+          pairId: currentPair.id,
+          pairStatus: currentPair.status,
+          weeklySummary,
+          myActivityState,
+        })
+      : null;
+  const baseNextStep = buildProfileNextStep({
     mode: profileMode,
     completion: profileCompletion,
     relationshipContext,
   });
+  const nextStep =
+    buildPairedProfileNextStep({
+      mode: profileMode,
+      completion: profileCompletion,
+      pairedProfileState,
+    }) ?? baseNextStep;
 
   const payload = {
     user: {
@@ -318,6 +415,7 @@ export async function GET(req: NextRequest) {
     relationshipContext,
     profileMode,
     profileCompletion,
+    pairedProfileState,
     nextStep,
     metrics: {
       streak: { individual: user.streak?.individual ?? 0 },

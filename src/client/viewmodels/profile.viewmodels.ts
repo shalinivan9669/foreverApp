@@ -37,6 +37,7 @@ type ProfileSummaryInput = {
   profileCompletion?: Partial<ProfileSummaryDTO['profileCompletion']> & {
     sections?: Partial<ProfileSummaryDTO['profileCompletion']['sections']>;
   };
+  pairedProfileState?: Partial<NonNullable<ProfileSummaryDTO['pairedProfileState']>> | null;
   nextStep?: Partial<ProfileSummaryDTO['nextStep']>;
   metrics?: {
     streak?: {
@@ -290,6 +291,8 @@ const normalizeNextStep = (
     'resume_pair',
     'weekly_checkin',
     'questionnaire',
+    'activity_feedback',
+    'open_activity',
   ];
   const kind = input?.kind && allowedKinds.includes(input.kind) ? input.kind : fallback.kind;
   const priority =
@@ -304,6 +307,85 @@ const normalizeNextStep = (
     href: asString(input?.href) ?? fallback.href,
     ctaLabel: asString(input?.ctaLabel) ?? fallback.ctaLabel,
     priority,
+  };
+};
+
+const normalizeOptionalNumber = (value: number | undefined): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+const normalizeStringList = (value: string[] | undefined): string[] =>
+  value?.map((item) => item.trim()).filter((item) => item.length > 0) ?? [];
+
+const normalizePairedProfileState = (
+  input: ProfileSummaryInput['pairedProfileState']
+): ProfileSummaryDTO['pairedProfileState'] => {
+  if (!input) return null;
+  const pairId = asString(input.pairId);
+  if (!pairId || (input.pairStatus !== 'active' && input.pairStatus !== 'paused')) {
+    return null;
+  }
+
+  const weeklyStatus = input.pairWeeklyCheckIn?.status;
+  const contributionLevel = input.contribution?.level;
+  const resourceTone = input.resourceMessage?.tone;
+
+  return {
+    pairId,
+    pairStatus: input.pairStatus,
+    myWeeklyCheckIn: {
+      weekKey: input.myWeeklyCheckIn?.weekKey ?? '',
+      submitted: asBoolean(input.myWeeklyCheckIn?.submitted),
+      submittedAt: asString(input.myWeeklyCheckIn?.submittedAt),
+      readiness: normalizeOptionalNumber(input.myWeeklyCheckIn?.readiness),
+      fatigue: normalizeOptionalNumber(input.myWeeklyCheckIn?.fatigue),
+      closeness: normalizeOptionalNumber(input.myWeeklyCheckIn?.closeness),
+      irritation: normalizeOptionalNumber(input.myWeeklyCheckIn?.irritation),
+    },
+    pairWeeklyCheckIn: {
+      peerSubmitted: asBoolean(input.pairWeeklyCheckIn?.peerSubmitted),
+      bothSubmitted: asBoolean(input.pairWeeklyCheckIn?.bothSubmitted),
+      hasDivergence: asBoolean(input.pairWeeklyCheckIn?.hasDivergence),
+      status:
+        weeklyStatus === 'partial' ||
+        weeklyStatus === 'complete' ||
+        weeklyStatus === 'divergent' ||
+        weeklyStatus === 'missing'
+          ? weeklyStatus
+          : 'missing',
+    },
+    myActivityState: {
+      hasCurrentActivity: asBoolean(input.myActivityState?.hasCurrentActivity),
+      currentActivityId: asString(input.myActivityState?.currentActivityId),
+      currentActivityTitle: asString(input.myActivityState?.currentActivityTitle),
+      status: asString(input.myActivityState?.status),
+      awaitsMyFeedback: asBoolean(input.myActivityState?.awaitsMyFeedback),
+      awaitsPartnerFeedback: asBoolean(input.myActivityState?.awaitsPartnerFeedback),
+    },
+    contribution: {
+      score: asPercent(input.contribution?.score),
+      level:
+        contributionLevel === 'stable' ||
+        contributionLevel === 'strong' ||
+        contributionLevel === 'low'
+          ? contributionLevel
+          : 'low',
+      completedThisWeek: normalizeStringList(input.contribution?.completedThisWeek),
+      pendingFromMe: normalizeStringList(input.contribution?.pendingFromMe),
+      message: asString(input.contribution?.message) ?? '',
+    },
+    resourceMessage: {
+      tone:
+        resourceTone === 'stable' ||
+        resourceTone === 'tired' ||
+        resourceTone === 'tense' ||
+        resourceTone === 'low_data'
+          ? resourceTone
+          : 'low_data',
+      title: asString(input.resourceMessage?.title) ?? 'Мало данных о состоянии',
+      description:
+        asString(input.resourceMessage?.description) ??
+        'Пройди weekly check-in, чтобы профиль точнее показал твой ресурс в отношениях.',
+    },
   };
 };
 
@@ -354,6 +436,7 @@ export const createEmptyProfileSummary = (): ProfileSummaryDTO => ({
       passport: { score: 0, completed: false, missing: [] },
     },
   },
+  pairedProfileState: null,
   nextStep: {
     kind: 'complete_account',
     title: 'Заполни базовые данные',
@@ -428,6 +511,7 @@ export const normalizeProfileSummary = (
     input.profileCompletion,
     fallback.profileCompletion
   );
+  const pairedProfileState = normalizePairedProfileState(input.pairedProfileState);
   const nextStep = normalizeNextStep(input.nextStep, fallback.nextStep);
 
   return {
@@ -463,6 +547,7 @@ export const normalizeProfileSummary = (
     relationshipContext,
     profileMode,
     profileCompletion,
+    pairedProfileState,
     nextStep,
     metrics: {
       streak: {

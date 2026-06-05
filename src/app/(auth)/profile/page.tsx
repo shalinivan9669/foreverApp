@@ -7,14 +7,10 @@ import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { createEmptyProfileSummary, normalizeProfileSummary } from '@/client/viewmodels';
 
 import BackBar from '@/components/ui/BackBar';
-import ModeAwareProfileOverview from '@/components/profile/ModeAwareProfileOverview';
-import SummaryTiles from '@/components/profile/SummaryTiles';
-import AxisRadar from '@/components/charts/AxisRadar';
-import InsightsList from '@/components/profile/InsightsList';
-import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
-import PreferencesCard from '@/components/profile/PreferencesCard';
-import UserActivityCard from '@/components/activities/UserActivityCard';
-import UserActivitiesPlaceholder from '@/components/activities/UserActivitiesPlaceholder';
+import ModeAwareProfileOverview, {
+  PairedProfileDashboard,
+  SoloProfileDashboard,
+} from '@/components/profile/ModeAwareProfileOverview';
 import Skeleton from '@/components/common/Skeleton';
 
 export default function ProfileOverviewPage() {
@@ -56,8 +52,6 @@ export default function ProfileOverviewPage() {
       active = false;
     };
   }, [currentUser]);
-
-  const ff = data.featureFlags ?? { PERSONAL_ACTIVITIES: false };
 
   if (!currentUser) {
     return (
@@ -102,39 +96,12 @@ export default function ProfileOverviewPage() {
   return (
     <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
       <BackBar title="Профиль" fallbackHref="/main-menu" />
-
       <ModeAwareProfileOverview summary={data} />
-
-      <SummaryTiles metrics={data.metrics} readiness={data.readiness} fatigue={data.fatigue} />
-
-      <WeeklyCheckInCard pairId={data.currentPair?.id} />
-
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="app-panel app-panel-solid p-4">
-          <h2 className="mb-3 text-base font-semibold">Паспорт по осям</h2>
-          <AxisRadar levels={data.passport.levelsByAxis} />
-        </div>
-        <div className="app-panel app-panel-solid p-4">
-          <h2 className="mb-3 text-base font-semibold">Инсайты</h2>
-          <InsightsList items={data.insights} />
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Личная активность</h2>
-        {ff.PERSONAL_ACTIVITIES ? (
-          <UserActivityCard activity={data.activity.current} suggested={data.activity.suggested} />
-        ) : (
-          <UserActivitiesPlaceholder />
-        )}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
-        <div className="app-panel app-panel-solid p-4">
-          <PreferencesCard value={data.matching.filters} />
-        </div>
-      </section>
+      {data.profileMode.kind === 'paired' ? (
+        <PairedProfileDashboard summary={data} />
+      ) : (
+        <SoloProfileDashboard summary={data} />
+      )}
     </main>
   );
 }

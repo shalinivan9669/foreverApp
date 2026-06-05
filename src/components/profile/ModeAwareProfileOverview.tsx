@@ -3,16 +3,34 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ProfileSummaryDTO } from '@/client/api/types';
+import AxisRadar from '@/components/charts/AxisRadar';
+import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
+import UserActivityCard from '@/components/activities/UserActivityCard';
+import UserActivitiesPlaceholder from '@/components/activities/UserActivitiesPlaceholder';
+import InsightsList from '@/components/profile/InsightsList';
+import PreferencesCard from '@/components/profile/PreferencesCard';
+import SummaryTiles from '@/components/profile/SummaryTiles';
 
 type ProfileSummaryProps = {
   summary: ProfileSummaryDTO;
 };
+
+const fallbackAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
 
 const levelLabels: Record<ProfileSummaryDTO['profileCompletion']['level'], string> = {
   empty: 'Пустой',
   basic: 'Базовый',
   good: 'Хороший',
   strong: 'Сильный',
+};
+
+const contributionLevelLabels: Record<
+  NonNullable<ProfileSummaryDTO['pairedProfileState']>['contribution']['level'],
+  string
+> = {
+  low: 'низкий',
+  stable: 'стабильный',
+  strong: 'сильный',
 };
 
 const genderLabels: Record<'male' | 'female', string> = {
@@ -36,12 +54,10 @@ const sectionLabels: Record<
   pairContext: 'Пара',
 };
 
-const fallbackAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
-
 const formatDate = (value?: string): string => {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('ru-RU', {
     day: '2-digit',
     month: 'short',
@@ -50,7 +66,12 @@ const formatDate = (value?: string): string => {
 };
 
 const formatPersonalValue = (value: string | number | null | undefined): string =>
-  value === null || value === undefined || value === '' ? '—' : String(value);
+  value === null || value === undefined || value === '' ? '-' : String(value);
+
+const formatPercent = (value: number | undefined): string =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? `${Math.round(value * 100)}%`
+    : '-';
 
 function ProfileNextStepCard({ nextStep }: { nextStep: ProfileSummaryDTO['nextStep'] }) {
   return (
@@ -243,6 +264,186 @@ export default function ModeAwareProfileOverview({ summary }: ProfileSummaryProp
   );
 }
 
+function PassportAndInsights({ summary }: ProfileSummaryProps) {
+  return (
+    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="app-panel app-panel-solid p-4">
+        <h2 className="mb-3 text-base font-semibold">Паспорт по осям</h2>
+        <AxisRadar levels={summary.passport.levelsByAxis} />
+      </div>
+      <div className="app-panel app-panel-solid p-4">
+        <h2 className="mb-3 text-base font-semibold">Инсайты</h2>
+        <InsightsList items={summary.insights} />
+      </div>
+    </section>
+  );
+}
+
+export function SoloProfileDashboard({ summary }: ProfileSummaryProps) {
+  const ff = summary.featureFlags ?? { PERSONAL_ACTIVITIES: false };
+
+  return (
+    <div className="space-y-4">
+      <SummaryTiles metrics={summary.metrics} readiness={summary.readiness} fatigue={summary.fatigue} />
+      <WeeklyCheckInCard pairId={summary.currentPair?.id} />
+      <PassportAndInsights summary={summary} />
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Личная активность</h2>
+        {ff.PERSONAL_ACTIVITIES ? (
+          <UserActivityCard activity={summary.activity.current} suggested={summary.activity.suggested} />
+        ) : (
+          <UserActivitiesPlaceholder />
+        )}
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Предпочтения партнёра</h2>
+        <div className="app-panel app-panel-solid p-4">
+          <PreferencesCard value={summary.matching.filters} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MyRelationshipStateCard({
+  state,
+}: {
+  state: NonNullable<ProfileSummaryDTO['pairedProfileState']>;
+}) {
+  const checkIn = state.myWeeklyCheckIn;
+  const metrics = [
+    ['Готовность', formatPercent(checkIn.readiness)],
+    ['Усталость', formatPercent(checkIn.fatigue)],
+    ['Раздражение', formatPercent(checkIn.irritation)],
+    ['Близость', formatPercent(checkIn.closeness)],
+  ];
+
+  return (
+    <section className="app-panel app-panel-solid p-4">
+      <div className="app-muted text-xs">Моё состояние сейчас</div>
+      <h2 className="mt-2 text-lg font-semibold">{state.resourceMessage.title}</h2>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {metrics.map(([label, value]) => (
+          <div key={label} className="app-panel-soft app-panel-soft-solid p-3">
+            <div className="app-muted text-xs">{label}</div>
+            <div className="font-semibold">{value}</div>
+          </div>
+        ))}
+      </div>
+      <p className="app-muted mt-4 text-sm">{state.resourceMessage.description}</p>
+      {!checkIn.submitted && (
+        <Link href="/profile#weekly-checkin" className="app-btn-secondary mt-4 inline-flex px-3 py-2 text-sm">
+          Пройти check-in
+        </Link>
+      )}
+    </section>
+  );
+}
+
+function MyContributionPanel({
+  state,
+}: {
+  state: NonNullable<ProfileSummaryDTO['pairedProfileState']>;
+}) {
+  const pendingHref = state.contribution.pendingFromMe.some((item) => item.includes('check-in'))
+    ? '/profile#weekly-checkin'
+    : state.contribution.pendingFromMe.some((item) => item.includes('feedback'))
+      ? '/couple-activity'
+      : `/pair/${state.pairId}`;
+
+  return (
+    <section className="app-panel app-panel-solid p-4">
+      <div className="app-muted text-xs">Мой вклад в пару</div>
+      <h2 className="mt-2 text-lg font-semibold">
+        {state.contribution.score}% · {contributionLevelLabels[state.contribution.level]}
+      </h2>
+      <p className="app-muted mt-2 text-sm">{state.contribution.message}</p>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <div className="text-sm font-medium">Сделано</div>
+          <div className="app-muted mt-2 space-y-1 text-sm">
+            {state.contribution.completedThisWeek.length > 0 ? (
+              state.contribution.completedThisWeek.map((item) => <div key={item}>✓ {item}</div>)
+            ) : (
+              <div>Пока нет отмеченных действий за неделю.</div>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-medium">Ждёт меня</div>
+          <div className="app-muted mt-2 space-y-1 text-sm">
+            {state.contribution.pendingFromMe.length > 0 ? (
+              state.contribution.pendingFromMe.map((item) => <div key={item}>! {item}</div>)
+            ) : (
+              <div>Сейчас нет явных действий, которые ждут именно тебя.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Link href={pendingHref} className="app-btn-secondary mt-4 inline-flex px-3 py-2 text-sm">
+        Открыть следующий шаг
+      </Link>
+    </section>
+  );
+}
+
+function PairProfileShortcutCard({
+  state,
+}: {
+  state: NonNullable<ProfileSummaryDTO['pairedProfileState']>;
+}) {
+  return (
+    <section className="app-panel app-panel-solid p-4">
+      <div className="app-muted text-xs">Пара</div>
+      <h2 className="mt-2 text-lg font-semibold">
+        {state.myActivityState.hasCurrentActivity
+          ? 'Текущая активность пары'
+          : 'Профиль пары'}
+      </h2>
+      <p className="app-muted mt-2 text-sm">
+        {state.myActivityState.currentActivityTitle ??
+          'Открой профиль пары, чтобы увидеть общий контекст и действия.'}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href={`/pair/${state.pairId}`} className="app-btn-secondary px-3 py-2 text-sm">
+          Открыть пару
+        </Link>
+        <Link href="/couple-activity" className="app-btn-secondary px-3 py-2 text-sm">
+          Активность пары
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+export function PairedProfileDashboard({ summary }: ProfileSummaryProps) {
+  const state = summary.pairedProfileState;
+
+  if (!state) {
+    return (
+      <div className="app-panel app-panel-solid p-4 text-sm app-muted">
+        Данных о текущей паре пока нет. Открой профиль пары, чтобы проверить состояние.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <MyRelationshipStateCard state={state} />
+        <MyContributionPanel state={state} />
+      </div>
+      <section id="weekly-checkin">
+        <WeeklyCheckInCard pairId={state.pairId} />
+      </section>
+      <PairProfileShortcutCard state={state} />
+      <PassportAndInsights summary={summary} />
+    </div>
+  );
+}
+
 function DetailsRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-black/5 py-2 text-sm last:border-b-0">
@@ -292,14 +493,14 @@ export function AccountDetailsView({ summary }: ProfileSummaryProps) {
             <DetailsRow label="Город" value={formatPersonalValue(personal.city)} />
             <DetailsRow
               label="Пол"
-              value={personal.gender ? genderLabels[personal.gender] : '—'}
+              value={personal.gender ? genderLabels[personal.gender] : '-'}
             />
             <DetailsRow
               label="Статус отношений"
               value={
                 personal.relationshipStatus
                   ? relationshipStatusLabels[personal.relationshipStatus]
-                  : '—'
+                  : '-'
               }
             />
           </div>

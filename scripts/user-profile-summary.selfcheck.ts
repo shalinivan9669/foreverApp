@@ -5,6 +5,13 @@ import {
   buildRelationshipContext,
   type PassportCompletionAxisInput,
 } from '@/domain/services/userProfileSummary.service';
+import {
+  buildContribution,
+  buildMyActivityState,
+  buildPairedProfileNextStep,
+  buildPairedProfileState,
+  buildResourceMessage,
+} from '@/domain/services/pairedUserProfileState.service';
 
 const assert = (condition: boolean, message: string): void => {
   if (!condition) {
@@ -221,5 +228,200 @@ for (const item of fullSoloCompletion.missing) {
   assert(item.label.length > 0, 'missing item label expected');
   assert(item.href.length > 0, 'missing item href expected');
 }
+
+assert(
+  buildPairedProfileNextStep({
+    mode: soloNewMode,
+    completion: soloNewCompletion,
+    pairedProfileState: null,
+  }) === null,
+  'solo user should not have pairedProfileState next step'
+);
+
+const pairedNoWeeklyState = buildPairedProfileState({
+  pairId: 'active-pair',
+  pairStatus: 'active',
+  weeklySummary: {
+    pairId: 'active-pair',
+    weekKey: '2026-W23',
+    currentUser: { userId: 'u1', submitted: false },
+    peer: { userId: 'u2', submitted: false },
+    pair: {
+      submittedCount: 0,
+      bothSubmitted: false,
+      unresolvedTopicCount: 0,
+      hasDivergence: false,
+      status: 'missing',
+    },
+  },
+  myActivityState: buildMyActivityState(null),
+});
+assert(pairedNoWeeklyState.myWeeklyCheckIn.submitted === false, 'weekly should be missing');
+assert(
+  pairedNoWeeklyState.pairWeeklyCheckIn.status === 'missing',
+  'pair weekly status should be missing'
+);
+assert(
+  buildPairedProfileNextStep({
+    mode: activeMode,
+    completion: activeCompletion,
+    pairedProfileState: pairedNoWeeklyState,
+  })?.kind === 'weekly_checkin',
+  'paired active without weekly should ask for weekly_checkin'
+);
+
+const feedbackActivity = buildMyActivityState({
+  hasCurrentActivity: true,
+  currentActivityId: 'activity-1',
+  currentActivityTitle: 'Activity',
+  status: 'awaiting_checkin',
+  currentUserRole: 'A',
+  submittedBy: ['B'],
+});
+const pairedFeedbackState = buildPairedProfileState({
+  pairId: 'active-pair',
+  pairStatus: 'active',
+  weeklySummary: {
+    pairId: 'active-pair',
+    weekKey: '2026-W23',
+    currentUser: {
+      userId: 'u1',
+      submitted: true,
+      readiness: 0.6,
+      fatigue: 0.3,
+      closeness: 0.7,
+      irritation: 0.2,
+    },
+    peer: { userId: 'u2', submitted: true },
+    pair: {
+      submittedCount: 2,
+      bothSubmitted: true,
+      unresolvedTopicCount: 0,
+      hasDivergence: false,
+      status: 'complete',
+    },
+  },
+  myActivityState: feedbackActivity,
+});
+assert(
+  buildPairedProfileNextStep({
+    mode: activeMode,
+    completion: activeCompletion,
+    pairedProfileState: pairedFeedbackState,
+  })?.kind === 'activity_feedback',
+  'activity awaiting my feedback should be next'
+);
+assert(
+  pairedFeedbackState.contribution.pendingFromMe.includes('Оставить feedback по активности'),
+  'pendingFromMe should contain feedback'
+);
+
+const openActivityState = buildPairedProfileState({
+  pairId: 'active-pair',
+  pairStatus: 'active',
+  weeklySummary: {
+    pairId: 'active-pair',
+    weekKey: '2026-W23',
+    currentUser: { userId: 'u1', submitted: true, readiness: 0.6, fatigue: 0.3 },
+    peer: { userId: 'u2', submitted: true },
+    pair: {
+      submittedCount: 2,
+      bothSubmitted: true,
+      unresolvedTopicCount: 0,
+      hasDivergence: false,
+      status: 'complete',
+    },
+  },
+  myActivityState: buildMyActivityState({
+    hasCurrentActivity: true,
+    currentActivityId: 'activity-2',
+    currentActivityTitle: 'Activity',
+    status: 'in_progress',
+  }),
+});
+assert(
+  buildPairedProfileNextStep({
+    mode: activeMode,
+    completion: activeCompletion,
+    pairedProfileState: openActivityState,
+  })?.kind === 'open_activity',
+  'current activity should become open_activity next step'
+);
+
+const noPendingState = buildPairedProfileState({
+  pairId: 'active-pair',
+  pairStatus: 'active',
+  weeklySummary: {
+    pairId: 'active-pair',
+    weekKey: '2026-W23',
+    currentUser: { userId: 'u1', submitted: true, readiness: 0.6, fatigue: 0.3 },
+    peer: { userId: 'u2', submitted: true },
+    pair: {
+      submittedCount: 2,
+      bothSubmitted: true,
+      unresolvedTopicCount: 0,
+      hasDivergence: false,
+      status: 'complete',
+    },
+  },
+  myActivityState: buildMyActivityState(null),
+});
+assert(
+  buildPairedProfileNextStep({
+    mode: activeMode,
+    completion: activeCompletion,
+    pairedProfileState: noPendingState,
+  })?.kind === 'open_pair',
+  'paired active without pending actions should open pair'
+);
+assert(
+  buildPairedProfileNextStep({
+    mode: pausedMode,
+    completion: pausedCompletion,
+    pairedProfileState: { ...noPendingState, pairStatus: 'paused' },
+  })?.kind === 'resume_pair',
+  'paired paused should keep resume_pair'
+);
+
+assert(buildResourceMessage({ submitted: false }).tone === 'low_data', 'low_data expected');
+assert(
+  buildResourceMessage({ submitted: true, fatigue: 0.8, readiness: 0.5 }).tone === 'tired',
+  'tired expected for high fatigue'
+);
+assert(
+  buildResourceMessage({ submitted: true, fatigue: 0.2, readiness: 0.3 }).tone === 'tired',
+  'tired expected for low readiness'
+);
+assert(
+  buildResourceMessage({ submitted: true, fatigue: 0.2, readiness: 0.7, irritation: 0.7 })
+    .tone === 'tense',
+  'tense expected for high irritation'
+);
+assert(
+  buildResourceMessage({ submitted: true, fatigue: 0.2, readiness: 0.7, irritation: 0.2 })
+    .tone === 'stable',
+  'stable expected for normal values'
+);
+
+const contribution = buildContribution({
+  myWeeklySubmitted: true,
+  bothSubmitted: true,
+  awaitsMyFeedback: false,
+});
+assert(contribution.score >= 0 && contribution.score <= 100, 'contribution score range');
+assert(
+  contribution.level === 'low' ||
+    contribution.level === 'stable' ||
+    contribution.level === 'strong',
+  'contribution level expected'
+);
+assert(
+  contribution.pendingFromMe.every((item) => item.trim().length > 0),
+  'pendingFromMe should not contain empty strings'
+);
+assert(
+  contribution.completedThisWeek.every((item) => item.trim().length > 0),
+  'completedThisWeek should not contain empty strings'
+);
 
 console.log('user-profile-summary selfcheck passed');

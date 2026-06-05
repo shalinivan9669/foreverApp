@@ -71,7 +71,9 @@ HTTP status must remain semantic. The envelope does not replace `400`, `401`, `4
 - Sensitive closeness templates require consent. When diagnostics are missing or the current user has not submitted the weekly check-in, suggestion generation is limited to one low-intensity baseline offer and excludes finance/sexuality topics.
 - Pair readiness/fatigue are recalculated from the available pair-scoped check-ins for the current week. A single response produces an explicit partial state; the previous Pair metric is never treated as the second response.
 - Before deploying pair-scoped weekly writes to an existing database, run `node ./node_modules/tsx/dist/cli.mjs ./scripts/migrate-weekly-checkins-pair-scope.ts`. The idempotent script creates `{ userId, pairId, weekKey }` unique first, removes the legacy `{ userId, weekKey }` unique index, and restores non-unique lookup indexes without modifying documents.
-- `GET /api/users/me/profile-summary` returns account-profile mode fields: `profileMode`, `relationshipContext`, `profileCompletion`, and `nextStep`. Paused pairs are treated as paired mode, `relationshipContext.currentPair` can be active or paused, and ended pairs are history only. Legacy `user.status` and `currentPair` are preserved for compatibility.
+- `GET /api/users/me/profile-summary` returns account-profile mode fields: `profileMode`, `relationshipContext`, `profileCompletion`, `pairedProfileState`, and `nextStep`. Paused pairs are treated as paired mode, `relationshipContext.currentPair` can be active or paused, and ended pairs are history only. Legacy `user.status` and `currentPair` are preserved for compatibility.
+- `pairedProfileState` is `null` for solo users and contains DTO-safe paired-user read-model fields for active/paused pairs: current weekly check-in state, pair weekly status, current pair activity state, contribution score, and a non-medical `resourceMessage`.
+- Profile `nextStep` uses paired context before falling back to generic profile steps: missing weekly check-in, activity feedback, current activity, weak passport, open pair, or paused-pair resume.
 
 ## References
 

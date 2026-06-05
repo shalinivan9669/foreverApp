@@ -831,12 +831,54 @@ export type ProfileNextStepDTO = {
     | 'open_pair'
     | 'resume_pair'
     | 'weekly_checkin'
-    | 'questionnaire';
+    | 'questionnaire'
+    | 'activity_feedback'
+    | 'open_activity';
   title: string;
   description: string;
   href: string;
   ctaLabel: string;
   priority: 1 | 2 | 3;
+};
+
+export type PairedProfileStateDTO = null | {
+  pairId: string;
+  pairStatus: 'active' | 'paused';
+  myWeeklyCheckIn: {
+    weekKey: string;
+    submitted: boolean;
+    submittedAt?: string;
+    readiness?: number;
+    fatigue?: number;
+    closeness?: number;
+    irritation?: number;
+  };
+  pairWeeklyCheckIn: {
+    peerSubmitted: boolean;
+    bothSubmitted: boolean;
+    hasDivergence: boolean;
+    status: 'missing' | 'partial' | 'complete' | 'divergent';
+  };
+  myActivityState: {
+    hasCurrentActivity: boolean;
+    currentActivityId?: string;
+    currentActivityTitle?: string;
+    status?: string;
+    awaitsMyFeedback: boolean;
+    awaitsPartnerFeedback: boolean;
+  };
+  contribution: {
+    score: number;
+    level: 'low' | 'stable' | 'strong';
+    completedThisWeek: string[];
+    pendingFromMe: string[];
+    message: string;
+  };
+  resourceMessage: {
+    tone: 'stable' | 'tired' | 'tense' | 'low_data';
+    title: string;
+    description: string;
+  };
 };
 
 export type ProfileSummaryDTO = {
@@ -856,6 +898,7 @@ export type ProfileSummaryDTO = {
   relationshipContext: RelationshipContextDTO;
   profileMode: ProfileModeDTO;
   profileCompletion: ProfileCompletionDTO;
+  pairedProfileState: PairedProfileStateDTO;
   nextStep: ProfileNextStepDTO;
   metrics: {
     streak: {

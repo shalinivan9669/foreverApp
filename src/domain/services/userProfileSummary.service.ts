@@ -72,7 +72,9 @@ export type ProfileNextStepKind =
   | 'open_pair'
   | 'resume_pair'
   | 'weekly_checkin'
-  | 'questionnaire';
+  | 'questionnaire'
+  | 'activity_feedback'
+  | 'open_activity';
 
 export type ProfileNextStep = {
   kind: ProfileNextStepKind;

@@ -480,3 +480,10 @@ Summary:
 - Fixed paused pairs so they stay in paired mode and expose a paused `currentPair` instead of looking like solo/history.
 - Replaced the `/profile/profile` placeholder with a read-only account details page and added a mode-aware hero/completion/CTA overview to `/profile`.
 Files: package.json, src/app/api/users/me/profile-summary/route.ts, src/domain/services/userProfileSummary.service.ts, src/client/api/types.ts, src/client/viewmodels/profile.viewmodels.ts, src/components/profile/ModeAwareProfileOverview.tsx, src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/profile/page.tsx, scripts/user-profile-summary.selfcheck.ts, docs/API_CONTRACTS.md, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Added `pairedProfileState` to profile-summary with weekly check-in, pair weekly status, read-only activity state, contribution, and safe resource messaging.
+- Made paired active `nextStep` prioritize weekly check-in, activity feedback, current activity, passport completion, and then opening the pair.
+- Split `/profile` into solo and paired dashboards, removing the solo personal-activity placeholder from paired mode.
+Files: src/domain/services/pairedUserProfileState.service.ts, src/domain/services/userProfileSummary.service.ts, src/app/api/users/me/profile-summary/route.ts, src/client/api/types.ts, src/client/viewmodels/profile.viewmodels.ts, src/components/profile/ModeAwareProfileOverview.tsx, src/app/(auth)/profile/page.tsx, scripts/user-profile-summary.selfcheck.ts, docs/API_CONTRACTS.md, docs/04-api-contracts.md, docs/CHANGELOG.md
