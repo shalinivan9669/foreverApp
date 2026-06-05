@@ -212,6 +212,9 @@ export type AuditEventMetadataMap = {
     snapshotCount: number;
     generatedInsightCount: number;
     traitMutationApplied: boolean;
+    submittedCount?: number;
+    bothSubmitted?: boolean;
+    pairStateUpdated: boolean;
   };
 };
 

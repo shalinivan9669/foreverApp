@@ -3,11 +3,13 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
 import { Like } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
-import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
 import type { PairType } from '@/models/Pair';
 import { toLikeSummaryDTO, toPairActivityDTO, toPairDTO, toUserDTO } from '@/lib/dto';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
-import { currentWeekKey } from '@/domain/services/weeklyCheckIn.service';
+import {
+  buildPairWeeklyCheckInSummary,
+  type PairWeeklyCheckInSummaryDTO,
+} from '@/domain/services/weeklyCheckIn.service';
 
 type PairDoc = HydratedDocument<PairType>;
 
@@ -36,6 +38,8 @@ type PairCompactDiagnosticsDTO = {
 type PairNextStepDTO = {
   kind:
     | 'complete_weekly_checkin'
+    | 'wait_or_invite_peer_checkin'
+    | 'review_weekly_divergence'
     | 'complete_current_activity'
     | 'run_pair_diagnostics'
     | 'review_risk_zone'
@@ -180,14 +184,68 @@ const axisLabel = (axis?: string): string => (axis ? AXIS_LABELS[axis] ?? 'эт�
 const buildNextStep = (input: {
   pairId: string;
   diagnostics: PairCompactDiagnosticsDTO;
-  hasCurrentWeeklyCheckIn: boolean;
+  weekly: PairWeeklyCheckInSummaryDTO;
   hasCurrentActivity: boolean;
-  fatigueScore: number;
 }): PairNextStepDTO => {
   const overall = input.diagnostics.overall;
   const topRisk = input.diagnostics.riskZones
     .slice()
     .sort((left, right) => right.severity - left.severity)[0];
+
+  if (!input.weekly.currentUser.submitted) {
+    return {
+      kind: 'complete_weekly_checkin',
+      title: 'Заполните weekly check-in',
+      description:
+        'Короткая еженедельная сверка обновит состояние пары и поможет точнее выбрать следующий шаг.',
+      href: '#weekly-checkin',
+      ctaLabel: 'Перейти к check-in',
+    };
+  }
+
+  if (!input.weekly.peer.submitted) {
+    return {
+      kind: 'wait_or_invite_peer_checkin',
+      title: 'Ответ партнёра пока не готов',
+      description:
+        'Ваш check-in уже сохранён. Сводка пары станет точнее, когда партнёр тоже ответит.',
+      href: '#weekly-checkin',
+      ctaLabel: 'Посмотреть статус',
+    };
+  }
+
+  if (input.weekly.pair.hasDivergence) {
+    return {
+      kind: 'review_weekly_divergence',
+      title: 'Спокойно сверьте состояние недели',
+      description:
+        'По ответам этой недели есть заметное расхождение. Лучше выбрать короткий разговор или лёгкую коммуникационную активность без давления.',
+      href: '/couple-activity',
+      ctaLabel: 'Выбрать лёгкую активность',
+    };
+  }
+
+  if (input.hasCurrentActivity) {
+    return {
+      kind: 'complete_current_activity',
+      title: 'Продолжите текущую активность',
+      description:
+        'У пары уже есть активное действие. Лучше довести его до результата, чем начинать новое.',
+      href: '/couple-activity',
+      ctaLabel: 'Открыть активности',
+    };
+  }
+
+  if ((input.weekly.pair.fatigue ?? 0) >= 0.7) {
+    return {
+      kind: 'suggest_activity',
+      title: 'Выберите лёгкую активность',
+      description:
+        'По ответам этой недели усталость высокая, поэтому лучше взять мягкий формат без тяжёлого разговора.',
+      href: '/couple-activity',
+      ctaLabel: 'Получить активность',
+    };
+  }
 
   if (
     !hasDiagnosticsSignal(input.diagnostics) ||
@@ -205,28 +263,6 @@ const buildNextStep = (input: {
     };
   }
 
-  if (!input.hasCurrentWeeklyCheckIn) {
-    return {
-      kind: 'complete_weekly_checkin',
-      title: 'Заполните weekly check-in',
-      description:
-        'Короткий еженедельный чек-ин обновит состояние пары и поможет подобрать следующий шаг точнее.',
-      href: '#weekly-checkin',
-      ctaLabel: 'Перейти к check-in',
-    };
-  }
-
-  if (input.hasCurrentActivity) {
-    return {
-      kind: 'complete_current_activity',
-      title: 'Продолжите текущую активность',
-      description:
-        'У пары уже есть активное действие. Лучше довести его до результата, чем начинать новое.',
-      href: '/couple-activity',
-      ctaLabel: 'Открыть активности',
-    };
-  }
-
   if (topRisk && topRisk.severity >= 2) {
     return {
       kind: 'review_risk_zone',
@@ -239,17 +275,6 @@ const buildNextStep = (input: {
       ctaLabel: 'Подобрать активность',
       axis: topRisk.axis,
       severity: topRisk.severity,
-    };
-  }
-
-  if (input.fatigueScore >= 0.7) {
-    return {
-      kind: 'suggest_activity',
-      title: 'Выберите лёгкую активность',
-      description:
-        'Усталость сейчас высокая, поэтому лучше взять мягкий формат без тяжёлого разговора.',
-      href: '/couple-activity',
-      ctaLabel: 'Получить активность',
     };
   }
 
@@ -272,9 +297,8 @@ export const buildPairDashboardSummary = async (input: {
   const pair = input.pair;
   const pairId = pair._id as Types.ObjectId;
   const [a, b] = pair.members;
-  const weekKey = currentWeekKey();
 
-  const [current, suggestedCount, lastLike, memberDocs, weeklyCheckInExists] =
+  const [current, suggestedCount, lastLike, memberDocs, weeklySummary] =
     await Promise.all([
       PairActivity.findOne({
         pairId,
@@ -292,7 +316,10 @@ export const buildPairDashboardSummary = async (input: {
       User.find({ id: { $in: pair.members } })
         .select({ id: 1, username: 1, avatar: 1 })
         .lean<PublicUserSource[]>(),
-      WeeklyCheckIn.exists({ userId: input.currentUserId, weekKey }),
+      buildPairWeeklyCheckInSummary({
+        pair,
+        currentUserId: input.currentUserId,
+      }),
     ]);
 
   const memberById = new Map(
@@ -308,9 +335,8 @@ export const buildPairDashboardSummary = async (input: {
   const nextStep = buildNextStep({
     pairId: String(pairId),
     diagnostics,
-    hasCurrentWeeklyCheckIn: Boolean(weeklyCheckInExists),
+    weekly: weeklySummary,
     hasCurrentActivity: Boolean(current),
-    fatigueScore: pair.fatigue?.score ?? 0,
   });
 
   return {
@@ -321,7 +347,7 @@ export const buildPairDashboardSummary = async (input: {
     suggestedCount,
     lastLike: lastLike ? toLikeSummaryDTO(lastLike) : null,
     diagnostics,
-    hasCurrentWeeklyCheckIn: Boolean(weeklyCheckInExists),
+    hasCurrentWeeklyCheckIn: weeklySummary.currentUser.submitted,
     nextStep,
   };
 };

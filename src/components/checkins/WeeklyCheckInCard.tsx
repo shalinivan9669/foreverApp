@@ -7,6 +7,7 @@ import InsightsList from '@/components/profile/InsightsList';
 
 type WeeklyCheckInCardProps = {
   pairId?: string;
+  onSubmitted?: (checkIn: WeeklyCheckInDTO) => void | Promise<void>;
 };
 
 const initialAnswers: WeeklyCheckInAnswersDTO = {
@@ -27,7 +28,10 @@ const fields: Array<{
   { key: 'readiness', label: 'Готовность' },
 ];
 
-export default function WeeklyCheckInCard({ pairId }: WeeklyCheckInCardProps) {
+export default function WeeklyCheckInCard({
+  pairId,
+  onSubmitted,
+}: WeeklyCheckInCardProps) {
   const [answers, setAnswers] = useState<WeeklyCheckInAnswersDTO>(initialAnswers);
   const [current, setCurrent] = useState<WeeklyCheckInDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +68,7 @@ export default function WeeklyCheckInCard({ pairId }: WeeklyCheckInCardProps) {
     try {
       const result = await checkinsApi.submitWeekly({ pairId, answers });
       setCurrent(result);
+      await onSubmitted?.(result);
     } catch {
       setError('Не удалось сохранить weekly check-in. Попробуйте ещё раз.');
     } finally {

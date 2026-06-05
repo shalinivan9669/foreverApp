@@ -1,5 +1,9 @@
 import { http, type HttpRequestOptions } from './http';
-import type { WeeklyCheckInAnswersDTO, WeeklyCheckInDTO } from './types';
+import type {
+  PairWeeklyCheckInSummaryDTO,
+  WeeklyCheckInAnswersDTO,
+  WeeklyCheckInDTO,
+} from './types';
 
 const withSignal = (signal?: AbortSignal): HttpRequestOptions | undefined =>
   signal ? { signal } : undefined;
@@ -15,6 +19,20 @@ export const checkinsApi = {
     const suffix = params.toString();
     return http.get<{ checkIn: WeeklyCheckInDTO | null }>(
       `/api/checkins/weekly/current${suffix ? `?${suffix}` : ''}`,
+      withSignal(signal)
+    );
+  },
+
+  getPairWeeklySummary: (
+    pairId: string,
+    input: { weekKey?: string } = {},
+    signal?: AbortSignal
+  ): Promise<PairWeeklyCheckInSummaryDTO> => {
+    const params = new URLSearchParams();
+    if (input.weekKey) params.set('weekKey', input.weekKey);
+    const suffix = params.toString();
+    return http.get<PairWeeklyCheckInSummaryDTO>(
+      `/api/pairs/${pairId}/weekly-checkin/current${suffix ? `?${suffix}` : ''}`,
       withSignal(signal)
     );
   },

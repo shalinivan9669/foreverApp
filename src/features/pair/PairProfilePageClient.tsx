@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
-import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
+import PairWeeklyCheckInPanel from '@/components/checkins/PairWeeklyCheckInPanel';
 import InsightsList from '@/components/profile/InsightsList';
 import { pairsApi } from '@/client/api/pairs.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
@@ -530,14 +530,12 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section id="weekly-checkin" className="app-reveal scroll-mt-4 space-y-3">
-            <div className="px-1">
-              <h2 className="text-lg font-semibold">Weekly check-in</h2>
-              <p className="app-muted mt-1 text-sm">
-                Короткая проверка недели обновляет готовность, усталость и будущие рекомендации.
-              </p>
-            </div>
-            <WeeklyCheckInCard pairId={pairId} />
+          <section id="weekly-checkin" className="app-reveal scroll-mt-4">
+            <PairWeeklyCheckInPanel
+              pairId={pairId}
+              pairStatus={data.pair.status}
+              onSummaryChanged={() => load(pairId)}
+            />
           </section>
 
           <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">

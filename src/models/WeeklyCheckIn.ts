@@ -58,8 +58,9 @@ const weeklyCheckInSchema = new Schema<WeeklyCheckInType>(
   { collection: 'weekly_checkins', timestamps: true }
 );
 
-weeklyCheckInSchema.index({ userId: 1, weekKey: 1 }, { unique: true });
+weeklyCheckInSchema.index({ userId: 1, pairId: 1, weekKey: 1 }, { unique: true });
 weeklyCheckInSchema.index({ pairId: 1, weekKey: 1 });
+weeklyCheckInSchema.index({ userId: 1, weekKey: 1 });
 
 export const WeeklyCheckIn =
   (mongoose.models.WeeklyCheckIn as mongoose.Model<WeeklyCheckInType>) ||

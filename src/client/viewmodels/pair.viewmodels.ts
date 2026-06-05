@@ -312,6 +312,8 @@ const normalizeNextStep = (nextStep?: Partial<PairNextStepDTO> | null): PairNext
   const kind = nextStep?.kind;
   const normalizedKind =
     kind === 'complete_weekly_checkin' ||
+    kind === 'wait_or_invite_peer_checkin' ||
+    kind === 'review_weekly_divergence' ||
     kind === 'complete_current_activity' ||
     kind === 'run_pair_diagnostics' ||
     kind === 'review_risk_zone' ||

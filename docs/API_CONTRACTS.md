@@ -53,6 +53,11 @@ HTTP status must remain semantic. The envelope does not replace `400`, `401`, `4
 - `/api/answers/bulk` rejects submissions where provided question ids do not match known questions instead of returning a successful zero-match vector audit.
 - Pair questionnaire answers apply vector scoring only for newly answered questions and complete the pair session after both pair members have answered every question in the questionnaire.
 - `GET /api/pairs/[id]/summary` requires session auth and `requirePairMember`. It returns the pair DTO plus dashboard read-model fields: public `members`, relative `peer`, `currentActivity`, `suggestedCount`, `lastLike`, compact `diagnostics`, `hasCurrentWeeklyCheckIn`, and deterministic `nextStep`. It must not return raw Pair/User/Like/WeeklyCheckIn documents or weekly check-in answers.
+- `POST /api/checkins/weekly` keeps solo check-ins separate from pair check-ins. When `pairId` is present, identity is `{ userId, pairId, weekKey }`, pair membership is required, paused pairs are allowed, and ended pairs return `409 STATE_CONFLICT`.
+- `GET /api/checkins/weekly/current?pairId=...` reads the authenticated user's check-in for that exact pair and week. Without `pairId`, it reads only the solo check-in.
+- `GET /api/pairs/[id]/weekly-checkin/current` requires session auth and `requirePairMember`. It returns current-user/peer submitted status plus pair aggregates and divergence for the requested or current week. It never returns the peer note or raw WeeklyCheckIn documents.
+- Pair readiness/fatigue are recalculated from the available pair-scoped check-ins for the current week. A single response produces an explicit partial state; the previous Pair metric is never treated as the second response.
+- Before deploying pair-scoped weekly writes to an existing database, run `node ./node_modules/tsx/dist/cli.mjs ./scripts/migrate-weekly-checkins-pair-scope.ts`. The idempotent script creates `{ userId, pairId, weekKey }` unique first, removes the legacy `{ userId, weekKey }` unique index, and restores non-unique lookup indexes without modifying documents.
 
 ## References
 

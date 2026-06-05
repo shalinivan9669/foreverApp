@@ -431,3 +431,10 @@ Summary:
 - Added an in-memory bearer fallback for embedded mobile clients so all shared `requireSession` routes continue to work when iframe cookies are not returned.
 - Kept `/api/users` and other private endpoints session-protected and documented the OAuth profile/session fallback boundary.
 Files: src/app/api/exchange-code/route.ts, src/app/page.tsx, src/lib/auth/session.ts, src/client/api/http.ts, scripts/security-critical.selfcheck.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md
+
+Date: 2026-06-05
+Summary:
+- Added pair-scoped weekly check-in identity, an idempotent index migration, and fresh weekly aggregation for Pair readiness/fatigue.
+- Added a privacy-safe pair weekly summary endpoint with submitted status, aggregates, unresolved-topic count, and divergence without peer notes.
+- Replaced the pair profile's standalone form with a weekly loop panel and refreshed dashboard/next-step state after submit.
+Files: src/models/WeeklyCheckIn.ts, scripts/migrate-weekly-checkins-pair-scope.ts, src/domain/services/weeklyCheckIn.service.ts, src/app/api/pairs/[id]/weekly-checkin/current/route.ts, src/lib/audit/eventTypes.ts, src/client/api/types.ts, src/client/api/checkins.api.ts, src/components/checkins/WeeklyCheckInCard.tsx, src/components/checkins/PairWeeklyCheckInPanel.tsx, src/features/pair/PairProfilePageClient.tsx, src/domain/services/pairDashboardSummary.service.ts, src/client/viewmodels/pair.viewmodels.ts, scripts/weekly-checkin.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md

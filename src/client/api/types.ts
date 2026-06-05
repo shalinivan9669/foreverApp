@@ -52,6 +52,46 @@ export type WeeklyCheckInDTO = {
   updatedAt?: string;
 };
 
+export type PairWeeklyCheckInParticipantDTO = {
+  userId: string;
+  submitted: boolean;
+  checkInId?: string;
+  readiness?: number;
+  fatigue?: number;
+  closeness?: number;
+  irritation?: number;
+  unresolvedTopic?: boolean;
+  updatedAt?: string;
+};
+
+export type PairWeeklyCheckInSummaryDTO = {
+  pairId: string;
+  weekKey: string;
+  currentUser: PairWeeklyCheckInParticipantDTO;
+  peer: PairWeeklyCheckInParticipantDTO & {
+    username?: string;
+    avatar?: string;
+    avatarUrl?: string | null;
+  };
+  pair: {
+    submittedCount: number;
+    bothSubmitted: boolean;
+    readiness?: number;
+    fatigue?: number;
+    closeness?: number;
+    irritation?: number;
+    unresolvedTopicCount: number;
+    hasDivergence: boolean;
+    divergence?: {
+      readiness?: number;
+      fatigue?: number;
+      closeness?: number;
+      irritation?: number;
+    };
+    status: 'missing' | 'partial' | 'complete' | 'divergent';
+  };
+};
+
 export type PublicUserDTO = {
   id: string;
   username: string;
@@ -183,6 +223,8 @@ export type PairDashboardDiagnosticsDTO = {
 
 export type PairNextStepKind =
   | 'complete_weekly_checkin'
+  | 'wait_or_invite_peer_checkin'
+  | 'review_weekly_divergence'
   | 'complete_current_activity'
   | 'run_pair_diagnostics'
   | 'review_risk_zone'
