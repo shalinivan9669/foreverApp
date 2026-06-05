@@ -34,6 +34,7 @@ export type HttpRequestOptions = {
 };
 
 const MUTATION_METHODS: HttpMethod[] = ['POST', 'PATCH', 'PUT', 'DELETE'];
+let embeddedSessionBearerToken: string | null = null;
 
 const toProxyPath = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -45,6 +46,21 @@ const toProxyPath = (path: string): string => {
 
 const isObject = (value: ApiJsonValue | null): value is ApiJsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isInternalApiPath = (url: string): boolean =>
+  url.startsWith('/api/') || url.startsWith('/.proxy/api/');
+
+const isExchangeCodePath = (url: string): boolean =>
+  url.startsWith('/api/exchange-code') || url.startsWith('/.proxy/api/exchange-code');
+
+const rememberEmbeddedSessionBearer = (value: ApiJsonValue): void => {
+  if (!isObject(value)) return;
+
+  const token = value.session_token;
+  if (typeof token === 'string' && token.length > 0) {
+    embeddedSessionBearerToken = token;
+  }
+};
 
 const parseEnvelope = <T>(payload: ApiJsonValue | null): Envelope<T> | null => {
   if (!isObject(payload)) return null;
@@ -108,6 +124,15 @@ const request = async <TResponse>(
     headers.set(IDEMPOTENCY_KEY_HEADER, createIdempotencyKey());
   }
 
+  if (
+    embeddedSessionBearerToken &&
+    isInternalApiPath(url) &&
+    !isExchangeCodePath(url) &&
+    !headers.has('Authorization')
+  ) {
+    headers.set('Authorization', `Bearer ${embeddedSessionBearerToken}`);
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -135,6 +160,10 @@ const request = async <TResponse>(
       code: 'INVALID_ENVELOPE',
       message: `Invalid API envelope (${method} ${path})`,
     });
+  }
+
+  if (envelope.ok && isExchangeCodePath(url)) {
+    rememberEmbeddedSessionBearer(envelope.data as ApiJsonValue);
   }
 
   if (!envelope.ok) {

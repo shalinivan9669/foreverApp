@@ -199,6 +199,11 @@ const run = () => {
   );
   assert.match(
     exchangeCodeRoute,
+    /session_token:\s*embeddedSessionToken/,
+    'exchange-code should return a signed in-memory fallback session token for embedded mobile clients'
+  );
+  assert.match(
+    exchangeCodeRoute,
     /Cache-Control',\s*'no-store,\s*no-cache,\s*must-revalidate'/,
     'exchange-code token response should not be cached'
   );
@@ -228,6 +233,35 @@ const run = () => {
     appPage,
     /console\.error/,
     'client OAuth flow should not log raw errors that may contain token or request details'
+  );
+
+  const sessionAuth = readProjectFile('src/lib/auth/session.ts');
+  assert.match(
+    sessionAuth,
+    /getBearerToken[\s\S]*authorization[\s\S]*bearer/,
+    'session auth should support Authorization bearer fallback for embedded mobile clients'
+  );
+  assert.match(
+    sessionAuth,
+    /cookieToken[\s\S]*verifyJwt\(cookieToken,\s*secret\)[\s\S]*bearerToken[\s\S]*verifyJwt\(bearerToken,\s*secret\)/,
+    'session auth should verify both cookie and bearer sessions with JWT_SECRET'
+  );
+
+  const clientHttp = readProjectFile('src/client/api/http.ts');
+  assert.match(
+    clientHttp,
+    /let embeddedSessionBearerToken:\s*string \| null = null/,
+    'embedded fallback session token should be held only in module memory'
+  );
+  assert.match(
+    clientHttp,
+    /isInternalApiPath[\s\S]*\/\.proxy\/api\//,
+    'embedded fallback bearer should be sent only to internal API paths'
+  );
+  assert.doesNotMatch(
+    clientHttp,
+    /localStorage|sessionStorage/,
+    'embedded fallback session token must not be persisted in browser storage'
   );
 
   const entitlementsGrantRoute = readProjectFile('src/app/api/entitlements/grant/route.ts');

@@ -422,5 +422,6 @@ Files: eslint.config.mjs, next.config.ts, package.json, package-lock.json, next-
 Date: 2026-06-05
 Summary:
 - Made mobile/embedded Discord login persist the basic user profile inside `/api/exchange-code`, avoiding an immediate protected `/api/users` write before the session cookie is reliably available.
-- Kept `/api/users` session-protected and documented the OAuth profile upsert boundary.
-Files: src/app/api/exchange-code/route.ts, src/app/page.tsx, scripts/security-critical.selfcheck.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md
+- Added an in-memory bearer fallback for embedded mobile clients so all shared `requireSession` routes continue to work when iframe cookies are not returned.
+- Kept `/api/users` and other private endpoints session-protected and documented the OAuth profile/session fallback boundary.
+Files: src/app/api/exchange-code/route.ts, src/app/page.tsx, src/lib/auth/session.ts, src/client/api/http.ts, scripts/security-critical.selfcheck.ts, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md

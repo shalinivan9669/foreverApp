@@ -168,9 +168,11 @@ export async function POST(req: Request) {
     return jsonError(500, 'USER_PROFILE_UPSERT_FAILED', 'Failed to create user profile');
   }
 
-  const token = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days
+  const cookieToken = signJwt(userId, secret, 60 * 60 * 24 * 7); // 7 days
+  const embeddedSessionToken = signJwt(userId, secret, 60 * 60 * 12); // in-memory mobile fallback
   const res = jsonOk({
     access_token: accessToken,
+    session_token: embeddedSessionToken,
     user: {
       id: userId,
       username,
@@ -193,7 +195,7 @@ export async function POST(req: Request) {
     requestProtocol === 'https:';
   res.cookies.set({
     name: 'session',
-    value: token,
+    value: cookieToken,
     httpOnly: true,
     secure: isSecureContext,
     sameSite: isSecureContext ? 'none' : 'lax',

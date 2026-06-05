@@ -54,17 +54,29 @@ const getCookieToken = (req: Request | NextRequest, cookieName: string): string 
   return cookies[cookieName] ?? null;
 };
 
+const getBearerToken = (req: Request | NextRequest): string | null => {
+  const authorization = req.headers.get('authorization')?.trim();
+  if (!authorization) return null;
+
+  const [scheme, token] = authorization.split(/\s+/, 2);
+  if (scheme?.toLowerCase() !== 'bearer' || !token) return null;
+  return token;
+};
+
 export const readSessionUser = (
   req: Request | NextRequest,
   cookieName = 'session'
 ): SessionReadResult => {
-  const token = getCookieToken(req, cookieName);
-  if (!token) return { ok: false, reason: 'missing_token' };
+  const cookieToken = getCookieToken(req, cookieName);
+  const bearerToken = getBearerToken(req);
+  if (!cookieToken && !bearerToken) return { ok: false, reason: 'missing_token' };
 
   const secret = process.env.JWT_SECRET;
   if (!secret) return { ok: false, reason: 'missing_secret' };
 
-  const payload = verifyJwt(token, secret);
+  const payload =
+    (cookieToken ? verifyJwt(cookieToken, secret) : null) ??
+    (bearerToken ? verifyJwt(bearerToken, secret) : null);
   if (!payload?.sub) return { ok: false, reason: 'invalid_token' };
 
   return {
