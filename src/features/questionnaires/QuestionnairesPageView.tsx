@@ -38,8 +38,8 @@ export default function QuestionnairesPageView({
   const coupleLockedMessage = 'Доступно после создания активной пары.';
 
   return (
-    <div className="space-y-4">
-      <div className="app-panel-soft flex flex-wrap items-center gap-2 p-1.5">
+    <div className="app-page-stack">
+      <div className="app-panel-soft flex flex-wrap items-center gap-2 p-2">
         <button type="button" className={tabClassName(activeTab === 'personal')} onClick={() => onChangeTab('personal')}>
           Персональные
         </button>
@@ -65,7 +65,7 @@ export default function QuestionnairesPageView({
 
       {loadingCards && cards.length === 0 && <LoadingView compact label="Загрузка анкет..." />}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="app-collection-grid">
         {cards.map((questionnaire) => {
           const isCoupleBlocked = questionnaire.scope === 'couple' && !canAccessCouple;
           return (

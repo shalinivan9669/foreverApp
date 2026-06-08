@@ -99,7 +99,7 @@ export default function QuestionnaireCard({
         }
       }}
       className={
-        'app-panel app-lift relative block p-4 transition ' +
+        'app-panel app-lift relative flex min-h-[21rem] flex-col p-4 transition sm:p-5 ' +
         'hover:-translate-y-0.5 hover:shadow-md ' +
         (q.status === 'locked' || disabled ? 'opacity-75' : '') +
         (q.isStarter ? ' border-blue-200 bg-blue-50/40' : '')
@@ -121,10 +121,10 @@ export default function QuestionnaireCard({
       </div>
 
       <div className="mt-3 pl-3">
-        <h3 className="font-display max-h-12 overflow-hidden text-base font-semibold leading-tight text-slate-900">
+        <h3 className="font-display max-h-14 overflow-hidden text-xl font-semibold leading-tight text-slate-900">
           {q.title}
         </h3>
-        <p className="app-muted mt-1 max-h-10 overflow-hidden text-sm leading-5">{q.subtitle}</p>
+        <p className="app-muted mt-2 max-h-12 overflow-hidden text-sm leading-6">{q.subtitle}</p>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 pl-3 text-sm text-slate-700">
@@ -150,7 +150,7 @@ export default function QuestionnaireCard({
         )}
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 pl-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-auto flex flex-col gap-3 pl-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
         {q.status === 'in_progress' && (
           <div className="flex-1">
             <div className="h-2 rounded bg-slate-100">
@@ -175,7 +175,7 @@ export default function QuestionnaireCard({
           }}
           disabled={actionDisabled}
           className={
-            'rounded px-3 py-1.5 text-sm ' +
+            'min-h-11 rounded px-4 py-2 text-sm ' +
             (actionDisabled ? 'cursor-not-allowed bg-slate-200 text-slate-500' : 'app-btn-primary text-white')
           }
         >

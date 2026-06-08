@@ -184,28 +184,28 @@ export default function PairQuestionnaireRunner() {
   }
 
   return (
-    <main className="app-shell-compact space-y-4 py-3 sm:py-4">
+    <main className="app-shell-compact app-page-stack py-3 sm:py-5">
       <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}/diagnostics`} />
 
-      <div className="app-muted text-sm">
+      <div className="app-panel-soft p-3 text-sm">
         Ваша роль в паре: <span className="font-medium">{by}</span>
       </div>
 
-      <div className="app-panel space-y-3 p-4">
+      <div className="app-panel space-y-5 p-5 sm:p-7">
         <div className="text-sm text-gray-500">
           Вопрос {index + 1} / {totalQuestions}
         </div>
-        <div className="text-lg text-slate-900">{questionText}</div>
+        <div className="font-display text-xl leading-snug text-slate-900 sm:text-2xl">{questionText}</div>
 
         {scale === 'bool' ? (
-          <div className="flex gap-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => {
                 void submitAnswer(1);
               }}
               disabled={submitting}
-              className="app-btn-secondary px-3 py-2 text-sm text-slate-900 disabled:opacity-60"
+              className="app-btn-secondary min-h-12 px-4 py-3 text-sm text-slate-900 disabled:opacity-60"
             >
               Да
             </button>
@@ -215,13 +215,13 @@ export default function PairQuestionnaireRunner() {
                 void submitAnswer(2);
               }}
               disabled={submitting}
-              className="app-btn-secondary px-3 py-2 text-sm text-slate-900 disabled:opacity-60"
+              className="app-btn-secondary min-h-12 px-4 py-3 text-sm text-slate-900 disabled:opacity-60"
             >
               Нет
             </button>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="grid grid-cols-5 gap-2 sm:gap-3">
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
@@ -230,7 +230,7 @@ export default function PairQuestionnaireRunner() {
                   void submitAnswer(value);
                 }}
                 disabled={submitting}
-                className="app-btn-secondary px-3 py-2 text-sm text-slate-900 disabled:opacity-60"
+                className="app-btn-secondary min-h-12 px-2 py-3 text-base text-slate-900 disabled:opacity-60"
               >
                 {value}
               </button>

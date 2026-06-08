@@ -55,7 +55,7 @@ export default function ProfileOverviewPage() {
 
   if (!currentUser) {
     return (
-      <main className="app-shell-compact py-3 sm:py-4">
+      <main className="app-shell-dashboard py-3 sm:py-5">
         <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
           Нет пользователя: нужна авторизация.
         </div>
@@ -65,7 +65,7 @@ export default function ProfileOverviewPage() {
 
   if (loading) {
     return (
-      <main className="app-shell-compact space-y-3 py-3 sm:py-4">
+      <main className="app-shell-dashboard space-y-3 py-3 sm:py-5">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
         <Skeleton className="h-20" />
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -84,7 +84,7 @@ export default function ProfileOverviewPage() {
 
   if (!hasSummary) {
     return (
-      <main className="app-shell-compact space-y-3 py-3 sm:py-4">
+      <main className="app-shell-dashboard space-y-3 py-3 sm:py-5">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
         <div className="app-panel app-panel-solid p-4 text-sm app-muted">
           Не удалось загрузить сводку профиля. Попробуйте открыть страницу ещё раз.
@@ -94,7 +94,7 @@ export default function ProfileOverviewPage() {
   }
 
   return (
-    <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
+    <main className="app-shell-dashboard app-page-stack py-3 sm:py-5 lg:py-7">
       <BackBar title="Профиль" fallbackHref="/main-menu" />
       <ModeAwareProfileOverview summary={data} />
       {data.profileMode.kind === 'paired' ? (

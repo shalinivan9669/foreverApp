@@ -98,7 +98,7 @@ export default function PairDiagnosticsPage() {
   }
 
   return (
-    <main className="app-shell-compact space-y-4 py-3 sm:py-4">
+    <main className="app-shell-dashboard app-page-stack py-3 sm:py-5 lg:py-7">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Диагностика пары</h1>
         <Link href="/main-menu" className="text-sm text-blue-600 hover:underline">
@@ -142,19 +142,19 @@ export default function PairDiagnosticsPage() {
       )}
 
       {!loading && passport && (
-        <div className="space-y-4">
+        <div className="app-dashboard-grid">
           <div className="text-sm text-gray-500">Последнее обновление: {formatDate(passport.lastDiagnosticsAt)}</div>
 
-          <section className="space-y-2">
+          <section className="app-panel app-panel-solid app-grid-full space-y-2 p-4 sm:p-6">
             <h2 className="font-semibold">Инсайты пары</h2>
             <InsightsList items={insights} pairId={pairId} />
           </section>
 
-          <section className="space-y-2">
+          <section className="app-panel app-panel-solid space-y-3 p-4 sm:p-6">
             <h2 className="font-semibold">Риск-зоны</h2>
             {passport.riskZones.length > 0 ? (
               passport.riskZones.map((risk, index) => (
-                <div key={`${risk.axis}-${index}`} className="flex items-center justify-between border rounded p-3">
+                <div key={`${risk.axis}-${index}`} className="flex items-center justify-between rounded-lg border bg-white/70 p-3">
                   <div>
                     <div className="font-medium">{risk.axis}</div>
                     {risk.facets.length > 0 && (
@@ -169,11 +169,11 @@ export default function PairDiagnosticsPage() {
             )}
           </section>
 
-          <section className="space-y-2">
+          <section className="app-panel app-panel-solid space-y-3 p-4 sm:p-6">
             <h2 className="font-semibold">Сильные стороны</h2>
             {passport.strongSides.length > 0 ? (
               passport.strongSides.map((strong, index) => (
-                <div key={`${strong.axis}-${index}`} className="border rounded p-3">
+                <div key={`${strong.axis}-${index}`} className="rounded-lg border bg-white/70 p-3">
                   <div className="font-medium">{strong.axis}</div>
                   {strong.facets.length > 0 && (
                     <div className="text-xs text-gray-600">facets: {strong.facets.join(', ')}</div>
@@ -185,7 +185,7 @@ export default function PairDiagnosticsPage() {
             )}
           </section>
 
-          <section className="space-y-2">
+          <section className="app-panel app-panel-solid app-grid-full space-y-3 p-4 sm:p-6">
             <h2 className="font-semibold">Взаимодополнение</h2>
             {passport.complementMap.length > 0 ? (
               passport.complementMap.map((item, index) => (

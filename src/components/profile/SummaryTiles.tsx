@@ -9,16 +9,16 @@ type SummaryTilesProps = {
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="app-panel-soft app-panel-soft-solid p-4">
-      <div className="app-muted text-xs">{label}</div>
-      <div className="font-display text-2xl font-semibold leading-tight">{value}</div>
+    <div className="app-panel-soft app-panel-soft-solid p-4 sm:p-5">
+      <div className="app-muted text-sm">{label}</div>
+      <div className="font-display text-2xl font-semibold leading-tight sm:text-3xl">{value}</div>
     </div>
   );
 }
 
 export default function SummaryTiles({ metrics, readiness, fatigue }: SummaryTilesProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div className="app-metric-grid">
       <Tile label="Streak (инд.)" value={String(metrics.streak.individual)} />
       <Tile label="Выполнено (инд.)" value={String(metrics.completed.individual)} />
       <Tile

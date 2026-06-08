@@ -228,7 +228,7 @@ function ProfileHero({ summary }: ProfileSummaryProps) {
   const currentPair = relationshipContext.currentPair;
 
   return (
-    <header className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+    <header className="app-panel app-panel-solid app-reveal p-4 sm:p-6 xl:p-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <Image
           src={user.avatarUrl ?? user.avatar ?? fallbackAvatar}
@@ -239,7 +239,7 @@ function ProfileHero({ summary }: ProfileSummaryProps) {
         />
 
         <div className="min-w-0 flex-1">
-          <div className="font-display truncate text-2xl font-bold leading-tight">
+          <div className="app-page-title font-display truncate font-bold">
             @{user.handle || user.name || 'user'}
           </div>
           <div className="mt-1 text-base font-semibold">{profileMode.label}</div>
@@ -305,10 +305,10 @@ function ModeContextPanel({ summary }: ProfileSummaryProps) {
 
 export default function ModeAwareProfileOverview({ summary }: ProfileSummaryProps) {
   return (
-    <div className="space-y-4">
-      <ProfileHero summary={summary} />
-      <ExperienceSummaryCard experience={summary.experienceSummary} />
-      <ModeContextPanel summary={summary} />
+    <div className="app-dashboard-grid">
+      <div className="app-grid-full"><ProfileHero summary={summary} /></div>
+      <div className="app-grid-wide"><ExperienceSummaryCard experience={summary.experienceSummary} /></div>
+      <div className="app-grid-narrow"><ModeContextPanel summary={summary} /></div>
     </div>
   );
 }
@@ -326,7 +326,7 @@ function MeAsPartnerSection({ summary }: ProfileSummaryProps) {
         </p>
       </div>
       {summary.personalAxisCards.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="app-collection-grid">
           {summary.personalAxisCards.map((card) => (
             <article key={card.axis} className="app-panel app-panel-solid p-4">
               <div className="flex items-start justify-between gap-3">
@@ -416,7 +416,7 @@ function NeedsAndBoundariesCard({ summary }: ProfileSummaryProps) {
 
 function PersonalGuidanceGrid({ summary }: ProfileSummaryProps) {
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="app-dashboard-grid">
       <PartnerHelpfulNotesCard summary={summary} />
       <NeedsAndBoundariesCard summary={summary} />
     </div>
@@ -425,7 +425,7 @@ function PersonalGuidanceGrid({ summary }: ProfileSummaryProps) {
 
 function PassportAndInsights({ summary }: ProfileSummaryProps) {
   return (
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <section className="app-dashboard-grid">
       <div className="app-panel app-panel-solid p-4">
         <h2 className="mb-3 text-base font-semibold">Паспорт по осям</h2>
         <AxisRadar levels={summary.passport.levelsByAxis} />
@@ -442,7 +442,7 @@ export function SoloProfileDashboard({ summary }: ProfileSummaryProps) {
   const ff = summary.featureFlags ?? { PERSONAL_ACTIVITIES: false };
 
   return (
-    <div className="space-y-4">
+    <div className="app-page-stack">
       <ProfileCompletionPanel completion={summary.profileCompletion} />
       <MeAsPartnerSection summary={summary} />
       <PersonalGuidanceGrid summary={summary} />
@@ -592,8 +592,8 @@ export function PairedProfileDashboard({ summary }: ProfileSummaryProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="app-page-stack">
+      <div className="app-dashboard-grid">
         <MyRelationshipStateCard state={state} />
         <MyContributionPanel state={state} />
       </div>

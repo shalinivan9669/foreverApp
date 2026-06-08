@@ -494,3 +494,10 @@ Summary:
 - Made paired active `nextStep` prioritize weekly check-in, activity feedback, current activity, passport completion, and then opening the pair.
 - Split `/profile` into solo and paired dashboards, removing the solo personal-activity placeholder from paired mode.
 Files: src/domain/services/pairedUserProfileState.service.ts, src/domain/services/userProfileSummary.service.ts, src/app/api/users/me/profile-summary/route.ts, src/client/api/types.ts, src/client/viewmodels/profile.viewmodels.ts, src/components/profile/ModeAwareProfileOverview.tsx, src/app/(auth)/profile/page.tsx, scripts/user-profile-summary.selfcheck.ts, docs/API_CONTRACTS.md, docs/04-api-contracts.md, docs/CHANGELOG.md
+
+Date: 2026-06-08
+Summary:
+- Added distinct compact, collection, dashboard, and main-menu layout modes with fluid spacing and ultrawide page shells.
+- Reworked the main menu into a stable bento grid and moved pair/profile/diagnostics content into semantic full, wide, and narrow dashboard spans.
+- Added fluid questionnaire/activity card grids, a wide activity workspace, and locally constrained reading widths for questionnaire runners.
+Files: src/app/globals.css, src/app/main-menu/page.tsx, src/app/(auth)/profile/page.tsx, src/app/questionnaires/page.tsx, src/app/questionnaire/[id]/page.tsx, src/app/pair/[id]/questionnaire/[qid]/page.tsx, src/app/pair/[id]/diagnostics/page.tsx, src/components/QuestionCard.tsx, src/components/QuestionnaireCard.tsx, src/components/activities/ActivityCard.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/profile/ModeAwareProfileOverview.tsx, src/components/profile/SummaryTiles.tsx, src/components/ui/BackBar.tsx, src/features/activities/CoupleActivityView.tsx, src/features/pair/PairProfilePageClient.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, docs/RESPONSIVE_LAYOUT.md, docs/CHANGELOG.md

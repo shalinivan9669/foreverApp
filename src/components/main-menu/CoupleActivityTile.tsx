@@ -5,9 +5,12 @@ export default function CoupleActivityTile() {
   return (
     <Link
       href="/couple-activity"
-      className="app-tile app-tile-aura app-reveal flex h-full min-h-[7rem] items-center justify-center px-3 text-center sm:min-h-[8rem]"
+      className="app-tile app-tile-aura app-reveal app-menu-tile min-h-[11rem]"
     >
-      <span className="font-display text-sm font-semibold leading-tight sm:text-base">АКТИВНОСТЬ ПАРЫ</span>
+      <div className="app-tile-content">
+        <span className="app-tile-title">Активности пары</span>
+        <span className="app-tile-description">Текущая задача, новые предложения и история ваших шагов.</span>
+      </div>
     </Link>
   );
 }

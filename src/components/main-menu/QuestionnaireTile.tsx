@@ -5,9 +5,12 @@ export default function QuestionnaireTile() {
   return (
     <Link
       href="/questionnaires"
-      className="app-tile app-tile-mint app-reveal flex h-full min-h-[7rem] items-center justify-center px-3 text-center sm:min-h-[8rem]"
+      className="app-tile app-tile-mint app-reveal app-menu-tile min-h-[11rem]"
     >
-      <span className="font-display text-sm font-semibold leading-tight sm:text-base">АНКЕТИРОВАНИЕ</span>
+      <div className="app-tile-content">
+        <span className="app-tile-title">Анкеты</span>
+        <span className="app-tile-description">Короткие вопросы, которые превращаются в полезные наблюдения.</span>
+      </div>
     </Link>
   );
 }

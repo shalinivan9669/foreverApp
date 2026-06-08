@@ -24,7 +24,7 @@ export default function BackBar({ title, fallbackHref = '/main-menu', rightSlot 
 
   return (
     <div className="app-panel app-backbar app-reveal sticky top-0 z-10 text-slate-900 backdrop-blur">
-      <div className="mx-auto flex h-11 max-w-6xl items-center gap-2 px-2 sm:h-12 sm:gap-3 sm:px-3">
+      <div className="mx-auto flex h-12 w-full items-center gap-2 px-2 sm:h-14 sm:gap-3 sm:px-4">
         <button onClick={goBack} aria-label="Назад" className="app-backbar__button">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

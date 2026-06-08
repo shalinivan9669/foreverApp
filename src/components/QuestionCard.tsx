@@ -20,11 +20,11 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
   const label = q.text?.ru ?? q.text?.en ?? '';
 
   return (
-    <div className="app-panel p-4">
-      <p className="font-display text-lg font-medium leading-snug text-slate-900">{label}</p>
+    <div className="app-panel p-5 sm:p-7">
+      <p className="font-display text-xl font-medium leading-snug text-slate-900 sm:text-2xl">{label}</p>
 
       {q.scale === 'likert5' && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-6 grid grid-cols-5 gap-2 sm:gap-3">
           {[1, 2, 3, 4, 5].map((i) => {
             const isSel = selected === i;
             return (
@@ -33,7 +33,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
                 type="button"
                 onClick={() => onAnswer(qid, i)}
                 className={[
-                  'flex h-8 w-8 items-center justify-center rounded-md border transition',
+                  'flex min-h-12 items-center justify-center rounded-lg border text-base font-semibold transition sm:min-h-14',
                   isSel
                     ? 'border-blue-600 bg-blue-600 text-white'
                     : 'border-gray-400 bg-transparent text-slate-700 hover:bg-blue-100',
@@ -50,7 +50,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
       )}
 
       {q.scale === 'bool' && (
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:gap-4">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {[
             { val: 1 as const, label: 'Нет' },
             { val: 2 as const, label: 'Да' },
@@ -62,7 +62,7 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
                 type="button"
                 onClick={() => onAnswer(qid, val)}
                 className={[
-                  'rounded-md border px-4 py-1 text-left transition sm:text-center',
+                  'min-h-12 rounded-lg border px-4 py-3 text-center font-semibold transition',
                   isSel
                     ? 'border-green-600 bg-green-600 text-white'
                     : 'border-gray-400 bg-transparent text-slate-700 hover:bg-green-100',

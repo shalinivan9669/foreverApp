@@ -357,7 +357,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
   const members = data?.members.length ? data.members : [];
 
   return (
-    <main className="app-shell-compact space-y-5 py-3 sm:py-4 lg:py-6">
+    <main className="app-shell-dashboard app-page-stack py-3 sm:py-5 lg:py-7">
       <BackBar title="Профиль пары" fallbackHref="/main-menu" />
 
       {loading && (
@@ -368,8 +368,8 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
       {!loading && loadError && <div className="app-alert app-alert-error text-sm">{loadError}</div>}
 
       {dashboardReady && data && (
-        <>
-          <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+        <div className="pair-dashboard-grid">
+          <section className="app-panel app-panel-solid app-reveal app-grid-full p-4 sm:p-6 xl:p-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-3">
@@ -392,7 +392,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
 
                 <div>
                   <div className="app-muted text-xs">Вы вместе с {peerName}</div>
-                  <h1 className="text-2xl font-semibold leading-tight">Dashboard пары</h1>
+                  <h1 className="app-page-title font-semibold">Dashboard пары</h1>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                     <span className={`rounded-full px-2 py-0.5 text-xs ${badgeClassForPair(pairStatus)}`}>
                       {pairStatusLabel}
@@ -428,7 +428,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="app-metric-grid mt-5">
               <div className="rounded-lg border border-slate-100 bg-white/70 p-3">
                 <div className="app-muted text-xs">Серия</div>
                 <div className="text-xl font-semibold">{data.pair.progress?.streak ?? 0}</div>
@@ -446,7 +446,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+          <section className="app-panel app-panel-solid app-reveal app-grid-wide p-4 sm:p-6 xl:p-7">
             <div className="flex flex-col gap-4 md:flex-row md:items-start">
               <div className="min-w-0 flex-1">
                 <div className="app-muted text-xs">Состояние пары</div>
@@ -472,7 +472,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-panel-solid app-reveal border-l-4 border-l-rose-300 p-4 sm:p-5">
+          <section className="app-panel app-panel-solid app-reveal app-grid-narrow border-l-4 border-l-rose-300 p-4 sm:p-5">
             <div className="app-muted text-xs">Что нам делать дальше?</div>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
               <div className="min-w-0 flex-1">
@@ -492,7 +492,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+          <section className="app-panel app-panel-solid app-reveal app-grid-narrow p-4 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="app-muted text-xs">Текущая активность</div>
@@ -531,7 +531,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section id="weekly-checkin" className="app-reveal scroll-mt-4">
+          <section id="weekly-checkin" className="app-reveal app-grid-wide scroll-mt-4">
             <PairWeeklyCheckInPanel
               pairId={pairId}
               pairStatus={data.pair.status}
@@ -539,9 +539,11 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             />
           </section>
 
-          <PairEventsPanel pairId={pairId} pairStatus={data.pair.status} />
+          <div className="app-grid-narrow">
+            <PairEventsPanel pairId={pairId} pairStatus={data.pair.status} />
+          </div>
 
-          <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+          <section className="app-panel app-panel-solid app-reveal app-grid-full p-4 sm:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="app-muted text-xs">Паспорт совместимости</div>
@@ -634,7 +636,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             )}
           </section>
 
-          <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+          <section className="app-panel app-panel-solid app-reveal app-grid-wide p-4 sm:p-6">
             <div className="app-muted text-xs">Pair insights</div>
             <h2 className="mt-1 text-xl font-semibold">Наблюдения по паре</h2>
             <div className="mt-3">
@@ -651,7 +653,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
             </div>
           </section>
 
-          <section className="app-panel app-panel-solid app-reveal p-4 sm:p-5">
+          <section className="app-panel app-panel-solid app-reveal app-grid-narrow p-4 sm:p-6">
             <div className="app-muted text-xs">С чего началась пара</div>
             <h2 className="mt-1 text-lg font-semibold">Исходное совпадение</h2>
             {data.lastLike ? (
@@ -686,7 +688,7 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
               <div className="app-muted mt-3 text-sm">Данные исходного совпадения не найдены.</div>
             )}
           </section>
-        </>
+        </div>
       )}
     </main>
   );

@@ -5,10 +5,13 @@ export default function LootboxTile() {
   return (
     <Link
       href="/lootboxes"
-      className="app-tile app-tile-spark app-reveal flex h-full min-h-[7rem] flex-col items-center justify-center px-3 text-center sm:min-h-[8rem]"
+      className="app-tile app-tile-spark app-reveal app-menu-tile min-h-[11rem]"
     >
-      <span className="font-display text-base font-semibold leading-tight sm:text-lg">ЛУТБОКСЫ</span>
-      <span className="font-accent mt-1 rounded-full bg-white/20 px-2 py-0.5 text-sm text-white/95">событие дня</span>
+      <div className="app-tile-content">
+        <span className="mb-auto w-fit rounded-full bg-white/20 px-3 py-1 text-sm text-white/95">Событие дня</span>
+        <span className="app-tile-title mt-5">Лутбоксы</span>
+        <span className="app-tile-description text-white/90">Небольшой совместный сюрприз для смены ритма.</span>
+      </div>
     </Link>
   );
 }

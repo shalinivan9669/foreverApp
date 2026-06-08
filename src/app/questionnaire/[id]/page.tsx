@@ -111,7 +111,7 @@ export default function PersonalQuestionnaireRunner() {
 
   if (loadingQuestionnaire && !questionnaire) {
     return (
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-3 sm:p-4">
+      <div className="app-shell-compact app-page-stack py-3 sm:py-5">
         <BackBar title="Анкета" fallbackHref="/questionnaires" />
         <LoadingView compact label="Загрузка анкеты..." />
       </div>
@@ -120,7 +120,7 @@ export default function PersonalQuestionnaireRunner() {
 
   if (loadError) {
     return (
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-3 sm:p-4">
+      <div className="app-shell-compact app-page-stack py-3 sm:py-5">
         <BackBar title="Анкета" fallbackHref="/questionnaires" />
         <ErrorView
           error={loadError}
@@ -137,7 +137,7 @@ export default function PersonalQuestionnaireRunner() {
 
   if (!questionnaire || !currentQuestion) {
     return (
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-3 sm:p-4">
+      <div className="app-shell-compact app-page-stack py-3 sm:py-5">
         <BackBar title="Анкета" fallbackHref="/questionnaires" />
         <p className="text-sm text-gray-600">Анкета недоступна.</p>
       </div>
@@ -146,7 +146,7 @@ export default function PersonalQuestionnaireRunner() {
 
   if (questionnaire.scope === 'couple') {
     return (
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-3 sm:p-4">
+      <div className="app-shell-compact app-page-stack py-3 sm:py-5">
         <BackBar title={title} fallbackHref="/questionnaires" />
         <p className="text-sm text-amber-700">
           Эта анкета относится к парному сценарию. Откройте её из раздела пары.
@@ -156,13 +156,22 @@ export default function PersonalQuestionnaireRunner() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-3 sm:p-4">
+    <main className="app-shell-compact app-page-stack py-3 sm:py-5">
       <BackBar title={title} fallbackHref="/questionnaires" />
 
-      <h2 className="font-semibold">{title}</h2>
-      <p className="text-sm text-gray-600">
-        {index + 1}/{questions.length}
-      </p>
+      <div>
+        <h1 className="app-page-title font-semibold">{title}</h1>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+          <span className="app-muted">Вопрос {index + 1} из {questions.length}</span>
+          <span className="font-semibold">{Math.round(((index + 1) / questions.length) * 100)}%</span>
+        </div>
+        <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-black/10">
+          <div
+            className="h-full rounded-full bg-[var(--app-primary)] transition-[width]"
+            style={{ width: `${((index + 1) / questions.length) * 100}%` }}
+          />
+        </div>
+      </div>
 
       <QuestionCard q={currentQuestion} onAnswer={onAnswer} />
 
@@ -173,6 +182,6 @@ export default function PersonalQuestionnaireRunner() {
           router.push('/');
         }}
       />
-    </div>
+    </main>
   );
 }

@@ -91,7 +91,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
 
   if (!hasPair) {
     return (
-      <main className="app-shell-compact space-y-4 pb-4 pt-3 sm:pb-6 sm:pt-4 lg:pt-6">
+      <main className="app-shell-dashboard app-page-stack pb-4 pt-3 sm:pb-6 sm:pt-5 lg:pt-7">
         <BackBar title="Активности пары" fallbackHref="/main-menu" />
         <EmptyStateView
           title="Пара не найдена"
@@ -102,9 +102,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
   }
 
   return (
-    <main className="app-shell-compact space-y-4 pb-4 pt-3 sm:pb-6 sm:pt-4 lg:pt-6">
+    <main className="app-shell-dashboard app-page-stack pb-4 pt-3 sm:pb-6 sm:pt-5 lg:pt-7">
       <BackBar title="Активности пары" fallbackHref="/main-menu" />
-      <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Активности пары</h1>
+      <h1 className="app-page-title font-bold text-slate-900">Активности пары</h1>
 
       <div className="app-panel-soft flex flex-wrap gap-2 p-1.5">
         <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>
@@ -127,9 +127,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
       )}
 
       {!loading && tab === 'active' && (
-        <div>
+        <div className="activity-workspace">
           {active ? (
-            <div className="space-y-3">
+            <div className="app-grid-wide space-y-3">
               {pendingCompleteActivityId === active._id && pendingCompleteMessage && (
                 <div className="app-reveal rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
                   <p className="text-sm">{pendingCompleteMessage}</p>
@@ -155,7 +155,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               />
             </div>
           ) : (
-            <div className="app-panel app-reveal flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="app-panel app-reveal app-grid-wide flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="font-medium text-slate-900">Нет активной активности</div>
                 <div className="app-muted text-sm">Предложим подходящее задание</div>
@@ -165,6 +165,26 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               </button>
             </div>
           )}
+
+          <aside className="app-panel app-panel-solid app-grid-narrow activity-overview-card p-4 sm:p-5">
+            <div>
+              <div className="app-muted text-xs">Обзор активности</div>
+              <h2 className="app-section-title mt-1 font-semibold">Ваш совместный ритм</h2>
+            </div>
+            <div className="app-metric-grid">
+              <button type="button" onClick={() => onSetTab('suggested')} className="app-panel-soft p-3 text-left">
+                <span className="app-muted block text-xs">Предложено</span>
+                <span className="font-display text-2xl font-semibold">{suggested.length}</span>
+              </button>
+              <button type="button" onClick={() => onSetTab('history')} className="app-panel-soft p-3 text-left">
+                <span className="app-muted block text-xs">В истории</span>
+                <span className="font-display text-2xl font-semibold">{history.length}</span>
+              </button>
+            </div>
+            <p className="app-muted app-reading-width text-sm">
+              Сначала завершите текущий шаг, затем выберите следующий вариант или вернитесь к результатам.
+            </p>
+          </aside>
         </div>
       )}
 
@@ -202,7 +222,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
             <EmptyStateView title="Пока пусто" description="Нажмите «Еще варианты», чтобы получить список." />
           )}
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="app-collection-grid">
             {suggested.map((item) => (
               <ActivityCard
                 key={item._id}
@@ -220,7 +240,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
       )}
 
       {!loading && tab === 'history' && (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="app-collection-grid">
           {history.length === 0 && <EmptyStateView title="История пока пуста" />}
           {history.map((item) => (
             <ActivityCard

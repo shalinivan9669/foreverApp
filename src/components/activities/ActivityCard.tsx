@@ -66,7 +66,7 @@ export default function ActivityCard(props: {
     `${value > 0 ? '+' : ''}${Math.round(value * 100)}%`;
 
   return (
-    <div className="app-panel app-lift h-full p-4 text-slate-900">
+    <div className="app-panel app-lift flex h-full min-h-[20rem] flex-col p-4 text-slate-900 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -89,12 +89,12 @@ export default function ActivityCard(props: {
             )}
           </div>
 
-          <h3 className="font-display mt-1 text-lg font-semibold leading-tight">
+          <h3 className="font-display mt-2 text-xl font-semibold leading-tight sm:text-2xl">
             {text(activity.title)}
           </h3>
 
           {activity.description && (
-            <p className="app-muted mt-1 text-sm">
+            <p className="app-muted app-reading-width mt-2 text-sm leading-6">
               {text(activity.description)}
             </p>
           )}
@@ -175,7 +175,7 @@ export default function ActivityCard(props: {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-auto flex flex-wrap gap-2 pt-5">
         {variant === 'suggested' && (
           <>
             <button

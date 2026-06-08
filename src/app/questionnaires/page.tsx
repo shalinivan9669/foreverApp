@@ -84,9 +84,14 @@ export default function QuestionnairesPage() {
   );
 
   return (
-    <div className="app-shell py-3 sm:py-4 lg:py-6">
+    <main className="app-shell app-page-stack py-3 sm:py-5 lg:py-7">
       <BackBar title="Анкеты" fallbackHref="/main-menu" />
-      <h1 className="mb-4 text-lg font-semibold sm:text-xl">Анкеты</h1>
+      <div>
+        <h1 className="app-page-title font-semibold">Анкеты</h1>
+        <p className="app-muted app-reading-width mt-2 text-sm sm:text-base">
+          Выберите персональный или парный формат и продолжайте с текущего прогресса.
+        </p>
+      </div>
 
       <ErrorView
         error={error}
@@ -108,6 +113,6 @@ export default function QuestionnairesPage() {
         loadingByQuestionnaireId={loadingByQuestionnaireId}
         onStartQuestionnaire={startQuestionnaire}
       />
-    </div>
+    </main>
   );
 }
