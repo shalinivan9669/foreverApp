@@ -25,7 +25,7 @@ export default function MatchFeedView({ candidates, onLike }: MatchFeedViewProps
           </p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="app-collection-grid">
           {candidates.map((candidate, index) => (
             <div key={candidate.id} className="app-reveal" style={{ animationDelay: `${Math.min(index * 35, 220)}ms` }}>
               <CandidateCard c={candidate} onLike={onLike} />
@@ -34,10 +34,12 @@ export default function MatchFeedView({ candidates, onLike }: MatchFeedViewProps
         </div>
 
         {!candidates.length && (
-          <EmptyStateView
-            title="Нет кандидатов"
-            description="Попробуйте обновить список чуть позже."
-          />
+          <div className="app-page-state">
+            <EmptyStateView
+              title="Нет кандидатов"
+              description="Попробуйте обновить список чуть позже."
+            />
+          </div>
         )}
       </main>
     </div>

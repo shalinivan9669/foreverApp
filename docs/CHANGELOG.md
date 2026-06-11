@@ -501,3 +501,10 @@ Summary:
 - Reworked the main menu into a stable bento grid and moved pair/profile/diagnostics content into semantic full, wide, and narrow dashboard spans.
 - Added fluid questionnaire/activity card grids, a wide activity workspace, and locally constrained reading widths for questionnaire runners.
 Files: src/app/globals.css, src/app/main-menu/page.tsx, src/app/(auth)/profile/page.tsx, src/app/questionnaires/page.tsx, src/app/questionnaire/[id]/page.tsx, src/app/pair/[id]/questionnaire/[qid]/page.tsx, src/app/pair/[id]/diagnostics/page.tsx, src/components/QuestionCard.tsx, src/components/QuestionnaireCard.tsx, src/components/activities/ActivityCard.tsx, src/components/main-menu/CoupleActivityTile.tsx, src/components/main-menu/LootboxTile.tsx, src/components/main-menu/ProfileTile.tsx, src/components/main-menu/QuestionnaireTile.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/profile/ModeAwareProfileOverview.tsx, src/components/profile/SummaryTiles.tsx, src/components/ui/BackBar.tsx, src/features/activities/CoupleActivityView.tsx, src/features/pair/PairProfilePageClient.tsx, src/features/questionnaires/QuestionnairesPageView.tsx, docs/RESPONSIVE_LAYOUT.md, docs/CHANGELOG.md
+
+Date: 2026-06-11
+Summary:
+- Standardized compact, collection, and dashboard width caps while preserving the main-menu bento and internal diagnostics layouts.
+- Limited collection cards to stable readable columns on desktop and ultrawide screens.
+- Unified search, lootboxes, and standalone loading or empty states with the shared responsive primitives.
+Files: src/app/globals.css, src/app/lootboxes/page.tsx, src/app/pair/[id]/diagnostics/page.tsx, src/components/ui/LoadingView.tsx, src/features/match/feed/MatchFeedView.tsx, docs/RESPONSIVE_LAYOUT.md, docs/CHANGELOG.md

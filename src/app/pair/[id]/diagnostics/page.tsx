@@ -98,7 +98,7 @@ export default function PairDiagnosticsPage() {
   }
 
   return (
-    <main className="app-shell-dashboard app-page-stack py-3 sm:py-5 lg:py-7">
+    <main className="app-shell-diagnostics app-page-stack py-3 sm:py-5 lg:py-7">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Диагностика пары</h1>
         <Link href="/main-menu" className="text-sm text-blue-600 hover:underline">
