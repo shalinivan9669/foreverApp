@@ -60,6 +60,31 @@ export interface UserType {
   readiness?: { score: number; updatedAt: Date };
   fatigue?: { score: number; updatedAt: Date };
   profile?: {
+    relationshipLens?: {
+      defaultLens?: 'feminine' | 'masculine' | 'balanced' | 'custom';
+      source?: 'gender_default' | 'user_setting';
+      preferredSupportStyle?:
+        | 'listen'
+        | 'solve'
+        | 'hug'
+        | 'space'
+        | 'practical_help'
+        | 'soft_presence';
+      conflictPattern?:
+        | 'withdraw'
+        | 'argue'
+        | 'freeze'
+        | 'explain'
+        | 'please'
+        | 'avoid';
+      privacyDefaults?: {
+        dailyStatePrivate?: boolean;
+        journalPrivate?: boolean;
+        bodyContextPrivate?: boolean;
+        partnerSignalsEnabled?: boolean;
+        pairMapContributionEnabled?: boolean;
+      };
+    };
     onboarding?: {
       seeking?: {
         valuedQualities: string[];
@@ -190,6 +215,35 @@ const matchCardSchema = new Schema(
   { _id: false }
 );
 
+const relationshipLensSchema = new Schema(
+  {
+    defaultLens: {
+      type: String,
+      enum: ['feminine', 'masculine', 'balanced', 'custom'],
+    },
+    source: {
+      type: String,
+      enum: ['gender_default', 'user_setting'],
+    },
+    preferredSupportStyle: {
+      type: String,
+      enum: ['listen', 'solve', 'hug', 'space', 'practical_help', 'soft_presence'],
+    },
+    conflictPattern: {
+      type: String,
+      enum: ['withdraw', 'argue', 'freeze', 'explain', 'please', 'avoid'],
+    },
+    privacyDefaults: {
+      dailyStatePrivate: { type: Boolean },
+      journalPrivate: { type: Boolean },
+      bodyContextPrivate: { type: Boolean },
+      partnerSignalsEnabled: { type: Boolean },
+      pairMapContributionEnabled: { type: Boolean },
+    },
+  },
+  { _id: false }
+);
+
 const userSchema = new Schema<UserType>(
   {
     id:       { type: String, required: true, unique: true },
@@ -242,6 +296,7 @@ const userSchema = new Schema<UserType>(
       updatedAt: { type: Date, default: Date.now },
     },
     profile: {
+      relationshipLens: { type: relationshipLensSchema },
       onboarding: {
         seeking: {
           valuedQualities: {

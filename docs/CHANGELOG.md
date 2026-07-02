@@ -1,5 +1,12 @@
 # Changelog (Docs & Project Notes)
 
+Date: 2026-07-02
+Summary:
+- Added the Personal Today MVP on `/profile`: daily read-model DTO/API, daily check-in storage, relationship lens settings, explicit partner signals, and the top-of-profile dashboard.
+- Added deterministic personal-today rules/copy services with a targeted selfcheck for lens defaults, fallback freshness, rules priority, copy safety, and partner-signal privacy.
+- Documented the new self endpoints and privacy boundaries for daily journal, body context, and sent partner signals.
+Files: package.json, src/models/User.ts, src/models/PersonalDailyCheckIn.ts, src/models/PartnerSignal.ts, src/domain/services/relationshipLens.service.ts, src/domain/services/personalTodayRules.service.ts, src/domain/services/personalTodayCopy.service.ts, src/domain/services/personalToday.service.ts, src/domain/services/personalDailyCheckIn.service.ts, src/domain/services/partnerSignal.service.ts, src/app/api/users/me/today/route.ts, src/app/api/users/me/daily-checkins/route.ts, src/app/api/users/me/daily-checkins/[id]/partner-signal/route.ts, src/app/api/users/me/relationship-lens/route.ts, src/client/api/types.ts, src/client/api/users.api.ts, src/client/viewmodels/personalToday.viewmodels.ts, src/client/viewmodels/index.ts, src/components/profile/today/PersonalTodayDashboard.tsx, src/app/(auth)/profile/page.tsx, scripts/personal-today.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
 Date: 2026-06-05
 Summary:
 - Added the relationship experience layer to the private profile summary: "Сегодня", personal axis guidance, private helpful notes, and lightweight needs/boundaries.

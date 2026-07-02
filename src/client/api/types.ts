@@ -163,6 +163,224 @@ export type UserOnboardingPatchRequest =
   | UserOnboardingSeekingPatch
   | UserOnboardingInRelationshipPatch;
 
+export type RelationshipLensType =
+  | 'feminine'
+  | 'masculine'
+  | 'balanced'
+  | 'custom';
+
+export type RelationshipLensSource =
+  | 'gender_default'
+  | 'user_setting';
+
+export type PersonalTodayMode =
+  | 'low_data'
+  | 'stable'
+  | 'low_resource'
+  | 'closeness'
+  | 'conflict_risk'
+  | 'repair'
+  | 'growth';
+
+export type PersonalTodayDTO = {
+  user: {
+    id: string;
+    name: string;
+    avatarUrl?: string | null;
+    gender: 'male' | 'female' | null;
+  };
+
+  date: {
+    dateKey: string;
+    label: string;
+    freshness: 'today' | 'stale' | 'weekly_fallback' | 'profile_fallback' | 'low_data';
+  };
+
+  lens: {
+    type: RelationshipLensType;
+    source: RelationshipLensSource;
+    canChange: boolean;
+  };
+
+  privacy: {
+    mode: 'private';
+    label: string;
+    explanation: string;
+  };
+
+  pairContext: {
+    hasPair: boolean;
+    pairId?: string;
+    status?: 'active' | 'paused';
+    warmth?: number;
+    label: string;
+  };
+
+  hero: {
+    mode: PersonalTodayMode;
+    title: string;
+    subtitle: string;
+    rings: {
+      resource: number;
+      closeness: number;
+      tension: number;
+    };
+    hints: string[];
+  };
+
+  quickCards: Array<{
+    key:
+      | 'state'
+      | 'need'
+      | 'influence'
+      | 'resource'
+      | 'contribution'
+      | 'risk';
+    title: string;
+    body: string;
+    icon: string;
+  }>;
+
+  partnerSignal: {
+    available: boolean;
+    title: string;
+    text: string;
+    visibility: 'private_draft' | 'sent' | 'disabled';
+    primaryCta: string;
+    secondaryCta: string;
+    sentAt?: string;
+  };
+
+  incomingPartnerSignal?: {
+    id: string;
+    from: {
+      id: string;
+      username: string;
+      avatarUrl?: string | null;
+    };
+    text: string;
+    tone: 'support' | 'space' | 'closeness' | 'repair' | 'low_resource' | 'neutral';
+    createdAt?: string;
+  };
+
+  softOption: {
+    title: string;
+    intro: string;
+    phrase: string;
+    alternatives: string[];
+    primaryCta: string;
+    secondaryCta: string;
+  };
+
+  todayMap: Array<{
+    key:
+      | 'resource'
+      | 'closeness'
+      | 'stress'
+      | 'support'
+      | 'conversation'
+      | 'irritation'
+      | 'initiative'
+      | 'repair';
+    label: string;
+    value: number;
+  }>;
+
+  privateJournal: {
+    hasEntry: boolean;
+    text?: string;
+    placeholder: string;
+    maxLength: number;
+  };
+
+  checkIn: {
+    id?: string;
+    submittedToday: boolean;
+    editable: boolean;
+  };
+};
+
+export type PersonalDailyCheckInRequest = {
+  dateKey?: string;
+  timezoneOffsetMin?: number;
+  answers: {
+    mood:
+      | 'calm'
+      | 'warm'
+      | 'tired'
+      | 'anxious'
+      | 'sad'
+      | 'irritated'
+      | 'closed'
+      | 'open';
+    energy: number;
+    stress: number;
+    closenessNeed: number;
+    spaceNeed: number;
+    supportNeed: number;
+    conflictSensitivity: number;
+    conversationReadiness: number;
+  };
+  context?: {
+    sleep?: 'good' | 'medium' | 'bad';
+    workload?: 'low' | 'medium' | 'high';
+    body?: {
+      enabled: boolean;
+      type?: 'cycle' | 'pain' | 'fatigue' | 'health' | 'other';
+      note?: string;
+      visibility: 'private';
+    };
+    customTags?: string[];
+  };
+  privateJournal?: {
+    text?: string;
+  };
+  share?: {
+    partnerSignal?: {
+      enabled: boolean;
+      text?: string;
+    };
+    pairMap?: {
+      enabled: boolean;
+    };
+  };
+};
+
+export type RelationshipLensPatchRequest = {
+  defaultLens?: RelationshipLensType;
+  preferredSupportStyle?:
+    | 'listen'
+    | 'solve'
+    | 'hug'
+    | 'space'
+    | 'practical_help'
+    | 'soft_presence';
+  conflictPattern?:
+    | 'withdraw'
+    | 'argue'
+    | 'freeze'
+    | 'explain'
+    | 'please'
+    | 'avoid';
+  privacyDefaults?: {
+    dailyStatePrivate?: boolean;
+    journalPrivate?: boolean;
+    bodyContextPrivate?: boolean;
+    partnerSignalsEnabled?: boolean;
+    pairMapContributionEnabled?: boolean;
+  };
+};
+
+export type PartnerSignalSendRequest = {
+  text: string;
+};
+
+export type PartnerSignalSendResponse = {
+  id: string;
+  status: 'sent';
+  sentAt: string;
+};
+
 export type PairStatusDTO =
   | { hasActive: false }
   | {
