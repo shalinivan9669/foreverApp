@@ -121,10 +121,7 @@ export const createEmptyPersonalToday = (): PersonalTodayDTO => ({
   },
 });
 
-const normalizeLens = (
-  input: PersonalTodayInput,
-  fallback: PersonalTodayDTO
-): PersonalTodayDTO['lens'] => {
+const normalizeLens = (input: PersonalTodayInput): PersonalTodayDTO['lens'] => {
   const type = input?.lens?.type;
   const source = input?.lens?.source;
   return {
@@ -213,7 +210,7 @@ export const normalizePersonalToday = (input?: Partial<PersonalTodayDTO> | null)
           ? input.date.freshness
           : 'low_data',
     },
-    lens: normalizeLens(input, fallback),
+    lens: normalizeLens(input),
     privacy: {
       mode: 'private',
       label: asString(input.privacy?.label) ?? 'Лично',
