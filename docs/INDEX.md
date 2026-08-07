@@ -4,6 +4,11 @@
 
 - `README.md` - human setup and overview.
 - `AGENTS.md` - agent operating rules.
+- `docs/PRODUCT_SPEC.md` - canonical product direction, principles, phase boundaries, and rejected ideas.
+- `docs/MVP_SPEC.md` - canonical MVP scope, gates, and core flow.
+- `docs/MVP_FLOWS.md` - detailed MVP acceptance criteria and delivery checklist.
+- `docs/TARGET_DOMAIN_MODEL.md` - target typed entities and computation model.
+- `docs/TARGET_DOMAIN_OPERATIONS.md` - privacy, safety, versioning, storage, scaling, and AI boundaries.
 - `docs/PROJECT_MAP.md` - codebase map.
 - `docs/ARCHITECTURE.md` - architecture boundaries.
 - `docs/API_CONTRACTS.md` - API envelope, validation, DTO rules.
@@ -20,6 +25,7 @@
 
 | Task type | Read first | Then inspect |
 | --- | --- | --- |
+| Product/MVP planning | `docs/PRODUCT_SPEC.md`, `docs/MVP_SPEC.md` | relevant MVP/domain appendix, then current contracts/code; dated snapshots only for archaeology |
 | API route change | `docs/API_CONTRACTS.md` | `src/app/api`, `src/domain/services`, `src/lib/dto` |
 | Frontend UI change | `docs/ARCHITECTURE.md` | `src/features`, `src/components`, `src/client/api` |
 | Auth/security change | `docs/SECURITY.md` | `src/lib/auth`, `src/app/api`, `src/domain/services` |
@@ -31,8 +37,13 @@
 
 ## Existing detailed docs
 
-- `docs/01-product-loop.md` - product loop and user journey.
-- `docs/02-domain-model.md` - domain entities, relations, canonical activity model.
+- `docs/PRODUCT_SPEC.md` - target product source of truth.
+- `docs/MVP_SPEC.md` - MVP and commercial launch gates source of truth.
+- `docs/MVP_FLOWS.md` - detailed MVP flows, acceptance criteria, and delivery gates.
+- `docs/TARGET_DOMAIN_MODEL.md` - target domain/computation source of truth.
+- `docs/TARGET_DOMAIN_OPERATIONS.md` - target privacy/safety/versioning/scaling boundaries.
+- `docs/01-product-loop.md` - dated historical product-flow snapshot; re-audit before using evidence.
+- `docs/02-domain-model.md` - dated historical domain snapshot; re-audit before using evidence.
 - `docs/03-state-machines.md` - observed and centralized state transitions.
 - `docs/04-api-contracts.md` - detailed historical API inventory and contract updates.
 - `docs/05-analytics-events.md` - analytics/audit event notes.

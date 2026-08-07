@@ -515,3 +515,24 @@ Summary:
 - Limited collection cards to stable readable columns on desktop and ultrawide screens.
 - Unified search, lootboxes, and standalone loading or empty states with the shared responsive primitives.
 Files: src/app/globals.css, src/app/lootboxes/page.tsx, src/app/pair/[id]/diagnostics/page.tsx, src/components/ui/LoadingView.tsx, src/features/match/feed/MatchFeedView.tsx, docs/RESPONSIVE_LAYOUT.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Consolidated the supplied product concepts into canonical product, MVP, and target-domain documents with explicit source precedence.
+- Narrowed the first release to the repeatable pair cycle and separated commercial launch gates, post-MVP opportunities, and long-term AI/Family OS ideas.
+- Replaced the universal vector/compatibility concept with typed atomic dimensions, versioned rules, privacy-safe projections, and explicit insufficient-data behavior.
+- Reclassified the dated product-loop and domain-model inventories as historical snapshots so stale evidence is not mistaken for current implementation.
+Files: docs/PRODUCT_SPEC.md, docs/MVP_SPEC.md, docs/MVP_FLOWS.md, docs/TARGET_DOMAIN_MODEL.md, docs/TARGET_DOMAIN_OPERATIONS.md, docs/01-product-loop.md, docs/02-domain-model.md, docs/INDEX.md, docs/DOCS_STATUS.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Stabilized activity vector provenance so source type, activity id, result revision, and scoring version are supplied as one snapshot payload.
+- Strengthened vector selfchecks for current activity metadata and backward-compatible legacy snapshots without changing scoring semantics or storage schema.
+Files: src/domain/services/vectorScoring.service.ts, src/utils/activities.ts, scripts/vector-scoring.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Replaced participant-facing weekly averages/divergence with a qualitative pair projection and explicit privacy-safe data status.
+- Stopped pair/dashboard DTOs from exposing readiness or fatigue metrics and made weekly retries/concurrent duplicates return the immutable first submission.
+- Added security assertions for one-sided, equal, divergent, insufficient, sensitive-content, membership, retry, and non-reconstruction paths.
+Files: src/domain/services/weeklyCheckIn.service.ts, src/app/api/pairs/[id]/weekly-checkin/current/route.ts, src/app/api/pairs/me/route.ts, src/domain/services/pairDashboardSummary.service.ts, src/client/api/types.ts, src/components/checkins/PairWeeklyCheckInPanel.tsx, src/components/checkins/WeeklyCheckInCard.tsx, src/features/pair/PairProfilePageClient.tsx, scripts/weekly-checkin.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md

@@ -5,7 +5,10 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
 import { asError, toDomainError } from '@/domain/errors';
-import { buildPairWeeklyCheckInSummary } from '@/domain/services/weeklyCheckIn.service';
+import {
+  buildPairWeeklyCheckInSummary,
+  toPairWeeklyCheckInPairDTO,
+} from '@/domain/services/weeklyCheckIn.service';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -35,13 +38,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!pairGuard.ok) return pairGuard.response;
 
   try {
-    return jsonOk(
-      await buildPairWeeklyCheckInSummary({
-        pair: pairGuard.data.pair,
-        currentUserId: auth.data.userId,
-        weekKey: query.data.weekKey,
-      })
-    );
+    const summary = await buildPairWeeklyCheckInSummary({
+      pair: pairGuard.data.pair,
+      currentUserId: auth.data.userId,
+      weekKey: query.data.weekKey,
+    });
+    return jsonOk(toPairWeeklyCheckInPairDTO(summary));
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));
     return jsonError(

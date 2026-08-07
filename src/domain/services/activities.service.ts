@@ -13,14 +13,22 @@ import { requireActivityMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
+import {
+  isPairSafetyVetoActive,
+  isSafetyFallbackTemplateId,
+} from '@/domain/services/safetyGate.service';
 import type {
   ActivityCompletedStatus,
-  ActivityResultSummary,
 } from '@/models/PairActivity';
 import {
   activityTransition,
   type ActivityAnswerInput,
 } from '@/domain/state/activityMachine';
+import {
+  toActivityResultSummaryDTO,
+  type ActivityResultSummaryDTO,
+} from '@/lib/dto/activity.dto';
+import { recommendationDecisionService } from '@/domain/services/recommendationDecision.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -117,9 +125,8 @@ const validateFeedback = (
 };
 
 type ActivityCompletionResponse = {
-  success: number;
   status: ActivityCompletedStatus;
-  resultSummary: ActivityResultSummary;
+  resultSummary: ActivityResultSummaryDTO;
 };
 
 export const activitiesService = {
@@ -129,8 +136,27 @@ export const activitiesService = {
     auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
+    const safetyVeto = await isPairSafetyVetoActive(String(data.pair._id));
+    const templateId =
+      typeof data.activity.stateMeta?.templateId === 'string'
+        ? data.activity.stateMeta.templateId
+        : undefined;
+    if (
+      safetyVeto &&
+      !isSafetyFallbackTemplateId(templateId)
+    ) {
+      throw new DomainError({
+        code: 'ACTIVITY_UNAVAILABLE',
+        status: 409,
+        message: 'Activity is unavailable',
+      });
+    }
 
     const now = new Date();
+    await recommendationDecisionService.assertAcceptableForActivity(
+      input.activityId,
+      now
+    );
     const transition = activityTransition(
       {
         status: data.activity.status,
@@ -152,6 +178,11 @@ export const activitiesService = {
     }
 
     await data.activity.save();
+
+    await recommendationDecisionService.markAcceptedForActivity(
+      String(data.activity._id),
+      transition.next.acceptedAt ?? now
+    );
 
     await emitEvent({
       event: 'ACTIVITY_ACCEPTED',
@@ -183,6 +214,7 @@ export const activitiesService = {
     auditRequest?: AuditRequestContext;
   }): Promise<Record<string, never>> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
+    const now = new Date();
 
     const transition = activityTransition(
       {
@@ -191,7 +223,7 @@ export const activitiesService = {
       },
       {
         type: 'CANCEL',
-        at: new Date(),
+        at: now,
       },
       {
         currentUserId: input.currentUserId,
@@ -201,6 +233,11 @@ export const activitiesService = {
 
     data.activity.status = transition.next.status;
     await data.activity.save();
+
+    await recommendationDecisionService.markSkippedForActivity(
+      String(data.activity._id),
+      now
+    );
 
     await emitEvent({
       event: 'ACTIVITY_CANCELED',
@@ -231,7 +268,7 @@ export const activitiesService = {
     currentUserId: string;
     answers: ActivityAnswerInput[];
     auditRequest?: AuditRequestContext;
-  }): Promise<{ success: number; submittedCount: number; bothSubmitted: boolean }> {
+  }): Promise<ActivityResultSummaryDTO> {
     const data = await ensureActivityMember(input.activityId, input.currentUserId);
     if (data.pair.status === 'ended') {
       throw new DomainError({
@@ -331,11 +368,7 @@ export const activitiesService = {
       },
     });
 
-    return {
-      success: score,
-      submittedCount: result.submittedCount,
-      bothSubmitted: result.bothSubmitted,
-    };
+    return toActivityResultSummaryDTO(result);
   },
 
   async completeActivity(input: {
@@ -376,9 +409,8 @@ export const activitiesService = {
         },
       };
       return {
-        success: clamp(resultSummary.successScore),
         status: resultSummary.status,
-        resultSummary,
+        resultSummary: toActivityResultSummaryDTO(resultSummary),
       };
     }
 
@@ -392,9 +424,8 @@ export const activitiesService = {
 
     if (alreadyCompleted && resultSummary.effectApplied) {
       return {
-        success: clamp(resultSummary.successScore),
         status: resultSummary.status,
-        resultSummary,
+        resultSummary: toActivityResultSummaryDTO(resultSummary),
       };
     }
 
@@ -473,9 +504,8 @@ export const activitiesService = {
     });
 
     return {
-      success: clamp(resultSummary.successScore),
       status: resultSummary.status,
-      resultSummary,
+      resultSummary: toActivityResultSummaryDTO(resultSummary),
     };
   },
 };

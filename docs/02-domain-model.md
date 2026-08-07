@@ -1,4 +1,7 @@
 ﻿**Current State (Overview)**
+
+> Scope: датированный historical snapshot; evidence и часть текста не перепроверены против текущего кода. Не использовать как current source of truth до targeted re-audit. Целевая модель находится в `docs/TARGET_DOMAIN_MODEL.md` и не является уже применённой схемой БД.
+
 1. Key repository path snapshot is captured in `docs/_evidence/repo-tree.txt`.
 2. User model fields: `id`, `username`, `avatar`, `personal`, `vectors`, `embeddings`, `preferences`, `matchMeta`, `profile`, `location`, `createdAt`, `updatedAt`. Evidence: `src/models/User.ts`.
 3. Pair model fields: `members`, `key`, `status`, `activeActivity`, `progress`, `passport`, `fatigue`, `readiness`, `createdAt`, `updatedAt`. Evidence: `src/models/Pair.ts`.

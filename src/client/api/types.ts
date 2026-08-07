@@ -52,43 +52,40 @@ export type WeeklyCheckInDTO = {
   updatedAt?: string;
 };
 
-export type PairWeeklyCheckInParticipantDTO = {
-  userId: string;
-  submitted: boolean;
-  checkInId?: string;
-  readiness?: number;
-  fatigue?: number;
-  closeness?: number;
-  irritation?: number;
-  unresolvedTopic?: boolean;
-  updatedAt?: string;
-};
-
 export type PairWeeklyCheckInSummaryDTO = {
   pairId: string;
   weekKey: string;
-  currentUser: PairWeeklyCheckInParticipantDTO;
-  peer: PairWeeklyCheckInParticipantDTO & {
+  currentUser: { submitted: boolean };
+  peer: {
+    submitted: boolean;
     username?: string;
     avatar?: string;
     avatarUrl?: string | null;
   };
   pair: {
-    submittedCount: number;
     bothSubmitted: boolean;
-    readiness?: number;
-    fatigue?: number;
-    closeness?: number;
-    irritation?: number;
-    unresolvedTopicCount: number;
-    hasDivergence: boolean;
-    divergence?: {
-      readiness?: number;
-      fatigue?: number;
-      closeness?: number;
-      irritation?: number;
-    };
-    status: 'missing' | 'partial' | 'complete' | 'divergent';
+    dataStatus: 'NOT_READY' | 'PARTIAL' | 'ENOUGH' | 'INSUFFICIENT';
+    reasonCodes: Array<
+      | 'WAITING_FOR_RESPONSES'
+      | 'WAITING_FOR_PEER'
+      | 'PAIR_SIGNALS_READY'
+      | 'PAIR_DATA_INSUFFICIENT'
+    >;
+    signals: Array<{
+      key: 'connection' | 'tension' | 'recovery' | 'resource';
+      status: 'LOW' | 'STEADY' | 'HIGH' | 'MIXED';
+      dataStatus: 'ENOUGH';
+      reasonCode:
+        | 'PAIR_LEVEL_LOW'
+        | 'PAIR_LEVEL_STEADY'
+        | 'PAIR_LEVEL_HIGH'
+        | 'DIFFERENT_EXPERIENCE';
+      nextStepHint:
+        | 'CHECK_IN_TOGETHER'
+        | 'CHOOSE_LOW_EFFORT'
+        | 'MAKE_ROOM_FOR_RECOVERY'
+        | 'KEEP_CURRENT_RHYTHM';
+    }>;
   };
 };
 
@@ -618,16 +615,6 @@ export type ActivityStatus =
   | 'cancelled'
   | 'expired';
 
-export type OfferSource = 'growth' | 'recovery' | 'date';
-
-export type OfferReasonMeta = {
-  topRiskAxis: string | null;
-  topRiskSeverity: 1 | 2 | 3 | null;
-  difficultyComputed: 1 | 2 | 3 | 4 | 5 | null;
-  fatigueScore: number | null;
-  eventKey: string | null;
-};
-
 export type ActivityBucket = 'current' | 'suggested' | 'history';
 
 export type ActivityI18nText = {
@@ -644,28 +631,9 @@ export type ActivityCheckInDTO = {
 };
 
 export type ActivityResultSummaryDTO = {
-  submittedBy: Array<'A' | 'B'>;
-  submittedCount: number;
+  dataStatus: 'PARTIAL' | 'ENOUGH';
   bothSubmitted: boolean;
-  successScore: number;
   status: 'completed_success' | 'completed_partial' | 'failed';
-  usefulnessAvg?: number;
-  comfortAvg?: number;
-  tensionAvg?: number;
-  wantsSimilarRatio?: number;
-  effectApplied: boolean;
-  effect: {
-    fatigueDelta: number;
-    readinessDelta: number;
-    axisDeltas: Array<{
-      axis: QuestionnaireAxis;
-      delta: number;
-    }>;
-  };
-  effectExplanation: {
-    ru: string;
-    en?: string;
-  };
   completedAt?: string;
   resultVersion: 'activity-result-v1';
 };
@@ -692,8 +660,6 @@ export type PairActivityDTO = {
   checkIns: ActivityCheckInDTO[];
   successScore?: number;
   resultSummary?: ActivityResultSummaryDTO;
-  offerSource?: OfferSource;
-  offerReason?: OfferReasonMeta;
   legacy?: boolean;
   legacySource?: 'relationship_activity';
   createdAt?: string;
@@ -710,57 +676,21 @@ export type PairActivityEventSourceDTO = {
 };
 
 export type PairActivitySuggestionPlanDTO = {
-  pairId: string;
   status:
     | 'blocked_by_current_activity'
     | 'blocked_by_pair_state'
     | 'needs_diagnostics'
     | 'needs_weekly_checkin'
     | 'ready';
-  primaryReason:
-    | 'current_activity'
-    | 'pair_paused'
-    | 'pair_ended'
-    | 'insufficient_diagnostics'
-    | 'missing_weekly_checkin'
-    | 'high_fatigue'
-    | 'weekly_divergence'
-    | 'risk_zone'
-    | 'low_closeness'
-    | 'maintenance';
-  axis?: QuestionnaireAxis;
-  severity?: 1 | 2 | 3;
-  fatigue?: number;
-  readiness?: number;
-  closeness?: number;
-  irritation?: number;
-  preferredDifficulty: 1 | 2 | 3 | 4 | 5;
-  maxIntensity: 1 | 2 | 3;
-  preferredArchetypes: string[];
-  requiredMode?: 'together' | 'soloA' | 'soloB';
-  requiredSync?: 'sync' | 'async';
+  reasonCode:
+    | 'CURRENT_ACTIVITY'
+    | 'PAIR_UNAVAILABLE'
+    | 'CURRENT_CYCLE_SUPPORT';
   explanation: {
     ru: string;
-    en?: string;
+    en: string;
   };
-  source: 'diagnostics' | 'weekly_checkin' | 'dashboard' | 'manual';
-  sourceMeta: {
-    trigger?: string;
-    weekKey?: string;
-    axis?: string;
-    severity?: 1 | 2 | 3;
-    divergenceMetric?: 'readiness' | 'fatigue' | 'closeness' | 'irritation';
-    decisionVersion: 'activity-decision-v1';
-    eventType?: 'first_month' | 'anniversary' | 'march_8' | 'valentines_day';
-    eventDate?: string;
-  };
-  recentActivitySignals: {
-    lastCompletedStatus?: 'completed_success' | 'completed_partial' | 'failed';
-    lastAxis?: QuestionnaireAxis[];
-    lastArchetype?: string;
-    lowComfortRecently: boolean;
-    wantsSimilarRecently: boolean;
-  };
+  decisionVersion: 'activity-decision-v1';
 };
 
 export type PairActivitySuggestionResponse = {
@@ -843,7 +773,6 @@ export type PairEventMutationResponse = {
 
 export type ActivityOfferDTO = {
   id: string;
-  templateId?: string;
   title: ActivityI18nText;
   axis: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
@@ -851,13 +780,9 @@ export type ActivityOfferDTO = {
     ru: string[];
     en: string[];
   };
-  reward: {
-    readinessDelta: number;
-    fatigueDelta: number;
-  };
   expiresAt?: string;
-  source: OfferSource;
-  reason?: OfferReasonMeta;
+  reasonCode: 'CURRENT_CYCLE_SUPPORT';
+  explanation: ActivityI18nText;
 };
 
 export type ActivityCheckInRequest = {
@@ -867,14 +792,9 @@ export type ActivityCheckInRequest = {
   }>;
 };
 
-export type ActivityCheckInResponse = {
-  success: number;
-  submittedCount: number;
-  bothSubmitted: boolean;
-};
+export type ActivityCheckInResponse = ActivityResultSummaryDTO;
 
 export type ActivityCompleteResponse = {
-  success: number;
   status: 'completed_success' | 'completed_partial' | 'failed';
   resultSummary: ActivityResultSummaryDTO;
 };

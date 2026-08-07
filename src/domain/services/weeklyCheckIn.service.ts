@@ -24,6 +24,10 @@ import {
 } from '@/domain/services/vectorScoring.service';
 import { buildPairAnswerDiagnostics } from '@/domain/services/pairAnswerScoring.service';
 import {
+  weeklyCycleKeyForDate,
+  weeklyCycleService,
+} from '@/domain/services/weeklyCycle.service';
+import {
   buildPairInsightCandidates,
   buildUserInsightCandidates,
   persistInsightCandidates,
@@ -93,6 +97,61 @@ export type PairWeeklyCheckInSummaryDTO = {
   };
 };
 
+export type PairWeeklyCheckInDataStatus =
+  | 'NOT_READY'
+  | 'PARTIAL'
+  | 'ENOUGH'
+  | 'INSUFFICIENT';
+
+export type PairWeeklyCheckInSignalKey =
+  | 'connection'
+  | 'tension'
+  | 'recovery'
+  | 'resource';
+
+export type PairWeeklyCheckInSignalStatus =
+  | 'LOW'
+  | 'STEADY'
+  | 'HIGH'
+  | 'MIXED';
+
+export type PairWeeklyCheckInPairDTO = {
+  pairId: string;
+  weekKey: string;
+  currentUser: { submitted: boolean };
+  peer: {
+    submitted: boolean;
+    username?: string;
+    avatar?: string;
+    avatarUrl?: string | null;
+  };
+  pair: {
+    bothSubmitted: boolean;
+    dataStatus: PairWeeklyCheckInDataStatus;
+    reasonCodes: Array<
+      | 'WAITING_FOR_RESPONSES'
+      | 'WAITING_FOR_PEER'
+      | 'PAIR_SIGNALS_READY'
+      | 'PAIR_DATA_INSUFFICIENT'
+    >;
+    signals: Array<{
+      key: PairWeeklyCheckInSignalKey;
+      status: PairWeeklyCheckInSignalStatus;
+      dataStatus: 'ENOUGH';
+      reasonCode:
+        | 'PAIR_LEVEL_LOW'
+        | 'PAIR_LEVEL_STEADY'
+        | 'PAIR_LEVEL_HIGH'
+        | 'DIFFERENT_EXPERIENCE';
+      nextStepHint:
+        | 'CHECK_IN_TOGETHER'
+        | 'CHOOSE_LOW_EFFORT'
+        | 'MAKE_ROOM_FOR_RECOVERY'
+        | 'KEEP_CURRENT_RHYTHM';
+    }>;
+  };
+};
+
 type PairGuardData = {
   pair: HydratedDocument<PairType>;
   by: 'A' | 'B';
@@ -106,6 +165,13 @@ type PairWeeklyCheckInRow = Pick<
 >;
 
 type PairWeeklyMember = Pick<UserType, 'id' | 'username' | 'avatar'>;
+
+type DuplicateKeyError = { code: number };
+
+const isDuplicateKeyError = (error: object): error is DuplicateKeyError => {
+  if (!('code' in error)) return false;
+  return (error as { code: number }).code === 11000;
+};
 
 export const WEEKLY_CHECK_IN_DIVERGENCE_THRESHOLD = 0.3;
 
@@ -122,14 +188,7 @@ const assertRange = (value: number, field: string): void => {
   }
 };
 
-export const currentWeekKey = (date = new Date()): string => {
-  const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = utcDate.getUTCDay() || 7;
-  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return `${utcDate.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-};
+export const currentWeekKey = weeklyCycleKeyForDate;
 
 export const validateWeeklyAnswers = (answers: WeeklyCheckInAnswers): WeeklyCheckInAnswers => {
   assertRange(answers.closeness, 'closeness');
@@ -312,6 +371,118 @@ export const summarizePairWeeklyCheckIns = (input: {
   };
 };
 
+const qualitativeSignal = (input: {
+  key: PairWeeklyCheckInSignalKey;
+  value: number;
+  divergence?: number;
+}): PairWeeklyCheckInPairDTO['pair']['signals'][number] => {
+  const status: PairWeeklyCheckInSignalStatus =
+    typeof input.divergence === 'number' &&
+    input.divergence >= WEEKLY_CHECK_IN_DIVERGENCE_THRESHOLD
+      ? 'MIXED'
+      : input.value <= 0.33
+        ? 'LOW'
+        : input.value >= 0.67
+          ? 'HIGH'
+          : 'STEADY';
+  const reasonCode =
+    status === 'MIXED'
+      ? 'DIFFERENT_EXPERIENCE'
+      : status === 'LOW'
+        ? 'PAIR_LEVEL_LOW'
+        : status === 'HIGH'
+          ? 'PAIR_LEVEL_HIGH'
+          : 'PAIR_LEVEL_STEADY';
+  const nextStepHint =
+    input.key === 'recovery' && status !== 'HIGH'
+      ? 'MAKE_ROOM_FOR_RECOVERY'
+      : (input.key === 'tension' && status !== 'LOW') || status === 'MIXED'
+        ? 'CHOOSE_LOW_EFFORT'
+        : status === 'LOW'
+          ? 'CHECK_IN_TOGETHER'
+          : 'KEEP_CURRENT_RHYTHM';
+
+  return {
+    key: input.key,
+    status,
+    dataStatus: 'ENOUGH',
+    reasonCode,
+    nextStepHint,
+  };
+};
+
+export const toPairWeeklyCheckInPairDTO = (
+  summary: PairWeeklyCheckInSummaryDTO
+): PairWeeklyCheckInPairDTO => {
+  const metricsReady = [
+    summary.pair.readiness,
+    summary.pair.fatigue,
+    summary.pair.closeness,
+    summary.pair.irritation,
+  ].every((value) => typeof value === 'number' && Number.isFinite(value));
+  const dataStatus: PairWeeklyCheckInDataStatus =
+    !summary.currentUser.submitted && !summary.peer.submitted
+      ? 'NOT_READY'
+      : !summary.pair.bothSubmitted
+        ? 'PARTIAL'
+        : metricsReady
+          ? 'ENOUGH'
+          : 'INSUFFICIENT';
+  const signals =
+    dataStatus === 'ENOUGH'
+      ? [
+          qualitativeSignal({
+            key: 'connection',
+            value: summary.pair.closeness ?? 0,
+            divergence: summary.pair.divergence?.closeness,
+          }),
+          qualitativeSignal({
+            key: 'tension',
+            value: summary.pair.irritation ?? 0,
+            divergence: summary.pair.divergence?.irritation,
+          }),
+          qualitativeSignal({
+            key: 'recovery',
+            value: 1 - (summary.pair.fatigue ?? 1),
+            divergence: summary.pair.divergence?.fatigue,
+          }),
+          qualitativeSignal({
+            key: 'resource',
+            value: summary.pair.readiness ?? 0,
+            divergence: summary.pair.divergence?.readiness,
+          }),
+        ]
+      : [];
+  const reasonCodes: PairWeeklyCheckInPairDTO['pair']['reasonCodes'] =
+    dataStatus === 'NOT_READY'
+      ? ['WAITING_FOR_RESPONSES']
+      : dataStatus === 'PARTIAL'
+        ? ['WAITING_FOR_PEER']
+        : dataStatus === 'ENOUGH'
+          ? ['PAIR_SIGNALS_READY']
+          : ['PAIR_DATA_INSUFFICIENT'];
+
+  return {
+    pairId: summary.pairId,
+    weekKey: summary.weekKey,
+    currentUser: { submitted: summary.currentUser.submitted },
+    peer: {
+      submitted: summary.peer.submitted,
+      ...(summary.peer.username ? { username: summary.peer.username } : {}),
+      ...(summary.peer.avatar ? { avatar: summary.peer.avatar } : {}),
+      ...(summary.peer.avatarUrl !== undefined
+        ? { avatarUrl: summary.peer.avatarUrl }
+        : {}),
+    },
+    pair: {
+      bothSubmitted: summary.pair.bothSubmitted,
+      dataStatus,
+      reasonCodes,
+      signals,
+    },
+  };
+};
+
 export const buildPairWeeklyCheckInSummary = async (input: {
   pair: HydratedDocument<PairType>;
   currentUserId: string;
@@ -409,6 +580,34 @@ const toDTO = (input: {
   updatedAt: input.checkIn.updatedAt,
 });
 
+const visibleInsightsForIds = async (ids: string[]): Promise<InsightDTO[]> =>
+  (
+    await Promise.all(
+      ids.map(async (id) => {
+        const doc = await Insight.findById(id).lean<
+          (InsightType & { _id: Types.ObjectId }) | null
+        >();
+        return doc ? toInsightDTO(doc) : null;
+      })
+    )
+  ).filter((item): item is InsightDTO => item !== null);
+
+const toStoredWeeklyCheckInDTO = async (
+  checkIn: StoredWeeklyCheckIn
+): Promise<WeeklyCheckInDTO> =>
+  toDTO({
+    checkIn,
+    readiness: {
+      score: checkIn.answers.readiness,
+      updatedAt: checkIn.updatedAt,
+    },
+    fatigue: {
+      score: checkIn.answers.fatigue,
+      updatedAt: checkIn.updatedAt,
+    },
+    insights: await visibleInsightsForIds(checkIn.computed.generatedInsightIds),
+  });
+
 export const weeklyCheckInService = {
   async submit(input: WeeklyCheckInSubmitInput): Promise<WeeklyCheckInDTO> {
     await connectToDatabase();
@@ -426,8 +625,24 @@ export const weeklyCheckInService = {
       });
     }
 
-    const now = new Date();
     const pairId = pairData ? String(pairData.pair._id) : undefined;
+    const identityFilter = pairId
+      ? pairIdentityFilter({ userId: input.currentUserId, pairId, weekKey })
+      : soloIdentityFilter({ userId: input.currentUserId, weekKey });
+    const existingCheckIn = await WeeklyCheckIn.findOne(identityFilter).lean<
+      StoredWeeklyCheckIn | null
+    >();
+    if (existingCheckIn) {
+      if (pairData) {
+        await weeklyCycleService.syncAfterCheckIn({
+          pair: pairData.pair,
+          cycleKey: weekKey,
+        });
+      }
+      return toStoredWeeklyCheckInDTO(existingCheckIn);
+    }
+
+    const now = new Date();
     const psycheTarget = clamp01(answers.readiness * 0.55 + (1 - answers.fatigue) * 0.45);
     const communicationTarget = clamp01(
       1 - Math.max(answers.irritation, answers.unresolvedTopic ? 0.8 : 0)
@@ -457,33 +672,47 @@ export const weeklyCheckInService = {
       generatedInsightIds: [],
     };
 
-    const checkIn = await WeeklyCheckIn.findOneAndUpdate(
-      pairId
-        ? pairIdentityFilter({ userId: input.currentUserId, pairId, weekKey })
-        : soloIdentityFilter({ userId: input.currentUserId, weekKey }),
-      pairId
-        ? {
-            $set: {
-              pairId,
-              answers,
-              computed: preliminaryComputed,
-            },
-          }
-        : {
-            $set: {
-              answers,
-              computed: preliminaryComputed,
-            },
-            $unset: { pairId: 1 },
-          },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    ).lean<StoredWeeklyCheckIn | null>();
-    if (!checkIn) {
-      throw new DomainError({
-        code: 'INTERNAL',
-        status: 500,
-        message: 'Weekly check-in was not saved',
+    let checkIn: StoredWeeklyCheckIn;
+    if (pairData) {
+      await weeklyCycleService.claimSubmission({
+        pair: pairData.pair,
+        currentUserId: input.currentUserId,
+        cycleKey: weekKey,
+        now,
       });
+    }
+    try {
+      const created = await WeeklyCheckIn.create({
+        userId: input.currentUserId,
+        ...(pairId ? { pairId } : {}),
+        weekKey,
+        answers,
+        computed: preliminaryComputed,
+      });
+      checkIn = created.toObject<StoredWeeklyCheckIn>();
+    } catch (error) {
+      if (error instanceof Error && isDuplicateKeyError(error as object)) {
+        const concurrent = await WeeklyCheckIn.findOne(identityFilter).lean<
+          StoredWeeklyCheckIn | null
+        >();
+        if (concurrent) {
+          if (pairData) {
+            await weeklyCycleService.syncAfterCheckIn({
+              pair: pairData.pair,
+              cycleKey: weekKey,
+            });
+          }
+          return toStoredWeeklyCheckInDTO(concurrent);
+        }
+      }
+      if (pairData) {
+        await weeklyCycleService.releaseSubmissionClaim({
+          pair: pairData.pair,
+          currentUserId: input.currentUserId,
+          cycleKey: weekKey,
+        });
+      }
+      throw error;
     }
 
     const setPayload: Record<string, number | string | Date> = {
@@ -536,6 +765,7 @@ export const weeklyCheckInService = {
         weekKey,
       });
       if (
+        pairSummary.pair.bothSubmitted &&
         pairSummary.pair.readiness !== undefined &&
         pairSummary.pair.fatigue !== undefined
       ) {
@@ -632,6 +862,14 @@ export const weeklyCheckInService = {
       { new: true }
     ).lean<StoredWeeklyCheckIn | null>();
 
+    if (pairData) {
+      await weeklyCycleService.syncAfterCheckIn({
+        pair: pairData.pair,
+        cycleKey: weekKey,
+        now,
+      });
+    }
+
     await emitEvent({
       event: 'WEEKLY_CHECKIN_SUBMITTED',
       actor: { userId: input.currentUserId },
@@ -654,16 +892,7 @@ export const weeklyCheckInService = {
       },
     });
 
-    const visibleInsights = generatedInsightIds.length > 0
-      ? (await Promise.all(
-          generatedInsightIds.map(async (id) => {
-            const doc = await Insight.findById(id).lean<
-              (InsightType & { _id: Types.ObjectId }) | null
-            >();
-            return doc ? toInsightDTO(doc) : null;
-          })
-        )).filter((item): item is InsightDTO => item !== null)
-      : [];
+    const visibleInsights = await visibleInsightsForIds(generatedInsightIds);
 
     return toDTO({
       checkIn: updatedCheckIn ?? { ...checkIn, computed },

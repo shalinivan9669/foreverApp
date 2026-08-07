@@ -54,11 +54,7 @@ export type PairActivityDTO = {
   visibility?: PairActivityType['visibility'];
   status: PairActivityType['status'];
   checkIns: CheckInTpl[];
-  successScore?: number;
   resultSummary?: ActivityResultSummaryDTO;
-  effect?: EffectTpl[];
-  fatigueDeltaOnComplete?: number;
-  readinessDeltaOnComplete?: number;
   createdBy: PairActivityType['createdBy'];
   legacy?: boolean;
   legacySource?: 'relationship_activity';
@@ -75,12 +71,23 @@ export type PairActivityEventSourceDTO = {
   eventDate?: string;
 };
 
-export type ActivityResultSummaryDTO = Omit<
-  ActivityResultSummary,
-  'completedAt'
-> & {
+export type ActivityResultSummaryDTO = {
+  dataStatus: 'PARTIAL' | 'ENOUGH';
+  bothSubmitted: boolean;
+  status: ActivityResultSummary['status'];
   completedAt?: string;
+  resultVersion: ActivityResultSummary['resultVersion'];
 };
+
+export const toActivityResultSummaryDTO = (
+  result: ActivityResultSummary
+): ActivityResultSummaryDTO => ({
+  dataStatus: result.bothSubmitted ? 'ENOUGH' : 'PARTIAL',
+  bothSubmitted: result.bothSubmitted,
+  status: result.status,
+  completedAt: toIso(result.completedAt),
+  resultVersion: result.resultVersion,
+});
 
 export type ActivityTemplateDTO = {
   id: string;
@@ -105,17 +112,13 @@ export type ActivityTemplateDTO = {
 
 export type ActivityOfferDTO = {
   id: string;
-  templateId?: string;
   title: { ru: string; en: string };
   axis: Axis[];
   difficulty: PairActivityType['difficulty'];
   stepsPreview?: { ru: string[]; en: string[] };
-  reward: {
-    readinessDelta: number;
-    fatigueDelta: number;
-  };
   expiresAt?: string;
-  source: string;
+  reasonCode: 'CURRENT_CYCLE_SUPPORT';
+  explanation: { ru: string; en: string };
 };
 
 export type ToPairActivityDtoOptions = {
@@ -141,7 +144,14 @@ export function toPairActivityDTO(
     facetsTarget: activity.facetsTarget,
     title: activity.title,
     description: activity.description,
-    why: activity.why,
+    why:
+      activity.stateMeta?.decisionVersion === 'activity-decision-v1' ||
+      typeof activity.stateMeta?.primaryReason === 'string'
+        ? {
+            ru: 'Формат подобран с учётом текущего цикла, доступности и паузы между повторами.',
+            en: 'Selected using the current cycle, eligibility, and repetition cooldown.',
+          }
+        : activity.why,
     mode: activity.mode,
     sync: activity.sync,
     difficulty: activity.difficulty,
@@ -163,35 +173,9 @@ export function toPairActivityDTO(
     visibility: activity.visibility,
     status: activity.status,
     checkIns: effectiveActivityCheckIns(activity.checkIns),
-    successScore: activity.successScore,
     resultSummary: activity.resultSummary
-      ? {
-          submittedBy: [...activity.resultSummary.submittedBy],
-          submittedCount: activity.resultSummary.submittedCount,
-          bothSubmitted: activity.resultSummary.bothSubmitted,
-          successScore: activity.resultSummary.successScore,
-          status: activity.resultSummary.status,
-          usefulnessAvg: activity.resultSummary.usefulnessAvg,
-          comfortAvg: activity.resultSummary.comfortAvg,
-          tensionAvg: activity.resultSummary.tensionAvg,
-          wantsSimilarRatio: activity.resultSummary.wantsSimilarRatio,
-          effectApplied: activity.resultSummary.effectApplied,
-          effect: {
-            fatigueDelta: activity.resultSummary.effect.fatigueDelta,
-            readinessDelta: activity.resultSummary.effect.readinessDelta,
-            axisDeltas: activity.resultSummary.effect.axisDeltas.map((item) => ({
-              axis: item.axis,
-              delta: item.delta,
-            })),
-          },
-          effectExplanation: activity.resultSummary.effectExplanation,
-          completedAt: toIso(activity.resultSummary.completedAt),
-          resultVersion: activity.resultSummary.resultVersion,
-        }
+      ? toActivityResultSummaryDTO(activity.resultSummary)
       : undefined,
-    effect: activity.effect,
-    fatigueDeltaOnComplete: activity.fatigueDeltaOnComplete,
-    readinessDeltaOnComplete: activity.readinessDeltaOnComplete,
     createdBy: activity.createdBy,
     createdAt: toIso(activity.createdAt),
     updatedAt: toIso(activity.updatedAt),
@@ -268,16 +252,12 @@ const toStepsPreview = (value: unknown): { ru: string[]; en: string[] } | undefi
 };
 
 type OfferMeta = {
-  templateId?: string;
-  source?: string;
   stepsPreview?: { ru: string[]; en: string[] };
 };
 
 const extractOfferMeta = (stateMeta: unknown): OfferMeta => {
   if (!isRecord(stateMeta)) return {};
   return {
-    templateId: toOptionalString(stateMeta.templateId),
-    source: toOptionalString(stateMeta.source),
     stepsPreview: toStepsPreview(stateMeta.stepsPreview),
   };
 };
@@ -288,17 +268,16 @@ export function toActivityOfferDTO(activity: PairActivitySource): ActivityOfferD
 
   return {
     id,
-    templateId: meta.templateId,
     title: activity.title,
     axis: activity.axis,
     difficulty: activity.difficulty,
     stepsPreview: meta.stepsPreview,
-    reward: {
-      readinessDelta: activity.readinessDeltaOnComplete ?? 0,
-      fatigueDelta: activity.fatigueDeltaOnComplete ?? 0,
-    },
     expiresAt: toIso(activity.dueAt),
-    source: meta.source ?? 'system',
+    reasonCode: 'CURRENT_CYCLE_SUPPORT',
+    explanation: {
+      ru: 'Формат подобран с учётом текущего цикла, доступности и паузы между повторами.',
+      en: 'Selected using the current cycle, eligibility, and repetition cooldown.',
+    },
   };
 }
 

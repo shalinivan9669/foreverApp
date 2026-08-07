@@ -12,12 +12,12 @@ type SearchPairTileViewProps = {
 };
 
 export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPairTileViewProps) {
-  const href = hasActive ? (pairId ? `/pair/${pairId}` : '/pair') : '/search';
+  const href = hasActive ? (pairId ? `/pair/${pairId}` : '/pair') : '/invite';
 
   return (
     <Link
       href={href}
-      aria-label={hasActive ? 'Профиль пары' : 'Поиск пары'}
+      aria-label={hasActive ? 'Профиль пары' : 'Пригласить партнёра'}
       className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
     >
       <div className="app-tile-content">
@@ -34,10 +34,12 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
         </div>
 
         <div className="app-tile-title mt-6">
-          {hasActive ? 'Профиль пары' : 'Поиск пары'}
+          {hasActive ? 'Профиль пары' : 'Пригласить партнёра'}
         </div>
         <p className="app-tile-description">
-          {hasActive ? 'Общий статус, диагностика и следующий шаг для вас двоих.' : 'Найдите человека, с которым хочется строить общее пространство.'}
+          {hasActive
+            ? 'Общий статус, диагностика и следующий шаг для вас двоих.'
+            : 'Создайте одноразовую ссылку и безопасно подключите своего партнёра.'}
         </p>
 
         {hasActive && peer && (

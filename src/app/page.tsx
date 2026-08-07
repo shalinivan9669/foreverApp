@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import Spinner from '@/components/ui/Spinner';
+import { mvpOnboardingApi } from '@/client/api/mvpOnboarding.api';
 import { usersApi } from '@/client/api/users.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
@@ -65,15 +66,10 @@ export default function DiscordActivityPage() {
     try {
       const me = await refetchCurrentUser();
       if (!me) throw new Error('USER_NOT_FOUND');
-      const onboarding = me.profile?.onboarding;
-
-      if (onboarding?.seeking || onboarding?.inRelationship) {
-        router.push('/main-menu');
-      } else {
-        router.push('/welcome');
-      }
+      const onboarding = await mvpOnboardingApi.getOwnerState();
+      router.push(onboarding.session?.status === 'completed' ? '/main-menu' : '/mvp-onboarding');
     } catch {
-      router.push('/welcome');
+      router.push('/mvp-onboarding');
     }
   };
 

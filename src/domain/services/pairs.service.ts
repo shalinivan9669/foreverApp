@@ -3,6 +3,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import { Like, type LikeType } from '@/models/Like';
+import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { pairTransition } from '@/domain/state/pairMachine';
@@ -55,7 +56,16 @@ export const pairsService = {
     await connectToDatabase();
 
     const aId = input.currentUserId;
-    let bId = input.partnerId?.trim() ?? '';
+    const directPartnerId = input.partnerId?.trim() ?? '';
+    if (directPartnerId) {
+      throw new DomainError({
+        code: 'PAIR_INVITE_REQUIRED',
+        status: 409,
+        message: 'Use a consensual pair invitation',
+      });
+    }
+
+    let bId = '';
 
     if (!bId && input.likeId) {
       if (!Types.ObjectId.isValid(input.likeId)) {
@@ -75,6 +85,22 @@ export const pairsService = {
         });
       }
 
+      if (like.fromId !== aId && like.toId !== aId) {
+        throw new DomainError({
+          code: 'LIKE_NOT_FOUND',
+          status: 404,
+          message: 'Like not found',
+        });
+      }
+
+      if (like.status !== 'paired') {
+        throw new DomainError({
+          code: 'PAIR_INVITE_REQUIRED',
+          status: 409,
+          message: 'Pair creation requires completed mutual consent',
+        });
+      }
+
       bId = like.fromId === aId ? like.toId : like.fromId;
     }
 
@@ -83,6 +109,14 @@ export const pairsService = {
         code: 'PARTNER_OR_LIKE_REQUIRED',
         status: 400,
         message: 'partnerId or likeId is required',
+      });
+    }
+
+    if (aId === bId) {
+      throw new DomainError({
+        code: 'PAIR_UNAVAILABLE',
+        status: 409,
+        message: 'Pair is unavailable',
       });
     }
 
@@ -102,14 +136,29 @@ export const pairsService = {
     const members = [left.id, right.id].sort() as [string, string];
     const key = `${members[0]}|${members[1]}`;
 
-    const exists = await Pair.findOne({ key, status: { $in: ['active', 'paused'] } })
+    const completedOnboardingCount = await MvpOnboardingSession.countDocuments({
+      userId: { $in: members },
+      status: 'completed',
+    });
+    if (completedOnboardingCount !== 2) {
+      throw new DomainError({
+        code: 'PAIR_UNAVAILABLE',
+        status: 409,
+        message: 'Pair is unavailable',
+      });
+    }
+
+    const exists = await Pair.findOne({
+      status: { $in: ['active', 'paused'] },
+      members: { $in: members },
+    })
       .lean<{ _id: Types.ObjectId } | null>();
 
     if (exists) {
       throw new DomainError({
-        code: 'PAIR_ALREADY_EXISTS',
+        code: 'PAIR_UNAVAILABLE',
         status: 409,
-        message: 'Pair already exists',
+        message: 'Pair is unavailable',
       });
     }
 

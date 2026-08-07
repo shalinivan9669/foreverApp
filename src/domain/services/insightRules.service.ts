@@ -770,34 +770,8 @@ export const listPairInsights = async (
     });
   }
 
-  const pair = pairGuard.data.pair;
-  const members: [string, string] = [pair.members[0], pair.members[1]];
-  const [left, right] = await Promise.all([
-    User.findOne({ id: members[0] }).lean<UserType | null>(),
-    User.findOne({ id: members[1] }).lean<UserType | null>(),
-  ]);
-
-  if (!left || !right) {
-    throw new DomainError({
-      code: 'NOT_FOUND',
-      status: 404,
-      message: 'Pair members are missing',
-    });
-  }
-
-  await persistInsightCandidates(
-    buildPairInsightCandidates({
-      pairId,
-      members,
-      left,
-      right,
-      fatigue: pair.fatigue,
-    })
-  );
-
-  return listVisibleInsights({
-    currentUserId,
-    ownerType: 'pair',
-    pairId,
-  });
+  // Legacy vector/facet insights can disclose partner-derived information that
+  // was not explicitly shared. P0 pair UI uses the privacy-filtered weekly
+  // summary instead; keep this authenticated legacy endpoint empty.
+  return [];
 };

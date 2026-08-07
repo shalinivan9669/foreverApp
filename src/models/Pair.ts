@@ -51,7 +51,13 @@ const PairSchema = new Schema<PairType>(
     members: {
       type: [String],
       required: true,
-      validate: (a: unknown[]) => Array.isArray(a) && a.length === 2,
+      validate: {
+        validator: (members: unknown[]) =>
+          Array.isArray(members) &&
+          members.length === 2 &&
+          String(members[0]) !== String(members[1]),
+        message: 'Pair must contain two different members',
+      },
     },
     key:    { type: String, required: true, unique: true },
     status: { type: String, enum: ['active', 'paused', 'ended'], default: 'active' },

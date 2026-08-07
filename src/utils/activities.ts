@@ -364,16 +364,16 @@ export async function applyEffects(params: {
         after,
         reason: {
           source: 'activity_completion',
+          activityId: params.activityId,
+          resultVersion: result.resultVersion,
+          successScore: result.successScore,
+          status: result.status,
+          primaryReason: params.primaryReason,
+          templateId: params.templateId,
         },
         scoringVersion: DEFAULT_SCORING_CONFIG.key,
         createdAt: updatedAt,
       });
-      snapshot.reason.activityId = params.activityId;
-      snapshot.reason.resultVersion = result.resultVersion;
-      snapshot.reason.successScore = result.successScore;
-      snapshot.reason.status = result.status;
-      snapshot.reason.primaryReason = params.primaryReason;
-      snapshot.reason.templateId = params.templateId;
       vectorSnapshots.push(snapshot);
 
       const current = axisDeltaTotals.get(axis) ?? { total: 0, count: 0 };

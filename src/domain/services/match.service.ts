@@ -2,6 +2,7 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType } from '@/models/Like';
 import { Pair } from '@/models/Pair';
+import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
 import { PairActivity } from '@/models/PairActivity';
 import type { Axis } from '@/models/ActivityTemplate';
 import { User, type UserType } from '@/models/User';
@@ -484,6 +485,18 @@ export const matchService = {
       }
     );
 
+    const completedOnboardingCount = await MvpOnboardingSession.countDocuments({
+      userId: { $in: [like.fromId, like.toId] },
+      status: 'completed',
+    });
+    if (completedOnboardingCount !== 2) {
+      throw new DomainError({
+        code: 'PAIR_UNAVAILABLE',
+        status: 409,
+        message: 'Pair is unavailable',
+      });
+    }
+
     const [fromUser, toUser] = await Promise.all([
       User.findOne({ id: like.fromId }).lean<UserType | null>(),
       User.findOne({ id: like.toId }).lean<UserType | null>(),
@@ -494,6 +507,26 @@ export const matchService = {
         code: 'NOT_FOUND',
         status: 404,
         message: 'Pair users are missing',
+      });
+    }
+
+
+    const members = [fromUser.id, toUser.id].sort() as [string, string];
+    const key = `${members[0]}|${members[1]}`;
+    const activePair = await Pair.findOne({
+      status: { $in: ['active', 'paused'] },
+      members: { $in: members },
+    })
+      .select({ _id: 1, key: 1, members: 1 })
+      .lean<{ _id: Types.ObjectId; key: string; members: [string, string] } | null>();
+    if (activePair) {
+      if (activePair.key === key) {
+        return { pairId: String(activePair._id), members: activePair.members };
+      }
+      throw new DomainError({
+        code: 'PAIR_UNAVAILABLE',
+        status: 409,
+        message: 'Pair is unavailable',
       });
     }
 
@@ -519,8 +552,6 @@ export const matchService = {
       });
     }
 
-    const members = [fromUser.id, toUser.id].sort() as [string, string];
-    const key = `${members[0]}|${members[1]}`;
     const existingPair = await Pair.findOne({ key }, { _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
 
     // Safe ordering prevents Pair activation before the Like transition. Without a

@@ -59,11 +59,6 @@ export default function ActivityCard(props: {
       ? 'bg-emerald-100 text-emerald-700'
       : 'bg-amber-100 text-amber-700';
   const result = activity.resultSummary;
-  const resultPercent = Math.round(
-    (result?.successScore ?? activity.successScore ?? 0) * 100
-  );
-  const signedPercent = (value: number): string =>
-    `${value > 0 ? '+' : ''}${Math.round(value * 100)}%`;
 
   return (
     <div className="app-panel app-lift flex h-full min-h-[20rem] flex-col p-4 text-slate-900 sm:p-5">
@@ -127,38 +122,15 @@ export default function ActivityCard(props: {
 
           {variant === 'history' && result && (
             <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-              <div className="font-medium">
-                {statusLabels[result.status]} · результат {resultPercent}%
-              </div>
+              <div className="font-medium">{statusLabels[result.status]}</div>
               <div className="app-muted">
                 {result.bothSubmitted
-                  ? 'Ответили оба'
-                  : `Ответил ${result.submittedCount} из 2`}
+                  ? 'Обратная связь получена от обоих участников.'
+                  : 'Есть один личный отзыв; общий итог пока предварительный.'}
               </div>
               <p className="text-slate-700">
-                {text(result.effectExplanation)}
+                Точные ответы каждого участника остаются личными.
               </p>
-              {result.effectApplied ? (
-                <div className="app-muted flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                  <span>
-                    Готовность{' '}
-                    {signedPercent(result.effect.readinessDelta)}
-                  </span>
-                  <span>
-                    Усталость {signedPercent(result.effect.fatigueDelta)}
-                  </span>
-                  {result.effect.axisDeltas.map((item) => (
-                    <span key={item.axis}>
-                      {axisLabels[item.axis] ?? item.axis}{' '}
-                      {signedPercent(item.delta)}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="app-muted text-xs">
-                  Состояние пары не изменялось.
-                </div>
-              )}
               {result.completedAt && (
                 <div className="app-muted text-xs">
                   {new Date(result.completedAt).toLocaleString('ru-RU')}
@@ -217,7 +189,7 @@ export default function ActivityCard(props: {
             <span className="app-muted self-center text-xs">
               {statusLabels[activity.status] ?? 'Завершено'}
             </span>
-            {result?.submittedCount === 1 &&
+            {result?.bothSubmitted === false &&
               activity.status === 'completed_partial' && (
                 <button
                   onClick={onComplete}

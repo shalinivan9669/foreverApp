@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import type { ReactNode } from 'react';
 import ActivityCard from '@/components/activities/ActivityCard';
 import CheckInModal from '@/components/activities/CheckInModal';
 import BackBar from '@/components/ui/BackBar';
@@ -37,6 +38,7 @@ type CoupleActivityViewProps = {
   pendingCompleteMessage: string | null;
   pendingCompleteInFlight: boolean;
   activityFlowMessage: string | null;
+  recommendationPanel?: ReactNode;
   suggestionPlan: PairActivitySuggestionPlanDTO | null;
   lastSuggestionSkippedReason: PairActivitySuggestionResponse['skippedReason'];
   lastCreatedCount: number | null;
@@ -82,6 +84,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     pendingCompleteMessage,
     pendingCompleteInFlight,
     activityFlowMessage,
+    recommendationPanel,
     suggestionPlan,
     lastSuggestionSkippedReason,
     lastCreatedCount,
@@ -105,6 +108,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     <main className="app-shell-dashboard app-page-stack pb-4 pt-3 sm:pb-6 sm:pt-5 lg:pt-7">
       <BackBar title="Активности пары" fallbackHref="/main-menu" />
       <h1 className="app-page-title font-bold text-slate-900">Активности пары</h1>
+      {recommendationPanel}
 
       <div className="app-panel-soft flex flex-wrap gap-2 p-1.5">
         <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>

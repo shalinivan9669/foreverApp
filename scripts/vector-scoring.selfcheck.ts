@@ -181,6 +181,40 @@ assert.equal(stateSnapshot.reason.source, 'state_questionnaire');
 assert.equal(stateSnapshot.reason.sessionId, 's1');
 assert.equal(stateSnapshot.scoringVersion, stateDelta.scoringVersion);
 
+const activitySnapshot = createVectorSnapshot({
+  userId: 'u1',
+  pairId: 'p1',
+  layer: 'trait',
+  axis: 'communication',
+  before: oneAnswerDelta.before,
+  after: oneAnswerDelta.after,
+  reason: {
+    source: 'activity_completion',
+    activityId: 'activity-1',
+    resultVersion: 'activity-result-v1',
+    successScore: 0.75,
+    status: 'completed_success',
+    primaryReason: 'connection',
+    templateId: 'template-1',
+  },
+  scoringVersion: DEFAULT_SCORING_CONFIG.key,
+});
+assert.equal(activitySnapshot.reason.source, 'activity_completion');
+assert.equal(activitySnapshot.reason.activityId, 'activity-1');
+assert.equal(activitySnapshot.reason.resultVersion, 'activity-result-v1');
+assert.equal(activitySnapshot.scoringVersion, DEFAULT_SCORING_CONFIG.key);
+
+const legacyActivitySnapshot = createVectorSnapshot({
+  userId: 'u1',
+  layer: 'trait',
+  axis: 'communication',
+  before: oneAnswerDelta.before,
+  after: oneAnswerDelta.after,
+  reason: { source: 'manual_recalculation' },
+});
+assert.equal(legacyActivitySnapshot.reason.source, 'manual_recalculation');
+assert.equal(legacyActivitySnapshot.reason.activityId, undefined);
+
 const matchingDelta = applyVectorDelta({
   current,
   target: {
@@ -233,8 +267,17 @@ assert.ok(
   'activity vector updates must persist VectorSnapshot rows'
 );
 assert.ok(
-  activityEffects.includes("source: 'manual_recalculation'"),
-  'activity vector snapshots must keep source metadata'
+  activityEffects.includes("source: 'activity_completion'"),
+  'activity vector snapshots must use the activity source type'
+);
+assert.ok(
+  activityEffects.includes('activityId: params.activityId') &&
+    activityEffects.includes('resultVersion: result.resultVersion'),
+  'activity vector snapshots must keep source id and revision'
+);
+assert.ok(
+  activityEffects.includes('scoringVersion: DEFAULT_SCORING_CONFIG.key'),
+  'activity vector snapshots must keep the scoring version'
 );
 
 console.log('vector-scoring.selfcheck passed');

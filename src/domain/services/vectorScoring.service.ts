@@ -548,12 +548,7 @@ export const createVectorSnapshot = (input: {
   axis: Axis;
   before: Pick<UserVectorLayerData, 'level' | 'confidence' | 'evidenceCount'>;
   after: Pick<UserVectorLayerData, 'level' | 'confidence' | 'evidenceCount'>;
-  reason: {
-    source: VectorSnapshotReasonSource;
-    questionnaireId?: string;
-    sessionId?: string;
-    questionIds?: string[];
-  };
+  reason: VectorSnapshotType['reason'];
   scoringVersion?: string;
   createdAt?: Date;
 }): VectorSnapshotType => ({

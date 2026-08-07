@@ -32,6 +32,7 @@ export const AUDIT_EVENT_NAMES = [
   'LEGACY_RELATIONSHIP_ACTIVITY_VIEWED',
   'SUGGESTIONS_GENERATED',
   'WEEKLY_CHECKIN_SUBMITTED',
+  'SAFETY_GATE_UPDATED',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -170,7 +171,7 @@ export type AuditEventMetadataMap = {
   PAIR_CREATED: {
     pairId: string;
     members: [string, string];
-    source: 'manual_create' | 'match_confirm';
+    source: 'manual_create' | 'match_confirm' | 'pair_invite_accept';
   };
   PAIR_PAUSED: {
     pairId: string;
@@ -229,6 +230,11 @@ export type AuditEventMetadataMap = {
     bothSubmitted?: boolean;
     pairStateUpdated: boolean;
   };
+  SAFETY_GATE_UPDATED: {
+    pairId: string;
+    enabled: boolean;
+    retentionClass: 'UNTIL_REVOKED_OR_PAIR_END';
+  };
 };
 
 export type AuditEventMetadata<E extends AuditEventName> = AuditEventMetadataMap[E];
@@ -282,6 +288,7 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   LEGACY_RELATIONSHIP_ACTIVITY_VIEWED: 'short',
   SUGGESTIONS_GENERATED: 'short',
   WEEKLY_CHECKIN_SUBMITTED: 'long',
+  SAFETY_GATE_UPDATED: 'long',
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

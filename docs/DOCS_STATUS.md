@@ -18,8 +18,13 @@ Codex must not treat `historical`, `archive`, or `deprecated` docs as current be
 | `docs/AGENT_OPERATING_MODES.md` | active | Required task modes |
 | `docs/CONTEXT_BUDGET.md` | active | Context limits |
 | `docs/AGENT_RETROSPECTIVE.md` | active | Repeated agent mistakes |
-| `docs/01-product-loop.md` | active | Product loop reference |
-| `docs/02-domain-model.md` | active | Domain model reference |
+| `docs/PRODUCT_SPEC.md` | active | Canonical target product direction and phase boundaries |
+| `docs/MVP_SPEC.md` | active | Canonical MVP requirements and launch gates |
+| `docs/MVP_FLOWS.md` | active | Detailed MVP behavior, acceptance criteria, and delivery checklist |
+| `docs/TARGET_DOMAIN_MODEL.md` | active | Canonical target domain/computation direction; not the current DB schema |
+| `docs/TARGET_DOMAIN_OPERATIONS.md` | active | Target privacy/safety/versioning/storage/scaling boundaries |
+| `docs/01-product-loop.md` | historical | Dated flow snapshot with stale evidence; target behavior lives in MVP spec |
+| `docs/02-domain-model.md` | historical | Dated domain snapshot with stale evidence/mojibake; target model lives in target domain doc |
 | `docs/03-state-machines.md` | active | State-machine reference |
 | `docs/04-api-contracts.md` | historical | Detailed old inventory plus updates; prefer `docs/API_CONTRACTS.md` for current rules |
 | `docs/05-analytics-events.md` | historical | Detailed event history |

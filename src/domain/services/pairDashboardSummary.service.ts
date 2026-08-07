@@ -1,10 +1,9 @@
 import { Types, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
-import { Like } from '@/models/Like';
 import { User, type UserType } from '@/models/User';
 import type { PairType } from '@/models/Pair';
-import { toLikeSummaryDTO, toPairActivityDTO, toPairDTO, toUserDTO } from '@/lib/dto';
+import { toPairActivityDTO, toPairDTO, toUserDTO } from '@/lib/dto';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 import {
   buildPairWeeklyCheckInSummary,
@@ -56,15 +55,6 @@ type PairNextStepDTO = {
 type PublicUserSource = Pick<UserType, 'id' | 'username' | 'avatar'>;
 type PairPassportWithOverall = NonNullable<PairType['passport']> & {
   overall?: PairDiagnosticsOverallDTO;
-};
-
-const AXIS_LABELS: Record<string, string> = {
-  communication: 'Коммуникация',
-  domestic: 'Быт',
-  personalViews: 'Личные взгляды',
-  finance: 'Финансы',
-  sexuality: 'Близость',
-  psyche: 'Ресурс',
 };
 
 const toIso = (value: Date | string | undefined | null): string | undefined => {
@@ -179,20 +169,11 @@ const fallbackMember = (id: string): PublicPairMemberDTO =>
     avatar: '',
   });
 
-const axisLabel = (axis?: string): string => (axis ? AXIS_LABELS[axis] ?? 'эта зона' : 'эта зона');
-
 const buildNextStep = (input: {
-  pairId: string;
   pairStatus: PairType['status'];
-  diagnostics: PairCompactDiagnosticsDTO;
   weekly: PairWeeklyCheckInSummaryDTO;
   hasCurrentActivity: boolean;
 }): PairNextStepDTO => {
-  const overall = input.diagnostics.overall;
-  const topRisk = input.diagnostics.riskZones
-    .slice()
-    .sort((left, right) => right.severity - left.severity)[0];
-
   if (input.pairStatus !== 'active') {
     return {
       kind: 'none',
@@ -270,37 +251,6 @@ const buildNextStep = (input: {
     };
   }
 
-  if (
-    !hasDiagnosticsSignal(input.diagnostics) ||
-    !overall ||
-    overall.status === 'insufficient_data' ||
-    overall.confidence < 0.35
-  ) {
-    return {
-      kind: 'run_pair_diagnostics',
-      title: 'Пройдите диагностику пары',
-      description:
-        'Пока мало данных для честного вывода. Диагностика поможет увидеть сильные стороны и зоны риска без догадок.',
-      href: `/pair/${input.pairId}/diagnostics`,
-      ctaLabel: 'Открыть диагностику',
-    };
-  }
-
-  if (topRisk && topRisk.severity >= 2) {
-    return {
-      kind: 'review_risk_zone',
-      title: `Обсудите риск-зону: ${axisLabel(topRisk.axis)}`,
-      description:
-        topRisk.severity === 3
-          ? 'Это высокий сигнал напряжения. Лучше выбрать короткое действие и договориться о правилах разговора заранее.'
-          : 'Это не приговор, но сигнал. Небольшая активность поможет обсудить тему без перегруза.',
-      href: '/couple-activity',
-      ctaLabel: 'Подобрать активность',
-      axis: topRisk.axis,
-      severity: topRisk.severity,
-    };
-  }
-
   return {
     kind: 'suggest_activity',
     title: 'Получите новую активность',
@@ -319,9 +269,7 @@ export const buildPairDashboardSummary = async (input: {
 
   const pair = input.pair;
   const pairId = pair._id as Types.ObjectId;
-  const [a, b] = pair.members;
-
-  const [current, suggestedCount, lastLike, memberDocs, weeklySummary] =
+  const [current, suggestedCount, memberDocs, weeklySummary] =
     await Promise.all([
       PairActivity.findOne({
         pairId,
@@ -330,12 +278,6 @@ export const buildPairDashboardSummary = async (input: {
         .sort({ createdAt: -1 })
         .lean(),
       PairActivity.countDocuments({ pairId, status: 'offered' }),
-      Like.findOne({
-        status: 'paired',
-        $or: [{ fromId: a, toId: b }, { fromId: b, toId: a }],
-      })
-        .sort({ updatedAt: -1 })
-        .lean(),
       User.find({ id: { $in: pair.members } })
         .select({ id: 1, username: 1, avatar: 1 })
         .lean<PublicUserSource[]>(),
@@ -354,22 +296,22 @@ export const buildPairDashboardSummary = async (input: {
   const members = pair.members.map((memberId) => memberById.get(memberId) ?? fallbackMember(memberId));
   const peerId = pair.members.find((memberId) => memberId !== input.currentUserId) ?? null;
   const peer = peerId ? memberById.get(peerId) ?? fallbackMember(peerId) : null;
-  const diagnostics = toCompactDiagnostics(pair.passport);
+  // Legacy questionnaire diagnostics can reveal exact pair-derived values. The
+  // current pair surface uses only the privacy-filtered weekly projection.
+  const diagnostics = toCompactDiagnostics(undefined);
   const nextStep = buildNextStep({
-    pairId: String(pairId),
     pairStatus: pair.status,
-    diagnostics,
     weekly: weeklySummary,
     hasCurrentActivity: Boolean(current),
   });
 
   return {
-    pair: toPairDTO(pair, { includePassport: true, includeMetrics: true }),
+    pair: toPairDTO(pair, { includePassport: false, includeMetrics: false }),
     members,
     peer,
     currentActivity: current ? toPairActivityDTO(current, { includeAnswers: false }) : null,
     suggestedCount,
-    lastLike: lastLike ? toLikeSummaryDTO(lastLike) : null,
+    lastLike: null,
     diagnostics,
     hasCurrentWeeklyCheckIn: weeklySummary.currentUser.submitted,
     nextStep,

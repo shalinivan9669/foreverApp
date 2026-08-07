@@ -1,4 +1,7 @@
 **Как Сейчас (Обзор)**
+
+> Scope: датированный historical snapshot; evidence и line references не перепроверены против текущего кода. Не использовать как current source of truth до targeted re-audit. Целевое поведение задано в `docs/PRODUCT_SPEC.md` и `docs/MVP_SPEC.md`.
+
 1. Стартовая страница выполняет OAuth через Discord SDK, обменивает code на access_token через `/api/exchange-code`, получает профиль Discord, сохраняет пользователя в Zustand store и далее делает переход в меню или на онбординг в зависимости от данных профиля. Доказательства: `src/app/page.tsx:14-87`, `src/store/useUserStore.ts:17-27`, `src/app/api/exchange-code/route.ts:3-27`, `src/app/api/users/[id]/route.ts:9-14`.
 2. Визит логируется запросом `/api/logs` (fire-and-forget). Доказательства: `src/app/page.tsx:70-75`, `src/app/api/logs/route.ts:6-11`.
 3. Онбординг отображается страницей `/welcome` и реализован компонентом `OnboardingWizard`, который пишет базовые данные пользователя в `/api/users` и ответы в `/api/users/[id]/onboarding`. Доказательства: `src/app/welcome/page.tsx:1-5`, `src/components/OnboardingWizard.tsx:40-95`, `src/app/api/users/route.ts:6-33`, `src/app/api/users/[id]/onboarding/route.ts:9-25`.

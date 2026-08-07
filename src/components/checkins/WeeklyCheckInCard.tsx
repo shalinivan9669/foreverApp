@@ -2,12 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { checkinsApi } from '@/client/api/checkins.api';
+import {
+  weeklyCyclesApi,
+  type WeeklyCycleMemberStatus,
+} from '@/client/api/weeklyCycles.api';
 import type { WeeklyCheckInAnswersDTO, WeeklyCheckInDTO } from '@/client/api/types';
 import InsightsList from '@/components/profile/InsightsList';
 
 type WeeklyCheckInCardProps = {
   pairId?: string;
+  cycleStatus?: WeeklyCycleMemberStatus;
   onSubmitted?: (checkIn: WeeklyCheckInDTO) => void | Promise<void>;
+  onCycleChanged?: () => void | Promise<void>;
 };
 
 const initialAnswers: WeeklyCheckInAnswersDTO = {
@@ -30,7 +36,9 @@ const fields: Array<{
 
 export default function WeeklyCheckInCard({
   pairId,
+  cycleStatus,
   onSubmitted,
+  onCycleChanged,
 }: WeeklyCheckInCardProps) {
   const [answers, setAnswers] = useState<WeeklyCheckInAnswersDTO>(initialAnswers);
   const [current, setCurrent] = useState<WeeklyCheckInDTO | null>(null);
@@ -76,6 +84,22 @@ export default function WeeklyCheckInCard({
     }
   };
 
+  const skip = async () => {
+    if (!pairId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await weeklyCyclesApi.skipCurrent(pairId);
+      await onCycleChanged?.();
+    } catch {
+      setError('Не удалось пропустить этот цикл. Обновите страницу и попробуйте ещё раз.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const cycleLocked = cycleStatus === 'SKIPPED' || cycleStatus === 'EXPIRED';
+
   return (
     <div className="app-panel app-panel-solid p-4">
       <div className="flex items-start justify-between gap-3">
@@ -85,7 +109,15 @@ export default function WeeklyCheckInCard({
             Короткая проверка состояния недели: ресурс, усталость и открытые темы.
           </p>
         </div>
-        {current && <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">сохранено</span>}
+        {(current || cycleLocked) && (
+          <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
+            {current
+              ? 'сохранено'
+              : cycleStatus === 'SKIPPED'
+                ? 'пропущено'
+                : 'цикл завершён'}
+          </span>
+        )}
       </div>
 
       <div className="mt-4 space-y-3">
@@ -100,6 +132,7 @@ export default function WeeklyCheckInCard({
               min={0}
               max={100}
               value={Math.round(Number(answers[field.key]) * 100)}
+              disabled={Boolean(current) || cycleLocked}
               onChange={(event) => {
                 const next = Number(event.target.value) / 100;
                 setAnswers((prev) => ({ ...prev, [field.key]: next }));
@@ -113,6 +146,7 @@ export default function WeeklyCheckInCard({
           <input
             type="checkbox"
             checked={answers.unresolvedTopic}
+            disabled={Boolean(current) || cycleLocked}
             onChange={(event) =>
               setAnswers((prev) => ({ ...prev, unresolvedTopic: event.target.checked }))
             }
@@ -124,6 +158,7 @@ export default function WeeklyCheckInCard({
           <span className="mb-1 block">Заметка</span>
           <textarea
             value={answers.note ?? ''}
+            disabled={Boolean(current) || cycleLocked}
             onChange={(event) => setAnswers((prev) => ({ ...prev, note: event.target.value }))}
             maxLength={500}
             className="w-full rounded border border-slate-200 bg-white p-2"
@@ -134,16 +169,36 @@ export default function WeeklyCheckInCard({
 
       {error && <div className="app-alert app-alert-error mt-3 text-sm">{error}</div>}
 
-      <button
-        type="button"
-        onClick={() => {
-          void submit();
-        }}
-        disabled={loading || submitting}
-        className="app-btn-primary mt-4 px-3 py-2 text-sm disabled:opacity-60"
-      >
-        {submitting ? 'Сохраняем...' : current ? 'Обновить check-in' : 'Сохранить check-in'}
-      </button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            void submit();
+          }}
+          disabled={loading || submitting || Boolean(current) || cycleLocked}
+          className="app-btn-primary px-3 py-2 text-sm disabled:opacity-60"
+        >
+          {submitting
+            ? 'Сохраняем...'
+            : current
+              ? 'Check-in сохранён'
+              : cycleStatus === 'SKIPPED'
+                ? 'Цикл пропущен'
+                : cycleStatus === 'EXPIRED'
+                  ? 'Цикл завершён'
+                  : 'Сохранить check-in'}
+        </button>
+        {pairId && !current && (!cycleStatus || cycleStatus === 'PENDING') && (
+          <button
+            type="button"
+            onClick={() => void skip()}
+            disabled={loading || submitting}
+            className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60"
+          >
+            Пропустить без штрафа
+          </button>
+        )}
+      </div>
 
       {current && (
         <div className="mt-4 space-y-3">

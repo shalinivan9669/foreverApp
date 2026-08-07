@@ -26,6 +26,10 @@ import {
   type SystemActivityTemplate,
 } from '@/domain/services/pairActivityDecision.service';
 import { effectiveActivityCheckIns } from '@/utils/activities';
+import {
+  isPairSafetyVetoActive,
+  isSafetyFallbackTemplateId,
+} from '@/domain/services/safetyGate.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -44,10 +48,22 @@ type TemplateCandidate = ActivityTemplateType & {
   visibility?: PairActivityType['visibility'];
 };
 
+type EffectiveSuggestionPlan = PairActivitySuggestionPlan & {
+  recentActivitySignals: RecentActivitySignals;
+};
+
+export type PairActivitySuggestionPlanDTO = {
+  status: PairActivitySuggestionPlan['status'];
+  reasonCode:
+    | 'CURRENT_ACTIVITY'
+    | 'PAIR_UNAVAILABLE'
+    | 'CURRENT_CYCLE_SUPPORT';
+  explanation: { ru: string; en: string };
+  decisionVersion: 'activity-decision-v1';
+};
+
 export type PairActivitySuggestionResult = {
-  plan: PairActivitySuggestionPlan & {
-    recentActivitySignals: RecentActivitySignals;
-  };
+  plan: PairActivitySuggestionPlanDTO;
   currentActivity: PairActivityDTO | null;
   offers: PairActivityDTO[];
   createdCount: number;
@@ -198,7 +214,7 @@ const recentActivitySignals = (
 const applyRecentActivitySignals = (
   plan: PairActivitySuggestionPlan,
   signals: RecentActivitySignals
-): PairActivitySuggestionResult['plan'] => {
+): EffectiveSuggestionPlan => {
   const preferredArchetypes = [...plan.preferredArchetypes];
   if (
     signals.wantsSimilarRecently &&
@@ -240,6 +256,42 @@ const applyRecentActivitySignals = (
       ru: `${plan.explanation.ru}${lowComfortNote}${failedNote}`,
     },
     recentActivitySignals: signals,
+  };
+};
+
+const toPairActivitySuggestionPlanDTO = (
+  plan: EffectiveSuggestionPlan
+): PairActivitySuggestionPlanDTO => {
+  if (plan.status === 'blocked_by_current_activity') {
+    return {
+      status: plan.status,
+      reasonCode: 'CURRENT_ACTIVITY',
+      explanation: {
+        ru: 'Сначала завершите текущую активность или оставьте по ней обратную связь.',
+        en: 'Finish the current activity or leave its feedback first.',
+      },
+      decisionVersion: 'activity-decision-v1',
+    };
+  }
+  if (plan.status === 'blocked_by_pair_state') {
+    return {
+      status: plan.status,
+      reasonCode: 'PAIR_UNAVAILABLE',
+      explanation: {
+        ru: 'Сейчас новая рекомендация недоступна.',
+        en: 'A new recommendation is unavailable right now.',
+      },
+      decisionVersion: 'activity-decision-v1',
+    };
+  }
+  return {
+    status: plan.status,
+    reasonCode: 'CURRENT_CYCLE_SUPPORT',
+    explanation: {
+      ru: 'Формат подобран с учётом текущего цикла, доступности и паузы между повторами.',
+      en: 'Selected using the current cycle, eligibility, and repetition cooldown.',
+    },
+    decisionVersion: 'activity-decision-v1',
   };
 };
 
@@ -342,8 +394,15 @@ const candidateScore = (
 };
 
 const loadCandidates = async (
-  plan: PairActivitySuggestionPlan
+  plan: PairActivitySuggestionPlan,
+  safetyVeto: boolean
 ): Promise<TemplateCandidate[]> => {
+  if (safetyVeto) {
+    return SYSTEM_ACTIVITY_TEMPLATES.filter((candidate) =>
+      isSafetyFallbackTemplateId(String(candidate._id))
+    );
+  }
+
   const query: {
     difficulty: { $lte: number };
     intensity: { $lte: number };
@@ -488,7 +547,7 @@ const smartSuggest = async (
   const pairData = await ensurePairMember(input.pairId, input.currentUserId);
   const pair = pairData.pair;
   const pairId = pair._id as Types.ObjectId;
-  const [weekly, current, offered, recent] = await Promise.all([
+  const [weekly, current, offered, recent, safetyVeto] = await Promise.all([
     buildPairWeeklyCheckInSummary({
       pair,
       currentUserId: input.currentUserId,
@@ -504,9 +563,10 @@ const smartSuggest = async (
       .sort({ offeredAt: -1, createdAt: -1 })
       .limit(100)
       .lean<StoredActivity[]>(),
+    isPairSafetyVetoActive(String(pairId)),
   ]);
 
-  const plan = applyRecentActivitySignals(
+  const computedPlan = applyRecentActivitySignals(
     buildPairActivitySuggestionPlan({
       pairId: String(pairId),
       pairStatus: pair.status,
@@ -518,7 +578,29 @@ const smartSuggest = async (
     }),
     recentActivitySignals(recent)
   );
-  const requestedCount = input.count
+  const plan: typeof computedPlan = safetyVeto
+    ? {
+        ...computedPlan,
+        status: 'ready',
+        primaryReason: 'maintenance',
+        preferredDifficulty: 1,
+        maxIntensity: 1,
+        preferredArchetypes: ['micro_habit', 'task'],
+        explanation: {
+          ru: 'Сейчас предложен нейтральный формат с небольшой нагрузкой.',
+          en: 'A neutral low-effort format is available now.',
+        },
+        source: 'dashboard',
+        sourceMeta: {
+          trigger: 'maintenance',
+          weekKey: computedPlan.sourceMeta.weekKey,
+          decisionVersion: 'activity-decision-v1',
+        },
+      }
+    : computedPlan;
+  const requestedCount = safetyVeto
+    ? 1
+    : input.count
     ? Math.min(3, Math.max(0, input.count))
     : targetCountForPlan(plan, offered.length);
   const targetCount = Math.min(
@@ -543,7 +625,7 @@ const smartSuggest = async (
     });
     return {
       result: {
-        plan,
+        plan: toPairActivitySuggestionPlanDTO(plan),
         currentActivity: current
           ? toPairActivityDTO(current, { includeAnswers: false })
           : null,
@@ -557,7 +639,7 @@ const smartSuggest = async (
     };
   }
 
-  const candidates = await loadCandidates(plan);
+  const candidates = await loadCandidates(plan, safetyVeto);
   const selected = selectCandidatesOutsideCooldown(
     candidates,
     recent,
@@ -574,7 +656,7 @@ const smartSuggest = async (
     });
     return {
       result: {
-        plan,
+        plan: toPairActivitySuggestionPlanDTO(plan),
         currentActivity: null,
         offers: offered.map((activity) =>
           toPairActivityDTO(activity, { includeAnswers: false })
@@ -612,7 +694,7 @@ const smartSuggest = async (
   const allOffers = [...created, ...offered].slice(0, 3);
   return {
     result: {
-      plan,
+      plan: toPairActivitySuggestionPlanDTO(plan),
       currentActivity: null,
       offers: allOffers.map((activity) =>
         toPairActivityDTO(activity, { includeAnswers: false })

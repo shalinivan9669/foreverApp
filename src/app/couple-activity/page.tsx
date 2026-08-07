@@ -6,6 +6,7 @@ import type { ActivityCompleteResponse } from '@/client/api/types';
 import { useActivityOffers } from '@/client/hooks/useActivityOffers';
 import { usePair } from '@/client/hooks/usePair';
 import { toActivityCardVM, type ActivityCardVM } from '@/client/viewmodels';
+import RecommendationDecisionPanel from '@/components/activities/RecommendationDecisionPanel';
 import CoupleActivityView from '@/features/activities/CoupleActivityView';
 import {
   CONFLICT_RESOLVED_MESSAGE,
@@ -26,22 +27,13 @@ type PendingCompleteState = {
 
 const toCompletionMessage = (result: ActivityCompleteResponse): string => {
   const summary = result.resultSummary;
-  const refined = summary.effectExplanation.ru.includes('уточнён');
   if (summary.status === 'failed') {
-    return refined
-      ? 'Итог уточнён: формат не зашёл. Эффект повторно не применялся.'
-      : 'Результат сохранён: формат не зашёл. В следующий раз лучше выбрать более мягкую активность.';
-  }
-  if (refined) {
-    return 'Итог уточнён после ответа партнёра без повторного усиления эффекта.';
-  }
-  if (!summary.effectApplied) {
-    return 'Результат сохранён без изменения состояния пары.';
+    return 'Обратная связь сохранена: этот формат оказался непростым. Точные ответы каждого остаются личными.';
   }
   if (!summary.bothSubmitted) {
-    return 'Результат сохранён предварительно: ответил 1 из 2. Эффект применён осторожно.';
+    return 'Личный отзыв сохранён. Общий итог останется предварительным до второго ответа.';
   }
-  return 'Результат сохранён: оба ответили. Состояние пары обновлено.';
+  return 'Отзывы обоих участников сохранены. Показан только общий качественный статус.';
 };
 
 export default function CoupleActivityPage() {
@@ -232,6 +224,14 @@ export default function CoupleActivityPage() {
       pendingCompleteMessage={pendingCompleteMessage}
       pendingCompleteInFlight={retryCompleteSubmitting}
       activityFlowMessage={activityFlowMessage}
+      recommendationPanel={
+        pairId ? (
+          <RecommendationDecisionPanel
+            pairId={pairId}
+            onActivityChanged={() => void refetch()}
+          />
+        ) : undefined
+      }
       suggestionPlan={suggestionPlan}
       lastSuggestionSkippedReason={lastSuggestionSkippedReason}
       lastCreatedCount={lastCreatedCount}
