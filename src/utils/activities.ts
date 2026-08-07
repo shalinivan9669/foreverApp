@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import { User } from '@/models/User';
 import { Pair } from '@/models/Pair';
 import { VectorSnapshot, type VectorSnapshotType } from '@/models/VectorSnapshot';
@@ -305,6 +305,7 @@ export async function applyEffects(params: {
   activityId: string;
   templateId?: string;
   primaryReason?: string;
+  session?: ClientSession;
 }): Promise<ActivityResultSummary['effect']> {
   const {
     pairDoc,
@@ -315,7 +316,9 @@ export async function applyEffects(params: {
     readinessDelta = 0,
   } = params;
   const multiplier = activityEffectMultiplier(result);
-  const users = await User.find({ _id: { $in: members } });
+  const users = await User.find({ _id: { $in: members } }).session(
+    params.session ?? null
+  );
   const usersById = new Map(users.map((user) => [String(user._id), user]));
   const fatigueFactor = 1 - Math.pow(pairDoc.fatigue?.score ?? 0, 2);
   const updatedAt = new Date();
@@ -396,9 +399,17 @@ export async function applyEffects(params: {
     }
   }
 
-  await Promise.all(users.map((user) => user.save()));
+  for (const user of users) {
+    await user.save(params.session ? { session: params.session } : undefined);
+  }
   if (vectorSnapshots.length > 0) {
-    await VectorSnapshot.insertMany(vectorSnapshots);
+    if (params.session) {
+      await VectorSnapshot.insertMany(vectorSnapshots, {
+        session: params.session,
+      });
+    } else {
+      await VectorSnapshot.insertMany(vectorSnapshots);
+    }
   }
 
   const scaledPairDeltas = scaleActivityPairDeltas({
@@ -418,7 +429,7 @@ export async function applyEffects(params: {
     streak: pairDoc.progress?.streak ?? 0,
     completed: (pairDoc.progress?.completed ?? 0) + 1,
   };
-  await pairDoc.save();
+  await pairDoc.save(params.session ? { session: params.session } : undefined);
 
   return {
     fatigueDelta: nextFatigue - previousFatigue,

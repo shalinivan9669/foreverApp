@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
@@ -15,11 +15,22 @@ import {
 } from '@/domain/state/recommendationDecisionMachine';
 import {
   isPairSafetyVetoActive,
-  isSafetyFallbackTemplateId,
 } from '@/domain/services/safetyGate.service';
+import {
+  hasP0SensitiveActivityAxis,
+  isActivityAccessibleToRole,
+  isActivityEligibleForSafetyState,
+  isOfferedActivityEligibleForRole,
+} from '@/domain/services/activityEligibility.service';
 
 type StoredDecision = RecommendationDecisionType & { _id: Types.ObjectId };
 type StoredActivity = PairActivityType & { _id: Types.ObjectId };
+
+const ACTIVE_ACTIVITY_STATUSES: PairActivityType['status'][] = [
+  'accepted',
+  'in_progress',
+  'awaiting_checkin',
+];
 
 export type RecommendationDecisionDTO = {
   id: string;
@@ -154,7 +165,8 @@ const transitionSet = (
 
 const transitionStored = async (
   decision: StoredDecision,
-  action: RecommendationDecisionAction
+  action: RecommendationDecisionAction,
+  session?: ClientSession
 ): Promise<StoredDecision> => {
   const transition = recommendationDecisionTransition(
     {
@@ -168,11 +180,12 @@ const transitionStored = async (
   const updated = await RecommendationDecision.findOneAndUpdate(
     { _id: decision._id, status: decision.status },
     { $set: transitionSet(action, transition.next.status) },
-    { new: true }
+    { new: true, ...(session ? { session } : {}) }
   ).lean<StoredDecision | null>();
   if (updated) return updated;
 
   const concurrent = await RecommendationDecision.findById(decision._id)
+    .session(session ?? null)
     .lean<StoredDecision | null>();
   if (concurrent?.status === transition.next.status) return concurrent;
   return unavailable();
@@ -211,10 +224,63 @@ const toDTO = (
 const hydrateDecision = async (
   decision: StoredDecision
 ): Promise<RecommendationDecisionDTO> => {
-  const activity = await PairActivity.findById(decision.activityId)
+  let activity = await PairActivity.findById(decision.activityId)
     .lean<StoredActivity | null>();
   if (!activity) return unavailable();
+  if (activity.status === 'offered' && decision.status !== 'OFFERED') {
+    const activityStatus =
+      decision.status === 'ACCEPTED'
+        ? 'accepted'
+        : decision.status === 'EXPIRED'
+          ? 'expired'
+          : 'cancelled';
+    const reconciled = await PairActivity.findOneAndUpdate(
+      { _id: activity._id, status: 'offered' },
+      {
+        $set: {
+          status: activityStatus,
+          ...(decision.status === 'ACCEPTED'
+            ? { acceptedAt: decision.acceptedAt ?? new Date() }
+            : {}),
+        },
+      },
+      { new: true }
+    ).lean<StoredActivity | null>();
+    if (reconciled) activity = reconciled;
+  }
   return toDTO(decision, activity);
+};
+
+const roleForPairMember = (
+  members: [string, string],
+  currentUserId: string
+): 'A' | 'B' => (members[0] === currentUserId ? 'A' : 'B');
+
+const decisionCanBeProjected = (input: {
+  decision: StoredDecision;
+  activity: StoredActivity;
+  role: 'A' | 'B';
+  safetyVeto: boolean;
+}): boolean =>
+  isActivityAccessibleToRole(input.activity, input.role) &&
+  (input.decision.status === 'ACCEPTED' ||
+    (!hasP0SensitiveActivityAxis(input.activity.axis) &&
+      isActivityEligibleForSafetyState(input.activity, input.safetyVeto)));
+
+const hydrateDecisionIfVisible = async (input: {
+  decision: StoredDecision;
+  role: 'A' | 'B';
+  safetyVeto: boolean;
+}): Promise<RecommendationDecisionDTO | null> => {
+  const activity = await PairActivity.findById(input.decision.activityId)
+    .lean<StoredActivity | null>();
+  if (
+    !activity ||
+    !decisionCanBeProjected({ ...input, activity })
+  ) {
+    return null;
+  }
+  return hydrateDecision(input.decision);
 };
 
 const expireDue = async (pairId: Types.ObjectId, now: Date): Promise<void> => {
@@ -222,6 +288,21 @@ const expireDue = async (pairId: Types.ObjectId, now: Date): Promise<void> => {
     { pairId, status: 'OFFERED', expiresAt: { $lte: now } },
   ).lean<StoredDecision[]>();
   for (const decision of due) {
+    await transitionStored(decision, { type: 'EXPIRE', at: now });
+    await PairActivity.updateOne(
+      { _id: decision.activityId, status: 'offered' },
+      { $set: { status: 'expired' } }
+    );
+  }
+};
+
+const expireAllOffered = async (
+  pairId: Types.ObjectId,
+  now: Date
+): Promise<void> => {
+  const offered = await RecommendationDecision.find({ pairId, status: 'OFFERED' })
+    .lean<StoredDecision[]>();
+  for (const decision of offered) {
     await transitionStored(decision, { type: 'EXPIRE', at: now });
     await PairActivity.updateOne(
       { _id: decision.activityId, status: 'offered' },
@@ -253,8 +334,10 @@ const reconcileOffered = async (
       await transitionStored(decision, { type: 'EXPIRE', at: now });
       continue;
     }
-    const templateId = decision.templateId ?? templateIdFromActivity(activity);
-    if (safetyVeto && !isSafetyFallbackTemplateId(templateId)) {
+    if (
+      hasP0SensitiveActivityAxis(activity.axis) ||
+      !isActivityEligibleForSafetyState(activity, safetyVeto)
+    ) {
       await transitionStored(decision, { type: 'EXPIRE', at: now });
       await PairActivity.updateOne(
         { _id: activity._id, status: 'offered' },
@@ -306,13 +389,30 @@ const loadDecisionForMember = async (input: {
   pairId: string;
   decisionId: string;
   currentUserId: string;
+  requireActive?: boolean;
 }): Promise<StoredDecision> => {
-  await ensurePairMember(input.pairId, input.currentUserId);
+  const pair = await ensurePairMember(input.pairId, input.currentUserId);
+  if (input.requireActive && pair.status !== 'active') return unavailable();
+  if (!Types.ObjectId.isValid(input.decisionId)) return unavailable();
   const decision = await RecommendationDecision.findOne({
     _id: input.decisionId,
     pairId: input.pairId,
   }).lean<StoredDecision | null>();
   if (!decision) return unavailable();
+  const activity = await PairActivity.findById(decision.activityId)
+    .lean<StoredActivity | null>();
+  const safetyVeto = await isPairSafetyVetoActive(String(pair._id));
+  if (
+    !activity ||
+    !decisionCanBeProjected({
+      decision,
+      activity,
+      role: roleForPairMember(pair.members as [string, string], input.currentUserId),
+      safetyVeto,
+    })
+  ) {
+    return unavailable();
+  }
   if (
     decision.status === 'OFFERED' &&
     decision.expiresAt &&
@@ -339,7 +439,15 @@ export const recommendationDecisionService = {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
-    const current = await loadCurrent(pairId, new Date());
+    const role = roleForPairMember(
+      pair.members as [string, string],
+      input.currentUserId
+    );
+    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
+    if (pair.status !== 'active') await expireAllOffered(pairId, new Date());
+    const current = pair.status === 'active'
+      ? await loadCurrent(pairId, new Date())
+      : null;
     const history = await RecommendationDecision.find({
       pairId,
       status: { $ne: 'OFFERED' },
@@ -348,9 +456,19 @@ export const recommendationDecisionService = {
       .limit(20)
       .lean<StoredDecision[]>();
 
+    const currentDto = current
+      ? await hydrateDecisionIfVisible({ decision: current, role, safetyVeto })
+      : null;
+    const historyDtos = await Promise.all(
+      history.map((decision) =>
+        hydrateDecisionIfVisible({ decision, role, safetyVeto })
+      )
+    );
     return {
-      current: current ? await hydrateDecision(current) : null,
-      history: await Promise.all(history.map(hydrateDecision)),
+      current: currentDto,
+      history: historyDtos.filter(
+        (decision): decision is RecommendationDecisionDTO => Boolean(decision)
+      ),
     };
   },
 
@@ -360,8 +478,20 @@ export const recommendationDecisionService = {
   }): Promise<RecommendationDecisionDTO | null> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
+    if (pair.status !== 'active') {
+      await expireAllOffered(pair._id as Types.ObjectId, new Date());
+      return null;
+    }
     const current = await loadCurrent(pair._id as Types.ObjectId, new Date());
-    return current ? hydrateDecision(current) : null;
+    if (!current) return null;
+    return hydrateDecisionIfVisible({
+      decision: current,
+      role: roleForPairMember(
+        pair.members as [string, string],
+        input.currentUserId
+      ),
+      safetyVeto: await isPairSafetyVetoActive(String(pair._id)),
+    });
   },
 
   async findEligibleOfferedActivity(input: {
@@ -372,6 +502,7 @@ export const recommendationDecisionService = {
   }): Promise<string | null> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
+    if (pair.status !== 'active') return null;
     const candidates = await PairActivity.find({
       pairId: pair._id,
       status: 'offered',
@@ -382,22 +513,36 @@ export const recommendationDecisionService = {
       .lean<StoredActivity[]>();
     const safetyVeto = await isPairSafetyVetoActive(String(pair._id));
     const unsafeIds: Types.ObjectId[] = [];
+    const role: 'A' | 'B' =
+      pair.members[0] === input.currentUserId ? 'A' : 'B';
 
     const selected = candidates.find((candidate) => {
       const templateId = templateIdFromActivity(candidate);
       if (input.excludeTemplateId && templateId === input.excludeTemplateId) return false;
-      if (safetyVeto && !isSafetyFallbackTemplateId(templateId)) {
+      if (
+        hasP0SensitiveActivityAxis(candidate.axis) ||
+        !isActivityEligibleForSafetyState(candidate, safetyVeto)
+      ) {
         unsafeIds.push(candidate._id);
         return false;
       }
-      return true;
+      return isOfferedActivityEligibleForRole({
+        activity: candidate,
+        role,
+        safetyVeto,
+      });
     });
 
-    if (safetyVeto) {
+    if (safetyVeto || unsafeIds.length > 0) {
+      const unsafeIdSet = new Set(unsafeIds.map(String));
       for (const candidate of candidates) {
-        const templateId = templateIdFromActivity(candidate);
-        if (!isSafetyFallbackTemplateId(templateId) && !unsafeIds.includes(candidate._id)) {
+        if (
+          (hasP0SensitiveActivityAxis(candidate.axis) ||
+            !isActivityEligibleForSafetyState(candidate, safetyVeto)) &&
+          !unsafeIdSet.has(String(candidate._id))
+        ) {
           unsafeIds.push(candidate._id);
+          unsafeIdSet.add(String(candidate._id));
         }
       }
       if (unsafeIds.length) {
@@ -418,6 +563,7 @@ export const recommendationDecisionService = {
   }): Promise<RecommendationDecisionDTO> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
+    if (pair.status !== 'active') return unavailable();
     const pairId = pair._id as Types.ObjectId;
     const activity = await PairActivity.findOne({
       _id: input.activityId,
@@ -427,20 +573,34 @@ export const recommendationDecisionService = {
     if (!activity) return unavailable();
 
     const templateId = templateIdFromActivity(activity);
-    if (
-      (await isPairSafetyVetoActive(String(pairId))) &&
-      !isSafetyFallbackTemplateId(templateId)
-    ) {
-      await PairActivity.updateOne(
-        { _id: activity._id, status: 'offered' },
-        { $set: { status: 'cancelled' } }
-      );
+    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
+    const role: 'A' | 'B' =
+      pair.members[0] === input.currentUserId ? 'A' : 'B';
+    if (!isOfferedActivityEligibleForRole({ activity, role, safetyVeto })) {
+      if (
+        hasP0SensitiveActivityAxis(activity.axis) ||
+        !isActivityEligibleForSafetyState(activity, safetyVeto)
+      ) {
+        await PairActivity.updateOne(
+          { _id: activity._id, status: 'offered' },
+          { $set: { status: 'cancelled' } }
+        );
+      }
       return unavailable();
     }
 
+    const active = await PairActivity.exists({
+      pairId,
+      status: { $in: ACTIVE_ACTIVITY_STATUSES },
+    });
+    if (active) return unavailable();
+
     const existing = await RecommendationDecision.findOne({ activityId: activity._id })
       .lean<StoredDecision | null>();
-    if (existing) return hydrateDecision(existing);
+    if (existing) {
+      if (existing.status !== 'OFFERED') return unavailable();
+      return hydrateDecision(existing);
+    }
 
     let replacementDepth: 0 | 1 = 0;
     let previousDecision: StoredDecision | null = null;
@@ -457,17 +617,8 @@ export const recommendationDecisionService = {
 
     const now = new Date();
     const cycleKey = recommendationCycleKey(activity.stateMeta, now);
-    const previousOffered = await RecommendationDecision.find({
-      pairId,
-      status: 'OFFERED',
-    }).lean<StoredDecision[]>();
-    for (const previous of previousOffered) {
-      await transitionStored(previous, { type: 'EXPIRE', at: now });
-      await PairActivity.updateOne(
-        { _id: previous.activityId, status: 'offered' },
-        { $set: { status: 'expired' } }
-      );
-    }
+    const expiresAt = activity.dueAt ?? new Date(now.getTime() + 3 * DAY_MS);
+    await expireAllOffered(pairId, now);
 
     let created: StoredDecision;
     try {
@@ -483,7 +634,7 @@ export const recommendationDecisionService = {
         decisionVersion: 'recommendation-decision-v1',
         replacementDepth,
         ...(previousDecision ? { previousDecisionId: previousDecision._id } : {}),
-        expiresAt: activity.dueAt,
+        expiresAt,
       });
       created = document.toObject() as StoredDecision;
     } catch (error) {
@@ -517,7 +668,10 @@ export const recommendationDecisionService = {
     currentUserId: string;
   }): Promise<PreparedReplacement | ExistingReplacement> {
     await connectToDatabase();
-    let decision = await loadDecisionForMember(input);
+    let decision = await loadDecisionForMember({
+      ...input,
+      requireActive: true,
+    });
     if (decision.status === 'REPLACED') {
       const successor = decision.successorDecisionId
         ? await RecommendationDecision.findById(decision.successorDecisionId)
@@ -599,50 +753,106 @@ export const recommendationDecisionService = {
     return hydrateDecision(skipped);
   },
 
-  async markAcceptedForActivity(activityId: string, acceptedAt: Date): Promise<void> {
+  async claimAcceptedForActivity(
+    activityId: string,
+    now: Date,
+    session?: ClientSession
+  ): Promise<void> {
     await connectToDatabase();
-    const decision = await RecommendationDecision.findOne({
-      activityId,
-      status: 'OFFERED',
-    }).lean<StoredDecision | null>();
-    if (!decision) return;
-    await transitionStored(decision, { type: 'ACCEPT', at: acceptedAt });
-  },
-
-  async assertAcceptableForActivity(activityId: string, now: Date): Promise<void> {
-    await connectToDatabase();
-    const decision = await RecommendationDecision.findOne({ activityId })
+    let decision = await RecommendationDecision.findOne({ activityId })
+      .session(session ?? null)
       .lean<StoredDecision | null>();
-    if (!decision || decision.status === 'ACCEPTED') return;
+    if (!decision) return unavailable();
+    if (decision.status === 'ACCEPTED') return;
+    if (!session) await reconcileOffered(decision.pairId, now);
+    decision = await RecommendationDecision.findById(decision._id)
+      .session(session ?? null)
+      .lean<StoredDecision | null>();
+    if (!decision) return unavailable();
     if (decision.status !== 'OFFERED') {
-      throw new DomainError({
-        code: 'ACTIVITY_UNAVAILABLE',
-        status: 409,
-        message: 'Activity is unavailable',
-      });
+      return unavailable();
     }
     if (decision.expiresAt && decision.expiresAt.getTime() <= now.getTime()) {
-      await transitionStored(decision, { type: 'EXPIRE', at: now });
+      await transitionStored(decision, { type: 'EXPIRE', at: now }, session);
       await PairActivity.updateOne(
         { _id: decision.activityId, status: 'offered' },
         { $set: { status: 'expired' } }
+      ).session(session ?? null);
+      return unavailable();
+    }
+
+    const current = await RecommendationDecision.findOne({
+      pairId: decision.pairId,
+      status: 'OFFERED',
+    })
+      .sort({ createdAt: -1, _id: 1 })
+      .session(session ?? null)
+      .lean<StoredDecision | null>();
+    if (!current || String(current._id) !== String(decision._id)) {
+      return unavailable();
+    }
+
+    const activity = await PairActivity.findOne({
+      _id: decision.activityId,
+      pairId: decision.pairId,
+      status: 'offered',
+    })
+      .session(session ?? null)
+      .lean<StoredActivity | null>();
+    if (!activity) return unavailable();
+    const safetyVeto = await isPairSafetyVetoActive(String(decision.pairId));
+    if (
+      hasP0SensitiveActivityAxis(activity.axis) ||
+      !isActivityEligibleForSafetyState(activity, safetyVeto)
+    ) {
+      await transitionStored(decision, { type: 'EXPIRE', at: now }, session);
+      await PairActivity.updateOne(
+        { _id: activity._id, status: 'offered' },
+        { $set: { status: 'cancelled' } }
+      ).session(session ?? null);
+      return unavailable();
+    }
+    const active = await PairActivity.exists({
+      pairId: decision.pairId,
+      _id: { $ne: decision.activityId },
+      status: { $in: ACTIVE_ACTIVITY_STATUSES },
+    }).session(session ?? null);
+    if (active) return unavailable();
+    await transitionStored(decision, { type: 'ACCEPT', at: now }, session);
+  },
+
+  async claimSkippedForActivity(input: {
+    activityId: string;
+    activityStatus: PairActivityType['status'];
+    skippedAt: Date;
+    session?: ClientSession;
+  }): Promise<void> {
+    await connectToDatabase();
+    const decision = await RecommendationDecision.findOne({
+      activityId: input.activityId,
+    })
+      .session(input.session ?? null)
+      .lean<StoredDecision | null>();
+    if (!decision) {
+      if (input.activityStatus === 'offered') return unavailable();
+      return;
+    }
+    if (decision.status === 'OFFERED') {
+      await transitionStored(
+        decision,
+        { type: 'SKIP', at: input.skippedAt },
+        input.session
       );
+      return;
+    }
+    if (decision.status === 'SKIPPED') return;
+    if (input.activityStatus === 'offered') {
       throw new DomainError({
         code: 'ACTIVITY_UNAVAILABLE',
         status: 409,
         message: 'Activity is unavailable',
       });
     }
-  },
-
-  async markSkippedForActivity(activityId: string, skippedAt: Date): Promise<void> {
-    await connectToDatabase();
-    const decision = await RecommendationDecision.findOne({
-      activityId,
-      status: 'OFFERED',
-    }).lean<StoredDecision | null>();
-    if (!decision) return;
-    await transitionStored(decision, { type: 'SKIP', at: skippedAt });
   },
 
   async getById(input: {

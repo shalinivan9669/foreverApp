@@ -26,8 +26,9 @@
 2. Затем отвечает `B`: создаётся одна immutable snapshot revision; Pair Summary содержит максимум четыре qualitative signals и neutral reason/next-step keys.
 3. В cycle 2 повторить порядок `B → A`. Результат не зависит от роли/порядка участников.
 4. Отправить одинаковый submit повторно и два concurrent submit: не должно появиться второго check-in/effect/snapshot для одной revision.
-5. Проверить `INSUFFICIENT_DATA`, partial/expired fallback и late second answer: старая snapshot остаётся неизменной, новая revision становится текущей.
+5. Проверить `INSUFFICIENT_DATA`, partial/expired fallback и второй ответ, пришедший до server deadline: старая snapshot остаётся неизменной, новая revision становится текущей. Отдельно проверить, что после deadline незавершённый cycle становится `EXPIRED`/`INSUFFICIENT` и больше не принимает submit.
 6. В Network убедиться, что pair DTO не содержит raw answers, private note, exact peer values, averages, divergence, global score, passport или legacy matching answers.
+7. Прямой вызов `/api/pairs/{pairId}/diagnostics` возвращает только `410 PAIR_DIAGNOSTICS_RETIRED`; страница diagnostics не загружает старый passport/insights и ведёт к Pair Summary.
 
 ## Recommendation, activity и feedback
 
@@ -38,6 +39,11 @@
 5. Завершить activity; сначала feedback даёт `A`. Статус становится partial, `B` не видит exact значения/текст `A`.
 6. Поздний feedback `B` идемпотентно уточняет completion без повторного применения effect и без заявления causal effect.
 7. History light показывает дату/status cycle, ранее раскрытый qualitative summary, activity status и факт feedback — без private payload и без пересчёта старой snapshot новой версией.
+
+## Canonical compatibility verification
+
+- Concurrently request `/api/pairs/{pairId}/recommendations`, `/suggest`, `/activities/suggest`, `/api/activities/next`, and the allowlisted `/activities/from-template` fallback. Every successful response must reference the same single decision-backed offered activity; no second visible or orphan offer may remain.
+- Accept a Pair Event and verify that it changes only event state, returns `activities: []`, and does not create an activity outside the canonical recommendation flow.
 
 ## Safety veto
 

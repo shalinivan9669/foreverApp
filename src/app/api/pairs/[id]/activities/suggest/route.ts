@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams } from '@/lib/api/validate';
-import { activityOfferService } from '@/domain/services/activityOffer.service';
+import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
 import { asError, toDomainError } from '@/domain/errors';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import {
@@ -50,11 +50,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       key: 'activities.suggestions.per_day',
     });
 
-    const data = await activityOfferService.suggestActivities({
+    const data = await recommendationWorkflowService.offersCompatibility({
       pairId: params.data.id,
       currentUserId: auth.data.userId,
-      dedupeAgainstLastOffered: true,
-      source: 'pairs.activities.suggest',
       auditRequest,
     });
     return jsonOk(data);

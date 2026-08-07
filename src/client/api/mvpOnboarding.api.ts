@@ -98,7 +98,6 @@ export const mvpOnboardingApi = {
   ): Promise<MvpOnboardingResponseDTO> =>
     http.patch<MvpOnboardingResponseDTO, MvpOnboardingMutationRequest>(
       '/api/users/me/mvp-onboarding',
-      payload,
-      { idempotency: true }
+      payload
     ),
 };

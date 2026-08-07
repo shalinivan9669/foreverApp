@@ -15,6 +15,7 @@ type JoinPhase =
   | 'auth_required'
   | 'onboarding_required'
   | 'available'
+  | 'accepted'
   | 'unavailable'
   | 'check_failed';
 
@@ -46,6 +47,7 @@ const resolveJoinPhase = async (
   signal?: AbortSignal
 ): Promise<JoinPhase> => {
   const invite = await pairInvitesApi.resolve(token, signal);
+  if (invite.availability === 'accepted') return 'accepted';
   if (invite.availability !== 'available') return 'unavailable';
   const onboarding = await mvpOnboardingApi.getOwnerState(signal);
   return onboarding.session?.status === 'completed'
@@ -283,6 +285,28 @@ export default function JoinPairPage() {
             className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white"
           >
             Пройти личную настройку
+          </button>
+        </section>
+      )}
+
+      {phase === 'accepted' && (
+        <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
+          <h1 className="font-display text-2xl font-semibold">Вы уже присоединились</h1>
+          <p className="app-muted mt-2 text-sm leading-relaxed">
+            Повторный вход безопасно восстановлен. Продолжите в общей области пары.
+          </p>
+          {actionError && (
+            <div className="app-alert app-alert-error mt-4" role="alert">
+              {actionError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void acceptInvite()}
+            disabled={accepting}
+            className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white disabled:opacity-60"
+          >
+            {accepting ? 'Восстанавливаем…' : 'Открыть пару'}
           </button>
         </section>
       )}

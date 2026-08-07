@@ -24,6 +24,15 @@
 - Like resources require like participant role.
 - Public user DTO must never expose private profile fields.
 - Use centralized guards in `src/lib/auth/resourceGuards.ts`.
+- P0 pair linking accepts no client actor/member id. The invite creator comes from session, and the accepter is the authenticated session subject.
+- A user cannot obtain a second active pair through the P0 invite flow: acceptance uses a MongoDB transaction plus a unique `PairMembershipClaim.userId` index. Legacy direct pair activation is disabled at both `/api/pairs/create` and `/api/match/confirm`.
+
+## P0 invite and recovery secrets
+
+- Invite tokens use 32 random bytes encoded as base64url. Only SHA-256 hashes are stored.
+- Raw tokens are returned only on create/reissue in `no-store` responses and are carried by the browser URL fragment, never a query string.
+- Resolve/accept take the token in a JSON body, are rate-limited, and return generic unavailable states for expired, cancelled, used-by-another, self-pair, or conflicting-membership cases.
+- Idempotency storage may keep only a derived request hash for accept. Create/reissue do not store a replay envelope because it would duplicate the one-time token.
 
 ## PII boundaries
 
@@ -38,6 +47,15 @@ Sensitive:
 
 Private profile data may be returned only through explicitly scoped self endpoints and DTOs.
 Initiator/recipient like answers are relationship data. They may be stored for the Like contract but must not be logged in audit metadata.
+
+P0 projection rules:
+
+- Owner onboarding/check-in endpoints may return that owner's exact values under `no-store`; pair endpoints may return only relative completion and qualitative signals.
+- One-sided weekly input publishes no pair signal. Pair DTOs contain no averages, divergence, reconstructable counts, passport, readiness/fatigue value, or global compatibility score.
+- Activity result DTOs contain only qualitative status/readiness-to-display facts; exact feedback, effects, and source evidence stay internal.
+- Cycle history comes only from immutable canonical snapshots. Missing legacy snapshots are omitted rather than recalculated.
+- The legacy pair diagnostics endpoint is retired for P0; direct navigation and API access cannot recover passport, A/B deltas, answer-derived signals, global score, readiness, or fatigue.
+- The owner-private safety flag stores no reason/free text and only vetoes activity eligibility. The partner receives neither the flag nor a safety-specific error/recommendation reason.
 
 ## Logging
 
@@ -55,6 +73,7 @@ Never log:
 
 Audit/event metadata must be sanitized before persistence.
 OAuth auth failure events should record only compact reason/status metadata, never authorization codes, redirect URIs, tokens, or secrets.
+P0 activity/check-in audits use event-specific allowlists and do not persist exact answers, scores, averages, effect deltas, notes, or invite tokens. Safety audit stores only pair id, boolean state, and retention class.
 
 ## Agent rule
 

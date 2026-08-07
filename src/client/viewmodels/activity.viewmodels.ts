@@ -24,7 +24,7 @@ export type ActivityCardVM = {
   axis: string[] | string;
   archetype: string;
   intent: 'improve' | 'celebrate';
-  mode: 'together' | 'soloA' | 'soloB';
+  mode: 'together' | 'solo';
   sync: 'sync' | 'async';
   difficulty: 1 | 2 | 3 | 4 | 5;
   intensity: 1 | 2 | 3;

@@ -13,6 +13,12 @@ import {
   currentWeekKey,
   type PairWeeklyCheckInSummaryDTO,
 } from '@/domain/services/weeklyCheckIn.service';
+import { SYSTEM_ACTIVITY_TEMPLATES } from '@/domain/services/pairActivityDecision.service';
+import { isPairSafetyVetoActive } from '@/domain/services/safetyGate.service';
+import {
+  hasP0SensitiveActivityAxis,
+  isActivityEligibleForSafetyState,
+} from '@/domain/services/activityEligibility.service';
 
 type PairDoc = HydratedDocument<PairType>;
 type StoredEvent = PairEventTypeModel & { _id: Types.ObjectId };
@@ -75,6 +81,26 @@ const FINAL_ACTIVITY_STATUSES: PairActivityType['status'][] = [
   'cancelled',
   'expired',
 ];
+
+const eventEligibleForPairProjection = (
+  event: Pick<PairEventTypeModel, 'axis' | 'category'>,
+  safetyVeto: boolean
+): boolean =>
+  !hasP0SensitiveActivityAxis(event.axis ?? []) &&
+  (!safetyVeto || event.category !== 'system_signal');
+
+const assertEventEligibleForPairProjection = (
+  event: Pick<PairEventTypeModel, 'axis' | 'category'>,
+  safetyVeto: boolean
+): void => {
+  if (!eventEligibleForPairProjection(event, safetyVeto)) {
+    throw new DomainError({
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'event not found',
+    });
+  }
+};
 const ACTIVE_EVENT_STATUSES: PairEventStatus[] = [
   'upcoming',
   'offered',
@@ -351,7 +377,7 @@ const highestDivergence = (weekly: PairWeeklyCheckInSummaryDTO): number =>
   Math.max(0, ...Object.values(weekly.pair.divergence ?? {}).filter((value): value is number => typeof value === 'number'));
 
 const toAxis = (axis?: string): Axis | undefined => {
-  const valid = new Set<Axis>(['communication', 'domestic', 'personalViews', 'finance', 'sexuality', 'psyche']);
+  const valid = new Set<Axis>(['communication', 'domestic', 'personalViews', 'psyche']);
   return axis && valid.has(axis as Axis) ? (axis as Axis) : undefined;
 };
 
@@ -686,6 +712,7 @@ const findVisibleEvents = async (
 
 type EventActivityTemplate = {
   id: string;
+  canonicalTemplateId?: string;
   title: string;
   description: string;
   why: string;
@@ -695,6 +722,32 @@ type EventActivityTemplate = {
   difficulty: PairActivityType['difficulty'];
   intensity: PairActivityType['intensity'];
   minutes: number;
+};
+
+const safetyEventActivityTemplate = (): EventActivityTemplate => {
+  const fallback = SYSTEM_ACTIVITY_TEMPLATES.find(
+    (template) => template._id === 'system-resource-relief'
+  );
+  if (!fallback) {
+    throw new DomainError({
+      code: 'INTERNAL',
+      status: 500,
+      message: 'Safety activity fallback is unavailable',
+    });
+  }
+  return {
+    id: 'neutral-resource-relief',
+    canonicalTemplateId: String(fallback._id),
+    title: fallback.title.ru ?? fallback.title.en ?? '',
+    description: fallback.description.ru ?? fallback.description.en ?? '',
+    why: fallback.why.ru ?? fallback.why.en ?? '',
+    axis: fallback.axis,
+    archetype: fallback.archetype,
+    intent: fallback.intent,
+    difficulty: fallback.difficulty,
+    intensity: fallback.intensity,
+    minutes: fallback.timeEstimateMin ?? 10,
+  };
 };
 
 const activityTemplatesForEvent = (event: PairEventTypeModel): EventActivityTemplate[] => {
@@ -802,21 +855,59 @@ const createActivitiesFromEvent = async (input: {
   pair: PairDoc;
   event: StoredEvent;
   now: Date;
+  safetyVeto: boolean;
+  createOffers: boolean;
   session?: ClientSession;
 }): Promise<StoredActivity[]> => {
   const pairId = input.pair._id as Types.ObjectId;
+  if (!input.createOffers) {
+    await PairActivity.updateMany(
+      {
+        pairId,
+        status: 'offered',
+        'stateMeta.sourceMeta.eventId': String(input.event._id),
+      },
+      { $set: { status: 'cancelled' } }
+    ).session(input.session ?? null);
+    await PairEvent.updateOne(
+      { _id: input.event._id },
+      { $set: { generatedActivityIds: [] } }
+    ).session(input.session ?? null);
+    return [];
+  }
   if (input.event.generatedActivityIds.length > 0) {
-    return PairActivity.find({ _id: { $in: input.event.generatedActivityIds } })
-      .sort({ createdAt: -1 })
+    const generated = await PairActivity.find({
+      _id: { $in: input.event.generatedActivityIds },
+    })
       .session(input.session ?? null)
       .lean<StoredActivity[]>();
+    const ineligibleIds = generated
+      .filter(
+        (activity) =>
+          hasP0SensitiveActivityAxis(activity.axis) ||
+          !isActivityEligibleForSafetyState(activity, input.safetyVeto)
+      )
+      .map((activity) => activity._id);
+    if (ineligibleIds.length > 0) {
+      await PairActivity.updateMany(
+        { _id: { $in: ineligibleIds }, status: 'offered' },
+        { $set: { status: 'cancelled' } }
+      ).session(input.session ?? null);
+    }
   }
 
-  const templates = activityTemplatesForEvent(input.event).slice(0, input.event.actionPolicy.maxGeneratedActivities);
+  const templates = (input.safetyVeto
+    ? [safetyEventActivityTemplate()]
+    : activityTemplatesForEvent(input.event)
+  )
+    .filter((template) => !hasP0SensitiveActivityAxis(template.axis))
+    .slice(0, input.event.actionPolicy.maxGeneratedActivities);
   const created: StoredActivity[] = [];
   const missingTemplates: EventActivityTemplate[] = [];
   for (const template of templates) {
-    const templateId = `event-${input.event.type}-${template.id}`;
+    const templateId =
+      template.canonicalTemplateId ??
+      `event-${input.event.type}-${template.id}`;
     const existing = await PairActivity.findOne({
       pairId,
       'stateMeta.sourceMeta.eventId': String(input.event._id),
@@ -838,6 +929,11 @@ const createActivitiesFromEvent = async (input: {
     ).session(input.session ?? null);
     return created;
   }
+
+  await Pair.updateOne(
+    { _id: pairId },
+    { $set: { updatedAt: new Date() } }
+  ).session(input.session ?? null);
 
   const active = await PairActivity.findOne({ pairId, status: { $in: ACTIVE_ACTIVITY_STATUSES } })
     .select({ _id: 1 })
@@ -864,7 +960,9 @@ const createActivitiesFromEvent = async (input: {
 
   const members = await resolveMembers(input.pair.members as [string, string]);
   for (const template of missingTemplates.slice(0, slots)) {
-    const templateId = `event-${input.event.type}-${template.id}`;
+    const templateId =
+      template.canonicalTemplateId ??
+      `event-${input.event.type}-${template.id}`;
 
     const [activity] = await PairActivity.create([{
       pairId,
@@ -875,10 +973,12 @@ const createActivitiesFromEvent = async (input: {
       facetsTarget: [],
       title: { ru: template.title, en: template.title },
       description: { ru: template.description, en: template.description },
-      why: {
-        ru: `${input.event.why.ru} ${template.why}`.trim(),
-        en: `${input.event.why.en} ${template.why}`.trim(),
-      },
+      why: input.safetyVeto
+        ? { ru: template.why, en: template.why }
+        : {
+            ru: `${input.event.why.ru} ${template.why}`.trim(),
+            en: `${input.event.why.en} ${template.why}`.trim(),
+          },
       mode: 'together',
       sync: template.archetype === 'micro_habit' ? 'async' : 'sync',
       difficulty: template.difficulty,
@@ -889,7 +989,7 @@ const createActivitiesFromEvent = async (input: {
       offeredAt: input.now,
       dueAt: addDays(input.now, 3),
       cooldownDays: 14,
-      requiresConsent: template.axis.includes('sexuality'),
+      requiresConsent: false,
       status: 'offered',
       stateMeta: {
         templateId,
@@ -911,6 +1011,7 @@ const createActivitiesFromEvent = async (input: {
         severity: input.event.severity,
         weekKey: input.event.source.weekKey,
         decisionVersion: 'activity-decision-v1',
+        assignedMemberIds: members.map(String),
         apiSource: 'pairs.events.accept',
       },
       checkIns: [],
@@ -991,7 +1092,10 @@ export const pairEventService = {
 
     if (pair.status === 'ended' && input.include !== 'all') return [];
     const events = await findVisibleEvents(pairId, input.include ?? 'active');
-    return events.map(toPairEventDTO);
+    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
+    return events
+      .filter((event) => eventEligibleForPairProjection(event, safetyVeto))
+      .map(toPairEventDTO);
   },
 
   async acceptEvent(input: PairEventMutationInput): Promise<{
@@ -1010,12 +1114,14 @@ export const pairEventService = {
 
     const now = input.now ?? new Date();
     const pairId = pair._id as Types.ObjectId;
+    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
     let updated: StoredEvent | null = null;
     let activities: StoredActivity[] = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         const event = await findEventForMutation(pairId, input.eventId, session);
+        assertEventEligibleForPairProjection(event, safetyVeto);
         assertEventCanBeAccepted(event, now);
 
         const accepted = await PairEvent.findOneAndUpdate(
@@ -1027,7 +1133,14 @@ export const pairEventService = {
           throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be accepted' });
         }
 
-        activities = await createActivitiesFromEvent({ pair, event: accepted, now, session });
+        activities = await createActivitiesFromEvent({
+          pair,
+          event: accepted,
+          now,
+          safetyVeto,
+          createOffers: false,
+          session,
+        });
         updated = await PairEvent.findById(event._id)
           .session(session)
           .lean<StoredEvent | null>();
@@ -1042,9 +1155,18 @@ export const pairEventService = {
     if (!updated) {
       throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
     }
+    const currentSafetyVeto = await isPairSafetyVetoActive(String(pairId));
+    assertEventEligibleForPairProjection(updated, currentSafetyVeto);
+    const projectedActivities = activities.filter(
+      (activity) =>
+        !hasP0SensitiveActivityAxis(activity.axis) &&
+        isActivityEligibleForSafetyState(activity, currentSafetyVeto)
+    );
     return {
       event: toPairEventDTO(updated),
-      activities: activities.map((activity) => toPairActivityDTO(activity, { includeAnswers: false })),
+      activities: projectedActivities.map((activity) =>
+        toPairActivityDTO(activity, { includeAnswers: false })
+      ),
     };
   },
 
@@ -1053,6 +1175,10 @@ export const pairEventService = {
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
     const event = await findEventForMutation(pairId, input.eventId);
+    assertEventEligibleForPairProjection(
+      event,
+      await isPairSafetyVetoActive(String(pairId))
+    );
     const now = input.now ?? new Date();
     assertEventCanBeDeclined(event, now);
     const updated = await PairEvent.findOneAndUpdate(
@@ -1071,6 +1197,10 @@ export const pairEventService = {
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
     const event = await findEventForMutation(pairId, input.eventId);
+    assertEventEligibleForPairProjection(
+      event,
+      await isPairSafetyVetoActive(String(pairId))
+    );
     const now = input.now ?? new Date();
     assertEventCanBeSnoozed(event, now);
     const snoozedUntil = addDays(now, input.days ?? 3);
@@ -1098,6 +1228,9 @@ export const pairEventService = {
     const pair = await Pair.findById(pairId).select({ _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
     if (!pair) return [];
     const events = await findVisibleEvents(pair._id as Types.ObjectId, 'all');
-    return events.map(toPairEventDTO);
+    const safetyVeto = await isPairSafetyVetoActive(String(pair._id));
+    return events
+      .filter((event) => eventEligibleForPairProjection(event, safetyVeto))
+      .map(toPairEventDTO);
   },
 };

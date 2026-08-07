@@ -5,7 +5,10 @@ import { parseJson } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
-import { pairInviteService } from '@/domain/services/pairInvite.service';
+import {
+  hashPairInviteToken,
+  pairInviteService,
+} from '@/domain/services/pairInvite.service';
 
 const bodySchema = z
   .object({
@@ -33,7 +36,7 @@ export async function POST(req: NextRequest) {
     req,
     route,
     userId: auth.data.userId,
-    requestBody: { token: body.data.token },
+    requestBody: { tokenHash: hashPairInviteToken(body.data.token) },
     execute: () =>
       pairInviteService.accept({
         currentUserId: auth.data.userId,

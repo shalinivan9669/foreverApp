@@ -12,7 +12,7 @@ export type PairInviteOwnerDTO = {
 };
 
 export type PairInviteAvailabilityDTO = {
-  availability: 'available' | 'unavailable';
+  availability: 'available' | 'accepted' | 'unavailable';
 };
 
 export type PairInviteAcceptDTO = {
@@ -87,7 +87,11 @@ const normalizeAvailability = (payload: ApiJsonValue): PairInviteAvailabilityDTO
   const rawAvailability = payload.availability;
   if (typeof rawAvailability === 'string') {
     const availability = rawAvailability.toLowerCase();
-    if (availability === 'available' || availability === 'unavailable') {
+    if (
+      availability === 'available' ||
+      availability === 'accepted' ||
+      availability === 'unavailable'
+    ) {
       return { availability };
     }
   }
@@ -96,9 +100,8 @@ const normalizeAvailability = (payload: ApiJsonValue): PairInviteAvailabilityDTO
   if (typeof rawState === 'string') {
     const state = rawState.toUpperCase();
     if (state === 'AVAILABLE') return { availability: 'available' };
-    if (state === 'ACCEPTED' || state === 'UNAVAILABLE') {
-      return { availability: 'unavailable' };
-    }
+    if (state === 'ACCEPTED') return { availability: 'accepted' };
+    if (state === 'UNAVAILABLE') return { availability: 'unavailable' };
   }
 
   return invalidPayload('Invalid pair invite availability');
@@ -126,8 +129,7 @@ export const pairInvitesApi = {
     const invite = normalizeOwnerResponse(
       await http.post<ApiJsonValue, Record<string, never>>(
         '/api/pair-invites',
-        {},
-        { idempotency: true }
+        {}
       )
     );
     return invite ?? invalidPayload('Pair invite was not created');
@@ -148,8 +150,7 @@ export const pairInvitesApi = {
     const invite = normalizeOwnerResponse(
       await http.post<ApiJsonValue, Record<string, never>>(
         `/api/pair-invites/${encodeURIComponent(inviteId)}/reissue`,
-        {},
-        { idempotency: true }
+        {}
       )
     );
     return invite ?? invalidPayload('Pair invite was not reissued');

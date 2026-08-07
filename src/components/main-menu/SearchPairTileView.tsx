@@ -38,7 +38,7 @@ export default function SearchPairTileView({ hasActive, pairId, peer }: SearchPa
         </div>
         <p className="app-tile-description">
           {hasActive
-            ? 'Общий статус, диагностика и следующий шаг для вас двоих.'
+            ? 'Безопасная общая сводка и следующий шаг для вас двоих.'
             : 'Создайте одноразовую ссылку и безопасно подключите своего партнёра.'}
         </p>
 

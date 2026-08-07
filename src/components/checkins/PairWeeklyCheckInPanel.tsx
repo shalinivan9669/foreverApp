@@ -91,7 +91,7 @@ export default function PairWeeklyCheckInPanel({
       try {
         const [result, currentCycle] = await Promise.all([
           checkinsApi.getPairWeeklySummary(pairId, {}, signal),
-          weeklyCyclesApi.getCurrent(pairId, signal).catch(() => null),
+          weeklyCyclesApi.getCurrent(pairId, signal),
         ]);
         if (!signal?.aborted) {
           setSummary(result);
@@ -122,10 +122,10 @@ export default function PairWeeklyCheckInPanel({
   }, [loadSummary, onSummaryChanged]);
 
   const peerName = summary?.peer.username?.trim() || 'Партнёр';
-  const pairDataStatus = cycle?.pair.dataStatus ?? summary?.pair.dataStatus;
+  const pairDataStatus = cycle?.pair.dataStatus;
   const currentCompletion = cycle?.currentUser.completionStatus;
   const peerCompletion = cycle?.peer.completionStatus;
-  const pairSignals = cycle?.pair.signals ?? summary?.pair.signals ?? [];
+  const pairSignals = cycle?.pair.signals ?? [];
   const statusLabel =
     pairDataStatus === 'ENOUGH'
       ? 'Сводка готова'
@@ -147,7 +147,7 @@ export default function PairWeeklyCheckInPanel({
               Короткая сверка состояния пары по ответам этой недели.
             </p>
           </div>
-          {summary && (
+          {summary && cycle && (
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
               {statusLabel}
             </span>
@@ -158,7 +158,7 @@ export default function PairWeeklyCheckInPanel({
           <div className="app-muted mt-4 text-sm">Загружаем статус check-in...</div>
         )}
 
-        {error && !summary && (
+        {error && (
           <div className="app-alert app-alert-error mt-4 text-sm">
             <div>{error}</div>
             <button
@@ -171,7 +171,7 @@ export default function PairWeeklyCheckInPanel({
           </div>
         )}
 
-        {summary && (
+        {summary && cycle && (
           <>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-slate-100 bg-white/70 p-3 text-sm">
@@ -180,14 +180,16 @@ export default function PairWeeklyCheckInPanel({
                     ? 'Вы пропустили этот цикл'
                     : currentCompletion === 'EXPIRED'
                       ? 'Цикл завершён без вашего ответа'
-                      : summary.currentUser.submitted
+                      : currentCompletion === 'SUBMITTED'
                         ? 'Вы заполнили check-in'
                         : 'Вы ещё не заполнили check-in'}
                 </div>
                 <p className="app-muted mt-1">
                   {currentCompletion === 'SKIPPED'
                     ? 'Пропуск не ухудшает состояние пары и не раскрывает причину.'
-                    : summary.currentUser.submitted
+                    : currentCompletion === 'EXPIRED'
+                      ? 'Цикл завершён; ответ задним числом не требуется.'
+                    : currentCompletion === 'SUBMITTED'
                     ? 'Ваш ответ уже учтён в сводке этой недели.'
                     : 'Заполните короткую проверку состояния, чтобы обновить сводку пары.'}
                 </p>
@@ -199,14 +201,16 @@ export default function PairWeeklyCheckInPanel({
                     ? 'пропущено'
                     : peerCompletion === 'EXPIRED'
                       ? 'цикл завершён'
-                      : summary.peer.submitted
+                      : peerCompletion === 'SUBMITTED'
                         ? 'заполнено'
                         : 'ещё не заполнено'}
                 </div>
                 <p className="app-muted mt-1">
                   {peerCompletion === 'SKIPPED'
                     ? 'Причина пропуска остаётся личной.'
-                    : summary.peer.submitted
+                    : peerCompletion === 'EXPIRED'
+                      ? 'Цикл завершён без раскрытия личных данных участника.'
+                    : peerCompletion === 'SUBMITTED'
                     ? 'Ответ учтён без показа индивидуальных значений и личной заметки.'
                     : 'Сводка станет точнее после второго ответа.'}
                 </p>
@@ -222,7 +226,7 @@ export default function PairWeeklyCheckInPanel({
                     : pairDataStatus === 'PARTIAL'
                       ? 'Пока ответил один участник. Общие сигналы появятся только после второго ответа.'
                       : pairDataStatus === 'INSUFFICIENT'
-                        ? 'Оба check-in получены, но данных недостаточно для осторожной общей сводки.'
+                        ? 'Общих данных недостаточно для осторожной сводки. Индивидуальные ответы остаются личными.'
                         : 'Общие сигналы появятся после check-in обоих участников.'}
                 </p>
               </div>

@@ -98,3 +98,39 @@ Applied to mutation services/routes:
 - `/api/pairs/create` POST
 - `/api/pairs/[id]/pause` POST
 - `/api/pairs/[id]/resume` POST
+
+## Update 2026-08-07 (P0 pilot lifecycle)
+
+The P0 public pair-creation boundary is invite-only. These state machines are centralized under `src/domain/state` and enforced by the corresponding domain services.
+
+### Pair invite
+
+- `[none] --CREATE--> ACTIVE`
+- `ACTIVE --ACCEPT--> ACCEPTED`
+- `ACTIVE --CANCEL--> CANCELLED`
+- `ACTIVE --REISSUE--> REISSUED` and a new `ACTIVE` invite
+- `ACTIVE --DEADLINE--> EXPIRED`
+- Repeated accept by the same authenticated accepter returns the already-created Pair; every other terminal transition is rejected with a generic unavailable result.
+
+### Weekly cycle participant completion
+
+- `[none] --> PENDING`
+- `PENDING --SUBMIT--> SUBMITTED`
+- `PENDING --SKIP--> SKIPPED`
+- `PENDING --DEADLINE--> EXPIRED`
+- A transient token-specific submission lease serializes submit against skip. `SUBMITTED`, `SKIPPED`, and `EXPIRED` are terminal per participant/cycle.
+- Snapshot readiness is separate from lifecycle: two valid submissions can remain `ENOUGH` after deadline; an incomplete expired cycle is `INSUFFICIENT`.
+
+### Recommendation decision
+
+- `[none] --OFFER--> OFFERED_PRIMARY`
+- `OFFERED_PRIMARY --ACCEPT--> ACCEPTED`
+- `OFFERED_PRIMARY --REPLACE--> OFFERED_REPLACEMENT`
+- `OFFERED_PRIMARY|OFFERED_REPLACEMENT --SKIP--> SKIPPED`
+- `OFFERED_REPLACEMENT --ACCEPT--> ACCEPTED`
+- `OFFERED_PRIMARY|OFFERED_REPLACEMENT --DEADLINE--> EXPIRED`
+- Only one replacement is allowed. Terminal acceptance links exactly one activity and reconciliation repairs an interrupted decision-to-activity pointer write.
+
+### Safety gate
+
+Safety is not a partner-visible relationship state. It is an owner-private boolean eligibility veto; enabling or disabling it does not transition Pair, WeeklyCycle, or RecommendationDecision state and never produces a partner-visible reason.

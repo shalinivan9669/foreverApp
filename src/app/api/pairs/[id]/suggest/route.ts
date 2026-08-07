@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { parseParams } from '@/lib/api/validate';
-import { activityOfferService } from '@/domain/services/activityOffer.service';
+import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         key: 'activities.suggestions.per_day',
       });
 
-      return activityOfferService.suggestPairActivities({
+      return recommendationWorkflowService.suggestCompatibility({
         pairId: params.data.id,
         currentUserId: auth.data.userId,
         auditRequest,

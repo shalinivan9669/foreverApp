@@ -14,6 +14,11 @@ import { DomainError } from '../src/domain/errors';
 import { recommendationDecisionTransition } from '../src/domain/state/recommendationDecisionMachine';
 import { recommendationCycleKey } from '../src/domain/services/recommendationDecision.service';
 import {
+  hasP0SensitiveActivityAxis,
+  isActivityAccessibleToRole,
+  isActivityEligibleForSafetyState,
+} from '../src/domain/services/activityEligibility.service';
+import {
   CONFLICT_RESOLVED_MESSAGE,
   createCheckinCompleteAttempt,
   getOrCreateCheckinCompleteAttempt,
@@ -234,6 +239,11 @@ const run = () => {
       templateId: 'private-template-id',
       primaryReason: 'high_fatigue',
       decisionVersion: 'activity-decision-v1',
+      sourceMeta: {
+        trigger: 'pair_event',
+        eventType: 'weekly_divergence_repair',
+        divergenceMetric: 'readiness',
+      },
     },
     checkIns: [],
     answers: feedback('A', [5, 5, 5, 2]),
@@ -260,6 +270,9 @@ const run = () => {
     'effect',
     'fatigueDeltaOnComplete',
     'readinessDeltaOnComplete',
+    'consentA',
+    'consentB',
+    'visibility',
   ]) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(dto, field),
@@ -269,6 +282,43 @@ const run = () => {
   }
   assert.doesNotMatch(dto.why.ru, /усталост/i);
   assert.doesNotMatch(dto.why.en, /fatigue/i);
+  assert.deepEqual(
+    dto.eventSource,
+    { trigger: 'pair_event' },
+    'pair-visible event source must not expose internal event evidence'
+  );
+  assert.equal(
+    toPairActivityDTO({ ...activity, mode: 'soloA' }).mode,
+    'solo',
+    'participant DTO must not reveal which pair role owns a solo activity'
+  );
+  const privateSolo = {
+    ...activity,
+    mode: 'soloA' as const,
+    visibility: 'privateA' as const,
+    stateMeta: {
+      ...activity.stateMeta,
+      assignedMemberIds: [String(members[0])],
+    },
+  };
+  assert.equal(isActivityAccessibleToRole(privateSolo, 'A'), true);
+  assert.equal(isActivityAccessibleToRole(privateSolo, 'B'), false);
+  assert.equal(hasP0SensitiveActivityAxis(['finance']), true);
+  assert.equal(hasP0SensitiveActivityAxis(['communication']), false);
+  assert.equal(
+    isActivityEligibleForSafetyState(
+      { stateMeta: { templateId: 'system-resource-relief' } },
+      true
+    ),
+    true
+  );
+  assert.equal(
+    isActivityEligibleForSafetyState(
+      { stateMeta: { templateId: 'system-communication-listen' } },
+      true
+    ),
+    false
+  );
   for (const field of [
     'submittedBy',
     'submittedCount',
@@ -333,9 +383,50 @@ const run = () => {
   assert.match(activityServiceSource, /ACTIVITY_RESULT_FINALIZED/);
   assert.match(activityServiceSource, /alreadyCompleted && resultSummary\.effectApplied/);
   assert.match(activityServiceSource, /toActivityResultSummaryDTO/);
-  assert.match(activityServiceSource, /assertAcceptableForActivity/);
-  assert.match(activityServiceSource, /markAcceptedForActivity/);
-  assert.match(activityServiceSource, /markSkippedForActivity/);
+  assert.match(activityServiceSource, /claimAcceptedForActivity/);
+  assert.match(activityServiceSource, /claimSkippedForActivity/);
+  assert.match(activityServiceSource, /mongoose\.startSession/);
+  assert.match(activityServiceSource, /session\.withTransaction/);
+  assert.match(activityServiceSource, /session,/);
+  const acceptClaimIndex = activityServiceSource.indexOf('claimAcceptedForActivity');
+  const acceptSaveIndex = activityServiceSource.indexOf(
+    'await data.activity.save({ session })',
+    acceptClaimIndex
+  );
+  assert.ok(
+    acceptClaimIndex >= 0 && acceptSaveIndex > acceptClaimIndex,
+    'accept must claim the decision before saving the linked activity in one transaction'
+  );
+  const skipClaimIndex = activityServiceSource.indexOf('claimSkippedForActivity');
+  const skipSaveIndex = activityServiceSource.indexOf(
+    'await data.activity.save({ session })',
+    skipClaimIndex
+  );
+  assert.ok(
+    skipClaimIndex >= 0 && skipSaveIndex > skipClaimIndex,
+    'cancel must claim the decision before saving the linked activity in one transaction'
+  );
+  const checkedInAudit = activityServiceSource.slice(
+    activityServiceSource.indexOf("event: 'ACTIVITY_CHECKED_IN'"),
+    activityServiceSource.indexOf('async completeActivity', skipSaveIndex)
+  );
+  assert.doesNotMatch(
+    checkedInAudit,
+    /answersCount|success:|submittedCount|fatigueDelta|readinessDelta/,
+    'activity feedback audit metadata must not contain exact or reconstructable values'
+  );
+  const completedAudit = activityServiceSource.slice(
+    activityServiceSource.indexOf("event: 'ACTIVITY_COMPLETED'"),
+    activityServiceSource.indexOf(
+      'return outcome.response',
+      activityServiceSource.indexOf("event: 'ACTIVITY_COMPLETED'")
+    )
+  );
+  assert.doesNotMatch(
+    completedAudit,
+    /success:|submittedCount|fatigueDelta|readinessDelta/,
+    'activity completion audit metadata must stay qualitative'
+  );
 
   const activityOfferSource = readFileSync(
     resolve(process.cwd(), 'src/domain/services/activityOffer.service.ts'),
@@ -351,6 +442,17 @@ const run = () => {
     'public suggestion result type must not expose internal decision evidence'
   );
   assert.match(activityOfferSource, /toPairActivitySuggestionPlanDTO\(plan\)/);
+  assert.match(
+    activityOfferSource,
+    /assignedMemberIds/,
+    'legacy A/B template modes must be bound to concrete persisted member ids'
+  );
+  assert.match(activityOfferSource, /hasP0SensitiveActivityAxis/);
+  assert.match(activityOfferSource, /isOfferedActivityEligibleForRole/);
+  assert.match(activityOfferSource, /if \(!isSafetyFallbackTemplateId\(input\.templateId\)\)/);
+  assert.match(activityOfferSource, /Pair\.updateOne\(/);
+  assert.match(activityOfferSource, /offeredInTransaction/);
+  assert.match(activityOfferSource, /availableSlots/);
 
   const clientTypesSource = readFileSync(
     resolve(process.cwd(), 'src/client/api/types.ts'),
@@ -407,6 +509,26 @@ const run = () => {
       error.code === 'RECOMMENDATION_REPLACEMENT_UNAVAILABLE',
     'a recommendation chain must allow at most one replacement'
   );
+  assert.throws(
+    () =>
+      recommendationDecisionTransition(
+        { status: 'ACCEPTED', replacementDepth: 0 },
+        { type: 'REPLACE', at }
+      ),
+    (error) =>
+      error instanceof DomainError && error.code === 'RECOMMENDATION_UNAVAILABLE',
+    'accept must win atomically over a concurrent replacement'
+  );
+  assert.throws(
+    () =>
+      recommendationDecisionTransition(
+        { status: 'REPLACED', replacementDepth: 0 },
+        { type: 'ACCEPT', at }
+      ),
+    (error) =>
+      error instanceof DomainError && error.code === 'RECOMMENDATION_UNAVAILABLE',
+    'replacement must win atomically over a concurrent accept'
+  );
   assert.equal(
     recommendationCycleKey(
       { sourceMeta: { weekKey: '2026-W32' } },
@@ -448,7 +570,18 @@ const run = () => {
     'public explanations must stay neutral'
   );
   assert.match(decisionServiceSource, /isPairSafetyVetoActive/);
-  assert.match(decisionServiceSource, /isSafetyFallbackTemplateId/);
+  assert.match(decisionServiceSource, /isActivityEligibleForSafetyState/);
+  assert.match(decisionServiceSource, /if \(!decision\) return unavailable\(\)/);
+  assert.match(decisionServiceSource, /status: \{ \$in: ACTIVE_ACTIVITY_STATUSES \}/);
+  assert.match(decisionServiceSource, /transitionStored\(decision, \{ type: 'ACCEPT', at: now \}, session\)/);
+  assert.match(decisionServiceSource, /_id: decision\._id, status: decision\.status/);
+  assert.match(decisionServiceSource, /claimAcceptedForActivity/);
+  assert.match(decisionServiceSource, /claimSkippedForActivity/);
+  assert.match(
+    decisionServiceSource,
+    /activity\.status === 'offered' && decision\.status !== 'OFFERED'/,
+    'terminal decision reads must self-heal an interrupted activity write'
+  );
 
   const workflowSource = readFileSync(
     resolve(process.cwd(), 'src/domain/services/recommendationWorkflow.service.ts'),
@@ -457,6 +590,47 @@ const run = () => {
   assert.match(workflowSource, /activityOfferService\.suggestActivities/);
   assert.match(workflowSource, /excludeTemplateId/);
   assert.match(workflowSource, /previousDecisionId/);
+  assert.match(workflowSource, /suggestCompatibility/);
+  assert.match(workflowSource, /offersCompatibility/);
+  assert.match(workflowSource, /nextCompatibility/);
+  assert.match(workflowSource, /fromTemplateCompatibility/);
+  assert.match(
+    workflowSource,
+    /decision\.activity\.id !== activityId[\s\S]*status: 'cancelled'/,
+    'a losing concurrent compatibility offer must be cancelled'
+  );
+
+  const compatibilityRoutePaths = [
+    'src/app/api/pairs/[id]/suggest/route.ts',
+    'src/app/api/pairs/[id]/activities/suggest/route.ts',
+    'src/app/api/activities/next/route.ts',
+    'src/app/api/pairs/[id]/activities/from-template/route.ts',
+  ];
+  for (const routePath of compatibilityRoutePaths) {
+    const routeSource = readFileSync(resolve(process.cwd(), routePath), 'utf8');
+    assert.match(routeSource, /recommendationWorkflowService/);
+    assert.doesNotMatch(
+      routeSource,
+      /activityOfferService/,
+      `${routePath} must not expose a non-canonical activity offer`
+    );
+  }
+
+  const coupleActivityPageSource = readFileSync(
+    resolve(process.cwd(), 'src/app/couple-activity/page.tsx'),
+    'utf8'
+  );
+  assert.doesNotMatch(
+    coupleActivityPageSource,
+    /suggestNext|suggestionPlan|lastSuggestionSkippedReason/,
+    'the primary activity UI must use the canonical recommendation panel only'
+  );
+  const coupleActivityViewSource = readFileSync(
+    resolve(process.cwd(), 'src/features/activities/CoupleActivityView.tsx'),
+    'utf8'
+  );
+  assert.doesNotMatch(coupleActivityViewSource, /tab === 'suggested'/);
+  assert.doesNotMatch(coupleActivityViewSource, /onSetTab\('suggested'\)/);
 
   const recommendationRouteSource = readFileSync(
     resolve(process.cwd(), 'src/app/api/pairs/[id]/recommendations/route.ts'),

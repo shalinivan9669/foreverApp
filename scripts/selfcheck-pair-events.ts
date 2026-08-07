@@ -10,6 +10,8 @@ import {
 import { toPairEventCardVM } from '../src/client/viewmodels/pairEvent.viewmodels';
 import type { PairEventDTO } from '../src/client/api/types';
 import type { PairWeeklyCheckInSummaryDTO } from '../src/domain/services/weeklyCheckIn.service';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const assert = (condition: boolean, message: string): void => {
   if (!condition) {
@@ -122,6 +124,18 @@ assert(
   ),
   'diagnostics risk candidate missing'
 );
+assert(
+  !hasType(
+    base({
+      diagnostics: {
+        riskZones: [{ axis: 'finance', severity: 3 }],
+        lastDiagnosticsAt: utc(2026, 2, 1),
+      },
+    }),
+    'diagnostics_risk_focus'
+  ),
+  'P0-sensitive diagnostics must not generate a pair event'
+);
 
 const duplicated = buildPairEventCandidates(base({ completedActivityCountLast14Days: 0 }));
 assert(new Set(duplicated.map((event) => event.key)).size === duplicated.length, 'duplicate event keys generated');
@@ -175,5 +189,34 @@ const acceptedVm = toPairEventCardVM(eventDto({
 assert(!acceptedVm.canDecline, 'accepted VM should not show decline');
 assert(!acceptedVm.canSnooze, 'accepted VM should not show snooze');
 assert(acceptedVm.hasGeneratedActivities, 'accepted VM should expose generated activities');
+
+const eventServiceSource = readFileSync(
+  join(process.cwd(), 'src/domain/services/pairEvent.service.ts'),
+  'utf8'
+);
+assert(
+  eventServiceSource.includes('eventEligibleForPairProjection'),
+  'pair event DTO projection must enforce event eligibility'
+);
+assert(
+  eventServiceSource.includes('system-resource-relief'),
+  'safety mode must use the canonical neutral activity fallback'
+);
+assert(
+  eventServiceSource.includes('hasP0SensitiveActivityAxis'),
+  'generated event activities must reject P0-sensitive axes'
+);
+assert(
+  eventServiceSource.includes('isActivityEligibleForSafetyState'),
+  'generated event activities must enforce the safety gate before DTO mapping'
+);
+assert(
+  eventServiceSource.includes('createOffers: false'),
+  'P0 event accept must not create non-canonical activity offers'
+);
+assert(
+  eventServiceSource.includes("'stateMeta.sourceMeta.eventId': String(input.event._id)"),
+  'P0 event accept must retire previously generated offered activities'
+);
 
 console.log('pair events selfcheck passed');

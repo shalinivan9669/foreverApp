@@ -673,23 +673,35 @@ export const weeklyCheckInService = {
     };
 
     let checkIn: StoredWeeklyCheckIn;
+    let submissionClaimToken: string | undefined;
     if (pairData) {
-      await weeklyCycleService.claimSubmission({
+      const claim = await weeklyCycleService.claimSubmission({
         pair: pairData.pair,
         currentUserId: input.currentUserId,
         cycleKey: weekKey,
         now,
       });
+      submissionClaimToken = claim.token;
     }
     try {
-      const created = await WeeklyCheckIn.create({
-        userId: input.currentUserId,
-        ...(pairId ? { pairId } : {}),
-        weekKey,
-        answers,
-        computed: preliminaryComputed,
-      });
-      checkIn = created.toObject<StoredWeeklyCheckIn>();
+      if (pairData && submissionClaimToken) {
+        checkIn = await weeklyCycleService.commitClaimedSubmission({
+          pair: pairData.pair,
+          currentUserId: input.currentUserId,
+          cycleKey: weekKey,
+          token: submissionClaimToken,
+          answers,
+          computed: preliminaryComputed,
+        });
+      } else {
+        const created = await WeeklyCheckIn.create({
+          userId: input.currentUserId,
+          weekKey,
+          answers,
+          computed: preliminaryComputed,
+        });
+        checkIn = created.toObject<StoredWeeklyCheckIn>();
+      }
     } catch (error) {
       if (error instanceof Error && isDuplicateKeyError(error as object)) {
         const concurrent = await WeeklyCheckIn.findOne(identityFilter).lean<
@@ -697,6 +709,14 @@ export const weeklyCheckInService = {
         >();
         if (concurrent) {
           if (pairData) {
+            if (submissionClaimToken) {
+              await weeklyCycleService.releaseSubmissionClaim({
+                pair: pairData.pair,
+                currentUserId: input.currentUserId,
+                cycleKey: weekKey,
+                token: submissionClaimToken,
+              });
+            }
             await weeklyCycleService.syncAfterCheckIn({
               pair: pairData.pair,
               cycleKey: weekKey,
@@ -705,11 +725,12 @@ export const weeklyCheckInService = {
           return toStoredWeeklyCheckInDTO(concurrent);
         }
       }
-      if (pairData) {
+      if (pairData && submissionClaimToken) {
         await weeklyCycleService.releaseSubmissionClaim({
           pair: pairData.pair,
           currentUserId: input.currentUserId,
           cycleKey: weekKey,
+          token: submissionClaimToken,
         });
       }
       throw error;
@@ -866,7 +887,7 @@ export const weeklyCheckInService = {
       await weeklyCycleService.syncAfterCheckIn({
         pair: pairData.pair,
         cycleKey: weekKey,
-        now,
+        now: new Date(),
       });
     }
 

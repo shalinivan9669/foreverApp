@@ -4,8 +4,9 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
-import { activityOfferService } from '@/domain/services/activityOffer.service';
+import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
 import { asError, toDomainError } from '@/domain/errors';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -32,10 +33,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!body.ok) return body.response;
 
   try {
-    const data = await activityOfferService.createFromTemplate({
+    const data = await recommendationWorkflowService.fromTemplateCompatibility({
       pairId: params.data.id,
       templateId: body.data.templateId,
       currentUserId: auth.data.userId,
+      auditRequest: auditContextFromRequest(
+        req,
+        `/api/pairs/${params.data.id}/activities/from-template`
+      ),
     });
     return jsonOk(data);
   } catch (error: unknown) {

@@ -1,14 +1,20 @@
 import { Types, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { PairActivity } from '@/models/PairActivity';
+import { RecommendationDecision } from '@/models/RecommendationDecision';
 import { User, type UserType } from '@/models/User';
 import type { PairType } from '@/models/Pair';
 import { toPairActivityDTO, toPairDTO, toUserDTO } from '@/lib/dto';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 import {
-  buildPairWeeklyCheckInSummary,
-  type PairWeeklyCheckInSummaryDTO,
-} from '@/domain/services/weeklyCheckIn.service';
+  weeklyCycleService,
+  type CurrentWeeklyCycleDTO,
+} from '@/domain/services/weeklyCycle.service';
+import { isPairSafetyVetoActive } from '@/domain/services/safetyGate.service';
+import {
+  isActivityAccessibleToRole,
+  isOfferedActivityEligibleForRole,
+} from '@/domain/services/activityEligibility.service';
 
 type PairDoc = HydratedDocument<PairType>;
 
@@ -150,10 +156,16 @@ const toCompactDiagnostics = (
     lastDiagnosticsAt: toIso(passport?.lastDiagnosticsAt),
   };
   const normalizedOverall = normalizeOverall(passportWithOverall?.overall);
+  const inferredOverall = hasDiagnosticsSignal({
+    ...compactWithoutOverall,
+    overall: undefined,
+  })
+    ? inferOverallFromPassport(compactWithoutOverall)
+    : undefined;
 
   return {
     ...compactWithoutOverall,
-    overall: normalizedOverall ?? inferOverallFromPassport(compactWithoutOverall),
+    overall: normalizedOverall ?? inferredOverall,
   };
 };
 
@@ -171,7 +183,7 @@ const fallbackMember = (id: string): PublicPairMemberDTO =>
 
 const buildNextStep = (input: {
   pairStatus: PairType['status'];
-  weekly: PairWeeklyCheckInSummaryDTO;
+  weekly: CurrentWeeklyCycleDTO;
   hasCurrentActivity: boolean;
 }): PairNextStepDTO => {
   if (input.pairStatus !== 'active') {
@@ -196,7 +208,7 @@ const buildNextStep = (input: {
     };
   }
 
-  if (!input.weekly.currentUser.submitted) {
+  if (input.weekly.currentUser.completionStatus === 'PENDING') {
     return {
       kind: 'complete_weekly_checkin',
       title: 'Заполните weekly check-in',
@@ -207,7 +219,21 @@ const buildNextStep = (input: {
     };
   }
 
-  if (!input.weekly.peer.submitted) {
+  if (
+    input.weekly.currentUser.completionStatus === 'SKIPPED' ||
+    input.weekly.currentUser.completionStatus === 'EXPIRED'
+  ) {
+    return {
+      kind: 'suggest_activity',
+      title: 'Выберите только посильный следующий шаг',
+      description:
+        'Check-in можно пропустить без штрафа. Если хочется продолжить, выберите нейтральный формат с небольшой нагрузкой.',
+      href: '/couple-activity',
+      ctaLabel: 'Открыть лёгкие активности',
+    };
+  }
+
+  if (input.weekly.peer.completionStatus === 'PENDING') {
     return {
       kind: 'wait_or_invite_peer_checkin',
       title: 'Ответ партнёра пока не готов',
@@ -218,34 +244,41 @@ const buildNextStep = (input: {
     };
   }
 
-  if (input.weekly.pair.hasDivergence) {
+  if (input.weekly.pair.dataStatus === 'INSUFFICIENT') {
+    return {
+      kind: 'suggest_activity',
+      title: 'Общих данных пока недостаточно',
+      description:
+        'Индивидуальные ответы остаются личными. Можно выбрать нейтральный формат с небольшой нагрузкой.',
+      href: '/couple-activity',
+      ctaLabel: 'Открыть лёгкие активности',
+    };
+  }
+
+  if (input.weekly.pair.signals.some((signal) => signal.status === 'MIXED')) {
     return {
       kind: 'review_weekly_divergence',
       title: 'Спокойно сверьте состояние недели',
       description:
-        'По ответам этой недели есть заметное расхождение. Лучше выбрать короткий разговор или лёгкую коммуникационную активность без давления.',
+        'Опыт недели ощущается по-разному. Лучше выбрать короткий нейтральный формат без давления.',
       href: '/couple-activity',
       ctaLabel: 'Выбрать лёгкую активность',
     };
   }
 
-  if (input.hasCurrentActivity) {
-    return {
-      kind: 'complete_current_activity',
-      title: 'Продолжите текущую активность',
-      description:
-        'У пары уже есть активное действие. Лучше довести его до результата, чем начинать новое.',
-      href: '/couple-activity',
-      ctaLabel: 'Открыть активности',
-    };
-  }
-
-  if ((input.weekly.pair.fatigue ?? 0) >= 0.7) {
+  if (
+    input.weekly.pair.signals.some(
+      (signal) =>
+        (signal.key === 'tension' && signal.status === 'HIGH') ||
+        (signal.key === 'recovery' && signal.status === 'LOW') ||
+        (signal.key === 'resource' && signal.status === 'LOW')
+    )
+  ) {
     return {
       kind: 'suggest_activity',
       title: 'Выберите лёгкую активность',
       description:
-        'По ответам этой недели усталость высокая, поэтому лучше взять мягкий формат без тяжёлого разговора.',
+        'Безопасная сводка предлагает снизить нагрузку и не начинать тяжёлый разговор.',
       href: '/couple-activity',
       ctaLabel: 'Получить активность',
     };
@@ -269,23 +302,62 @@ export const buildPairDashboardSummary = async (input: {
 
   const pair = input.pair;
   const pairId = pair._id as Types.ObjectId;
-  const [current, suggestedCount, memberDocs, weeklySummary] =
+  const [
+    currentCandidates,
+    offeredCandidates,
+    offeredDecisions,
+    memberDocs,
+    currentCycle,
+    safetyVeto,
+  ] =
     await Promise.all([
-      PairActivity.findOne({
+      PairActivity.find({
         pairId,
         status: { $in: ['accepted', 'in_progress', 'awaiting_checkin'] },
       })
         .sort({ createdAt: -1 })
+        .limit(20)
         .lean(),
-      PairActivity.countDocuments({ pairId, status: 'offered' }),
+      PairActivity.find({ pairId, status: 'offered' })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      RecommendationDecision.find({ pairId, status: 'OFFERED' })
+        .select({ activityId: 1 })
+        .lean<Array<{ activityId: Types.ObjectId }>>(),
       User.find({ id: { $in: pair.members } })
         .select({ id: 1, username: 1, avatar: 1 })
         .lean<PublicUserSource[]>(),
-      buildPairWeeklyCheckInSummary({
-        pair,
+      weeklyCycleService.current({
+        pair: input.pair,
         currentUserId: input.currentUserId,
       }),
+      isPairSafetyVetoActive(String(pairId)),
     ]);
+
+  const role: 'A' | 'B' =
+    pair.members[0] === input.currentUserId ? 'A' : 'B';
+  const current = currentCandidates.find(
+    (activity) =>
+      isActivityAccessibleToRole(activity, role) &&
+      (!safetyVeto ||
+        isOfferedActivityEligibleForRole({
+          activity,
+          role,
+          safetyVeto,
+        }))
+  );
+  const canonicalOfferedIds = new Set(
+    offeredDecisions.map((decision) => String(decision.activityId))
+  );
+  const suggestedCount = Math.min(
+    1,
+    offeredCandidates.filter(
+      (activity) =>
+        canonicalOfferedIds.has(String(activity._id)) &&
+        isOfferedActivityEligibleForRole({ activity, role, safetyVeto })
+    ).length
+  );
 
   const memberById = new Map(
     memberDocs.map((member) => {
@@ -301,7 +373,7 @@ export const buildPairDashboardSummary = async (input: {
   const diagnostics = toCompactDiagnostics(undefined);
   const nextStep = buildNextStep({
     pairStatus: pair.status,
-    weekly: weeklySummary,
+    weekly: currentCycle,
     hasCurrentActivity: Boolean(current),
   });
 
@@ -313,7 +385,8 @@ export const buildPairDashboardSummary = async (input: {
     suggestedCount,
     lastLike: null,
     diagnostics,
-    hasCurrentWeeklyCheckIn: weeklySummary.currentUser.submitted,
+    hasCurrentWeeklyCheckIn:
+      currentCycle.currentUser.completionStatus === 'SUBMITTED',
     nextStep,
   };
 };

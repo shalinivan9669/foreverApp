@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePair } from '@/client/hooks/usePair';
 import { pairsApi, type PairSummaryDTO } from '@/client/api/pairs.api';
-import { checkinsApi } from '@/client/api/checkins.api';
 import {
   weeklyCyclesApi,
   type CurrentWeeklyCycleDTO,
@@ -13,10 +12,9 @@ import {
   recommendationsApi,
   type RecommendationDecisionDTO,
 } from '@/client/api/recommendations.api';
-import type { PairWeeklyCheckInSummaryDTO } from '@/client/api/types';
 
 const SIGNAL_LABELS: Record<
-  PairWeeklyCheckInSummaryDTO['pair']['signals'][number]['key'],
+  CurrentWeeklyCycleDTO['pair']['signals'][number]['key'],
   string
 > = {
   connection: 'Тепло и контакт',
@@ -26,7 +24,7 @@ const SIGNAL_LABELS: Record<
 };
 
 const SIGNAL_STATUS: Record<
-  PairWeeklyCheckInSummaryDTO['pair']['signals'][number]['status'],
+  CurrentWeeklyCycleDTO['pair']['signals'][number]['status'],
   string
 > = {
   LOW: 'сейчас ниже обычного',
@@ -49,7 +47,6 @@ const PAIR_DATA_STATUS_LABELS: Record<
 export default function MainMenuPage() {
   const { pairId, pairMe, loading: pairLoading, error: pairError } = usePair();
   const [summary, setSummary] = useState<PairSummaryDTO | null>(null);
-  const [weekly, setWeekly] = useState<PairWeeklyCheckInSummaryDTO | null>(null);
   const [cycle, setCycle] = useState<CurrentWeeklyCycleDTO | null>(null);
   const [recommendation, setRecommendation] =
     useState<RecommendationDecisionDTO | null>(null);
@@ -60,16 +57,14 @@ export default function MainMenuPage() {
     setLoading(true);
     setError(null);
     try {
-      const [pairSummary, weeklySummary, currentCycle, recommendationOverview] =
+      const [pairSummary, currentCycle, recommendationOverview] =
         await Promise.all([
         pairsApi.getSummary(activePairId, signal),
-        checkinsApi.getPairWeeklySummary(activePairId, {}, signal),
         weeklyCyclesApi.getCurrent(activePairId, signal),
         recommendationsApi.getOverview(activePairId, signal),
       ]);
       if (!signal?.aborted) {
         setSummary(pairSummary);
-        setWeekly(weeklySummary);
         setCycle(currentCycle);
         setRecommendation(recommendationOverview.current);
       }
@@ -83,7 +78,6 @@ export default function MainMenuPage() {
   useEffect(() => {
     if (!pairId) {
       setSummary(null);
-      setWeekly(null);
       setCycle(null);
       setRecommendation(null);
       return;
@@ -177,7 +171,7 @@ export default function MainMenuPage() {
             Создать приглашение
           </Link>
         </section>
-      ) : summary && weekly && cycle ? (
+      ) : summary && cycle ? (
         <div className="mt-4 grid gap-4 lg:grid-cols-12">
           <section className="app-panel app-panel-solid p-5 lg:col-span-7">
             <div className="app-muted text-xs">Главное действие</div>
@@ -196,7 +190,7 @@ export default function MainMenuPage() {
                 <p className="app-muted mt-1">
                   {cycle.currentUser.completionStatus === 'SKIPPED'
                     ? 'Check-in пропущен'
-                    : weekly.currentUser.submitted
+                    : cycle.currentUser.completionStatus === 'SUBMITTED'
                       ? 'Check-in заполнен'
                       : 'Ожидает check-in'}
                 </p>
@@ -206,7 +200,7 @@ export default function MainMenuPage() {
                 <p className="app-muted mt-1">
                   {cycle.peer.completionStatus === 'SKIPPED'
                     ? 'Check-in пропущен'
-                    : weekly.peer.submitted
+                    : cycle.peer.completionStatus === 'SUBMITTED'
                       ? 'Check-in заполнен'
                       : 'Ответ ещё не готов'}
                 </p>

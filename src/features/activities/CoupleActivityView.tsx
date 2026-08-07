@@ -8,13 +8,9 @@ import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
 import type { UiErrorState } from '@/client/api/errors';
-import type {
-  PairActivitySuggestionPlanDTO,
-  PairActivitySuggestionResponse,
-} from '@/client/api/types';
 import type { ActivityCardVM } from '@/client/viewmodels';
 
-type Tab = 'active' | 'suggested' | 'history';
+type Tab = 'active' | 'history';
 
 type CoupleActivityViewProps = {
   tab: Tab;
@@ -22,13 +18,10 @@ type CoupleActivityViewProps = {
   error: UiErrorState | null;
   locale: string;
   active: ActivityCardVM | null;
-  suggested: ActivityCardVM[];
   history: ActivityCardVM[];
   hasPair: boolean;
   onRetry: () => void;
   onSetTab: (tab: Tab) => void;
-  onSuggestNext: () => void;
-  onAccept: (id: string) => void;
   onCancel: (id: string) => void;
   onOpenCheckIn: (activity: ActivityCardVM) => void;
   checkInFor: ActivityCardVM | null;
@@ -39,9 +32,6 @@ type CoupleActivityViewProps = {
   pendingCompleteInFlight: boolean;
   activityFlowMessage: string | null;
   recommendationPanel?: ReactNode;
-  suggestionPlan: PairActivitySuggestionPlanDTO | null;
-  lastSuggestionSkippedReason: PairActivitySuggestionResponse['skippedReason'];
-  lastCreatedCount: number | null;
   onRetryComplete: (activityId: string) => void;
   onSubmitCheckIn: (activityId: string, answers: Array<{ checkInId: string; ui: number }>) => void;
 };
@@ -51,16 +41,6 @@ const tabButtonClass = (isActive: boolean): string =>
     isActive ? 'app-btn-primary text-white' : 'app-btn-secondary text-slate-800'
   }`;
 
-const SKIPPED_REASON_LABELS: Record<string, string> = {
-  current_activity: 'у пары уже есть активная задача',
-  pair_paused: 'пара сейчас на паузе',
-  pair_ended: 'пара завершена',
-  offered_limit: 'уже есть 3 предложенные задачи',
-  plan_blocked: 'сейчас лучше не создавать новые задачи',
-  all_templates_in_cooldown: 'похожие задачи недавно уже предлагались',
-  no_templates: 'нет подходящих шаблонов',
-};
-
 export default function CoupleActivityView(props: CoupleActivityViewProps) {
   const {
     tab,
@@ -68,13 +48,10 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     error,
     locale,
     active,
-    suggested,
     history,
     hasPair,
     onRetry,
     onSetTab,
-    onSuggestNext,
-    onAccept,
     onCancel,
     onOpenCheckIn,
     checkInFor,
@@ -85,9 +62,6 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     pendingCompleteInFlight,
     activityFlowMessage,
     recommendationPanel,
-    suggestionPlan,
-    lastSuggestionSkippedReason,
-    lastCreatedCount,
     onRetryComplete,
     onSubmitCheckIn,
   } = props;
@@ -113,9 +87,6 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
       <div className="app-panel-soft flex flex-wrap gap-2 p-1.5">
         <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>
           Активная
-        </button>
-        <button onClick={() => onSetTab('suggested')} className={tabButtonClass(tab === 'suggested')}>
-          Предложено
         </button>
         <button onClick={() => onSetTab('history')} className={tabButtonClass(tab === 'history')}>
           История
@@ -155,18 +126,17 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
                 onAccept={() => undefined}
                 onCancel={() => onCancel(active._id)}
                 onComplete={() => onOpenCheckIn(active)}
-                onSuggestNext={onSuggestNext}
+                onSuggestNext={() => undefined}
               />
             </div>
           ) : (
-            <div className="app-panel app-reveal app-grid-wide flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="app-panel app-reveal app-grid-wide p-4">
               <div>
                 <div className="font-medium text-slate-900">Нет активной активности</div>
-                <div className="app-muted text-sm">Предложим подходящее задание</div>
+                <div className="app-muted text-sm">
+                  Получите одну рекомендацию текущего цикла в блоке выше.
+                </div>
               </div>
-              <button onClick={onSuggestNext} className="app-btn-primary w-full px-3 py-2 text-white sm:w-auto">
-                Предложить
-              </button>
             </div>
           )}
 
@@ -176,10 +146,6 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               <h2 className="app-section-title mt-1 font-semibold">Ваш совместный ритм</h2>
             </div>
             <div className="app-metric-grid">
-              <button type="button" onClick={() => onSetTab('suggested')} className="app-panel-soft p-3 text-left">
-                <span className="app-muted block text-xs">Предложено</span>
-                <span className="font-display text-2xl font-semibold">{suggested.length}</span>
-              </button>
               <button type="button" onClick={() => onSetTab('history')} className="app-panel-soft p-3 text-left">
                 <span className="app-muted block text-xs">В истории</span>
                 <span className="font-display text-2xl font-semibold">{history.length}</span>
@@ -189,57 +155,6 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               Сначала завершите текущий шаг, затем выберите следующий вариант или вернитесь к результатам.
             </p>
           </aside>
-        </div>
-      )}
-
-      {!loading && tab === 'suggested' && (
-        <div className="space-y-3">
-          {suggestionPlan && (
-            <div className="app-panel-soft rounded-lg p-4 text-sm text-slate-800">
-              <div className="font-medium text-slate-900">
-                Почему такие предложения?
-              </div>
-              <p className="mt-1">{suggestionPlan.explanation.ru}</p>
-              {lastSuggestionSkippedReason && (
-                <p className="mt-2 text-amber-800">
-                  Новые варианты не созданы:{' '}
-                  {SKIPPED_REASON_LABELS[lastSuggestionSkippedReason] ??
-                    'сейчас новые варианты недоступны'}.
-                </p>
-              )}
-              {!lastSuggestionSkippedReason &&
-                typeof lastCreatedCount === 'number' && (
-                  <p className="app-muted mt-2 text-xs">
-                    Создано новых вариантов: {lastCreatedCount}.
-                  </p>
-                )}
-            </div>
-          )}
-
-          <div className="flex justify-stretch sm:justify-end">
-            <button onClick={onSuggestNext} className="app-btn-primary w-full px-3 py-2 text-white sm:w-auto">
-              Еще варианты
-            </button>
-          </div>
-
-          {suggested.length === 0 && (
-            <EmptyStateView title="Пока пусто" description="Нажмите «Еще варианты», чтобы получить список." />
-          )}
-
-          <div className="app-collection-grid">
-            {suggested.map((item) => (
-              <ActivityCard
-                key={item._id}
-                activity={item}
-                locale={locale}
-                variant="suggested"
-                onAccept={() => onAccept(item._id)}
-                onCancel={() => onCancel(item._id)}
-                onComplete={() => onOpenCheckIn(item)}
-                onSuggestNext={() => undefined}
-              />
-            ))}
-          </div>
         </div>
       )}
 

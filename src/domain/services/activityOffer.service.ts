@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import mongoose, { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
@@ -30,6 +30,12 @@ import {
   isPairSafetyVetoActive,
   isSafetyFallbackTemplateId,
 } from '@/domain/services/safetyGate.service';
+import {
+  hasP0SensitiveActivityAxis,
+  isActivityAccessibleToRole,
+  isActivityEligibleForSafetyState,
+  isOfferedActivityEligibleForRole,
+} from '@/domain/services/activityEligibility.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -364,7 +370,16 @@ const templateAllowedForPlan = (
   if (candidate.intensity > plan.maxIntensity) return false;
   if (candidate.difficulty > plan.preferredDifficulty) return false;
   if (!plan.preferredArchetypes.includes(candidate.archetype)) return false;
-  if (plan.axis && !candidate.axis.includes(plan.axis)) return false;
+  if (hasP0SensitiveActivityAxis(candidate.axis)) {
+    return false;
+  }
+  if (
+    plan.axis &&
+    !hasP0SensitiveActivityAxis([plan.axis]) &&
+    !candidate.axis.includes(plan.axis)
+  ) {
+    return false;
+  }
   if (plan.requiredMode && candidate.mode && candidate.mode !== plan.requiredMode) return false;
   if (plan.requiredSync && candidate.sync && candidate.sync !== plan.requiredSync) return false;
 
@@ -376,7 +391,6 @@ const templateAllowedForPlan = (
       return false;
     }
   }
-  if (candidate.axis.includes('sexuality') && !candidate.requiresConsent) return false;
   return true;
 };
 
@@ -467,6 +481,7 @@ const createOffer = async (input: {
   plan: PairActivitySuggestionPlan;
   source: OfferSource;
   now: Date;
+  session?: ClientSession;
 }): Promise<StoredActivity> => {
   const { candidate, plan } = input;
   const fallback = autoDeltas(candidate.intent, candidate.intensity);
@@ -475,8 +490,12 @@ const createOffer = async (input: {
   const sync = candidate.sync ?? (candidate.archetype === 'micro_habit' ? 'async' : 'sync');
   const requiresConsent =
     candidate.requiresConsent === true || candidate.axis.includes('sexuality');
+  const assignedMemberIds =
+    mode === 'together'
+      ? input.members.map(String)
+      : [String(input.members[mode === 'soloA' ? 0 : 1])];
 
-  const created = await PairActivity.create({
+  const document: PairActivityType = {
     pairId: input.pairId,
     members: input.members,
     intent: candidate.intent,
@@ -515,6 +534,7 @@ const createOffer = async (input: {
       severity: plan.severity,
       weekKey: plan.sourceMeta.weekKey,
       decisionVersion: 'activity-decision-v1',
+      assignedMemberIds,
       apiSource: input.source,
       ...(stepsPreview ? { stepsPreview } : {}),
     },
@@ -523,7 +543,10 @@ const createOffer = async (input: {
     fatigueDeltaOnComplete: fallback.fatigueDeltaOnComplete,
     readinessDeltaOnComplete: fallback.readinessDeltaOnComplete,
     createdBy: 'system',
-  });
+  };
+  const created = input.session
+    ? (await PairActivity.create([document], { session: input.session }))[0]
+    : await PairActivity.create(document);
 
   return created.toObject() as StoredActivity;
 };
@@ -557,7 +580,7 @@ const smartSuggest = async (
       .lean<StoredActivity | null>(),
     PairActivity.find({ pairId, status: 'offered' })
       .sort({ createdAt: -1 })
-      .limit(3)
+      .limit(100)
       .lean<StoredActivity[]>(),
     PairActivity.find({ pairId, status: { $in: COOLDOWN_STATUSES } })
       .sort({ offeredAt: -1, createdAt: -1 })
@@ -565,6 +588,27 @@ const smartSuggest = async (
       .lean<StoredActivity[]>(),
     isPairSafetyVetoActive(String(pairId)),
   ]);
+  const globallyEligibleOffered = offered.filter(
+    (activity) =>
+      !hasP0SensitiveActivityAxis(activity.axis) &&
+      isActivityEligibleForSafetyState(activity, safetyVeto)
+  );
+  const globallyEligibleIds = new Set(
+    globallyEligibleOffered.map((activity) => String(activity._id))
+  );
+  const invalidOfferedIds = offered
+    .filter((activity) => !globallyEligibleIds.has(String(activity._id)))
+    .map((activity) => activity._id);
+  if (invalidOfferedIds.length > 0) {
+    await PairActivity.updateMany(
+      { _id: { $in: invalidOfferedIds }, pairId, status: 'offered' },
+      { $set: { status: 'cancelled' } }
+    );
+  }
+  const globalOfferedCount = await PairActivity.countDocuments({
+    pairId,
+    status: 'offered',
+  });
 
   const computedPlan = applyRecentActivitySignals(
     buildPairActivitySuggestionPlan({
@@ -598,14 +642,25 @@ const smartSuggest = async (
         },
       }
     : computedPlan;
+  const eligibleOffered = globallyEligibleOffered.filter((activity) =>
+    isOfferedActivityEligibleForRole({
+      activity,
+      role: pairData.by,
+      safetyVeto,
+    })
+  );
+  const visibleCurrent =
+    current && isActivityAccessibleToRole(current, pairData.by)
+      ? current
+      : null;
   const requestedCount = safetyVeto
     ? 1
     : input.count
     ? Math.min(3, Math.max(0, input.count))
-    : targetCountForPlan(plan, offered.length);
+    : targetCountForPlan(plan, globalOfferedCount);
   const targetCount = Math.min(
     requestedCount,
-    targetCountForPlan(plan, offered.length)
+    targetCountForPlan(plan, globalOfferedCount)
   );
 
   if (targetCount === 0) {
@@ -613,7 +668,7 @@ const smartSuggest = async (
       ? 'current_activity'
       : pair.status !== 'active'
         ? `pair_${pair.status}`
-        : offered.length >= 3
+        : globalOfferedCount >= 3
           ? 'offered_limit'
           : 'plan_blocked';
     await emitSuggestionsGenerated({
@@ -626,10 +681,10 @@ const smartSuggest = async (
     return {
       result: {
         plan: toPairActivitySuggestionPlanDTO(plan),
-        currentActivity: current
-          ? toPairActivityDTO(current, { includeAnswers: false })
+        currentActivity: visibleCurrent
+          ? toPairActivityDTO(visibleCurrent, { includeAnswers: false })
           : null,
-        offers: offered.map((activity) =>
+        offers: eligibleOffered.map((activity) =>
           toPairActivityDTO(activity, { includeAnswers: false })
         ),
         createdCount: 0,
@@ -658,7 +713,7 @@ const smartSuggest = async (
       result: {
         plan: toPairActivitySuggestionPlanDTO(plan),
         currentActivity: null,
-        offers: offered.map((activity) =>
+        offers: eligibleOffered.map((activity) =>
           toPairActivityDTO(activity, { includeAnswers: false })
         ),
         createdCount: 0,
@@ -671,17 +726,41 @@ const smartSuggest = async (
   const members = await resolveMembers(pair.members as [string, string]);
   const now = new Date();
   const created: StoredActivity[] = [];
-  for (const candidate of selected) {
-    created.push(
-      await createOffer({
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      created.length = 0;
+      await Pair.updateOne(
+        { _id: pairId },
+        { $set: { updatedAt: new Date() } },
+        { session }
+      );
+      const activeInTransaction = await PairActivity.exists({
         pairId,
-        members,
-        candidate,
-        plan,
-        source: input.source,
-        now,
-      })
-    );
+        status: { $in: ACTIVE_STATUSES },
+      }).session(session);
+      if (activeInTransaction) return;
+      const offeredInTransaction = await PairActivity.countDocuments({
+        pairId,
+        status: 'offered',
+      }).session(session);
+      const availableSlots = Math.max(0, 3 - offeredInTransaction);
+      for (const candidate of selected.slice(0, availableSlots)) {
+        created.push(
+          await createOffer({
+            pairId,
+            members,
+            candidate,
+            plan,
+            source: input.source,
+            now,
+            session,
+          })
+        );
+      }
+    });
+  } finally {
+    await session.endSession();
   }
   await emitSuggestionsGenerated({
     pairId: String(pairId),
@@ -691,7 +770,7 @@ const smartSuggest = async (
     auditRequest: input.auditRequest,
   });
 
-  const allOffers = [...created, ...offered].slice(0, 3);
+  const allOffers = [...created, ...eligibleOffered].slice(0, 3);
   return {
     result: {
       plan: toPairActivitySuggestionPlanDTO(plan),
@@ -776,47 +855,59 @@ export const activityOfferService = {
       });
     }
 
-    const stored = await ActivityTemplate.findById(input.templateId)
-      .lean<ActivityTemplateType | null>();
-    const candidate =
-      stored ??
-      SYSTEM_ACTIVITY_TEMPLATES.find((item) => item._id === input.templateId);
-    if (!candidate) {
+    if (!isSafetyFallbackTemplateId(input.templateId)) {
       throw new DomainError({
-        code: 'ACTIVITY_TEMPLATE_NOT_FOUND',
-        status: 404,
-        message: 'Template not found',
+        code: 'ACTIVITY_UNAVAILABLE',
+        status: 409,
+        message: 'Activity is unavailable',
       });
     }
-
-    const activeCount = await PairActivity.countDocuments({
-      pairId: pair._id,
-      status: { $in: [...ACTIVE_STATUSES, 'offered'] },
-    });
-    if (activeCount >= 3) {
+    const candidate = SYSTEM_ACTIVITY_TEMPLATES.find(
+      (item) => item._id === input.templateId
+    );
+    if (!candidate) {
       throw new DomainError({
-        code: 'STATE_CONFLICT',
+        code: 'ACTIVITY_UNAVAILABLE',
         status: 409,
-        message: 'Too many active or offered activities',
+        message: 'Activity is unavailable',
+      });
+    }
+    const candidateTemplateId = String(candidate._id);
+    if (hasP0SensitiveActivityAxis(candidate.axis)) {
+      throw new DomainError({
+        code: 'ACTIVITY_UNAVAILABLE',
+        status: 409,
+        message: 'Activity is unavailable',
       });
     }
 
     const members = await resolveMembers(pair.members as [string, string]);
     const now = new Date();
     const fallback = autoDeltas(candidate.intent, candidate.intensity);
-    const activity = await PairActivity.create({
+    const mode = isSystemTemplate(candidate) ? candidate.mode : 'together';
+    const assignedMemberIds =
+      mode === 'together'
+        ? members.map(String)
+        : [String(members[mode === 'soloA' ? 0 : 1])];
+    const activityDocument: PairActivityType = {
       pairId: pair._id,
       members,
       intent: candidate.intent,
       archetype: candidate.archetype,
       axis: candidate.axis,
       facetsTarget: candidate.facetsTarget ?? [],
-      title: candidate.title,
-      description: candidate.description,
+      title: {
+        ru: candidate.title.ru ?? candidate.title.en ?? '',
+        en: candidate.title.en ?? candidate.title.ru ?? '',
+      },
+      description: {
+        ru: candidate.description.ru ?? candidate.description.en ?? '',
+        en: candidate.description.en ?? candidate.description.ru ?? '',
+      },
       why: isSystemTemplate(candidate)
         ? candidate.why
         : { ru: 'Выбрано вручную из каталога активностей.', en: 'Selected manually.' },
-      mode: isSystemTemplate(candidate) ? candidate.mode : 'together',
+      mode,
       sync: isSystemTemplate(candidate) ? candidate.sync : 'sync',
       difficulty: candidate.difficulty,
       intensity: candidate.intensity,
@@ -831,13 +922,14 @@ export const activityOfferService = {
         candidate.requiresConsent === true || candidate.axis.includes('sexuality'),
       status: 'offered',
       stateMeta: {
-        templateId: String(candidate._id),
+        templateId: candidateTemplateId,
         source: 'manual',
         sourceMeta: {
           trigger: 'manual_template',
           decisionVersion: 'activity-decision-v1',
         },
         decisionVersion: 'activity-decision-v1',
+        assignedMemberIds,
         ...(buildStepsPreview(candidate)
           ? { stepsPreview: buildStepsPreview(candidate) }
           : {}),
@@ -847,7 +939,50 @@ export const activityOfferService = {
       fatigueDeltaOnComplete: fallback.fatigueDeltaOnComplete,
       readinessDeltaOnComplete: fallback.readinessDeltaOnComplete,
       createdBy: 'user',
-    });
-    return { id: String(activity._id), offer: toActivityOfferDTO(activity.toObject()) };
+    };
+    const outcome: { activity?: StoredActivity } = {};
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        outcome.activity = undefined;
+        await Pair.updateOne(
+          { _id: pair._id },
+          { $set: { updatedAt: new Date() } },
+          { session }
+        );
+        const active = await PairActivity.exists({
+          pairId: pair._id,
+          status: { $in: ACTIVE_STATUSES },
+        }).session(session);
+        const offeredCount = await PairActivity.countDocuments({
+          pairId: pair._id,
+          status: 'offered',
+        }).session(session);
+        if (active || offeredCount >= 3) {
+          throw new DomainError({
+            code: 'ACTIVITY_UNAVAILABLE',
+            status: 409,
+            message: 'Activity is unavailable',
+          });
+        }
+        const [created] = await PairActivity.create([activityDocument], {
+          session,
+        });
+        outcome.activity = created.toObject() as StoredActivity;
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (!outcome.activity) {
+      throw new DomainError({
+        code: 'INTERNAL',
+        status: 500,
+        message: 'Activity was not created',
+      });
+    }
+    return {
+      id: String(outcome.activity._id),
+      offer: toActivityOfferDTO(outcome.activity),
+    };
   },
 };

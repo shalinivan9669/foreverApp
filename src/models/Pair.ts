@@ -52,7 +52,7 @@ const PairSchema = new Schema<PairType>(
       type: [String],
       required: true,
       validate: {
-        validator: (members: unknown[]) =>
+        validator: (members: string[]) =>
           Array.isArray(members) &&
           members.length === 2 &&
           String(members[0]) !== String(members[1]),

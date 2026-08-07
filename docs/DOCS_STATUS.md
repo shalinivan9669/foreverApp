@@ -21,6 +21,8 @@ Codex must not treat `historical`, `archive`, or `deprecated` docs as current be
 | `docs/PRODUCT_SPEC.md` | active | Canonical target product direction and phase boundaries |
 | `docs/MVP_SPEC.md` | active | Canonical MVP requirements and launch gates |
 | `docs/MVP_FLOWS.md` | active | Detailed MVP behavior, acceptance criteria, and delivery checklist |
+| `docs/P0_CAPABILITY_MATRIX.md` | active | P0 implementation evidence and explicit remaining pilot gates |
+| `docs/P0_TWO_USER_E2E.md` | active | Mandatory two-new-Discord-account manual release checklist |
 | `docs/TARGET_DOMAIN_MODEL.md` | active | Canonical target domain/computation direction; not the current DB schema |
 | `docs/TARGET_DOMAIN_OPERATIONS.md` | active | Target privacy/safety/versioning/storage/scaling boundaries |
 | `docs/01-product-loop.md` | historical | Dated flow snapshot with stale evidence; target behavior lives in MVP spec |

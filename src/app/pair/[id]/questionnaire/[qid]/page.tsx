@@ -134,7 +134,7 @@ export default function PairQuestionnaireRunner() {
       return;
     }
 
-    router.push(`/pair/${pairId}/diagnostics`);
+    router.push(`/pair/${pairId}`);
   };
 
   if (!pairId || !questionnaireId) {
@@ -148,7 +148,7 @@ export default function PairQuestionnaireRunner() {
   if (loading && questions.length === 0) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}/diagnostics`} />
+        <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}`} />
         <LoadingView compact label="Загрузка анкеты..." />
       </main>
     );
@@ -157,7 +157,7 @@ export default function PairQuestionnaireRunner() {
   if (loadError) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}/diagnostics`} />
+        <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}`} />
         <ErrorView
           error={loadError}
           onRetry={() => {
@@ -174,7 +174,7 @@ export default function PairQuestionnaireRunner() {
   if (!currentQuestion) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}/diagnostics`} />
+        <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}`} />
         <EmptyStateView
           title="Вопросы не найдены"
           description="Попробуйте открыть анкету позже."
@@ -185,7 +185,7 @@ export default function PairQuestionnaireRunner() {
 
   return (
     <main className="app-shell-compact app-page-stack py-3 sm:py-5">
-      <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}/diagnostics`} />
+      <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}`} />
 
       <div className="app-panel-soft p-3 text-sm">
         Ваша роль в паре: <span className="font-medium">{by}</span>

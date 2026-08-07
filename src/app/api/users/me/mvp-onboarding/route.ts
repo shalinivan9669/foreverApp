@@ -9,7 +9,6 @@ import {
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
-import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 
 const answerValueSchema = z.discriminatedUnion('kind', [
   z
@@ -65,11 +64,13 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   try {
-    return jsonOk(
+    const response = jsonOk(
       await mvpOnboardingService.getOwnerState({
         currentUserId: auth.data.userId,
       })
     );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));
     return jsonError(
@@ -90,15 +91,22 @@ export async function PATCH(req: NextRequest) {
   if (!body.ok) return body.response;
   const mutation: MvpOnboardingMutationInput = body.data;
 
-  return withIdempotency({
-    req,
-    route: '/api/users/me/mvp-onboarding',
-    userId: currentUserId,
-    requestBody: body.data,
-    execute: () =>
-      mvpOnboardingService.mutate({
+  try {
+    const response = jsonOk(
+      await mvpOnboardingService.mutate({
         currentUserId,
         mutation,
-      }),
-  });
+      })
+    );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  } catch (error: unknown) {
+    const domainError = toDomainError(asError(error));
+    return jsonError(
+      domainError.status,
+      domainError.code,
+      domainError.message,
+      domainError.details
+    );
+  }
 }

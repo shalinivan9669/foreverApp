@@ -33,7 +33,7 @@ export type PairActivityDTO = {
   title: { ru: string; en: string };
   description?: { ru: string; en: string };
   why: { ru: string; en: string };
-  mode: PairActivityType['mode'];
+  mode: 'together' | 'solo';
   sync: PairActivityType['sync'];
   difficulty: PairActivityType['difficulty'];
   intensity: PairActivityType['intensity'];
@@ -49,9 +49,6 @@ export type PairActivityDTO = {
   recurrence?: string;
   cooldownDays?: number;
   requiresConsent?: boolean;
-  consentA?: PairActivityType['consentA'];
-  consentB?: PairActivityType['consentB'];
-  visibility?: PairActivityType['visibility'];
   status: PairActivityType['status'];
   checkIns: CheckInTpl[];
   resultSummary?: ActivityResultSummaryDTO;
@@ -65,10 +62,6 @@ export type PairActivityDTO = {
 
 export type PairActivityEventSourceDTO = {
   trigger: 'pair_event';
-  eventId?: string;
-  eventType?: string;
-  eventCategory?: string;
-  eventDate?: string;
 };
 
 export type ActivityResultSummaryDTO = {
@@ -152,7 +145,7 @@ export function toPairActivityDTO(
             en: 'Selected using the current cycle, eligibility, and repetition cooldown.',
           }
         : activity.why,
-    mode: activity.mode,
+    mode: activity.mode === 'together' ? 'together' : 'solo',
     sync: activity.sync,
     difficulty: activity.difficulty,
     intensity: activity.intensity,
@@ -168,9 +161,6 @@ export function toPairActivityDTO(
     recurrence: activity.recurrence,
     cooldownDays: activity.cooldownDays,
     requiresConsent: activity.requiresConsent,
-    consentA: activity.consentA,
-    consentB: activity.consentB,
-    visibility: activity.visibility,
     status: activity.status,
     checkIns: effectiveActivityCheckIns(activity.checkIns),
     resultSummary: activity.resultSummary
@@ -217,22 +207,13 @@ export function toActivityTemplateDTO(template: ActivityTemplateSource): Activit
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const toOptionalString = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.trim().length > 0 ? value : undefined;
-
 const extractPairActivityEventSource = (
   stateMeta: PairActivityType['stateMeta']
 ): PairActivityEventSourceDTO | undefined => {
   if (!isRecord(stateMeta)) return undefined;
   const sourceMeta = stateMeta.sourceMeta;
   if (!isRecord(sourceMeta) || sourceMeta.trigger !== 'pair_event') return undefined;
-  return {
-    trigger: 'pair_event',
-    eventId: toOptionalString(sourceMeta.eventId),
-    eventType: toOptionalString(sourceMeta.eventType),
-    eventCategory: toOptionalString(sourceMeta.eventCategory),
-    eventDate: toOptionalString(sourceMeta.eventDate),
-  };
+  return { trigger: 'pair_event' };
 };
 
 const toStringArray = (value: unknown): string[] => {

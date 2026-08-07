@@ -96,26 +96,19 @@ export type AuditEventMetadataMap = {
   };
   ACTIVITY_CHECKED_IN: {
     activityId: string;
-    answersCount: number;
-    success: number;
     status: Extract<
       PairActivityType['status'],
       'awaiting_checkin' | 'completed_success' | 'completed_partial' | 'failed'
     >;
-    submittedCount: number;
-    bothSubmitted: boolean;
+    dataStatus: 'PARTIAL' | 'ENOUGH';
     resultVersion: 'activity-result-v1';
   };
   ACTIVITY_COMPLETED: {
     activityId: string;
     pairId: string;
-    success: number;
     status: Extract<PairActivityType['status'], 'completed_success' | 'completed_partial' | 'failed'>;
-    submittedCount: number;
-    bothSubmitted: boolean;
+    dataStatus: 'PARTIAL' | 'ENOUGH';
     effectApplied: boolean;
-    fatigueDelta: number;
-    readinessDelta: number;
     resultVersion: 'activity-result-v1';
   };
   QUESTIONNAIRE_STARTED: {

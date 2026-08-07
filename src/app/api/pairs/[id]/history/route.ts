@@ -37,9 +37,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   try {
     const page = await pairHistoryService.list({
-      pairId: String(pairGuard.data.pair._id),
-      currentUserId: auth.data.userId,
-      members: pairGuard.data.pair.members,
+      pair: pairGuard.data.pair,
       role: pairGuard.data.by,
       cursor: query.data.cursor,
       limit: query.data.limit,

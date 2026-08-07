@@ -194,8 +194,38 @@ assert.ok(!resolveRoute.includes('searchParams'));
 assert.ok(acceptRoute.includes('body.data.token'));
 assert.ok(!acceptRoute.includes('searchParams'));
 assert.ok(acceptRoute.includes('withIdempotency'));
+assert.ok(acceptRoute.includes('requestBody: { tokenHash:'));
+assert.ok(!acceptRoute.includes('requestBody: { token:'));
+
+const legacyPairService = source('src/domain/services/pairs.service.ts');
+assert.ok(legacyPairService.includes("code: 'PAIR_INVITE_REQUIRED'"));
+const createPairSection = legacyPairService.slice(
+  legacyPairService.indexOf('async createPair'),
+  legacyPairService.indexOf('async pausePair')
+);
+assert.doesNotMatch(createPairSection, /Pair\.(create|findOneAndUpdate|updateOne)/);
+const legacyMatchService = source('src/domain/services/match.service.ts');
+const confirmSection = legacyMatchService.slice(legacyMatchService.indexOf('async confirmLike'));
+assert.ok(confirmSection.includes("code: 'PAIR_INVITE_REQUIRED'"));
+assert.doesNotMatch(confirmSection, /Pair\.(create|findOneAndUpdate|updateOne)/);
 
 const auditTypes = source('src/lib/audit/eventTypes.ts');
 assert.ok(auditTypes.includes("'pair_invite_accept'"));
+
+const inviteClient = source('src/client/api/pairInvites.api.ts');
+const joinPage = source('src/app/join/page.tsx');
+assert.ok(inviteClient.includes("availability: 'available' | 'accepted' | 'unavailable'"));
+const createClientBlock = inviteClient.slice(
+  inviteClient.indexOf('create: async'),
+  inviteClient.indexOf('cancel: async')
+);
+const reissueClientBlock = inviteClient.slice(
+  inviteClient.indexOf('reissue: async'),
+  inviteClient.indexOf('resolve: async')
+);
+assert.doesNotMatch(createClientBlock, /idempotency:\s*true/);
+assert.doesNotMatch(reissueClientBlock, /idempotency:\s*true/);
+assert.ok(joinPage.includes("| 'accepted'"));
+assert.ok(joinPage.includes('Вы уже присоединились'));
 
 console.log('pair invite selfcheck passed');

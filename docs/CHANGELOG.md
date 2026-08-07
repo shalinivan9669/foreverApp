@@ -536,3 +536,17 @@ Summary:
 - Stopped pair/dashboard DTOs from exposing readiness or fatigue metrics and made weekly retries/concurrent duplicates return the immutable first submission.
 - Added security assertions for one-sided, equal, divergent, insufficient, sensitive-content, membership, retry, and non-reconstruction paths.
 Files: src/domain/services/weeklyCheckIn.service.ts, src/app/api/pairs/[id]/weekly-checkin/current/route.ts, src/app/api/pairs/me/route.ts, src/domain/services/pairDashboardSummary.service.ts, src/client/api/types.ts, src/components/checkins/PairWeeklyCheckInPanel.tsx, src/components/checkins/WeeklyCheckInCard.tsx, src/features/pair/PairProfilePageClient.tsx, scripts/weekly-checkin.selfcheck.ts, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Removed numeric limits on the number of files an agent may edit for a coherent task.
+- Kept operating-mode scope, context-reading limits, verification requirements, and risk-based stop conditions intact.
+Files: AGENTS.md, docs/AGENT_OPERATING_MODES.md, docs/CONTEXT_BUDGET.md, docs/CODE_REVIEW.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Implemented the integrated P0 pair loop: resumable private onboarding, invite-only pair formation, canonical weekly cycles/snapshots, one-replacement recommendations, activity feedback, light history, and an owner-private safety veto.
+- Hardened participant DTOs and audit metadata so pair-facing flows expose only relative completion and qualitative non-reconstructable outputs; legacy pair creation/match confirmation and the reconstructable diagnostics endpoint are retired, while automatic/direct sensitive-template paths are blocked for P0.
+- Added transaction/CAS/idempotency protections for invite acceptance, weekly submit/skip, recommendation decisions, and activity creation, plus self-healing recommendation-to-activity linkage and canonical adapters for every legacy suggestion endpoint.
+- Added the P0 capability/evidence matrix and mandatory two-new-Discord-account pilot checklist; implementation is ready for pilot verification but is not marked release-complete before those environment gates pass.
+Files: package.json, scripts/*selfcheck.ts, src/app/api/pair-invites/**, src/app/api/pairs/**, src/app/api/users/me/**, src/app/invite/page.tsx, src/app/join/page.tsx, src/app/main-menu/page.tsx, src/app/mvp-onboarding/page.tsx, src/client/**, src/components/**, src/domain/services/**, src/domain/state/**, src/features/**, src/lib/audit/**, src/lib/dto/**, src/models/**, docs/INDEX.md, docs/DOCS_STATUS.md, docs/API_CONTRACTS.md, docs/ARCHITECTURE.md, docs/SECURITY.md, docs/03-state-machines.md, docs/P0_CAPABILITY_MATRIX.md, docs/P0_TWO_USER_E2E.md, docs/CHANGELOG.md

@@ -23,12 +23,14 @@ export async function GET(req: NextRequest) {
   if (!query.ok) return query.response;
 
   try {
-    return jsonOk(
+    const response = jsonOk(
       await getOwnerSafetyGate({
         pairId: query.data.pairId,
         ownerUserId: auth.data.userId,
       })
     );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error) {
     const domainError = toDomainError(asError(error));
     return jsonError(
@@ -54,7 +56,7 @@ export async function PUT(req: NextRequest) {
   if (!body.ok) return body.response;
 
   try {
-    return jsonOk(
+    const response = jsonOk(
       await setOwnerSafetyGate({
         pairId: body.data.pairId,
         ownerUserId: auth.data.userId,
@@ -62,6 +64,8 @@ export async function PUT(req: NextRequest) {
         auditRequest: auditContextFromRequest(req, '/api/users/me/safety-gate'),
       })
     );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error) {
     const domainError = toDomainError(asError(error));
     return jsonError(

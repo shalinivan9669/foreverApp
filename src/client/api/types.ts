@@ -648,7 +648,7 @@ export type PairActivityDTO = {
   axis: string[];
   archetype: string;
   intent: 'improve' | 'celebrate';
-  mode: 'together' | 'soloA' | 'soloB';
+  mode: 'together' | 'solo';
   sync: 'sync' | 'async';
   difficulty: 1 | 2 | 3 | 4 | 5;
   intensity: 1 | 2 | 3;
@@ -658,7 +658,8 @@ export type PairActivityDTO = {
   requiresConsent?: boolean;
   status: ActivityStatus;
   checkIns: ActivityCheckInDTO[];
-  successScore?: number;
+  /** @deprecated Pair-visible activity responses never expose exact feedback scores. */
+  successScore?: never;
   resultSummary?: ActivityResultSummaryDTO;
   legacy?: boolean;
   legacySource?: 'relationship_activity';
@@ -669,10 +670,14 @@ export type PairActivityDTO = {
 
 export type PairActivityEventSourceDTO = {
   trigger: 'pair_event';
-  eventId?: string;
-  eventType?: string;
-  eventCategory?: string;
-  eventDate?: string;
+  /** @deprecated Internal event evidence is not emitted by pair-visible APIs. */
+  eventId?: never;
+  /** @deprecated Internal event evidence is not emitted by pair-visible APIs. */
+  eventType?: never;
+  /** @deprecated Internal event evidence is not emitted by pair-visible APIs. */
+  eventCategory?: never;
+  /** @deprecated Internal event evidence is not emitted by pair-visible APIs. */
+  eventDate?: never;
 };
 
 export type PairActivitySuggestionPlanDTO = {

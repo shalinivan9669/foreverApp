@@ -16,7 +16,7 @@ import {
   type CheckinCompleteAttempt,
 } from '@/features/activities/checkinCompleteFlow';
 
-type Tab = 'active' | 'suggested' | 'history';
+type Tab = 'active' | 'history';
 type CheckInAnswerInput = Array<{ checkInId: string; ui: number }>;
 
 type PendingCompleteState = {
@@ -49,27 +49,20 @@ export default function CoupleActivityPage() {
   const { pairId } = usePair();
   const {
     active,
-    suggested,
     history,
     loading,
     error,
     refetch,
-    suggestNext,
-    acceptActivity,
     cancelActivity,
     checkInActivityDetailed,
     completeActivityDetailed,
     clearMutationError,
-    suggestionPlan,
-    lastSuggestionSkippedReason,
-    lastCreatedCount,
   } = useActivityOffers({
     pairId,
     enabled: Boolean(pairId),
   });
 
   const activeVm = useMemo(() => (active ? toActivityCardVM(active) : null), [active]);
-  const suggestedVm = useMemo(() => suggested.map(toActivityCardVM), [suggested]);
   const historyVm = useMemo(() => history.map(toActivityCardVM), [history]);
   const pendingCompleteMessage = useMemo(
     () => toCompleteRetryMessage(pendingComplete?.error ?? null),
@@ -205,13 +198,10 @@ export default function CoupleActivityPage() {
       error={error}
       locale={locale}
       active={activeVm}
-      suggested={suggestedVm}
       history={historyVm}
       hasPair={Boolean(pairId)}
       onRetry={() => void refetch()}
       onSetTab={setTab}
-      onSuggestNext={() => void suggestNext()}
-      onAccept={(id) => void acceptActivity(id)}
       onCancel={(id) => void cancelActivity(id)}
       onOpenCheckIn={setCheckInFor}
       checkInFor={checkInFor}
@@ -232,9 +222,6 @@ export default function CoupleActivityPage() {
           />
         ) : undefined
       }
-      suggestionPlan={suggestionPlan}
-      lastSuggestionSkippedReason={lastSuggestionSkippedReason}
-      lastCreatedCount={lastCreatedCount}
       onRetryComplete={(activityId) => {
         void retryComplete(activityId);
       }}

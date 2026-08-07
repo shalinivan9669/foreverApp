@@ -1,20 +1,14 @@
-import { Types, type PipelineStage } from 'mongoose';
+import { Types, type HydratedDocument, type PipelineStage } from 'mongoose';
 import { z } from 'zod';
 import { DomainError } from '@/domain/errors';
-import {
-  summarizePairWeeklyCheckIns,
-  toPairWeeklyCheckInPairDTO,
-} from '@/domain/services/weeklyCheckIn.service';
+import { weeklyCycleService } from '@/domain/services/weeklyCycle.service';
 import { PairActivity, type PairActivityType } from '@/models/PairActivity';
 import {
   PairStateSnapshot,
   type PairStateSnapshotType,
 } from '@/models/PairStateSnapshot';
 import { WeeklyCycle } from '@/models/WeeklyCycle';
-import {
-  WeeklyCheckIn,
-  type WeeklyCheckInAnswers,
-} from '@/models/WeeklyCheckIn';
+import type { PairType } from '@/models/Pair';
 import { connectToDatabase } from '@/lib/mongodb';
 
 const DEFAULT_LIMIT = 12;
@@ -77,17 +71,6 @@ type PairHistoryCursor = {
   kind: HistoryKind;
   date: string;
   id: string;
-};
-
-type LegacyWeeklyCycleAggregate = {
-  _id: string;
-  occurredAt: Date;
-  rows: Array<{
-    _id: Types.ObjectId;
-    userId: string;
-    answers: WeeklyCheckInAnswers;
-    updatedAt: Date;
-  }>;
 };
 
 type CanonicalWeeklyCycleAggregate = {
@@ -220,7 +203,7 @@ const cycleStatusFor = (
       ? 'partial'
       : 'insufficient';
 
-const toCanonicalCycleItem = (
+export const projectCanonicalHistoryCycle = (
   cycle: CanonicalWeeklyCycleAggregate
 ): PairHistoryCycleItemDTO => {
   const dataStatus =
@@ -250,52 +233,6 @@ const toCanonicalCycleItem = (
   };
 };
 
-const toLegacyCycleItem = (input: {
-  cycle: LegacyWeeklyCycleAggregate;
-  pairId: string;
-  currentUserId: string;
-  members: [string, string];
-}): PairHistoryCycleItemDTO => {
-  const summary = summarizePairWeeklyCheckIns({
-    pairId: input.pairId,
-    weekKey: input.cycle._id,
-    currentUserId: input.currentUserId,
-    members: input.members,
-    checkIns: input.cycle.rows,
-  });
-  const disclosed = toPairWeeklyCheckInPairDTO(summary);
-  const dataStatus =
-    disclosed.pair.dataStatus === 'NOT_READY'
-      ? 'INSUFFICIENT'
-      : disclosed.pair.dataStatus;
-
-  return {
-    kind: 'cycle',
-    id: input.cycle._id,
-    date: input.cycle.occurredAt.toISOString(),
-    cycleKey: input.cycle._id,
-    status: cycleStatusFor(dataStatus),
-    summary: {
-      dataStatus,
-      signals: disclosed.pair.signals.map((signal) => ({
-        key: signal.key,
-        status: signal.status,
-      })),
-    },
-  };
-};
-
-export const preferCanonicalHistoryCycles = (
-  canonical: PairHistoryCycleItemDTO[],
-  legacy: PairHistoryCycleItemDTO[]
-): PairHistoryCycleItemDTO[] => {
-  const canonicalKeys = new Set(canonical.map((item) => item.cycleKey));
-  return [
-    ...canonical,
-    ...legacy.filter((item) => !canonicalKeys.has(item.cycleKey)),
-  ];
-};
-
 const toActivityItem = (
   activity: ActivityHistoryAggregate
 ): PairHistoryActivityItemDTO => ({
@@ -309,23 +246,26 @@ const toActivityItem = (
 
 export const pairHistoryService = {
   async list(input: {
-    pairId: string;
-    currentUserId: string;
-    members: [string, string];
+    pair: HydratedDocument<PairType>;
     role: 'A' | 'B';
     cursor?: string;
     limit?: number;
+    now?: Date;
   }): Promise<PairHistoryPageDTO> {
     await connectToDatabase();
-    const pairObjectId = new Types.ObjectId(input.pairId);
-    const cursor = decodePairHistoryCursor(input.cursor, input.pairId);
+    const now = input.now ?? new Date();
+    await weeklyCycleService.finalizeExpiredCycles({ pair: input.pair, now });
+    const pairId = String(input.pair._id);
+    const pairObjectId = new Types.ObjectId(pairId);
+    const currentMemberId = input.pair.members[input.role === 'A' ? 0 : 1];
+    const cursor = decodePairHistoryCursor(input.cursor, pairId);
     const limit = Math.min(
       PAIR_HISTORY_MAX_LIMIT,
       Math.max(1, Math.trunc(input.limit ?? DEFAULT_LIMIT))
     );
     const sourceLimit = limit + 1;
 
-    const [canonicalCycles, legacyCycles, activities] = await Promise.all([
+    const [canonicalCycles, activities] = await Promise.all([
       // Published cycles are projected only from their immutable canonical snapshot.
       WeeklyCycle.aggregate<CanonicalWeeklyCycleAggregate>([
         {
@@ -333,6 +273,7 @@ export const pairHistoryService = {
             pairId: pairObjectId,
             cycleKey: { $type: 'string' },
             startsAt: { $type: 'date' },
+            endsAt: { $lte: now },
             latestSnapshotId: { $type: 'objectId' },
           },
         },
@@ -389,73 +330,34 @@ export const pairHistoryService = {
         { $sort: { occurredAt: -1, cycleKey: -1 } },
         { $limit: sourceLimit },
       ]).exec(),
-      // Legacy calculation is allowed only when this pair has no canonical cycle key.
-      WeeklyCheckIn.aggregate<LegacyWeeklyCycleAggregate>([
-        {
-          $match: {
-            pairId: { $in: [input.pairId, pairObjectId] },
-            userId: { $in: input.members },
-            weekKey: { $type: 'string' },
-            createdAt: { $type: 'date' },
-          },
-        },
-        {
-          $group: {
-            _id: '$weekKey',
-            occurredAt: { $max: '$createdAt' },
-            rows: {
-              $push: {
-                _id: '$_id',
-                userId: '$userId',
-                answers: '$answers',
-                updatedAt: { $ifNull: ['$updatedAt', '$createdAt'] },
-              },
-            },
-          },
-        },
-        {
-          $lookup: {
-            from: WeeklyCycle.collection.name,
-            let: { cycleKey: '$_id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: ['$pairId', pairObjectId] },
-                      { $eq: ['$cycleKey', '$$cycleKey'] },
-                    ],
-                  },
-                },
-              },
-              { $limit: 1 },
-            ],
-            as: 'canonicalCycles',
-          },
-        },
-        { $match: { canonicalCycles: { $eq: [] } } },
-        { $project: { canonicalCycles: 0 } },
-        {
-          $match: cursorMatch({
-            cursor,
-            sourceKind: 'cycle',
-            dateField: 'occurredAt',
-            idField: '_id',
-          }),
-        },
-        { $sort: { occurredAt: -1, _id: -1 } },
-        { $limit: sourceLimit },
-      ]).exec(),
       PairActivity.aggregate<ActivityHistoryAggregate>([
         {
           $match: {
             pairId: pairObjectId,
             status: { $in: HISTORY_ACTIVITY_STATUSES },
             offeredAt: { $type: 'date' },
-            $or: [
-              { visibility: { $exists: false } },
-              { visibility: 'both' },
-              { visibility: input.role === 'A' ? 'privateA' : 'privateB' },
+            $and: [
+              {
+                $or: [
+                  { visibility: { $exists: false } },
+                  { visibility: 'both' },
+                  { visibility: input.role === 'A' ? 'privateA' : 'privateB' },
+                ],
+              },
+              {
+                $or: [
+                  { 'stateMeta.assignedMemberIds': currentMemberId },
+                  {
+                    'stateMeta.assignedMemberIds': { $exists: false },
+                    mode: {
+                      $in: [
+                        'together',
+                        input.role === 'A' ? 'soloA' : 'soloB',
+                      ],
+                    },
+                  },
+                ],
+              },
             ],
           },
         },
@@ -491,21 +393,8 @@ export const pairHistoryService = {
       ]).exec(),
     ]);
 
-    const canonicalCycleItems = canonicalCycles.map(toCanonicalCycleItem);
-    const legacyCycleItems = legacyCycles.map((cycle) =>
-      toLegacyCycleItem({
-          cycle,
-          pairId: input.pairId,
-          currentUserId: input.currentUserId,
-          members: input.members,
-      })
-    );
-    const cycleItems = preferCanonicalHistoryCycles(
-      canonicalCycleItems,
-      legacyCycleItems
-    );
     const items = [
-      ...cycleItems,
+      ...canonicalCycles.map(projectCanonicalHistoryCycle),
       ...activities.map(toActivityItem),
     ].sort(compareHistoryItems);
     const pageItems = items.slice(0, limit);
@@ -513,11 +402,11 @@ export const pairHistoryService = {
     const lastItem = pageItems.at(-1);
 
     return {
-      pairId: input.pairId,
+      pairId,
       items: pageItems,
       nextCursor:
         hasMore && lastItem
-          ? encodePairHistoryCursor(input.pairId, lastItem)
+          ? encodePairHistoryCursor(pairId, lastItem)
           : null,
     };
   },

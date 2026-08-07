@@ -35,9 +35,18 @@
 ## Current domain policies
 
 - User lifecycle is exposed as derived private DTO state: `auth_created` before personal profile, `onboarding_started` after personal profile, and `complete` after onboarding data exists. This avoids fake defaults for Discord-created users.
-- Match confirmation uses safe ordering: state machine check, atomic Like transition to `paired`, then Pair upsert/activation, competing Like expiry, user relationship status update, and suggestion seeding.
-- Match confirmation is not wrapped in a MongoDB transaction yet. The remaining risk is a later side-effect failure after the Like has been paired; the critical invariant is that Pair activation cannot happen before the Like transition succeeds.
+- Legacy match confirmation is an authenticated compatibility boundary only. It returns `PAIR_INVITE_REQUIRED` before any Like transition, Pair upsert, user update, or suggestion seeding; invite acceptance is the sole P0 Pair activation path.
 - Match score creation uses the existing vector distance score. If either side has no usable vectors yet, create-like returns `0` rather than a placeholder constant.
+
+## P0 pilot projection
+
+- P0 pair creation is invite-only at the public boundary. `PairInvite` stores only a token hash; `PairMembershipClaim` provides the unique per-user active-membership claim used by the acceptance transaction. Legacy matching data/code remains for compatibility, but neither `/api/pairs/create` nor `/api/match/confirm` can activate a Pair.
+- `MvpOnboardingSession` is a personal, versioned owner record. It is intentionally separate from the legacy dating wizard and from pair-scoped state.
+- `WeeklyCycle` owns server-defined UTC lifecycle and relative participant completion. `PairStateSnapshot` is append-only evidence/version output; `latestSnapshotId` is only a guarded pointer to the immutable canonical snapshot, not a second computation source.
+- `RecommendationDecision` owns offer/accept/replace/skip/expire state. It links one activity, permits one replacement, and reconciles an interrupted terminal decision-to-activity write. Legacy suggestion endpoints are adapters over this workflow and never expose non-canonical offered activities.
+- `SafetyGate` is owner-private input to an eligibility veto only. It is not a Pair Summary dimension, score, diagnosis, or participant-visible reason.
+- History reads published cycle results only through `WeeklyCycle.latestSnapshotId` and the matching immutable snapshot. It never runs current scoring code over old raw check-ins.
+- These collections and indexes are additive. No destructive migration is required, but deployment must create the declared unique indexes. Invite acceptance, weekly-cycle submission/finalization, event acceptance cleanup, and activity accept/cancel/feedback completion require MongoDB transaction support.
 
 ## Detailed references
 

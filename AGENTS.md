@@ -73,19 +73,14 @@ Stop and ask for explicit approval if:
 - DB migration or destructive change is needed;
 - auth/session/security model changes;
 - public API contract changes;
-- more than 15 files need edits;
 - generated files or lockfiles change unexpectedly;
 - command output suggests environment/config mismatch;
 - the task requires a product/business decision rather than an engineering decision.
 
-## Diff Budget
-- `DOCS_ONLY`: max 10 changed files.
-- `SMALL_FIX`: max 5 changed files.
-- `FEATURE_CHANGE`: max 12 changed files.
-- `SECURITY_FIX`: max 8 changed files.
-- `BROAD_REFACTOR`: explicit approval required.
-
-If the task exceeds the budget, stop and explain why before continuing.
+## Edit Scope
+- There is no numeric limit on the number of files that may be edited.
+- Edit only the files required to complete the requested task coherently, and preserve unrelated user changes.
+- File count alone is never a stop condition. Stop when the work crosses another listed boundary, such as a broad refactor, migration, security-model change, public API decision, or unclear product behavior.
 
 ## Verification Rules
 - Docs only: manually verify links, paths, and structure. No build required.

@@ -1,9 +1,6 @@
 ﻿import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType } from '@/models/Like';
-import { Pair } from '@/models/Pair';
-import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
-import { PairActivity } from '@/models/PairActivity';
 import type { Axis } from '@/models/ActivityTemplate';
 import { User, type UserType } from '@/models/User';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
@@ -11,9 +8,7 @@ import { DomainError } from '@/domain/errors';
 import { matchTransition } from '@/domain/state/matchMachine';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
-import { activityOfferService } from '@/domain/services/activityOffer.service';
 import { distance, score } from '@/utils/calcMatch';
-import { buildPairPassport } from '@/domain/services/pairDiagnostics.service';
 import { readAxisLayer } from '@/domain/services/vectorScoring.service';
 
 type GuardErrorPayload = {
@@ -108,21 +103,6 @@ const hasUsableVectors = (user: UserType): boolean =>
 const calculateMatchScore = (left: UserType, right: UserType): number => {
   if (!hasUsableVectors(left) || !hasUsableVectors(right)) return 0;
   return score(distance(toVectorLevels(left), toVectorLevels(right)));
-};
-
-const seedSuggestionsForPair = async (
-  pairId: Types.ObjectId,
-  currentUserId: string
-): Promise<void> => {
-  const hasOffered = await PairActivity.exists({ pairId, status: 'offered' });
-  if (hasOffered) return;
-
-  await activityOfferService.suggestActivities({
-    pairId: String(pairId),
-    currentUserId,
-    dedupeAgainstLastOffered: true,
-    source: 'pairs.activities.suggest',
-  });
 };
 
 const stateConflict = (details: Record<string, string>): never => {
@@ -469,181 +449,12 @@ export const matchService = {
   },
 
   async confirmLike(input: DecideLikeInput): Promise<{ pairId: string; members: [string, string] }> {
-    const { like, role } = await ensureLikeParticipant(input.likeId, input.currentUserId);
-
-    const transition = matchTransition(
-      {
-        fromId: like.fromId,
-        toId: like.toId,
-        status: like.status,
-        recipientResponse: like.recipientResponse,
-      },
-      { type: 'CONFIRM' },
-      {
-        currentUserId: input.currentUserId,
-        role,
-      }
-    );
-
-    const completedOnboardingCount = await MvpOnboardingSession.countDocuments({
-      userId: { $in: [like.fromId, like.toId] },
-      status: 'completed',
+    await ensureLikeParticipant(input.likeId, input.currentUserId);
+    throw new DomainError({
+      code: 'PAIR_INVITE_REQUIRED',
+      status: 409,
+      message: 'Use a consensual pair invitation',
     });
-    if (completedOnboardingCount !== 2) {
-      throw new DomainError({
-        code: 'PAIR_UNAVAILABLE',
-        status: 409,
-        message: 'Pair is unavailable',
-      });
-    }
-
-    const [fromUser, toUser] = await Promise.all([
-      User.findOne({ id: like.fromId }).lean<UserType | null>(),
-      User.findOne({ id: like.toId }).lean<UserType | null>(),
-    ]);
-
-    if (!fromUser || !toUser) {
-      throw new DomainError({
-        code: 'NOT_FOUND',
-        status: 404,
-        message: 'Pair users are missing',
-      });
-    }
-
-
-    const members = [fromUser.id, toUser.id].sort() as [string, string];
-    const key = `${members[0]}|${members[1]}`;
-    const activePair = await Pair.findOne({
-      status: { $in: ['active', 'paused'] },
-      members: { $in: members },
-    })
-      .select({ _id: 1, key: 1, members: 1 })
-      .lean<{ _id: Types.ObjectId; key: string; members: [string, string] } | null>();
-    if (activePair) {
-      if (activePair.key === key) {
-        return { pairId: String(activePair._id), members: activePair.members };
-      }
-      throw new DomainError({
-        code: 'PAIR_UNAVAILABLE',
-        status: 409,
-        message: 'Pair is unavailable',
-      });
-    }
-
-    const confirmedLike = await Like.findOneAndUpdate(
-      {
-        _id: like._id,
-        fromId: input.currentUserId,
-        status: 'mutual_ready',
-      },
-      {
-        $set: {
-          status: transition.next.status,
-          updatedAt: transition.next.updatedAt ?? new Date(),
-        },
-      },
-      { new: true }
-    ).lean<LikeType | null>();
-
-    if (!confirmedLike) {
-      return stateConflict({
-        likeId: input.likeId,
-        action: 'CONFIRM',
-      });
-    }
-
-    const existingPair = await Pair.findOne({ key }, { _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
-
-    // Safe ordering prevents Pair activation before the Like transition. Without a
-    // MongoDB transaction, later side effects can still fail after the Like is paired.
-    const pair = await Pair.findOneAndUpdate(
-      { key },
-      {
-        $setOnInsert: {
-          key,
-          members,
-          progress: { streak: 0, completed: 0 },
-        },
-        $set: { status: 'active' },
-      },
-      { new: true, upsert: true }
-    );
-
-    const requiresPassport =
-      !pair.passport ||
-      !Array.isArray(pair.passport.riskZones) ||
-      pair.passport.riskZones.length === 0;
-
-    if (requiresPassport) {
-      pair.passport = buildPairPassport(fromUser, toUser);
-      await pair.save();
-    }
-
-    await Like.updateMany(
-      {
-        _id: { $ne: like._id },
-        $or: [
-          { fromId: like.fromId, toId: like.toId },
-          { fromId: like.toId, toId: like.fromId },
-        ],
-        status: {
-          $in: ['sent', 'viewed', 'awaiting_initiator', 'mutual_ready'],
-        },
-      },
-      { $set: { status: 'expired' } }
-    );
-
-    await User.updateMany(
-      { id: { $in: members } },
-      { $set: { 'personal.relationshipStatus': 'in_relationship' } }
-    );
-
-    await seedSuggestionsForPair(pair._id as Types.ObjectId, input.currentUserId);
-
-    await emitEvent({
-      event: 'MATCH_CONFIRMED',
-      actor: { userId: input.currentUserId },
-      request: input.auditRequest ?? { route: '/api/match/confirm', method: 'POST' },
-      context: {
-        likeId: String(like._id),
-        pairId: String(pair._id),
-      },
-      target: {
-        type: 'pair',
-        id: String(pair._id),
-      },
-      metadata: {
-        likeId: String(like._id),
-        pairId: String(pair._id),
-        members,
-      },
-    });
-
-    if (!existingPair) {
-      await emitEvent({
-        event: 'PAIR_CREATED',
-        actor: { userId: input.currentUserId },
-        request: input.auditRequest ?? { route: '/api/match/confirm', method: 'POST' },
-        context: {
-          pairId: String(pair._id),
-          likeId: String(like._id),
-        },
-        target: {
-          type: 'pair',
-          id: String(pair._id),
-        },
-        metadata: {
-          pairId: String(pair._id),
-          members,
-          source: 'match_confirm',
-        },
-      });
-    }
-
-    return {
-      pairId: String(pair._id),
-      members,
-    };
   },
 };
 

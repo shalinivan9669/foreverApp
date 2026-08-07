@@ -12,7 +12,7 @@
 - Are multi-document updates safe?
 - Are logs free from secrets/PII?
 - Are tests/checks appropriate but not excessive?
-- Did the task stay inside its operating mode and diff budget?
+- Did the task stay inside its operating mode and requested scope?
 - Did agent diagnostics pass or were warnings explained?
 - Are new allowlist entries justified and reported?
 - Is the final report concise?

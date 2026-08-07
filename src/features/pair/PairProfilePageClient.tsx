@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
 import PairWeeklyCheckInPanel from '@/components/checkins/PairWeeklyCheckInPanel';
-import PairEventsPanel from '@/components/events/PairEventsPanel';
 import {
   pairHistoryApi,
   type PairHistoryItemDTO,
@@ -435,10 +434,6 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
               onSummaryChanged={() => load(pairId)}
             />
           </section>
-
-          <div className="app-grid-narrow">
-            <PairEventsPanel pairId={pairId} pairStatus={data.pair.status} />
-          </div>
 
           <section className="app-panel app-panel-solid app-reveal app-grid-wide p-4 sm:p-6">
             <div className="flex items-start justify-between gap-3">

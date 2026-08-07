@@ -383,19 +383,33 @@ const run = () => {
     /const calculateMatchScore = \(left: UserType, right: UserType\): number/,
     'createLike should use explicit vector-based match score policy'
   );
-  const likeUpdateIndex = matchService.indexOf('const confirmedLike = await Like.findOneAndUpdate');
-  const pairUpdateIndex = matchService.indexOf('const pair = await Pair.findOneAndUpdate');
-  assert.ok(likeUpdateIndex >= 0, 'confirmLike should atomically update Like first');
-  assert.ok(pairUpdateIndex >= 0, 'confirmLike should upsert Pair after Like update');
-  assert.ok(
-    likeUpdateIndex < pairUpdateIndex,
-    'confirmLike must not create/activate Pair before Like update succeeds'
-  );
+  const confirmStart = matchService.indexOf('async confirmLike');
+  const confirmSection = matchService.slice(confirmStart);
+  assert.ok(confirmStart >= 0, 'confirmLike service boundary should remain explicit');
   assert.match(
-    matchService,
-    /_id:\s*like\._id,[\s\S]*fromId:\s*input\.currentUserId,[\s\S]*status:\s*'mutual_ready'/,
-    'confirmLike atomic update must be scoped to like id, initiator, and mutual_ready status'
+    confirmSection,
+    /ensureLikeParticipant[\s\S]*code:\s*'PAIR_INVITE_REQUIRED'/,
+    'legacy match confirmation must require the invite-only pair flow'
   );
+  assert.doesNotMatch(
+    confirmSection,
+    /Pair\.(create|findOneAndUpdate|updateOne)/,
+    'legacy match confirmation must not create or activate a Pair'
+  );
+
+  const diagnosticsRoute = readProjectFile('src/app/api/pairs/[id]/diagnostics/route.ts');
+  assert.match(diagnosticsRoute, /requireSession\(req\)/);
+  assert.match(diagnosticsRoute, /requirePairMember\(id, currentUserId\)/);
+  assert.match(diagnosticsRoute, /PAIR_DIAGNOSTICS_RETIRED/);
+  assert.match(diagnosticsRoute, /Cache-Control', 'private, no-store/);
+  assert.doesNotMatch(
+    diagnosticsRoute,
+    /buildPairAnswerDiagnostics|pairAnswerSignals|generatedInsightIds|pair\.fatigue|pair\.readiness/,
+    'legacy diagnostics endpoint must not compute or expose reconstructable pair metrics'
+  );
+  const diagnosticsPage = readProjectFile('src/app/pair/[id]/diagnostics/page.tsx');
+  assert.doesNotMatch(diagnosticsPage, /getDiagnostics|PairPassportDTO|InsightsList/);
+  assert.match(diagnosticsPage, /Открыть Pair Summary/);
 
   console.log('Security critical self-check passed.');
 };

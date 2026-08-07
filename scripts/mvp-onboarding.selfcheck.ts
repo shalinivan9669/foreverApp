@@ -214,13 +214,14 @@ assert.doesNotMatch(serviceSource, /console\.(log|error|warn)/);
 const routeSource = readProjectFile('src/app/api/users/me/mvp-onboarding/route.ts');
 assert.match(routeSource, /requireSession\(req\)/);
 assert.match(routeSource, /currentUserId:\s*auth\.data\.userId/);
-assert.match(routeSource, /withIdempotency/);
+assert.doesNotMatch(routeSource, /withIdempotency/);
+assert.match(routeSource, /Cache-Control', 'no-store/);
 assert.match(routeSource, /export async function GET/);
 assert.match(routeSource, /export async function PATCH/);
 assert.doesNotMatch(routeSource, /body\.data\.userId|body\.userId/);
 
 const clientSource = readProjectFile('src/client/api/mvpOnboarding.api.ts');
-assert.match(clientSource, /idempotency:\s*true/);
+assert.doesNotMatch(clientSource, /idempotency:\s*true/);
 assert.doesNotMatch(clientSource, /\bfetch\(/);
 
 const pageSource = readProjectFile('src/app/mvp-onboarding/page.tsx');

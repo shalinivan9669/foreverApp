@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { Types, type HydratedDocument } from 'mongoose';
+import { createHash, randomUUID } from 'node:crypto';
+import mongoose, { Types, type ClientSession, type HydratedDocument } from 'mongoose';
 import { DomainError } from '@/domain/errors';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { PairType } from '@/models/Pair';
@@ -18,13 +18,19 @@ import {
   type WeeklyCyclePairReadiness,
   type WeeklyCycleType,
 } from '@/models/WeeklyCycle';
-import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
+import {
+  WeeklyCheckIn,
+  type WeeklyCheckInAnswers,
+  type WeeklyCheckInType,
+} from '@/models/WeeklyCheckIn';
 
 export const WEEKLY_CYCLE_INPUT_DEFINITION_VERSION = 'weekly-checkin-v1';
 export const PAIR_STATE_ALGORITHM_VERSION = 'pair-state-v1';
 export const PAIR_STATE_DISPLAY_VERSION = 'pair-state-display-v1';
 export const PAIR_STATE_DIVERGENCE_THRESHOLD = 0.3;
 export const WEEKLY_CYCLE_TIME_ZONE = 'UTC';
+export const WEEKLY_CYCLE_SUBMISSION_CLAIM_TTL_MS = 2 * 60 * 1000;
+const WEEKLY_CYCLE_CANONICAL_READ_RETRY_LIMIT = 3;
 
 type PairStateMetrics = {
   closeness: number;
@@ -80,6 +86,7 @@ export type CurrentWeeklyCycleDTO = {
 
 type StoredWeeklyCycle = WeeklyCycleType & { _id: Types.ObjectId };
 type StoredPairStateSnapshot = PairStateSnapshotType & { _id: Types.ObjectId };
+type StoredWeeklyCheckIn = WeeklyCheckInType & { _id: Types.ObjectId };
 type PairDocument = HydratedDocument<PairType>;
 
 type DuplicateKeyError = Error & { code: number };
@@ -121,6 +128,13 @@ export const weeklyCycleWindow = (
 
   const year = Number(match[1]);
   const week = Number(match[2]);
+  if (week < 1 || week > 53) {
+    throw new DomainError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'cycleKey must identify a valid ISO week',
+    });
+  }
   const januaryFourth = new Date(Date.UTC(year, 0, 4));
   const januaryFourthDay = januaryFourth.getUTCDay() || 7;
   const firstMonday = new Date(januaryFourth);
@@ -129,6 +143,15 @@ export const weeklyCycleWindow = (
   startsAt.setUTCDate(firstMonday.getUTCDate() + (week - 1) * 7);
   const endsAt = new Date(startsAt);
   endsAt.setUTCDate(startsAt.getUTCDate() + 7);
+  const cycleThursday = new Date(startsAt);
+  cycleThursday.setUTCDate(startsAt.getUTCDate() + 3);
+  if (weeklyCycleKeyForDate(cycleThursday) !== cycleKey) {
+    throw new DomainError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'cycleKey must identify a valid ISO week',
+    });
+  }
 
   return { startsAt, endsAt, expiresAt: new Date(endsAt) };
 };
@@ -147,6 +170,7 @@ export const buildPairStateInputHash = (input: {
         definitionVersion:
           input.definitionVersion ?? WEEKLY_CYCLE_INPUT_DEFINITION_VERSION,
         cycleStatus: input.cycleStatus ?? 'OPEN',
+        timeZone: WEEKLY_CYCLE_TIME_ZONE,
         evidenceRevisionIds: [...input.evidenceRevisionIds].sort(),
         memberCompletion: [...(input.memberCompletion ?? [])]
           .sort((left, right) => left.userId.localeCompare(right.userId))
@@ -240,17 +264,22 @@ export const buildPairStateProjection = (input: {
   );
   const memberCompletion: WeeklyCycleMemberCompletion[] = members.map((userId) => ({
     userId,
-    status: latestByMember.has(userId)
-      ? 'SUBMITTED'
-      : previousStatus.get(userId) === 'SKIPPED'
+    status:
+      previousStatus.get(userId) === 'SKIPPED'
         ? 'SKIPPED'
-        : previousStatus.get(userId) === 'SUBMITTED'
-          ? 'SUBMITTED'
-        : expired
+        : previousStatus.get(userId) === 'EXPIRED'
           ? 'EXPIRED'
-          : 'PENDING',
+          : latestByMember.has(userId)
+            ? 'SUBMITTED'
+            : expired
+              ? 'EXPIRED'
+              : 'PENDING',
   }));
+  const completionStatus = new Map(
+    memberCompletion.map((member) => [member.userId, member.status])
+  );
   const submittedRows = members
+    .filter((memberId) => completionStatus.get(memberId) === 'SUBMITTED')
     .map((memberId) => latestByMember.get(memberId))
     .filter((row): row is PairStateCheckInInput => Boolean(row));
   const evidenceRevisionIds = submittedRows.map((row) => String(row._id));
@@ -261,28 +290,25 @@ export const buildPairStateProjection = (input: {
     submissionCount === 2 && completeMetrics.every((metrics) => metrics !== null);
 
   const allResolved = memberCompletion.every((member) => member.status !== 'PENDING');
-  const dataStatus: WeeklyCyclePairReadiness = expired
-    ? 'EXPIRED'
-    : submissionCount === 0
-      ? allResolved
+  const dataStatus: WeeklyCyclePairReadiness =
+    submissionCount === 2
+      ? hasEnoughMetrics
+        ? 'ENOUGH'
+        : 'INSUFFICIENT'
+      : expired || allResolved
         ? 'INSUFFICIENT'
-        : 'NOT_READY'
-      : submissionCount === 1
-        ? allResolved
-          ? 'INSUFFICIENT'
-          : 'PARTIAL'
-        : hasEnoughMetrics
-          ? 'ENOUGH'
-          : 'INSUFFICIENT';
+        : submissionCount === 0
+          ? 'NOT_READY'
+          : 'PARTIAL';
   const reasonCodes: PairStateReasonCode[] =
-    dataStatus === 'EXPIRED'
-      ? ['CYCLE_EXPIRED']
-      : dataStatus === 'NOT_READY'
-        ? ['NO_MEMBER_SUBMISSIONS']
-        : dataStatus === 'PARTIAL'
-          ? ['PAIR_INPUT_PARTIAL']
-          : dataStatus === 'ENOUGH'
-            ? ['PAIR_SIGNALS_READY']
+    dataStatus === 'NOT_READY'
+      ? ['NO_MEMBER_SUBMISSIONS']
+      : dataStatus === 'PARTIAL'
+        ? ['PAIR_INPUT_PARTIAL']
+        : dataStatus === 'ENOUGH'
+          ? ['PAIR_SIGNALS_READY']
+          : expired && submissionCount < 2
+            ? ['CYCLE_EXPIRED']
             : ['PAIR_INPUT_INSUFFICIENT'];
 
   let signals: PairStateSignal[] = [];
@@ -349,6 +375,7 @@ const getOrCreateWeeklyCycle = async (input: {
           pairId: input.pairId,
           cycleKey: input.cycleKey,
           ...window,
+          timeZone: WEEKLY_CYCLE_TIME_ZONE,
           status: initialStatus,
           memberIds,
           memberCompletion: memberIds.map((userId) => ({
@@ -357,6 +384,7 @@ const getOrCreateWeeklyCycle = async (input: {
           })),
           pairReadiness: initialStatus === 'EXPIRED' ? 'EXPIRED' : 'NOT_READY',
           submissionCount: 0,
+          submissionClaims: [],
           inputDefinitionVersion: WEEKLY_CYCLE_INPUT_DEFINITION_VERSION,
           algorithmVersion: PAIR_STATE_ALGORITHM_VERSION,
         },
@@ -416,6 +444,7 @@ const createSnapshotRevision = async (input: {
           evidenceRevisionIds: input.projection.evidenceRevisionIds,
           hash: input.projection.inputHash,
           cycleStatus: input.projection.cycleStatus,
+          timeZone: WEEKLY_CYCLE_TIME_ZONE,
         },
         algorithm: { version: PAIR_STATE_ALGORITHM_VERSION },
         displayVersion: PAIR_STATE_DISPLAY_VERSION,
@@ -438,17 +467,34 @@ const createSnapshotRevision = async (input: {
   });
 };
 
+const projectionFromSnapshot = (
+  snapshot: StoredPairStateSnapshot
+): PairStateProjection => ({
+  memberCompletion: snapshot.memberCompletion,
+  submissionCount: snapshot.memberCompletion.filter(
+    (member) => member.status === 'SUBMITTED'
+  ).length,
+  cycleStatus: snapshot.input.cycleStatus,
+  dataStatus: snapshot.dataStatus,
+  reasonCodes: snapshot.reasonCodes,
+  signals: snapshot.signals,
+  evidenceRevisionIds: snapshot.input.evidenceRevisionIds,
+  inputHash: snapshot.input.hash,
+});
+
 const materializePairCycle = async (input: {
   pair: PairDocument;
   cycleKey: string;
   now?: Date;
+  allowEndedPair?: boolean;
+  canonicalReadAttempt?: number;
 }): Promise<{
   cycle: StoredWeeklyCycle;
   snapshot: StoredPairStateSnapshot;
   projection: PairStateProjection;
 }> => {
   await connectToDatabase();
-  if (input.pair.status === 'ended') {
+  if (input.pair.status === 'ended' && !input.allowEndedPair) {
     throw new DomainError({
       code: 'STATE_CONFLICT',
       status: 409,
@@ -493,39 +539,86 @@ const materializePairCycle = async (input: {
     })
     .sort({ createdAt: -1 })
     .lean<PairStateCheckInInput[]>();
+  const submittedUserIds = members.filter((memberId) =>
+    checkIns.some((checkIn) => checkIn.userId === memberId)
+  );
+  await Promise.all(
+    submittedUserIds.map((userId) =>
+      WeeklyCycle.updateOne(
+        {
+          _id: cycle._id,
+          memberCompletion: {
+            $elemMatch: { userId, status: 'PENDING' },
+          },
+        },
+        { $set: { 'memberCompletion.$.status': 'SUBMITTED' } }
+      )
+    )
+  );
+  if (now.getTime() >= cycle.endsAt.getTime()) {
+    await WeeklyCycle.updateOne(
+      { _id: cycle._id },
+      { $set: { 'memberCompletion.$[member].status': 'EXPIRED' } },
+      { arrayFilters: [{ 'member.status': 'PENDING' }] }
+    );
+  }
+  const refreshedCycle =
+    (await WeeklyCycle.findById(cycle._id).lean<StoredWeeklyCycle | null>()) ?? cycle;
   const projection = buildPairStateProjection({
     cycleKey: input.cycleKey,
     members,
     checkIns,
-    previousMemberCompletion: cycle.memberCompletion,
-    endsAt: cycle.endsAt,
+    previousMemberCompletion: refreshedCycle.memberCompletion,
+    endsAt: refreshedCycle.endsAt,
     now,
   });
 
   await WeeklyCycle.updateOne(
-    { _id: cycle._id, submissionCount: { $lte: projection.submissionCount } },
+    {
+      _id: refreshedCycle._id,
+      submissionCount: { $lte: projection.submissionCount },
+      memberCompletion: projection.memberCompletion,
+      ...(projection.cycleStatus === 'OPEN' ? { status: 'OPEN' } : {}),
+    },
     {
       $set: {
-        memberCompletion: projection.memberCompletion,
         pairReadiness: projection.dataStatus,
         submissionCount: projection.submissionCount,
         status: projection.cycleStatus,
+        timeZone: WEEKLY_CYCLE_TIME_ZONE,
         inputDefinitionVersion: WEEKLY_CYCLE_INPUT_DEFINITION_VERSION,
         algorithmVersion: PAIR_STATE_ALGORITHM_VERSION,
       },
     }
   );
 
+  await WeeklyCycle.updateOne(
+    { _id: refreshedCycle._id },
+    {
+      $pull: {
+        submissionClaims: {
+          $or: [
+            { userId: { $in: submittedUserIds } },
+            { expiresAt: { $lte: now } },
+          ],
+        },
+      },
+    }
+  );
+
   const snapshot = await createSnapshotRevision({
     pairId,
-    cycle,
+    cycle: refreshedCycle,
     projection,
     generatedAt: now,
   });
   await WeeklyCycle.updateOne(
     {
-      _id: cycle._id,
+      _id: refreshedCycle._id,
       submissionCount: projection.submissionCount,
+      memberCompletion: projection.memberCompletion,
+      status: projection.cycleStatus,
+      pairReadiness: projection.dataStatus,
       $or: [
         { latestSnapshotRevision: { $exists: false } },
         { latestSnapshotRevision: { $lte: snapshot.revision } },
@@ -539,7 +632,40 @@ const materializePairCycle = async (input: {
     }
   );
 
-  return { cycle, snapshot, projection };
+  const canonicalCycle = await WeeklyCycle.findById(refreshedCycle._id).lean<
+    StoredWeeklyCycle | null
+  >();
+  const canonicalSnapshotId = canonicalCycle?.latestSnapshotId;
+  const canonicalSnapshot = canonicalSnapshotId
+    ? String(canonicalSnapshotId) === String(snapshot._id)
+      ? snapshot
+      : await PairStateSnapshot.findOne({
+          _id: canonicalSnapshotId,
+          cycleId: refreshedCycle._id,
+          pairId,
+        }).lean<StoredPairStateSnapshot | null>()
+    : null;
+
+  if (!canonicalCycle || !canonicalSnapshot) {
+    const canonicalReadAttempt = input.canonicalReadAttempt ?? 0;
+    if (canonicalReadAttempt < WEEKLY_CYCLE_CANONICAL_READ_RETRY_LIMIT) {
+      return materializePairCycle({
+        ...input,
+        canonicalReadAttempt: canonicalReadAttempt + 1,
+      });
+    }
+    throw new DomainError({
+      code: 'STATE_CONFLICT',
+      status: 409,
+      message: 'Canonical weekly cycle snapshot is unavailable',
+    });
+  }
+
+  return {
+    cycle: canonicalCycle,
+    snapshot: canonicalSnapshot,
+    projection: projectionFromSnapshot(canonicalSnapshot),
+  };
 };
 
 const toCurrentWeeklyCycleDTO = (input: {
@@ -585,13 +711,327 @@ const toCurrentWeeklyCycleDTO = (input: {
   };
 };
 
+const throwSubmissionClaimConflict = async (input: {
+  cycleId: Types.ObjectId;
+  currentUserId: string;
+  token: string;
+  now: Date;
+  session: ClientSession;
+}): Promise<never> => {
+  const latest = await WeeklyCycle.findById(input.cycleId)
+    .select({
+      status: 1,
+      endsAt: 1,
+      memberCompletion: 1,
+      submissionClaims: 1,
+    })
+    .session(input.session)
+    .lean<
+      Pick<
+        StoredWeeklyCycle,
+        'status' | 'endsAt' | 'memberCompletion' | 'submissionClaims'
+      > | null
+    >();
+  const status = latest?.memberCompletion.find(
+    (member) => member.userId === input.currentUserId
+  )?.status;
+
+  if (
+    !latest ||
+    latest.status === 'EXPIRED' ||
+    latest.endsAt.getTime() <= input.now.getTime() ||
+    status === 'EXPIRED'
+  ) {
+    throw new DomainError({
+      code: 'WEEKLY_CYCLE_EXPIRED',
+      status: 409,
+      message: 'This weekly cycle has expired',
+    });
+  }
+  if (status === 'SKIPPED') {
+    throw new DomainError({
+      code: 'WEEKLY_CYCLE_ALREADY_SKIPPED',
+      status: 409,
+      message: 'This weekly cycle was skipped',
+    });
+  }
+  if (status === 'SUBMITTED') {
+    throw new DomainError({
+      code: 'WEEKLY_CYCLE_ALREADY_SUBMITTED',
+      status: 409,
+      message: 'This weekly cycle already has a submitted check-in',
+    });
+  }
+
+  const activeClaim = (latest.submissionClaims ?? []).some(
+    (claim) =>
+      claim.userId === input.currentUserId &&
+      claim.token !== input.token &&
+      claim.expiresAt.getTime() > input.now.getTime()
+  );
+  throw new DomainError({
+    code: activeClaim
+      ? 'WEEKLY_CYCLE_SUBMISSION_IN_PROGRESS'
+      : 'STATE_CONFLICT',
+    status: 409,
+    message: activeClaim
+      ? 'A weekly check-in submission is already in progress'
+      : 'Weekly cycle submission lease is no longer valid',
+  });
+};
+
+type ExpiredCycleCandidate = {
+  cycleKey: string;
+};
+
+const findUnfinalizedExpiredCycles = async (input: {
+  pairId: Types.ObjectId;
+  now: Date;
+}): Promise<ExpiredCycleCandidate[]> =>
+  WeeklyCycle.aggregate<ExpiredCycleCandidate>([
+    {
+      $match: {
+        pairId: input.pairId,
+        endsAt: { $lte: input.now },
+      },
+    },
+    {
+      $lookup: {
+        from: PairStateSnapshot.collection.name,
+        let: {
+          snapshotId: '$latestSnapshotId',
+          cycleId: '$_id',
+          pairId: '$pairId',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$_id', '$$snapshotId'] },
+                  { $eq: ['$cycleId', '$$cycleId'] },
+                  { $eq: ['$pairId', '$$pairId'] },
+                ],
+              },
+            },
+          },
+          { $project: { _id: 0, cycleStatus: '$input.cycleStatus' } },
+        ],
+        as: 'canonicalSnapshots',
+      },
+    },
+    {
+      $match: {
+        'canonicalSnapshots.0.cycleStatus': { $ne: 'EXPIRED' },
+      },
+    },
+    { $sort: { startsAt: 1 } },
+    { $project: { _id: 0, cycleKey: 1 } },
+  ]).exec();
+
+const finalizeExpiredPairCycles = async (input: {
+  pair: PairDocument;
+  now?: Date;
+}): Promise<void> => {
+  await connectToDatabase();
+  const now = input.now ?? new Date();
+  const pairId = new Types.ObjectId(String(input.pair._id));
+  const candidates = await findUnfinalizedExpiredCycles({ pairId, now });
+  for (const candidate of candidates) {
+    await materializePairCycle({
+      pair: input.pair,
+      cycleKey: candidate.cycleKey,
+      now,
+      allowEndedPair: true,
+    });
+  }
+};
+
 export const weeklyCycleService = {
   async claimSubmission(input: {
     pair: PairDocument;
     currentUserId: string;
     cycleKey: string;
     now?: Date;
+  }): Promise<{ token: string }> {
+    if (!input.pair.members.includes(input.currentUserId)) {
+      throw new DomainError({ code: 'ACCESS_DENIED', status: 403, message: 'forbidden' });
+    }
+    if (input.pair.status === 'ended') {
+      throw new DomainError({
+        code: 'STATE_CONFLICT',
+        status: 409,
+        message: 'Weekly cycle is unavailable for an ended pair',
+      });
+    }
+    const now = input.now ?? new Date();
+    const window = weeklyCycleWindow(input.cycleKey);
+    if (now.getTime() >= window.endsAt.getTime()) {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_EXPIRED',
+        status: 409,
+        message: 'This weekly cycle has expired',
+      });
+    }
+    const current = await materializePairCycle({
+      pair: input.pair,
+      cycleKey: input.cycleKey,
+      now,
+    });
+    const currentStatus = current.snapshot.memberCompletion.find(
+      (member) => member.userId === input.currentUserId
+    )?.status;
+    if (currentStatus === 'SKIPPED') {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_ALREADY_SKIPPED',
+        status: 409,
+        message: 'This weekly cycle was skipped',
+      });
+    }
+    if (currentStatus === 'EXPIRED') {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_EXPIRED',
+        status: 409,
+        message: 'This weekly cycle has expired',
+      });
+    }
+    if (currentStatus === 'SUBMITTED') {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_ALREADY_SUBMITTED',
+        status: 409,
+        message: 'This weekly cycle already has a submitted check-in',
+      });
+    }
+    if (currentStatus !== 'PENDING') {
+      throw new DomainError({
+        code: 'STATE_CONFLICT',
+        status: 409,
+        message: 'Weekly cycle is unavailable',
+      });
+    }
+
+    await WeeklyCycle.updateOne(
+      { _id: current.cycle._id },
+      {
+        $pull: {
+          submissionClaims: {
+            userId: input.currentUserId,
+            expiresAt: { $lte: now },
+          },
+        },
+      }
+    );
+    const token = randomUUID();
+    const expiresAt = new Date(
+      Math.min(
+        now.getTime() + WEEKLY_CYCLE_SUBMISSION_CLAIM_TTL_MS,
+        current.cycle.endsAt.getTime()
+      )
+    );
+
+    const claimed = await WeeklyCycle.updateOne(
+      {
+        _id: current.cycle._id,
+        memberCompletion: {
+          $elemMatch: { userId: input.currentUserId, status: 'PENDING' },
+        },
+        submissionClaims: {
+          $not: {
+            $elemMatch: {
+              userId: input.currentUserId,
+              expiresAt: { $gt: now },
+            },
+          },
+        },
+      },
+      {
+        $push: {
+          submissionClaims: {
+            userId: input.currentUserId,
+            token,
+            expiresAt,
+          },
+        },
+      }
+    );
+    if (claimed.modifiedCount > 0) return { token };
+
+    const latest = await WeeklyCycle.findById(current.cycle._id)
+      .select({ memberCompletion: 1, submissionClaims: 1 })
+      .lean<
+        Pick<StoredWeeklyCycle, 'memberCompletion' | 'submissionClaims'> | null
+      >();
+    const latestStatus = latest?.memberCompletion.find(
+      (member) => member.userId === input.currentUserId
+    )?.status;
+    if (latestStatus === 'SKIPPED') {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_ALREADY_SKIPPED',
+        status: 409,
+        message: 'This weekly cycle was skipped',
+      });
+    }
+    if (latestStatus === 'EXPIRED') {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_EXPIRED',
+        status: 409,
+        message: 'This weekly cycle has expired',
+      });
+    }
+    if (latestStatus === 'SUBMITTED') {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_ALREADY_SUBMITTED',
+        status: 409,
+        message: 'This weekly cycle already has a submitted check-in',
+      });
+    }
+    const activeClaim = (latest?.submissionClaims ?? []).some(
+      (claim) =>
+        claim.userId === input.currentUserId && claim.expiresAt.getTime() > now.getTime()
+    );
+    throw new DomainError({
+      code: activeClaim
+        ? 'WEEKLY_CYCLE_SUBMISSION_IN_PROGRESS'
+        : 'STATE_CONFLICT',
+      status: 409,
+      message: activeClaim
+        ? 'A weekly check-in submission is already in progress'
+        : 'Weekly cycle changed concurrently',
+    });
+  },
+
+  async releaseSubmissionClaim(input: {
+    pair: PairDocument;
+    currentUserId: string;
+    cycleKey: string;
+    token: string;
   }): Promise<void> {
+    await connectToDatabase();
+    await WeeklyCycle.updateOne(
+      {
+        pairId: input.pair._id,
+        cycleKey: input.cycleKey,
+      },
+      {
+        $pull: {
+          submissionClaims: {
+            userId: input.currentUserId,
+            token: input.token,
+          },
+        },
+      }
+    );
+  },
+
+  async commitClaimedSubmission(input: {
+    pair: PairDocument;
+    currentUserId: string;
+    cycleKey: string;
+    token: string;
+    answers: WeeklyCheckInAnswers;
+    computed: WeeklyCheckInType['computed'];
+    now?: Date;
+  }): Promise<StoredWeeklyCheckIn> {
     await connectToDatabase();
     if (!input.pair.members.includes(input.currentUserId)) {
       throw new DomainError({ code: 'ACCESS_DENIED', status: 403, message: 'forbidden' });
@@ -603,67 +1043,115 @@ export const weeklyCycleService = {
         message: 'Weekly cycle is unavailable for an ended pair',
       });
     }
-    const pairId = new Types.ObjectId(String(input.pair._id));
-    const members: [string, string] = [input.pair.members[0], input.pair.members[1]];
-    const cycle = await getOrCreateWeeklyCycle({
-      pairId,
-      members,
+
+    const cycle = await WeeklyCycle.findOne({
+      pairId: input.pair._id,
       cycleKey: input.cycleKey,
-      now: input.now ?? new Date(),
-    });
-    const currentStatus = cycle.memberCompletion.find(
-      (member) => member.userId === input.currentUserId
-    )?.status;
-    if (currentStatus === 'SKIPPED') {
+    })
+      .select({ _id: 1 })
+      .lean<Pick<StoredWeeklyCycle, '_id'> | null>();
+    if (!cycle) {
       throw new DomainError({
-        code: 'WEEKLY_CYCLE_ALREADY_SKIPPED',
+        code: 'STATE_CONFLICT',
         status: 409,
-        message: 'This weekly cycle was skipped',
+        message: 'Weekly cycle submission lease is unavailable',
       });
     }
-    if (currentStatus !== 'PENDING') return;
 
-    const claimed = await WeeklyCycle.updateOne(
-      {
-        _id: cycle._id,
-        memberCompletion: {
-          $elemMatch: { userId: input.currentUserId, status: 'PENDING' },
-        },
-      },
-      { $set: { 'memberCompletion.$.status': 'SUBMITTED' } }
-    );
-    if (claimed.modifiedCount > 0) return;
+    const session = await mongoose.startSession();
+    try {
+      const committed = await session.withTransaction(
+        async (): Promise<StoredWeeklyCheckIn> => {
+          const commitNow = input.now ?? new Date();
+          const claimedCycle = await WeeklyCycle.findOneAndUpdate(
+            {
+              _id: cycle._id,
+              status: 'OPEN',
+              endsAt: { $gt: commitNow },
+              memberCompletion: {
+                $elemMatch: { userId: input.currentUserId, status: 'PENDING' },
+              },
+              submissionClaims: {
+                $elemMatch: {
+                  userId: input.currentUserId,
+                  token: input.token,
+                  expiresAt: { $gt: commitNow },
+                },
+              },
+            },
+            {
+              $set: { 'memberCompletion.$[member].status': 'SUBMITTED' },
+              $pull: {
+                submissionClaims: {
+                  userId: input.currentUserId,
+                  token: input.token,
+                },
+              },
+            },
+            {
+              new: true,
+              session,
+              arrayFilters: [
+                {
+                  'member.userId': input.currentUserId,
+                  'member.status': 'PENDING',
+                },
+              ],
+            }
+          )
+            .select({ _id: 1 })
+            .lean<Pick<StoredWeeklyCycle, '_id'> | null>();
+          if (!claimedCycle) {
+            return throwSubmissionClaimConflict({
+              cycleId: cycle._id,
+              currentUserId: input.currentUserId,
+              token: input.token,
+              now: commitNow,
+              session,
+            });
+          }
 
-    const latest = await WeeklyCycle.findById(cycle._id)
-      .select({ memberCompletion: 1 })
-      .lean<Pick<StoredWeeklyCycle, 'memberCompletion'> | null>();
-    if (
-      latest?.memberCompletion.find((member) => member.userId === input.currentUserId)
-        ?.status === 'SKIPPED'
-    ) {
-      throw new DomainError({
-        code: 'WEEKLY_CYCLE_ALREADY_SKIPPED',
-        status: 409,
-        message: 'This weekly cycle was skipped',
-      });
+          const created = await WeeklyCheckIn.create(
+            [
+              {
+                userId: input.currentUserId,
+                pairId: String(input.pair._id),
+                weekKey: input.cycleKey,
+                answers: input.answers,
+                computed: input.computed,
+              },
+            ],
+            { session }
+          );
+          const checkIn = created[0];
+          if (!checkIn) {
+            throw new DomainError({
+              code: 'INTERNAL',
+              status: 500,
+              message: 'Weekly check-in was not created',
+            });
+          }
+          return checkIn.toObject<StoredWeeklyCheckIn>();
+        }
+      );
+      if (!committed) {
+        throw new DomainError({
+          code: 'STATE_CONFLICT',
+          status: 409,
+          message: 'Weekly cycle submission was not committed',
+        });
+      }
+      return committed;
+    } finally {
+      await session.endSession();
     }
   },
 
-  async releaseSubmissionClaim(input: {
+  async finalizeExpiredCycles(input: {
     pair: PairDocument;
-    currentUserId: string;
-    cycleKey: string;
+    now?: Date;
   }): Promise<void> {
-    await WeeklyCycle.updateOne(
-      {
-        pairId: input.pair._id,
-        cycleKey: input.cycleKey,
-        memberCompletion: {
-          $elemMatch: { userId: input.currentUserId, status: 'SUBMITTED' },
-        },
-      },
-      { $set: { 'memberCompletion.$.status': 'PENDING' } }
-    );
+    await finalizeExpiredPairCycles(input);
   },
 
   async syncAfterCheckIn(input: {
@@ -687,6 +1175,7 @@ export const weeklyCycleService = {
       });
     }
     const now = input.now ?? new Date();
+    await finalizeExpiredPairCycles({ pair: input.pair, now });
     const materialized = await materializePairCycle({
       pair: input.pair,
       cycleKey: weeklyCycleKeyForDate(now),
@@ -729,27 +1218,67 @@ export const weeklyCycleService = {
       });
     }
     if (status !== 'SKIPPED') {
+      await WeeklyCycle.updateOne(
+        { _id: current.cycle._id },
+        {
+          $pull: {
+            submissionClaims: {
+              userId: input.currentUserId,
+              expiresAt: { $lte: now },
+            },
+          },
+        }
+      );
       const skipped = await WeeklyCycle.updateOne(
         {
           _id: current.cycle._id,
           memberCompletion: {
             $elemMatch: { userId: input.currentUserId, status: 'PENDING' },
           },
+          submissionClaims: {
+            $not: {
+              $elemMatch: {
+                userId: input.currentUserId,
+                expiresAt: { $gt: now },
+              },
+            },
+          },
         },
-        { $set: { 'memberCompletion.$.status': 'SKIPPED' } }
+        {
+          $set: { 'memberCompletion.$.status': 'SKIPPED' },
+          $pull: { submissionClaims: { userId: input.currentUserId } },
+        }
       );
       if (skipped.modifiedCount === 0) {
         const latest = await WeeklyCycle.findById(current.cycle._id)
-          .select({ memberCompletion: 1 })
-          .lean<Pick<StoredWeeklyCycle, 'memberCompletion'> | null>();
+          .select({ memberCompletion: 1, submissionClaims: 1 })
+          .lean<
+            Pick<StoredWeeklyCycle, 'memberCompletion' | 'submissionClaims'> | null
+          >();
         const latestStatus = latest?.memberCompletion.find(
           (member) => member.userId === input.currentUserId
         )?.status;
+        if (latestStatus === 'SUBMITTED') {
+          throw new DomainError({
+            code: 'WEEKLY_CYCLE_ALREADY_SUBMITTED',
+            status: 409,
+            message: 'This weekly cycle already has a submitted check-in',
+          });
+        }
+        const activeClaim = (latest?.submissionClaims ?? []).some(
+          (claim) =>
+            claim.userId === input.currentUserId &&
+            claim.expiresAt.getTime() > now.getTime()
+        );
         if (latestStatus !== 'SKIPPED') {
           throw new DomainError({
-            code: 'STATE_CONFLICT',
+            code: activeClaim
+              ? 'WEEKLY_CYCLE_SUBMISSION_IN_PROGRESS'
+              : 'STATE_CONFLICT',
             status: 409,
-            message: 'Weekly cycle changed concurrently',
+            message: activeClaim
+              ? 'A weekly check-in submission is already in progress'
+              : 'Weekly cycle changed concurrently',
           });
         }
       }

@@ -107,7 +107,7 @@ export default function DiscordActivityPage() {
         <h2 className="mt-4 text-lg font-semibold">{discordUser.username}</h2>
 
         <button onClick={goToMenu} className="app-btn-primary mt-6 px-4 py-2 text-white">
-          Go to main menu
+          Открыть «Вместе»
         </button>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
-import { activityOfferService } from '@/domain/services/activityOffer.service';
+import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
 import { asError, toDomainError } from '@/domain/errors';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       key: 'activities.suggestions.per_day',
     });
 
-    const data = await activityOfferService.createNextActivity({
+    const data = await recommendationWorkflowService.nextCompatibility({
       currentUserId: auth.data.userId,
       auditRequest,
     });

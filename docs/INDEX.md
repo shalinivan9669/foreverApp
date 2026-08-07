@@ -7,6 +7,8 @@
 - `docs/PRODUCT_SPEC.md` - canonical product direction, principles, phase boundaries, and rejected ideas.
 - `docs/MVP_SPEC.md` - canonical MVP scope, gates, and core flow.
 - `docs/MVP_FLOWS.md` - detailed MVP acceptance criteria and delivery checklist.
+- `docs/P0_CAPABILITY_MATRIX.md` - P0 implementation evidence and remaining pilot gates.
+- `docs/P0_TWO_USER_E2E.md` - mandatory two-account pilot verification checklist.
 - `docs/TARGET_DOMAIN_MODEL.md` - target typed entities and computation model.
 - `docs/TARGET_DOMAIN_OPERATIONS.md` - privacy, safety, versioning, storage, scaling, and AI boundaries.
 - `docs/PROJECT_MAP.md` - codebase map.
@@ -40,6 +42,8 @@
 - `docs/PRODUCT_SPEC.md` - target product source of truth.
 - `docs/MVP_SPEC.md` - MVP and commercial launch gates source of truth.
 - `docs/MVP_FLOWS.md` - detailed MVP flows, acceptance criteria, and delivery gates.
+- `docs/P0_CAPABILITY_MATRIX.md` - current P0 capability/evidence matrix; implementation-ready is not the same as pilot-complete.
+- `docs/P0_TWO_USER_E2E.md` - manual two-new-account release gate for invite, weekly, recommendation, feedback, history, and safety flows.
 - `docs/TARGET_DOMAIN_MODEL.md` - target domain/computation source of truth.
 - `docs/TARGET_DOMAIN_OPERATIONS.md` - target privacy/safety/versioning/scaling boundaries.
 - `docs/01-product-loop.md` - dated historical product-flow snapshot; re-audit before using evidence.

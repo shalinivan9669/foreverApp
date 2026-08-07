@@ -33,10 +33,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!params.ok) return params.response;
 
   try {
-    return jsonOk(await recommendationDecisionService.getOverview({
-      pairId: params.data.id,
-      currentUserId: auth.data.userId,
-    }));
+    const response = jsonOk(
+      await recommendationDecisionService.getOverview({
+        pairId: params.data.id,
+        currentUserId: auth.data.userId,
+      })
+    );
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error) {
     const domainError = toDomainError(asError(error));
     return jsonError(

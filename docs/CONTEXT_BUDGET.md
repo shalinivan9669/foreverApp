@@ -16,7 +16,7 @@ If more files are needed, state why before expanding scope:
 
 - what decision cannot be made with current context;
 - which files/docs will answer it;
-- whether the task mode or diff budget changes.
+- whether the task mode or risk classification changes.
 
 Use `rg`/targeted file reads over broad tree dumps.
 

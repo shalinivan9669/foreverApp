@@ -6,7 +6,7 @@ import {
   decodePairHistoryCursor,
   encodePairHistoryCursor,
   PAIR_HISTORY_MAX_LIMIT,
-  preferCanonicalHistoryCycles,
+  projectCanonicalHistoryCycle,
   type PairHistoryCycleItemDTO,
 } from '../src/domain/services/pairHistory.service';
 
@@ -45,26 +45,41 @@ assert.throws(
 );
 assert.equal(PAIR_HISTORY_MAX_LIMIT, 20);
 
-const legacyDuplicate: PairHistoryCycleItemDTO = {
-  ...cycleItem,
-  status: 'partial',
-  summary: { dataStatus: 'PARTIAL', signals: [] },
-};
-const legacyOnly: PairHistoryCycleItemDTO = {
-  ...legacyDuplicate,
-  id: '2026-W31',
-  cycleKey: '2026-W31',
-  date: '2026-07-31T10:00:00.000Z',
-};
-const preferredCycles = preferCanonicalHistoryCycles(
-  [cycleItem],
-  [legacyDuplicate, legacyOnly]
-);
+const canonicalProjection = projectCanonicalHistoryCycle({
+  cycleKey: cycleItem.cycleKey,
+  occurredAt: new Date(cycleItem.date),
+  snapshot: {
+    dataStatus: 'ENOUGH',
+    signals: [
+      {
+        key: 'connection',
+        status: 'STEADY',
+        reasonCode: 'PAIR_LEVEL_STEADY',
+        nextStepHint: 'KEEP_CURRENT_RHYTHM',
+      },
+    ],
+  },
+});
+assert.deepEqual(canonicalProjection, cycleItem);
 assert.deepEqual(
-  preferredCycles.map((item) => item.cycleKey),
-  ['2026-W32', '2026-W31']
+  projectCanonicalHistoryCycle({
+    cycleKey: '2026-W31',
+    occurredAt: new Date('2026-07-31T10:00:00.000Z'),
+    snapshot: {
+      dataStatus: 'PARTIAL',
+      signals: [
+        {
+          key: 'resource',
+          status: 'HIGH',
+          reasonCode: 'PAIR_LEVEL_HIGH',
+          nextStepHint: 'KEEP_CURRENT_RHYTHM',
+        },
+      ],
+    },
+  }).summary.signals,
+  [],
+  'non-ready snapshots must not publish signals'
 );
-assert.deepEqual(preferredCycles[0], cycleItem);
 
 const route = read('src/app/api/pairs/[id]/history/route.ts');
 assert.match(route, /requireSession\(req\)/);
@@ -75,22 +90,30 @@ assert.match(route, /max\(PAIR_HISTORY_MAX_LIMIT\)/);
 assert.doesNotMatch(route, /@\/models\//);
 
 const service = read('src/domain/services/pairHistory.service.ts');
-assert.match(service, /toPairWeeklyCheckInPairDTO/);
 assert.match(service, /HISTORY_ACTIVITY_STATUSES/);
 assert.match(service, /visibility: input\.role === 'A' \? 'privateA' : 'privateB'/);
+assert.match(service, /'stateMeta\.assignedMemberIds': currentMemberId/);
+assert.match(service, /input\.role === 'A' \? 'soloA' : 'soloB'/);
 assert.match(service, /feedbackSubmitted/);
 assert.match(service, /sourceLimit = limit \+ 1/);
 assert.match(service, /latestSnapshotId/);
 assert.match(service, /PairStateSnapshot\.collection\.name/);
-assert.match(service, /WeeklyCycle\.collection\.name/);
-assert.match(service, /canonicalCycles: \{ \$eq: \[\] \}/);
-assert.match(service, /preferCanonicalHistoryCycles/);
+assert.match(service, /WeeklyCycle\.aggregate/);
+assert.match(service, /weeklyCycleService\.finalizeExpiredCycles/);
+assert.match(service, /endsAt: \{ \$lte: now \}/);
 assert.doesNotMatch(service, /@\/models\/RecommendationDecision/);
+assert.doesNotMatch(service, /WeeklyCheckIn|weeklyCheckIn\.service/);
+assert.doesNotMatch(
+  service,
+  /summarizePairWeeklyCheckIns|toPairWeeklyCheckInPairDTO|buildPairStateProjection/
+);
 
-const canonicalMapperStart = service.indexOf('const toCanonicalCycleItem');
-const legacyMapperStart = service.indexOf('const toLegacyCycleItem');
-assert.ok(canonicalMapperStart >= 0 && legacyMapperStart > canonicalMapperStart);
-const canonicalMapper = service.slice(canonicalMapperStart, legacyMapperStart);
+const canonicalMapperStart = service.indexOf(
+  'export const projectCanonicalHistoryCycle'
+);
+const activityMapperStart = service.indexOf('const toActivityItem');
+assert.ok(canonicalMapperStart >= 0 && activityMapperStart > canonicalMapperStart);
+const canonicalMapper = service.slice(canonicalMapperStart, activityMapperStart);
 assert.match(canonicalMapper, /cycle\.snapshot\.dataStatus/);
 assert.match(canonicalMapper, /cycle\.snapshot\.signals/);
 assert.doesNotMatch(

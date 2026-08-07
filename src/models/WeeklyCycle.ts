@@ -18,17 +18,25 @@ export type WeeklyCycleMemberCompletion = {
   status: WeeklyCycleMemberStatus;
 };
 
+export type WeeklyCycleSubmissionClaim = {
+  userId: string;
+  token: string;
+  expiresAt: Date;
+};
+
 export interface WeeklyCycleType {
   pairId: Types.ObjectId;
   cycleKey: string;
   startsAt: Date;
   endsAt: Date;
   expiresAt: Date;
+  timeZone: 'UTC';
   status: WeeklyCycleStatus;
   memberIds: [string, string];
   memberCompletion: WeeklyCycleMemberCompletion[];
   pairReadiness: WeeklyCyclePairReadiness;
   submissionCount: number;
+  submissionClaims: WeeklyCycleSubmissionClaim[];
   inputDefinitionVersion: string;
   algorithmVersion: string;
   latestSnapshotId?: Types.ObjectId;
@@ -49,6 +57,15 @@ const memberCompletionSchema = new Schema<WeeklyCycleMemberCompletion>(
   { _id: false }
 );
 
+const submissionClaimSchema = new Schema<WeeklyCycleSubmissionClaim>(
+  {
+    userId: { type: String, required: true },
+    token: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+  },
+  { _id: false }
+);
+
 const weeklyCycleSchema = new Schema<WeeklyCycleType>(
   {
     pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },
@@ -56,6 +73,13 @@ const weeklyCycleSchema = new Schema<WeeklyCycleType>(
     startsAt: { type: Date, required: true },
     endsAt: { type: Date, required: true },
     expiresAt: { type: Date, required: true },
+    timeZone: {
+      type: String,
+      enum: ['UTC'],
+      required: true,
+      default: 'UTC',
+      immutable: true,
+    },
     status: { type: String, enum: ['OPEN', 'EXPIRED'], required: true },
     memberIds: {
       type: [String],
@@ -81,6 +105,12 @@ const weeklyCycleSchema = new Schema<WeeklyCycleType>(
       required: true,
     },
     submissionCount: { type: Number, required: true, min: 0, max: 2 },
+    submissionClaims: {
+      type: [submissionClaimSchema],
+      required: true,
+      default: [],
+      select: false,
+    },
     inputDefinitionVersion: { type: String, required: true },
     algorithmVersion: { type: String, required: true },
     latestSnapshotId: {

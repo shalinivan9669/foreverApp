@@ -48,6 +48,7 @@ export interface PairStateSnapshotType {
     evidenceRevisionIds: string[];
     hash: string;
     cycleStatus: 'OPEN' | 'EXPIRED';
+    timeZone: 'UTC';
   };
   algorithm: {
     version: string;
@@ -121,6 +122,12 @@ const inputSchema = new Schema<PairStateSnapshotType['input']>(
     cycleStatus: {
       type: String,
       enum: ['OPEN', 'EXPIRED'],
+      required: true,
+      immutable: true,
+    },
+    timeZone: {
+      type: String,
+      enum: ['UTC'],
       required: true,
       immutable: true,
     },

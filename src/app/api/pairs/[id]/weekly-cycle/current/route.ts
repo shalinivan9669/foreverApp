@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { weeklyCycleService } from '@/domain/services/weeklyCycle.service';
+import {
+  weeklyCycleKeyForDate,
+  weeklyCycleService,
+} from '@/domain/services/weeklyCycle.service';
 import { asError, toDomainError } from '@/domain/errors';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { requireSession } from '@/lib/auth/guards';
@@ -64,16 +67,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!body.ok) return body.response;
   const pairGuard = await requirePairMember(params.data.id, auth.data.userId);
   if (!pairGuard.ok) return pairGuard.response;
+  const now = new Date();
+  const cycleKey = weeklyCycleKeyForDate(now);
 
   const response = await withIdempotency({
     req,
     route: `/api/pairs/${params.data.id}/weekly-cycle/current`,
     userId: auth.data.userId,
-    requestBody: {},
+    requestBody: { cycleKey },
     execute: () =>
       weeklyCycleService.skipCurrent({
         pair: pairGuard.data.pair,
         currentUserId: auth.data.userId,
+        now,
       }),
   });
   response.headers.set('Cache-Control', 'private, no-store');
