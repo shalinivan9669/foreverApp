@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         token: body.data.token,
       })
     );
-    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));

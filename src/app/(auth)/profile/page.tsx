@@ -29,25 +29,18 @@ export default function ProfileOverviewPage() {
   const { data: currentUser } = useCurrentUser();
   const [summary, setSummary] = useState<ProfileSummaryDTO>(createEmptyProfileSummary());
   const [today, setToday] = useState<PersonalTodayDTO>(createEmptyPersonalToday());
-  const [loading, setLoading] = useState(true);
   const [hasSummary, setHasSummary] = useState(false);
   const [hasToday, setHasToday] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+
+  const currentUserId = currentUser?.id ?? null;
+  const loading = currentUserId !== null && loadedUserId !== currentUserId;
 
   useEffect(() => {
     let active = true;
 
-    if (!currentUser) {
-      setLoading(false);
-      setHasSummary(false);
-      setHasToday(false);
-      setSummary(createEmptyProfileSummary());
-      setToday(createEmptyPersonalToday());
-      return () => {
-        active = false;
-      };
-    }
+    if (!currentUserId) return;
 
-    setLoading(true);
     const timezoneOffsetMin = new Date().getTimezoneOffset();
     Promise.allSettled([
       usersApi.getProfileSummary(),
@@ -71,13 +64,13 @@ export default function ProfileOverviewPage() {
         }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setLoadedUserId(currentUserId);
       });
 
     return () => {
       active = false;
     };
-  }, [currentUser]);
+  }, [currentUserId]);
 
   const reloadToday = async () => {
     if (!currentUser) return;

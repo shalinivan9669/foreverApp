@@ -3,6 +3,7 @@ import { jsonError } from '@/lib/api/response';
 export type AuthErrorCode =
   | 'AUTH_REQUIRED'
   | 'AUTH_INVALID_SESSION'
+  | 'REQUEST_ORIGIN_DENIED'
   | 'ACCESS_DENIED';
 
 export type ResourceErrorCode = 'NOT_FOUND';

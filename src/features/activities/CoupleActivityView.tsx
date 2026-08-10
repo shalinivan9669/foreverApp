@@ -23,6 +23,7 @@ type CoupleActivityViewProps = {
   onRetry: () => void;
   onSetTab: (tab: Tab) => void;
   onCancel: (id: string) => void;
+  onStart: (id: string) => void;
   onOpenCheckIn: (activity: ActivityCardVM) => void;
   checkInFor: ActivityCardVM | null;
   onCloseCheckIn: () => void;
@@ -53,6 +54,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     onRetry,
     onSetTab,
     onCancel,
+    onStart,
     onOpenCheckIn,
     checkInFor,
     onCloseCheckIn,
@@ -124,6 +126,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
                 locale={locale}
                 variant="active"
                 onAccept={() => undefined}
+                onStart={() => onStart(active._id)}
                 onCancel={() => onCancel(active._id)}
                 onComplete={() => onOpenCheckIn(active)}
                 onSuggestNext={() => undefined}
@@ -168,6 +171,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               locale={locale}
               variant="history"
               onAccept={() => undefined}
+              onStart={() => undefined}
               onCancel={() => undefined}
               onComplete={() => onOpenCheckIn(item)}
               onSuggestNext={() => undefined}

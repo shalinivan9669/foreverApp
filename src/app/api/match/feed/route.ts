@@ -5,7 +5,6 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { Like } from '@/models/Like';
 import { Pair } from '@/models/Pair';
-import { distance, score } from '@/utils/calcMatch';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
@@ -13,14 +12,7 @@ import { toMatchFeedCandidateDTO, toUserDTO } from '@/lib/dto';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
-const pickVec = (u: Pick<UserType, 'vectors'>): number[] => [
-  u.vectors.communication.level,
-  u.vectors.domestic.level,
-  u.vectors.personalViews.level,
-  u.vectors.finance.level,
-  u.vectors.sexuality.level,
-  u.vectors.psyche.level,
-];
+type UserLite = Pick<UserType, 'id' | 'username' | 'avatar'>;
 
 export async function GET(req: NextRequest) {
   const query = parseQuery(
@@ -40,8 +32,8 @@ export async function GET(req: NextRequest) {
 
   await connectToDatabase();
 
-  const me = await User.findOne({ id: userId }).lean<UserType | null>();
-  if (!me) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
+  const meExists = await User.exists({ id: userId });
+  if (!meExists) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
 
   const likedIds: string[] = await Like.find({ fromId: userId }).distinct('toId');
 
@@ -64,18 +56,16 @@ export async function GET(req: NextRequest) {
       id: { $nin: Array.from(excluded) },
       'profile.matchCard.isActive': true,
     },
-    { id: 1, username: 1, avatar: 1, vectors: 1 }
-  ).lean<UserType[]>();
-
-  const myVec = pickVec(me);
+    { id: 1, username: 1, avatar: 1 }
+  )
+    .sort({ _id: 1 })
+    .limit(50)
+    .lean<UserLite[]>();
 
   const list = candidates.map((candidate) => {
-    const candidateScore = score(distance(myVec, pickVec(candidate)));
     const publicUser = toUserDTO(candidate, { scope: 'public' });
-    return toMatchFeedCandidateDTO(publicUser, candidateScore);
+    return toMatchFeedCandidateDTO(publicUser);
   });
 
-  list.sort((a, b) => b.score - a.score);
-
-  return jsonOk(list.slice(0, 50));
+  return jsonOk(list);
 }

@@ -236,7 +236,7 @@ Files: src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/matching/page.tsx
 
 Date: 2026-02-08
 Summary:
-- Fixed mojibake (broken Cyrillic encoding like `РџС...`) in profile and main-menu UI labels so Russian text renders correctly.
+- Fixed mojibake (broken Cyrillic encoding) in profile and main-menu UI labels so Russian text renders correctly.
 - Re-encoded affected client pages/components and questionnaire card API labels to valid UTF-8 text.
 Files: src/app/(auth)/profile/page.tsx, src/app/profile/(tabs)/matching/page.tsx, src/features/pair/PairProfilePageClient.tsx, src/components/profile/UserHeader.tsx, src/components/main-menu/SearchPairTileView.tsx, src/components/activities/UserActivityCard.tsx, src/app/api/questionnaires/cards/route.ts, docs/CHANGELOG.md
 
@@ -550,3 +550,41 @@ Summary:
 - Added transaction/CAS/idempotency protections for invite acceptance, weekly submit/skip, recommendation decisions, and activity creation, plus self-healing recommendation-to-activity linkage and canonical adapters for every legacy suggestion endpoint.
 - Added the P0 capability/evidence matrix and mandatory two-new-Discord-account pilot checklist; implementation is ready for pilot verification but is not marked release-complete before those environment gates pass.
 Files: package.json, scripts/*selfcheck.ts, src/app/api/pair-invites/**, src/app/api/pairs/**, src/app/api/users/me/**, src/app/invite/page.tsx, src/app/join/page.tsx, src/app/main-menu/page.tsx, src/app/mvp-onboarding/page.tsx, src/client/**, src/components/**, src/domain/services/**, src/domain/state/**, src/features/**, src/lib/audit/**, src/lib/dto/**, src/models/**, docs/INDEX.md, docs/DOCS_STATUS.md, docs/API_CONTRACTS.md, docs/ARCHITECTURE.md, docs/SECURITY.md, docs/03-state-machines.md, docs/P0_CAPABILITY_MATRIX.md, docs/P0_TWO_USER_E2E.md, docs/CHANGELOG.md
+Date: 2026-08-07
+Summary:
+- Added the active MVP release-status matrix after three independent functional, security/privacy, and reliability/scale audits.
+- Recorded the clean baseline, confirmed P0/P1 gaps, privacy impact, evidence, and external decision/environment blockers without treating prior selfchecks as release proof.
+Files: docs/MVP_RELEASE_STATUS.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Completed the local MVP release candidate: synthetic two-user onboarding, invite race/retry, pair-scoped weekly summary, provenance-bound recommendation, full activity/feedback lifecycle, notifications, and privacy-safe history now pass on a MongoDB replica set.
+- Added reversible owner export/deletion-request boundaries, pair-owned second-cycle entitlement, a signed deduplicated sandbox billing webhook, request-origin/media/body/cache protections, score redaction, minimal audit metadata, and rate limits on critical routes.
+- Added recoverable idempotency leases and weekly finalization reconciliation, bounded history queries and additive indexes, environment validation, liveness/readiness, correlation IDs, provider-neutral operational events, safe preflight/migration scripts, and measured synthetic load evidence.
+- Upgraded the existing Next.js and Mongoose dependencies to patched compatible versions, migrated ESLint/TypeScript/proxy conventions for Next 16, and regenerated the lockfile; the final production build and dependency audit are clean.
+- Documented the exact external production gates: real Discord sessions, deploy/topology/backup/alerts, billing provider and commercial policy, retention/unlink/session-revocation decisions, and product/legal content review.
+Files: package.json, package-lock.json, eslint.config.mjs, tsconfig.json, README.md, src/proxy.ts, src/instrumentation.ts, src/app/api/**, src/client/**, src/components/**, src/domain/**, src/features/**, src/lib/**, src/models/**, scripts/**, docs/API_CONTRACTS.md, docs/ARCHITECTURE.md, docs/SECURITY.md, docs/TESTING.md, docs/MVP_RELEASE_STATUS.md, docs/SCALE_READINESS.md, docs/RELEASE_RUNBOOK.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Closed the final release races and privacy-ordering gaps: concurrent recommendation offers now converge on one canonical decision/activity, replacement successors recover after interruption, expired weekly reconciliation is bounded and poison-row tolerant, future-cycle entitlement cannot be bypassed, and non-members cannot probe paid state.
+- Added monotonic sandbox billing delivery, intrinsic Like idempotency, fail-closed content publication, transition-guarded identifier-free product analytics, and regression coverage for stale/replayed/concurrent behavior.
+- Disabled runtime auto-index mutation and made release preflight block the obsolete weekly user/week unique index; the reviewed migration gate must remove it before solo-plus-pair weekly writes are enabled, while fresh databases use the intended non-unique lookup.
+- Re-ran the replica-set two-user path with run-scoped cleanup, the fixed-batch reconciliation suite, declared-index preflight/migration, and the 12-concurrency hot-pair load; no duplicate canonical artifacts or run-owned database documents remained.
+- Recorded the local p95/query-plan evidence, the dashboard P2 tuning signal, and the production-only Discord, operations, billing, retention, and expert-content gates without claiming a production launch.
+Files: src/app/api/pairs/[id]/recommendations/**, src/domain/services/recommendationDecision.service.ts, src/domain/services/recommendationWorkflow.service.ts, src/domain/services/weeklyCycle.service.ts, src/domain/services/billingWebhook.service.ts, src/lib/idempotency/**, src/models/**, scripts/**, docs/API_CONTRACTS.md, docs/MVP_RELEASE_STATUS.md, docs/SCALE_READINESS.md, docs/RELEASE_RUNBOOK.md, docs/TESTING.md, docs/CHANGELOG.md
+
+Date: 2026-08-07
+Summary:
+- Replaced the hydration-blocking static CSP with a dynamic per-request nonce policy, preserved the Discord SDK HTTPS parent-origin allowlist, forced nonce-compatible rendering, and verified every production Next script plus the exact browser API rewrite.
+- Removed the global unknown-IP rate-limit bucket, isolated authenticated policies by session user, guarded every recommendation compatibility adapter with membership/rate/idempotency/pair entitlement, and made recommendation quota claims atomic and retry/concurrency safe.
+- Closed late reliability gaps: existing weekly submissions replay before entitlement checks, direct-template orphan offers recover by snapshot/template, current recommendation reads heal missing action notifications, and notification reads preserve their first timestamp.
+- Made unexpected 500s generic, completed the 31-model index registry, blocked the incompatible legacy weekly unique index, and verified fresh plus explicitly migrated legacy databases at 47 invariants with zero final drift; a final exact-tree load repeat again produced zero errors/conflicts/duplicates and recorded dashboard p95 variability of 515.29/459.70 ms as P2 evidence.
+- Clarified that the locally verified core-pair RC is not the full public release: unlink/reconnect and destructive retention/session-revocation behavior remain a product/legal decision followed by implementation, not a completed repository action.
+Files: next.config.ts, src/proxy.ts, src/app/layout.tsx, src/app/api/activities/next/route.ts, src/app/api/pairs/[id]/**, src/app/api/notifications/[id]/read/route.ts, src/domain/errors.ts, src/domain/services/recommendationDecision.service.ts, src/domain/services/recommendationWorkflow.service.ts, src/domain/services/weeklyCheckIn.service.ts, src/domain/services/notification.service.ts, src/lib/abuse/rateLimit.ts, src/lib/auth/resourceGuards.ts, src/lib/entitlements/**, src/models/EntitlementQuotaUsage.ts, scripts/release-preflight.ts, scripts/migrate-weekly-checkins-pair-scope.ts, scripts/release-readiness.selfcheck.ts, scripts/security-critical.selfcheck.ts, scripts/reliability-reconciliation.selfcheck.ts, README.md, docs/API_CONTRACTS.md, docs/ARCHITECTURE.md, docs/SECURITY.md, docs/TESTING.md, docs/MVP_RELEASE_STATUS.md, docs/SCALE_READINESS.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md
+
+Date: 2026-08-10
+Summary:
+- Completed the post-fix local production-browser gate: hydration produced no console warnings/errors, retry and client-side back navigation were interactive, and `/` plus `/join` had no horizontal overflow at 390x844.
+- Kept real Discord iframe/two-session and physical-mobile safe-area/keyboard checks external, synchronized the two-run dashboard/history latency evidence, normalized the release matrix to the required status enum with explicit privacy/security impact and next-step fields, and recorded sensitive-content/private-help approval as a separate full-release P1 gate.
+Files: docs/MVP_RELEASE_STATUS.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md

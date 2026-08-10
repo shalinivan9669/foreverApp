@@ -6,6 +6,7 @@ import {
 } from '@/models/Questionnaire';
 
 export const BETA_SCORING_VERSION = 'scoring_v1';
+export const BETA_CONTENT_PUBLICATION_AT = new Date('2026-08-01T00:00:00.000Z');
 
 const LIKERT5_MAP = [-3, -1, 0, 1, 3];
 const BOOL_MAP = [-3, 3];
@@ -74,6 +75,9 @@ const questionnaire = (input: {
   meta?: Record<string, unknown>;
 }): QuestionnaireType => ({
   _id: input.id,
+  publicationStatus: 'published',
+  reviewedAt: BETA_CONTENT_PUBLICATION_AT,
+  publishedAt: BETA_CONTENT_PUBLICATION_AT,
   title: { ru: input.title, en: input.title },
   description: { ru: input.description, en: input.description },
   meta: {
@@ -560,6 +564,10 @@ export const seedBetaQuestionnaires = async (): Promise<void> => {
           difficulty: item.difficulty,
           tags: item.tags,
           version: item.version,
+          publicationStatus: item.publicationStatus,
+          reviewedAt: item.reviewedAt,
+          publishedAt: item.publishedAt,
+          retiredAt: item.retiredAt,
           randomize: item.randomize,
           questions: item.questions,
         },

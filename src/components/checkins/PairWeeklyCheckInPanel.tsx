@@ -11,6 +11,8 @@ import type {
   PairWeeklyCheckInSummaryDTO,
 } from '@/client/api/types';
 import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
+import { toUiErrorState, type UiErrorState } from '@/client/api/errors';
+import ErrorView from '@/components/ui/ErrorView';
 
 type PairWeeklyCheckInPanelProps = {
   pairId: string;
@@ -79,40 +81,81 @@ export default function PairWeeklyCheckInPanel({
   pairStatus,
   onSummaryChanged,
 }: PairWeeklyCheckInPanelProps) {
+  return (
+    <PairWeeklyCheckInPanelSession
+      key={pairId}
+      pairId={pairId}
+      pairStatus={pairStatus}
+      onSummaryChanged={onSummaryChanged}
+    />
+  );
+}
+
+function PairWeeklyCheckInPanelSession({
+  pairId,
+  pairStatus,
+  onSummaryChanged,
+}: PairWeeklyCheckInPanelProps) {
   const [summary, setSummary] = useState<PairWeeklyCheckInSummaryDTO | null>(null);
   const [cycle, setCycle] = useState<CurrentWeeklyCycleDTO | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiErrorState | null>(null);
+
+  const fetchSummary = useCallback(
+    (signal?: AbortSignal) =>
+      Promise.all([
+        checkinsApi.getPairWeeklySummary(pairId, {}, signal),
+        weeklyCyclesApi.getCurrent(pairId, signal),
+      ]),
+    [pairId]
+  );
 
   const loadSummary = useCallback(
-    async (signal?: AbortSignal) => {
+    (signal?: AbortSignal) => {
       setLoading(true);
       setError(null);
-      try {
-        const [result, currentCycle] = await Promise.all([
-          checkinsApi.getPairWeeklySummary(pairId, {}, signal),
-          weeklyCyclesApi.getCurrent(pairId, signal),
-        ]);
-        if (!signal?.aborted) {
-          setSummary(result);
-          setCycle(currentCycle);
-        }
-      } catch {
-        if (!signal?.aborted) {
-          setError('Не удалось загрузить статус weekly check-in.');
-        }
-      } finally {
-        if (!signal?.aborted) setLoading(false);
-      }
+      return fetchSummary(signal)
+        .then(([result, currentCycle]) => {
+          if (!signal?.aborted) {
+            setSummary(result);
+            setCycle(currentCycle);
+          }
+        })
+        .catch((caughtError: Error | null) => {
+          const normalized =
+            caughtError instanceof Error
+              ? caughtError
+              : new Error('Не удалось загрузить статус weekly check-in.');
+          if (!signal?.aborted) setError(toUiErrorState(normalized));
+        })
+        .finally(() => {
+          if (!signal?.aborted) setLoading(false);
+        });
     },
-    [pairId]
+    [fetchSummary]
   );
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadSummary(controller.signal);
+    void fetchSummary(controller.signal)
+      .then(([result, currentCycle]) => {
+        if (!controller.signal.aborted) {
+          setSummary(result);
+          setCycle(currentCycle);
+        }
+      })
+      .catch((caughtError: Error | null) => {
+        const normalized =
+          caughtError instanceof Error
+            ? caughtError
+            : new Error('Не удалось загрузить статус weekly check-in.');
+        if (!controller.signal.aborted) setError(toUiErrorState(normalized));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
-  }, [loadSummary]);
+  }, [fetchSummary]);
 
   const handleSubmitted = useCallback(async () => {
     await Promise.all([
@@ -159,15 +202,8 @@ export default function PairWeeklyCheckInPanel({
         )}
 
         {error && (
-          <div className="app-alert app-alert-error mt-4 text-sm">
-            <div>{error}</div>
-            <button
-              type="button"
-              onClick={() => void loadSummary()}
-              className="app-btn-secondary mt-3 px-3 py-2 text-sm"
-            >
-              Повторить
-            </button>
+          <div className="mt-4">
+            <ErrorView error={error} onRetry={() => void loadSummary()} />
           </div>
         )}
 

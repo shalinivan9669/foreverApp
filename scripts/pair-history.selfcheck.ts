@@ -92,7 +92,12 @@ assert.doesNotMatch(route, /@\/models\//);
 const service = read('src/domain/services/pairHistory.service.ts');
 assert.match(service, /HISTORY_ACTIVITY_STATUSES/);
 assert.match(service, /visibility: input\.role === 'A' \? 'privateA' : 'privateB'/);
-assert.match(service, /'stateMeta\.assignedMemberIds': currentMemberId/);
+assert.match(service, /User\.findOne\(\{ id: currentMemberId \}\)/);
+assert.match(
+  service,
+  /'stateMeta\.assignedMemberIds': \{[\s\S]*\$in: currentAssignmentIds/,
+  'history should accept current internal assignments while preserving legacy external ids'
+);
 assert.match(service, /input\.role === 'A' \? 'soloA' : 'soloB'/);
 assert.match(service, /feedbackSubmitted/);
 assert.match(service, /sourceLimit = limit \+ 1/);
@@ -100,12 +105,42 @@ assert.match(service, /latestSnapshotId/);
 assert.match(service, /PairStateSnapshot\.collection\.name/);
 assert.match(service, /WeeklyCycle\.aggregate/);
 assert.match(service, /weeklyCycleService\.finalizeExpiredCycles/);
-assert.match(service, /endsAt: \{ \$lte: now \}/);
+assert.match(service, /endsAt: \{ \$lte: input\.now \}/);
+assert.match(service, /CYCLE_LOOKUP_BATCH_LIMIT = 32/);
 assert.doesNotMatch(service, /@\/models\/RecommendationDecision/);
 assert.doesNotMatch(service, /WeeklyCheckIn|weeklyCheckIn\.service/);
 assert.doesNotMatch(
   service,
   /summarizePairWeeklyCheckIns|toPairWeeklyCheckInPairDTO|buildPairStateProjection/
+);
+
+const cycleLoaderStart = service.indexOf(
+  'const loadCanonicalHistoryCycles'
+);
+const cycleLoaderEnd = service.indexOf('const cycleStatusFor');
+assert.ok(cycleLoaderStart >= 0 && cycleLoaderEnd > cycleLoaderStart);
+const cycleLoader = service.slice(cycleLoaderStart, cycleLoaderEnd);
+assert.ok(
+  cycleLoader.indexOf('{ $limit: batchLimit }') <
+    cycleLoader.indexOf('$lookup:'),
+  'weekly candidates must be bounded before canonical snapshot lookup'
+);
+assert.match(cycleLoader, /canonicalCycles\.length < input\.sourceLimit/);
+
+const activityLoaderStart = service.indexOf(
+  'PairActivity.aggregate<ActivityHistoryAggregate>'
+);
+assert.ok(activityLoaderStart >= 0);
+const activityLoader = service.slice(activityLoaderStart);
+assert.ok(
+  activityLoader.indexOf("dateField: 'offeredAt'") <
+    activityLoader.indexOf('$project:'),
+  'activity cursor must be applied before feedback projection'
+);
+assert.ok(
+  activityLoader.indexOf('{ $limit: sourceLimit }') <
+    activityLoader.indexOf('$project:'),
+  'activities must be bounded before feedback projection'
 );
 
 const canonicalMapperStart = service.indexOf(
@@ -124,6 +159,17 @@ assert.doesNotMatch(
 const snapshotModel = read('src/models/PairStateSnapshot.ts');
 assert.match(snapshotModel, /immutable: true/);
 assert.doesNotMatch(snapshotModel, /answers|note/);
+
+const activityModel = read('src/models/PairActivity.ts');
+assert.match(activityModel, /pair_activity_history_by_pair_status_offered/);
+assert.match(
+  activityModel,
+  /pairId: 1, status: 1, offeredAt: -1, _id: -1/
+);
+const weeklyCycleModel = read('src/models/WeeklyCycle.ts');
+assert.match(weeklyCycleModel, /weekly_cycle_history_by_pair_start/);
+assert.match(weeklyCycleModel, /pairId: 1, startsAt: -1, cycleKey: -1/);
+assert.match(cycleLoader, /\$eq: \['\$_id', '\$\$snapshotId'\]/);
 
 const dtoStart = service.indexOf('export type PairHistorySignalDTO');
 const dtoEnd = service.indexOf('type HistoryKind');

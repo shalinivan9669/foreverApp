@@ -19,11 +19,17 @@ export type ApiErrorEnvelope = {
   };
 };
 
+const PRIVATE_JSON_HEADERS = {
+  'Cache-Control': 'private, no-store',
+  Pragma: 'no-cache',
+  Vary: 'Cookie, Authorization',
+} as const;
+
 export function jsonOk<T>(data: T, meta?: JsonObject): NextResponse<ApiSuccessEnvelope<T>> {
   if (meta) {
-    return NextResponse.json({ ok: true, data, meta });
+    return NextResponse.json({ ok: true, data, meta }, { headers: PRIVATE_JSON_HEADERS });
   }
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json({ ok: true, data }, { headers: PRIVATE_JSON_HEADERS });
 }
 
 export function jsonError(
@@ -35,8 +41,11 @@ export function jsonError(
   if (details !== undefined) {
     return NextResponse.json(
       { ok: false, error: { code, message, details } },
-      { status }
+      { status, headers: PRIVATE_JSON_HEADERS }
     );
   }
-  return NextResponse.json({ ok: false, error: { code, message } }, { status });
+  return NextResponse.json(
+    { ok: false, error: { code, message } },
+    { status, headers: PRIVATE_JSON_HEADERS }
+  );
 }

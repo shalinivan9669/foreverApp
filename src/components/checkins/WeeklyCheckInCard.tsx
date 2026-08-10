@@ -40,6 +40,23 @@ export default function WeeklyCheckInCard({
   onSubmitted,
   onCycleChanged,
 }: WeeklyCheckInCardProps) {
+  return (
+    <WeeklyCheckInCardSession
+      key={pairId ?? 'personal'}
+      pairId={pairId}
+      cycleStatus={cycleStatus}
+      onSubmitted={onSubmitted}
+      onCycleChanged={onCycleChanged}
+    />
+  );
+}
+
+function WeeklyCheckInCardSession({
+  pairId,
+  cycleStatus,
+  onSubmitted,
+  onCycleChanged,
+}: WeeklyCheckInCardProps) {
   const [answers, setAnswers] = useState<WeeklyCheckInAnswersDTO>(initialAnswers);
   const [current, setCurrent] = useState<WeeklyCheckInDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +66,6 @@ export default function WeeklyCheckInCard({
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    setLoading(true);
     checkinsApi
       .getCurrentWeekly({ pairId }, controller.signal)
       .then((payload) => {

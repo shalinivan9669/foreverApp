@@ -9,10 +9,12 @@ import {
 } from '@/models/PairStateSnapshot';
 import { WeeklyCycle } from '@/models/WeeklyCycle';
 import type { PairType } from '@/models/Pair';
+import { User } from '@/models/User';
 import { connectToDatabase } from '@/lib/mongodb';
 
 const DEFAULT_LIMIT = 12;
 export const PAIR_HISTORY_MAX_LIMIT = 20;
+const CYCLE_LOOKUP_BATCH_LIMIT = 32;
 
 export type PairHistoryActivityStatus = Extract<
   PairActivityType['status'],
@@ -77,6 +79,13 @@ type CanonicalWeeklyCycleAggregate = {
   cycleKey: string;
   occurredAt: Date;
   snapshot: Pick<PairStateSnapshotType, 'dataStatus' | 'signals'>;
+};
+
+type CanonicalWeeklyCycleCandidate = Omit<
+  CanonicalWeeklyCycleAggregate,
+  'snapshot'
+> & {
+  snapshot?: CanonicalWeeklyCycleAggregate['snapshot'] | null;
 };
 
 type ActivityHistoryAggregate = {
@@ -194,6 +203,107 @@ const cursorMatch = (input: {
   };
 };
 
+const loadCanonicalHistoryCycles = async (input: {
+  pairId: Types.ObjectId;
+  now: Date;
+  cursor: PairHistoryCursor | null;
+  sourceLimit: number;
+}): Promise<CanonicalWeeklyCycleAggregate[]> => {
+  const batchLimit = Math.max(input.sourceLimit, CYCLE_LOOKUP_BATCH_LIMIT);
+  const canonicalCycles: CanonicalWeeklyCycleAggregate[] = [];
+  let scanCursor = input.cursor;
+
+  while (canonicalCycles.length < input.sourceLimit) {
+    const candidates = await WeeklyCycle.aggregate<CanonicalWeeklyCycleCandidate>([
+      {
+        $match: {
+          pairId: input.pairId,
+          cycleKey: { $type: 'string' },
+          startsAt: { $type: 'date' },
+          endsAt: { $lte: input.now },
+          latestSnapshotId: { $type: 'objectId' },
+        },
+      },
+      {
+        $match: cursorMatch({
+          cursor: scanCursor,
+          sourceKind: 'cycle',
+          dateField: 'startsAt',
+          idField: 'cycleKey',
+        }),
+      },
+      { $sort: { startsAt: -1, cycleKey: -1 } },
+      // Bound each foreign lookup batch while preserving exact pagination by
+      // continuing after invalid canonical references when necessary.
+      { $limit: batchLimit },
+      {
+        $project: {
+          pairId: 1,
+          cycleKey: 1,
+          occurredAt: '$startsAt',
+          latestSnapshotId: 1,
+        },
+      },
+      {
+        $lookup: {
+          from: PairStateSnapshot.collection.name,
+          let: {
+            snapshotId: '$latestSnapshotId',
+            cycleId: '$_id',
+            pairId: '$pairId',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$_id', '$$snapshotId'] },
+                    { $eq: ['$cycleId', '$$cycleId'] },
+                    { $eq: ['$pairId', '$$pairId'] },
+                  ],
+                },
+              },
+            },
+            { $project: { _id: 0, dataStatus: 1, signals: 1 } },
+          ],
+          as: 'snapshots',
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          cycleKey: 1,
+          occurredAt: 1,
+          snapshot: { $arrayElemAt: ['$snapshots', 0] },
+        },
+      },
+    ]).exec();
+
+    for (const candidate of candidates) {
+      if (candidate.snapshot) {
+        canonicalCycles.push({
+          cycleKey: candidate.cycleKey,
+          occurredAt: candidate.occurredAt,
+          snapshot: candidate.snapshot,
+        });
+      }
+    }
+    if (candidates.length < batchLimit) break;
+
+    const lastCandidate = candidates.at(-1);
+    if (!lastCandidate) break;
+    scanCursor = {
+      v: 1,
+      pairId: String(input.pairId),
+      kind: 'cycle',
+      date: lastCandidate.occurredAt.toISOString(),
+      id: lastCandidate.cycleKey,
+    };
+  }
+
+  return canonicalCycles.slice(0, input.sourceLimit);
+};
+
 const cycleStatusFor = (
   dataStatus: PairHistoryCycleItemDTO['summary']['dataStatus']
 ): PairHistoryCycleItemDTO['status'] =>
@@ -258,6 +368,15 @@ export const pairHistoryService = {
     const pairId = String(input.pair._id);
     const pairObjectId = new Types.ObjectId(pairId);
     const currentMemberId = input.pair.members[input.role === 'A' ? 0 : 1];
+    const currentMember = await User.findOne({ id: currentMemberId })
+      .select({ _id: 1 })
+      .lean<{ _id: Types.ObjectId } | null>();
+    const currentAssignmentIds = Array.from(
+      new Set([
+        currentMemberId,
+        ...(currentMember ? [String(currentMember._id)] : []),
+      ])
+    );
     const cursor = decodePairHistoryCursor(input.cursor, pairId);
     const limit = Math.min(
       PAIR_HISTORY_MAX_LIMIT,
@@ -267,69 +386,12 @@ export const pairHistoryService = {
 
     const [canonicalCycles, activities] = await Promise.all([
       // Published cycles are projected only from their immutable canonical snapshot.
-      WeeklyCycle.aggregate<CanonicalWeeklyCycleAggregate>([
-        {
-          $match: {
-            pairId: pairObjectId,
-            cycleKey: { $type: 'string' },
-            startsAt: { $type: 'date' },
-            endsAt: { $lte: now },
-            latestSnapshotId: { $type: 'objectId' },
-          },
-        },
-        {
-          $project: {
-            pairId: 1,
-            cycleKey: 1,
-            occurredAt: '$startsAt',
-            latestSnapshotId: 1,
-          },
-        },
-        {
-          $lookup: {
-            from: PairStateSnapshot.collection.name,
-            let: {
-              snapshotId: '$latestSnapshotId',
-              cycleId: '$_id',
-              pairId: '$pairId',
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: ['$_id', '$$snapshotId'] },
-                      { $eq: ['$cycleId', '$$cycleId'] },
-                      { $eq: ['$pairId', '$$pairId'] },
-                    ],
-                  },
-                },
-              },
-              { $project: { _id: 0, dataStatus: 1, signals: 1 } },
-            ],
-            as: 'snapshots',
-          },
-        },
-        { $unwind: '$snapshots' },
-        {
-          $project: {
-            _id: 0,
-            cycleKey: 1,
-            occurredAt: 1,
-            snapshot: '$snapshots',
-          },
-        },
-        {
-          $match: cursorMatch({
-            cursor,
-            sourceKind: 'cycle',
-            dateField: 'occurredAt',
-            idField: 'cycleKey',
-          }),
-        },
-        { $sort: { occurredAt: -1, cycleKey: -1 } },
-        { $limit: sourceLimit },
-      ]).exec(),
+      loadCanonicalHistoryCycles({
+        pairId: pairObjectId,
+        now,
+        cursor,
+        sourceLimit,
+      }),
       PairActivity.aggregate<ActivityHistoryAggregate>([
         {
           $match: {
@@ -346,7 +408,11 @@ export const pairHistoryService = {
               },
               {
                 $or: [
-                  { 'stateMeta.assignedMemberIds': currentMemberId },
+                  {
+                    'stateMeta.assignedMemberIds': {
+                      $in: currentAssignmentIds,
+                    },
+                  },
                   {
                     'stateMeta.assignedMemberIds': { $exists: false },
                     mode: {
@@ -361,6 +427,16 @@ export const pairHistoryService = {
             ],
           },
         },
+        {
+          $match: cursorMatch({
+            cursor,
+            sourceKind: 'activity',
+            dateField: 'offeredAt',
+            idField: '_id',
+          }),
+        },
+        { $sort: { offeredAt: -1, _id: -1 } },
+        { $limit: sourceLimit },
         {
           $project: {
             _id: 1,
@@ -380,16 +456,6 @@ export const pairHistoryService = {
             },
           },
         },
-        {
-          $match: cursorMatch({
-            cursor,
-            sourceKind: 'activity',
-            dateField: 'occurredAt',
-            idField: '_id',
-          }),
-        },
-        { $sort: { occurredAt: -1, _id: -1 } },
-        { $limit: sourceLimit },
       ]).exec(),
     ]);
 

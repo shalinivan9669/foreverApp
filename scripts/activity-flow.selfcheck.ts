@@ -12,7 +12,15 @@ import {
 import { toActivityCardVM } from '../src/client/viewmodels/activity.viewmodels';
 import { DomainError } from '../src/domain/errors';
 import { recommendationDecisionTransition } from '../src/domain/state/recommendationDecisionMachine';
-import { recommendationCycleKey } from '../src/domain/services/recommendationDecision.service';
+import { activityTransition } from '../src/domain/state/activityMachine';
+import {
+  isRecommendationSummaryPublishable,
+  recommendationCycleKey,
+} from '../src/domain/services/recommendationDecision.service';
+import {
+  buildActivityContentHash,
+  buildRecommendationProvenance,
+} from '../src/domain/services/recommendationProvenance.service';
 import {
   hasP0SensitiveActivityAxis,
   isActivityAccessibleToRole,
@@ -26,6 +34,7 @@ import {
   toCompleteRetryMessage,
 } from '../src/features/activities/checkinCompleteFlow';
 import {
+  CANONICAL_ACTIVITY_FEEDBACK_CHECKINS,
   UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS,
   activityEffectMultiplier,
   buildActivityResultSummary,
@@ -134,6 +143,42 @@ const run = () => {
     4,
     'activities without custom check-ins should use universal feedback'
   );
+  const canonicalFeedback = effectiveActivityCheckIns(
+    [],
+    'activity-feedback-v2'
+  );
+  assert.deepEqual(
+    canonicalFeedback.map((checkIn) => checkIn.id),
+    [
+      'participated',
+      'usefulness',
+      'subjective_change',
+      'difficulty',
+      'repeat_intent',
+    ],
+    'new activities must require the canonical feedback schema'
+  );
+  assert.equal(
+    new Set(canonicalFeedback.map((checkIn) => checkIn.id)).size,
+    CANONICAL_ACTIVITY_FEEDBACK_CHECKINS.length,
+    'canonical feedback ids must be unique'
+  );
+  const canonicalAnswers = canonicalFeedback.map((checkIn) => ({
+    checkInId: checkIn.id,
+    by: 'A' as const,
+    ui: checkIn.scale === 'bool' ? 2 : 4,
+    at: new Date('2026-06-05T00:00:00.000Z'),
+  }));
+  const canonicalResult = buildActivityResultSummary({
+    checkIns: canonicalFeedback,
+    answers: canonicalAnswers,
+    feedbackSchemaVersion: 'activity-feedback-v2',
+  });
+  assert.equal(canonicalResult.feedbackSchemaVersion, 'activity-feedback-v2');
+  assert.equal(typeof canonicalResult.participationRatio, 'number');
+  assert.equal(typeof canonicalResult.subjectiveChangeAvg, 'number');
+  assert.equal(typeof canonicalResult.difficultyAvg, 'number');
+  assert.equal(typeof canonicalResult.wantsSimilarRatio, 'number');
 
   const oneHigh = buildActivityResultSummary({
     checkIns: [],
@@ -252,6 +297,33 @@ const run = () => {
     resultSummary: appliedPartial,
     createdBy: 'system',
   };
+  const provenance = buildRecommendationProvenance({
+    context: {
+      cycleId: new Types.ObjectId(),
+      cycleKey: '2026-W23',
+      snapshotId: new Types.ObjectId(),
+      snapshotRevision: 2,
+      inputHash: 'a'.repeat(64),
+      inputDefinitionVersion: 'weekly-checkin-v1',
+      pairStateAlgorithmVersion: 'pair-state-v1',
+    },
+    activity,
+  });
+  assert.equal(provenance.recommendationRuleVersion, 'recommendation-rule-v2');
+  assert.equal(provenance.activityContentHash, buildActivityContentHash(activity));
+  assert.notEqual(
+    provenance.activityContentHash,
+    buildActivityContentHash({
+      ...activity,
+      title: { ...activity.title, en: 'Changed content' },
+    }),
+    'activity content mutation must change immutable provenance'
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(provenance, 'evidenceRevisionIds'),
+    false,
+    'recommendation provenance must not copy raw evidence references'
+  );
   const dto = toPairActivityDTO(activity, { includeLegacyId: true });
   assert.equal(dto.checkIns.length, 4);
   assert.equal(dto.resultSummary?.completedAt, undefined);
@@ -273,6 +345,9 @@ const run = () => {
     'consentA',
     'consentB',
     'visibility',
+    'recommendationProvenance',
+    'lifecycleVersion',
+    'feedbackSchemaVersion',
   ]) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(dto, field),
@@ -327,6 +402,10 @@ const run = () => {
     'comfortAvg',
     'tensionAvg',
     'wantsSimilarRatio',
+    'participationRatio',
+    'subjectiveChangeAvg',
+    'difficultyAvg',
+    'feedbackSchemaVersion',
     'effect',
     'effectExplanation',
   ]) {
@@ -381,6 +460,11 @@ const run = () => {
   );
   assert.match(activityServiceSource, /ACTIVITY_FEEDBACK_REQUIRED/);
   assert.match(activityServiceSource, /ACTIVITY_RESULT_FINALIZED/);
+  assert.match(activityServiceSource, /async startActivity/);
+  assert.match(activityServiceSource, /type: 'START'/);
+  assert.match(activityServiceSource, /activity\.accept_noop/);
+  assert.match(activityServiceSource, /if \(outcome\.alreadyAccepted\) return \{\};/);
+  assert.match(activityServiceSource, /event: 'ACTIVITY_STARTED'/);
   assert.match(activityServiceSource, /alreadyCompleted && resultSummary\.effectApplied/);
   assert.match(activityServiceSource, /toActivityResultSummaryDTO/);
   assert.match(activityServiceSource, /claimAcceptedForActivity/);
@@ -453,6 +537,9 @@ const run = () => {
   assert.match(activityOfferSource, /Pair\.updateOne\(/);
   assert.match(activityOfferSource, /offeredInTransaction/);
   assert.match(activityOfferSource, /availableSlots/);
+  assert.match(activityOfferSource, /activity-lifecycle-v2/);
+  assert.match(activityOfferSource, /activity-feedback-v2/);
+  assert.match(activityOfferSource, /buildRecommendationProvenance/);
 
   const clientTypesSource = readFileSync(
     resolve(process.cwd(), 'src/client/api/types.ts'),
@@ -477,6 +564,141 @@ const run = () => {
   assert.doesNotMatch(activityCardSource, /resultPercent|signedPercent/);
 
   const at = new Date('2026-08-07T12:00:00.000Z');
+  const transitionContext = { currentUserId: 'member-a', role: 'A' as const };
+  const started = activityTransition(
+    {
+      status: 'accepted',
+      lifecycleVersion: 'activity-lifecycle-v2',
+      answers: [],
+    },
+    { type: 'START', at },
+    transitionContext
+  );
+  assert.equal(started.next.status, 'in_progress');
+  assert.equal(started.next.startedAt, at);
+  const startRetry = activityTransition(
+    {
+      status: 'in_progress',
+      lifecycleVersion: 'activity-lifecycle-v2',
+      startedAt: at,
+      answers: [],
+    },
+    { type: 'START', at: new Date(at.getTime() + 1_000) },
+    transitionContext
+  );
+  assert.equal(startRetry.next.status, 'in_progress');
+  assert.equal(startRetry.next.startedAt, at, 'start retry must retain first start');
+  assert.throws(
+    () =>
+      activityTransition(
+        {
+          status: 'accepted',
+          lifecycleVersion: 'activity-lifecycle-v2',
+          answers: [],
+        },
+        {
+          type: 'CHECKIN',
+          at,
+          answers: canonicalFeedback.map((checkIn) => ({
+            checkInId: checkIn.id,
+            ui: checkIn.scale === 'bool' ? 2 : 4,
+          })),
+        },
+        transitionContext
+      ),
+    (error) => error instanceof DomainError && error.code === 'STATE_CONFLICT',
+    'v2 activity must be started before feedback'
+  );
+  const awaitingFeedback = activityTransition(
+    {
+      status: 'in_progress',
+      lifecycleVersion: 'activity-lifecycle-v2',
+      startedAt: at,
+      answers: [],
+    },
+    {
+      type: 'CHECKIN',
+      at,
+      answers: canonicalFeedback.map((checkIn) => ({
+        checkInId: checkIn.id,
+        ui: checkIn.scale === 'bool' ? 2 : 4,
+      })),
+    },
+    transitionContext
+  );
+  assert.equal(awaitingFeedback.next.status, 'awaiting_feedback');
+  assert.equal(
+    activityTransition(
+      {
+        status: 'accepted',
+        lifecycleVersion: 'activity-lifecycle-v1',
+        answers: [],
+      },
+      {
+        type: 'CHECKIN',
+        at,
+        answers: [{ checkInId: 'legacy', ui: 1 }],
+      },
+      transitionContext
+    ).next.status,
+    'awaiting_checkin',
+    'legacy accepted activities keep implicit-start compatibility'
+  );
+
+  assert.equal(
+    isRecommendationSummaryPublishable({
+      dataStatus: 'NOT_READY',
+      memberCompletion: [
+        { userId: 'member-a', status: 'PENDING' },
+        { userId: 'member-b', status: 'PENDING' },
+      ],
+    }),
+    false,
+    'recommendation must be rejected before pair input exists'
+  );
+  assert.equal(
+    isRecommendationSummaryPublishable({
+      dataStatus: 'PARTIAL',
+      memberCompletion: [
+        { userId: 'member-a', status: 'SUBMITTED' },
+        { userId: 'member-b', status: 'PENDING' },
+      ],
+    }),
+    false,
+    'recommendation must be rejected for a partial summary'
+  );
+  assert.equal(
+    isRecommendationSummaryPublishable({
+      dataStatus: 'ENOUGH',
+      memberCompletion: [
+        { userId: 'member-a', status: 'SUBMITTED' },
+        { userId: 'member-b', status: 'SUBMITTED' },
+      ],
+    }),
+    true
+  );
+  assert.equal(
+    isRecommendationSummaryPublishable({
+      dataStatus: 'INSUFFICIENT',
+      memberCompletion: [
+        { userId: 'member-a', status: 'SUBMITTED' },
+        { userId: 'member-b', status: 'PENDING' },
+      ],
+    }),
+    false,
+    'insufficient data is not publishable while a participant remains pending'
+  );
+  assert.equal(
+    isRecommendationSummaryPublishable({
+      dataStatus: 'INSUFFICIENT',
+      memberCompletion: [
+        { userId: 'member-a', status: 'SKIPPED' },
+        { userId: 'member-b', status: 'SUBMITTED' },
+      ],
+    }),
+    true,
+    'resolved insufficient data is an allowed terminal fallback'
+  );
   assert.equal(
     recommendationDecisionTransition(
       { status: 'OFFERED', replacementDepth: 0 },
@@ -546,6 +768,18 @@ const run = () => {
   assert.match(decisionModelSource, /partialFilterExpression: \{ status: 'OFFERED' \}/);
   assert.match(decisionModelSource, /\{ activityId: 1 \}, \{ unique: true \}/);
   assert.match(decisionModelSource, /previousDecisionId/);
+  assert.match(decisionModelSource, /RecommendationProvenanceSchema/);
+
+  const provenanceModelSource = readFileSync(
+    resolve(process.cwd(), 'src/models/RecommendationProvenance.ts'),
+    'utf8'
+  );
+  assert.match(provenanceModelSource, /snapshotId/);
+  assert.match(provenanceModelSource, /inputHash/);
+  assert.match(provenanceModelSource, /recommendationRuleVersion/);
+  assert.match(provenanceModelSource, /activityContentHash/);
+  assert.match(provenanceModelSource, /immutable: true/);
+  assert.doesNotMatch(provenanceModelSource, /answers|evidenceRevisionIds/);
 
   const decisionServiceSource = readFileSync(
     resolve(process.cwd(), 'src/domain/services/recommendationDecision.service.ts'),
@@ -577,6 +811,22 @@ const run = () => {
   assert.match(decisionServiceSource, /_id: decision\._id, status: decision\.status/);
   assert.match(decisionServiceSource, /claimAcceptedForActivity/);
   assert.match(decisionServiceSource, /claimSkippedForActivity/);
+  assert.match(decisionServiceSource, /RECOMMENDATION_SUMMARY_NOT_READY/);
+  assert.match(decisionServiceSource, /latestSnapshotId/);
+  assert.match(decisionServiceSource, /isRecommendationSummaryPublishable/);
+  assert.match(decisionServiceSource, /recommendationContextIsStillCanonical/);
+  assert.match(decisionServiceSource, /reserveReplacementSuccessor/);
+  assert.match(decisionServiceSource, /successorDecisionId: String/);
+  assert.match(
+    decisionServiceSource,
+    /decisionId: String\(successor\._id\)[\s\S]*ensureActionNotification\(pair, validatedSuccessor\)/,
+    'an existing replacement successor must be revalidated and its notification reconciled'
+  );
+  assert.match(
+    decisionServiceSource,
+    /preservedDecisionId \? \{ _id: \{ \$ne: preservedDecisionId \} \} : \{\}/,
+    'a concurrent retry must not expire the reserved successor'
+  );
   assert.match(
     decisionServiceSource,
     /activity\.status === 'offered' && decision\.status !== 'OFFERED'/,
@@ -590,10 +840,22 @@ const run = () => {
   assert.match(workflowSource, /activityOfferService\.suggestActivities/);
   assert.match(workflowSource, /excludeTemplateId/);
   assert.match(workflowSource, /previousDecisionId/);
+  assert.match(workflowSource, /successorDecisionId/);
+  assert.match(workflowSource, /afterReplacementPrepared/);
   assert.match(workflowSource, /suggestCompatibility/);
   assert.match(workflowSource, /offersCompatibility/);
   assert.match(workflowSource, /nextCompatibility/);
   assert.match(workflowSource, /fromTemplateCompatibility/);
+  const summaryGateIndex = workflowSource.indexOf(
+    'requireCurrentPublishableSummary'
+  );
+  const suggestionCreateIndex = workflowSource.indexOf(
+    'activityOfferService.suggestActivities'
+  );
+  assert.ok(
+    summaryGateIndex >= 0 && suggestionCreateIndex > summaryGateIndex,
+    'canonical summary gate must run before an activity offer is created'
+  );
   assert.match(
     workflowSource,
     /decision\.activity\.id !== activityId[\s\S]*status: 'cancelled'/,
@@ -636,9 +898,21 @@ const run = () => {
     resolve(process.cwd(), 'src/app/api/pairs/[id]/recommendations/route.ts'),
     'utf8'
   );
+  const recommendationRequestSource = readFileSync(
+    resolve(process.cwd(), 'src/app/api/pairs/[id]/recommendations/request.ts'),
+    'utf8'
+  );
   assert.match(recommendationRouteSource, /requireSession/);
   assert.match(recommendationRouteSource, /withIdempotency/);
-  assert.match(recommendationRouteSource, /z\.discriminatedUnion/);
+  assert.match(recommendationRequestSource, /z\.discriminatedUnion/);
+
+  const startRouteSource = readFileSync(
+    resolve(process.cwd(), 'src/app/api/activities/[id]/start/route.ts'),
+    'utf8'
+  );
+  assert.match(startRouteSource, /requireSession/);
+  assert.match(startRouteSource, /withIdempotency/);
+  assert.match(startRouteSource, /activitiesService\.startActivity/);
 
   console.log('Activity flow self-check passed.');
 };

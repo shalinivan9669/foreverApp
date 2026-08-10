@@ -46,8 +46,7 @@ export default function LikeDetailsView({
           <span className="text-sm text-gray-500">→</span>
           <img src={like.to.avatar} width={40} height={40} className="rounded-full ring-1 ring-slate-200" alt={like.to.username} />
           <div className="ml-auto text-sm text-gray-600">
-            Скор: {Math.round(like.matchScore)}%
-            {like.updatedAt ? ` · ${formatWhen(like.updatedAt)}` : ''}
+            {like.updatedAt ? formatWhen(like.updatedAt) : ''}
           </div>
         </header>
 

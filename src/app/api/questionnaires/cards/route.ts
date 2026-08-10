@@ -3,7 +3,10 @@ import { NextRequest } from 'next/server';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Questionnaire } from '@/models/Questionnaire';
+import {
+  Questionnaire,
+  publishedQuestionnaireFilter,
+} from '@/models/Questionnaire';
 import { Pair } from '@/models/Pair';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
@@ -128,6 +131,7 @@ export async function GET(req: NextRequest) {
   const pairId = pair?._id ?? null;
 
   const questions = await Questionnaire.aggregate<QDoc>([
+    { $match: publishedQuestionnaireFilter() },
     {
       $project: {
         title: 1,

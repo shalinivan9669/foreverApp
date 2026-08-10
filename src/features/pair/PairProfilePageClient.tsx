@@ -123,40 +123,46 @@ function ActionLink({
 
 export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePageClientProps) {
   const { data: currentUser } = useCurrentUser();
+
+  if (!currentUser) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
+          Нет пользователя. Откройте приложение из Discord ещё раз.
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <AuthenticatedPairProfile
+      key={`${currentUser.id}:${pairIdFromRoute ?? 'current'}`}
+      pairIdFromRoute={pairIdFromRoute}
+    />
+  );
+}
+
+function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProps) {
   const [pairId, setPairId] = useState<string | null>(pairIdFromRoute ?? null);
   const [data, setData] = useState<PairSummaryDTO | null>(null);
   const [historyItems, setHistoryItems] = useState<PairHistoryItemDTO[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [resolvingPair, setResolvingPair] = useState(false);
+  const [loading, setLoading] = useState(Boolean(pairIdFromRoute));
+  const [resolvingPair, setResolvingPair] = useState(!pairIdFromRoute);
   const [busy, setBusy] = useState<'pause' | 'resume' | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (pairIdFromRoute) return;
+
     let active = true;
-
-    if (!currentUser) {
-      setPairId(null);
-      setData(null);
-      setHistoryItems([]);
-      return () => {
-        active = false;
-      };
-    }
-
-    if (pairIdFromRoute) {
-      setPairId(pairIdFromRoute);
-      return () => {
-        active = false;
-      };
-    }
-
-    setResolvingPair(true);
     pairsApi
       .getMyPair()
       .then((pairMe) => {
         if (!active) return;
-        setPairId(pairMe.pair?.id ?? null);
+        const resolvedPairId = pairMe.pair?.id ?? null;
+        if (resolvedPairId) setLoading(true);
+        setPairId(resolvedPairId);
       })
       .catch(() => {
         if (!active) return;
@@ -169,12 +175,9 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
     return () => {
       active = false;
     };
-  }, [currentUser, pairIdFromRoute]);
+  }, [pairIdFromRoute]);
 
-  const load = useCallback(async (id: string) => {
-    setLoading(true);
-    setLoadError(null);
-    setHistoryItems([]);
+  const fetchPair = useCallback(async (id: string) => {
     try {
       const summary = await pairsApi.getSummary(id);
       setData(summary);
@@ -197,14 +200,50 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
     }
   }, []);
 
-  useEffect(() => {
-    if (!pairId) {
-      setData(null);
+  const load = useCallback(
+    async (id: string) => {
+      setLoading(true);
+      setLoadError(null);
       setHistoryItems([]);
-      return;
-    }
-    void load(pairId);
-  }, [pairId, load]);
+      await fetchPair(id);
+    },
+    [fetchPair]
+  );
+
+  useEffect(() => {
+    if (!pairId) return;
+    let active = true;
+
+    void pairsApi
+      .getSummary(pairId)
+      .then((summary) => {
+        if (!active) return;
+        setData(summary);
+        setLoading(false);
+        setHistoryLoading(true);
+        void pairHistoryApi
+          .list(pairId, { limit: 3 })
+          .then((history) => {
+            if (active) setHistoryItems(history.items);
+          })
+          .catch(() => {
+            if (active) setHistoryItems([]);
+          })
+          .finally(() => {
+            if (active) setHistoryLoading(false);
+          });
+      })
+      .catch(() => {
+        if (!active) return;
+        setData(null);
+        setLoadError('Не удалось загрузить профиль пары.');
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [pairId]);
 
   const onPause = async () => {
     if (!pairId) return;
@@ -231,16 +270,6 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
       setBusy(null);
     }
   };
-
-  if (!currentUser) {
-    return (
-      <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
-          Нет пользователя. Откройте приложение из Discord ещё раз.
-        </div>
-      </main>
-    );
-  }
 
   if (resolvingPair) {
     return (

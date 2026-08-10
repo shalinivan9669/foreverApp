@@ -16,11 +16,14 @@ export type ActivityAnswerInput = {
 
 export type ActivitySnapshot = {
   status: PairActivityType['status'];
+  lifecycleVersion?: PairActivityType['lifecycleVersion'];
+  startedAt?: Date;
   answers: NonNullable<PairActivityType['answers']>;
 };
 
 export type ActivityAction =
   | { type: 'ACCEPT'; at: Date }
+  | { type: 'START'; at: Date }
   | { type: 'CANCEL'; at: Date }
   | { type: 'CHECKIN'; at: Date; answers: ActivityAnswerInput[] }
   | {
@@ -39,6 +42,7 @@ export type ActivityTransitionResult = {
   next: {
     status: PairActivityType['status'];
     acceptedAt?: Date;
+    startedAt?: Date;
     answers?: NonNullable<PairActivityType['answers']>;
     successScore?: number;
   };
@@ -91,6 +95,34 @@ export function activityTransition(
       };
     }
 
+    case 'START': {
+      if (
+        activity.status === 'in_progress' ||
+        activity.status === 'awaiting_feedback' ||
+        activity.status === 'awaiting_checkin'
+      ) {
+        return {
+          next: {
+            status: activity.status,
+            startedAt: activity.startedAt ?? action.at,
+            answers: activity.answers,
+          },
+          events: [{ type: 'activity.start_noop' }],
+        };
+      }
+      if (activity.status !== 'accepted') {
+        stateConflict(activity, action, context);
+      }
+      return {
+        next: {
+          status: 'in_progress',
+          startedAt: action.at,
+          answers: activity.answers,
+        },
+        events: [{ type: 'activity.started' }],
+      };
+    }
+
     case 'CANCEL': {
       if (activity.status === 'cancelled') {
         return {
@@ -105,6 +137,7 @@ export function activityTransition(
         activity.status !== 'offered' &&
         activity.status !== 'accepted' &&
         activity.status !== 'in_progress' &&
+        activity.status !== 'awaiting_feedback' &&
         activity.status !== 'awaiting_checkin'
       ) {
         stateConflict(activity, action, context);
@@ -119,9 +152,12 @@ export function activityTransition(
     }
 
     case 'CHECKIN': {
+      const isLegacyLifecycle =
+        activity.lifecycleVersion !== 'activity-lifecycle-v2';
       if (
-        activity.status !== 'accepted' &&
+        !(isLegacyLifecycle && activity.status === 'accepted') &&
         activity.status !== 'in_progress' &&
+        activity.status !== 'awaiting_feedback' &&
         activity.status !== 'awaiting_checkin'
       ) {
         stateConflict(activity, action, context);
@@ -139,7 +175,9 @@ export function activityTransition(
 
       return {
         next: {
-          status: 'awaiting_checkin',
+          status: isLegacyLifecycle
+            ? 'awaiting_checkin'
+            : 'awaiting_feedback',
           answers: appendedAnswers,
         },
         events: [{ type: 'activity.checkin_submitted' }],
@@ -147,9 +185,12 @@ export function activityTransition(
     }
 
     case 'COMPLETE': {
+      const isLegacyLifecycle =
+        activity.lifecycleVersion !== 'activity-lifecycle-v2';
       if (
-        activity.status !== 'accepted' &&
-        activity.status !== 'in_progress' &&
+        !(isLegacyLifecycle && activity.status === 'accepted') &&
+        !(isLegacyLifecycle && activity.status === 'in_progress') &&
+        activity.status !== 'awaiting_feedback' &&
         activity.status !== 'awaiting_checkin'
       ) {
         stateConflict(activity, action, context);

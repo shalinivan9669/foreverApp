@@ -8,12 +8,20 @@ export default function ActivityCard(props: {
   locale: string;
   variant: 'active' | 'suggested' | 'history';
   onAccept: () => void;
+  onStart: () => void;
   onCancel: () => void;
   onComplete: () => void;
   onSuggestNext: () => void;
 }) {
-  const { activity: activity, locale, variant, onAccept, onCancel, onComplete } =
-    props;
+  const {
+    activity,
+    locale,
+    variant,
+    onAccept,
+    onStart,
+    onCancel,
+    onComplete,
+  } = props;
 
   const text = (value?: ActivityI18nText | Record<string, string>) =>
     value
@@ -113,7 +121,9 @@ export default function ActivityCard(props: {
             </div>
           ) : null}
 
-          {variant === 'active' && activity.status === 'awaiting_checkin' && (
+          {variant === 'active' &&
+            (activity.status === 'awaiting_feedback' ||
+              activity.status === 'awaiting_checkin') && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               Ожидает обратную связь. Можно завершить с одним ответом, но
               результат будет предварительным.
@@ -167,14 +177,21 @@ export default function ActivityCard(props: {
 
         {variant === 'active' && (
           <>
-            <button
-              onClick={onComplete}
-              className="app-btn-primary w-full px-3 py-2 sm:w-auto"
-            >
-              {activity.status === 'awaiting_checkin'
-                ? 'Оставить отзыв / завершить'
-                : 'Завершить'}
-            </button>
+            {activity.status === 'accepted' ? (
+              <button
+                onClick={onStart}
+                className="app-btn-primary w-full px-3 py-2 sm:w-auto"
+              >
+                Начать
+              </button>
+            ) : (
+              <button
+                onClick={onComplete}
+                className="app-btn-primary w-full px-3 py-2 sm:w-auto"
+              >
+                Оставить отзыв / завершить
+              </button>
+            )}
             <button
               onClick={onCancel}
               className="app-btn-secondary w-full px-3 py-2 sm:w-auto"

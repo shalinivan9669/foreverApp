@@ -21,7 +21,14 @@ const buildQuery = (pairId: Types.ObjectId, status?: string) => {
     return { query, limit: 50 };
   }
   if (bucket === 'current') {
-    query.status = { $in: ['accepted', 'in_progress', 'awaiting_checkin'] };
+    query.status = {
+      $in: [
+        'accepted',
+        'in_progress',
+        'awaiting_feedback',
+        'awaiting_checkin',
+      ],
+    };
     return { query, limit: 1 };
   }
   if (bucket === 'history') {

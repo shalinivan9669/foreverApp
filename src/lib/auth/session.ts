@@ -54,6 +54,11 @@ const getCookieToken = (req: Request | NextRequest, cookieName: string): string 
   return cookies[cookieName] ?? null;
 };
 
+export const hasSessionCookie = (
+  req: Request | NextRequest,
+  cookieName = 'session'
+): boolean => Boolean(getCookieToken(req, cookieName));
+
 const getBearerToken = (req: Request | NextRequest): string | null => {
   const authorization = req.headers.get('authorization')?.trim();
   if (!authorization) return null;

@@ -6,6 +6,7 @@ import { parseParams } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { activitiesService } from '@/domain/services/activities.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
+import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -23,6 +24,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
   const { id } = params.data;
+  const rate = await enforceRateLimit({
+    req,
+    policy: RATE_LIMIT_POLICIES.activityMutations,
+    userId: currentUserId,
+    routeForAudit: `/api/activities/${id}/complete`,
+  });
+  if (!rate.ok) return rate.response;
   const auditRequest = auditContextFromRequest(req, `/api/activities/${id}/complete`);
 
   return withIdempotency({

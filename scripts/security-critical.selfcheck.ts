@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { z } from 'zod';
 import { matchTransition } from '../src/domain/state/matchMachine';
+import { toDomainError } from '../src/domain/errors';
 import { getUserProfileStatus, toUserDTO } from '../src/lib/dto/user.dto';
+import { toMatchFeedCandidateDTO } from '../src/lib/dto/match.dto';
+import { jsonOk } from '../src/lib/api/response';
+import { MAX_JSON_BODY_BYTES, parseJson } from '../src/lib/api/validate';
+import { requireTrustedUnsafeRequest } from '../src/lib/auth/requestSafety';
+import {
+  auditContextFromRequest,
+  clientIpFromRequest,
+  parseTrustedProxyMode,
+} from '../src/lib/audit/emitEvent';
+import {
+  buildRateLimitIdentity,
+  RATE_LIMIT_POLICIES,
+} from '../src/lib/abuse/rateLimit';
+import { resolveDuplicateReplay } from '../src/lib/idempotency/withIdempotency';
+import { projectLegacyMatchLikeResponse } from '../src/app/api/match/like/projectResponse';
 
 const readProjectFile = (path: string): string =>
   readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -17,7 +34,7 @@ const extractBetween = (source: string, start: string, end: string): string => {
 const isAllowedRedirect = (redirectUri: string, expectedRedirectUri: string | null): boolean =>
   expectedRedirectUri !== null && redirectUri === expectedRedirectUri;
 
-const run = () => {
+const run = async () => {
   const usersService = readProjectFile('src/domain/services/users.service.ts');
   assert.match(
     usersService,
@@ -204,8 +221,8 @@ const run = () => {
   );
   assert.match(
     exchangeCodeRoute,
-    /Cache-Control',\s*'no-store,\s*no-cache,\s*must-revalidate'/,
-    'exchange-code token response should not be cached'
+    /requireTrustedUnsafeRequest\(req,[\s\S]*protectWithoutSessionCookie:\s*true/,
+    'exchange-code should reject cross-origin login requests before setting a session cookie'
   );
   assert.match(
     exchangeCodeRoute,
@@ -234,6 +251,16 @@ const run = () => {
     /console\.error/,
     'client OAuth flow should not log raw errors that may contain token or request details'
   );
+  assert.match(
+    appPage,
+    /Откройте приложение внутри Discord и повторите попытку/,
+    'client OAuth failure should explain the embedded re-auth action in readable Russian'
+  );
+  assert.match(
+    appPage,
+    /onClick=\{\(\) => void connectDiscord\(\)\}[\s\S]*Повторить подключение/,
+    'client OAuth failure should provide an explicit retry action'
+  );
 
   const sessionAuth = readProjectFile('src/lib/auth/session.ts');
   assert.match(
@@ -246,6 +273,190 @@ const run = () => {
     /cookieToken[\s\S]*verifyJwt\(cookieToken,\s*secret\)[\s\S]*bearerToken[\s\S]*verifyJwt\(bearerToken,\s*secret\)/,
     'session auth should verify both cookie and bearer sessions with JWT_SECRET'
   );
+
+  const authGuards = readProjectFile('src/lib/auth/guards.ts');
+  assert.match(
+    authGuards,
+    /requireTrustedUnsafeRequest\(req\)/,
+    'cookie-authenticated mutations should pass through the centralized request-origin guard'
+  );
+
+  const sameOriginMutation = requireTrustedUnsafeRequest(
+    new Request('https://app.example/api/match/like', {
+      method: 'POST',
+      headers: {
+        cookie: 'session=test-token',
+        origin: 'https://app.example',
+        'sec-fetch-site': 'same-origin',
+      },
+    })
+  );
+  assert.equal(sameOriginMutation.ok, true, 'same-origin cookie mutation should be accepted');
+
+  const crossOriginMutation = requireTrustedUnsafeRequest(
+    new Request('https://app.example/api/match/like', {
+      method: 'POST',
+      headers: {
+        cookie: 'session=test-token',
+        origin: 'https://evil.example',
+        'sec-fetch-site': 'cross-site',
+      },
+    })
+  );
+  assert.equal(crossOriginMutation.ok, false, 'cross-origin cookie mutation should be rejected');
+  if (!crossOriginMutation.ok) {
+    assert.equal(crossOriginMutation.response.status, 403);
+    const payload = await crossOriginMutation.response.clone().json() as {
+      error?: { code?: string };
+    };
+    assert.equal(payload.error?.code, 'REQUEST_ORIGIN_DENIED');
+  }
+
+  const missingOriginMutation = requireTrustedUnsafeRequest(
+    new Request('https://app.example/api/match/like', {
+      method: 'POST',
+      headers: { cookie: 'session=test-token' },
+    })
+  );
+  assert.equal(
+    missingOriginMutation.ok,
+    false,
+    'cookie mutation should fail closed without Origin or same-origin Fetch Metadata'
+  );
+
+  const bearerOnlyMutation = requireTrustedUnsafeRequest(
+    new Request('https://app.example/api/match/like', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer embedded-session',
+        origin: 'https://embedded.example',
+        'sec-fetch-site': 'cross-site',
+      },
+    })
+  );
+  assert.equal(
+    bearerOnlyMutation.ok,
+    true,
+    'bearer-only embedded clients should not be subjected to cookie-CSRF checks'
+  );
+
+  const forwardedRequest = new Request('https://app.example/api/exchange-code', {
+    headers: {
+      'x-forwarded-for': '203.0.113.10, 10.0.0.2',
+      'x-real-ip': '203.0.113.11',
+      'cf-connecting-ip': '203.0.113.12',
+    },
+  });
+  const previousTrustedProxyMode = process.env.TRUSTED_PROXY_MODE;
+  delete process.env.TRUSTED_PROXY_MODE;
+  try {
+    assert.equal(
+      clientIpFromRequest(forwardedRequest),
+      undefined,
+      'raw forwarding headers must be ignored by default'
+    );
+  } finally {
+    if (previousTrustedProxyMode === undefined) {
+      delete process.env.TRUSTED_PROXY_MODE;
+    } else {
+      process.env.TRUSTED_PROXY_MODE = previousTrustedProxyMode;
+    }
+  }
+  assert.equal(parseTrustedProxyMode('unexpected'), 'none');
+  assert.equal(
+    auditContextFromRequest(forwardedRequest, undefined, {
+      trustedProxyMode: 'x-forwarded-for',
+    }).ip,
+    '203.0.113.10'
+  );
+  assert.equal(
+    buildRateLimitIdentity({
+      req: forwardedRequest,
+      policy: RATE_LIMIT_POLICIES.exchangeCode,
+      trustedProxyMode: 'none',
+    }),
+    null,
+    'missing trusted client IP must disable the anonymous bucket instead of sharing a global key'
+  );
+  assert.equal(
+    buildRateLimitIdentity({
+      req: forwardedRequest,
+      policy: RATE_LIMIT_POLICIES.exchangeCode,
+      trustedProxyMode: 'x-forwarded-for',
+    }),
+    'ip:203.0.113.10'
+  );
+  assert.equal(
+    buildRateLimitIdentity({
+      req: forwardedRequest,
+      policy: RATE_LIMIT_POLICIES.pairsCreate,
+      userId: 'member-a',
+      trustedProxyMode: 'none',
+    }),
+    'user:member-a',
+    'authenticated pair mutations must be isolated per session user'
+  );
+  assert.equal(
+    clientIpFromRequest(
+      new Request('https://app.example', {
+        headers: { 'x-forwarded-for': 'spoofed-client' },
+      }),
+      'x-forwarded-for'
+    ),
+    undefined,
+    'trusted mode must still reject malformed forwarded IP values'
+  );
+
+  const loginCrossOrigin = requireTrustedUnsafeRequest(
+    new Request('https://app.example/api/exchange-code', {
+      method: 'POST',
+      headers: {
+        origin: 'https://evil.example',
+        'sec-fetch-site': 'cross-site',
+      },
+    }),
+    { protectWithoutSessionCookie: true }
+  );
+  assert.equal(loginCrossOrigin.ok, false, 'OAuth cookie issuance should reject cross-origin requests');
+
+  const bodySchema = z.object({ value: z.string() });
+  const validJson = await parseJson(
+    new Request('https://app.example/api/test', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ value: 'ok' }),
+    }),
+    bodySchema
+  );
+  assert.ok(validJson.ok, 'bounded application/json should parse');
+  if (validJson.ok) assert.deepEqual(validJson.data, { value: 'ok' });
+
+  const unsupportedJson = await parseJson(
+    new Request('https://app.example/api/test', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ value: 'ok' }),
+    }),
+    bodySchema
+  );
+  assert.equal(unsupportedJson.ok, false, 'non-JSON media types should be rejected');
+  if (!unsupportedJson.ok) assert.equal(unsupportedJson.response.status, 415);
+
+  const oversizedJson = await parseJson(
+    new Request('https://app.example/api/test', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: 'x'.repeat(MAX_JSON_BODY_BYTES) }),
+    }),
+    bodySchema
+  );
+  assert.equal(oversizedJson.ok, false, 'oversized JSON bodies should be rejected');
+  if (!oversizedJson.ok) assert.equal(oversizedJson.response.status, 413);
+
+  const privateResponse = jsonOk({ value: 'ok' });
+  assert.equal(privateResponse.headers.get('cache-control'), 'private, no-store');
+  assert.equal(privateResponse.headers.get('pragma'), 'no-cache');
+  assert.equal(privateResponse.headers.get('vary'), 'Cookie, Authorization');
 
   const clientHttp = readProjectFile('src/client/api/http.ts');
   assert.match(
@@ -306,6 +517,8 @@ const run = () => {
   }
 
   const nextConfig = readProjectFile('next.config.ts');
+  const proxySource = readProjectFile('src/proxy.ts');
+  const rootLayout = readProjectFile('src/app/layout.tsx');
   assert.match(
     nextConfig,
     /X-Content-Type-Options[\s\S]*nosniff/,
@@ -326,10 +539,36 @@ const run = () => {
     /X-Frame-Options/,
     'Discord embedded app should not set X-Frame-Options; use CSP frame-ancestors instead'
   );
-  assert.match(
+  assert.doesNotMatch(
     nextConfig,
-    /frame-ancestors 'self' https:\/\/discord\.com/,
-    'CSP should preserve Discord iframe embedding'
+    /Content-Security-Policy/,
+    'static Next headers must not override the per-request nonce CSP'
+  );
+  assert.match(proxySource, /'nonce-\$\{nonce\}' 'strict-dynamic'/);
+  assert.match(
+    proxySource,
+    /frame-ancestors 'self' https:\/\/discord\.com https:\/\/\*\.discord\.com https:\/\/discordapp\.com https:\/\/\*\.discordapp\.com https:\/\/staging\.discord\.co/
+  );
+  assert.match(proxySource, /requestHeaders\.set\('Content-Security-Policy'/);
+  assert.match(proxySource, /response\.headers\.set\('Content-Security-Policy'/);
+  assert.doesNotMatch(
+    proxySource,
+    /script-src[^\n]*unsafe-inline/,
+    'script execution must stay nonce-restricted'
+  );
+  assert.match(
+    rootLayout,
+    /await connection\(\)/,
+    'nonce-bearing pages must be dynamically rendered'
+  );
+
+  assert.deepEqual(
+    {
+      code: toDomainError(new Error('E11000 secret collection index')).code,
+      message: toDomainError(new Error('E11000 secret collection index')).message,
+    },
+    { code: 'INTERNAL', message: 'Internal server error' },
+    'unexpected infrastructure errors must not be exposed through API envelopes'
   );
 
   const packageJson = readProjectFile('package.json');
@@ -375,14 +614,241 @@ const run = () => {
   const matchService = readProjectFile('src/domain/services/match.service.ts');
   assert.doesNotMatch(
     matchService,
-    /Math\.max\(0,\s*Math\.min\(100,\s*75\)\)/,
-    'createLike must not use the old placeholder score constant'
+    /calculateMatchScore|readAxisLayer|distance\(|score\(/,
+    'match creation must not compute an exact score from private participant vectors'
   );
   assert.match(
     matchService,
-    /const calculateMatchScore = \(left: UserType, right: UserType\): number/,
-    'createLike should use explicit vector-based match score policy'
+    /matchScore:\s*LEGACY_MATCH_SCORE_SENTINEL/,
+    'legacy matchScore should remain a non-sensitive compatibility sentinel'
   );
+  assert.match(
+    matchService,
+    /matchScoreAvailable:\s*LEGACY_MATCH_SCORE_AVAILABLE/,
+    'match creation response should mark the legacy score unavailable'
+  );
+
+  const candidateDto = toMatchFeedCandidateDTO({
+    id: 'candidate-a',
+    username: 'candidate',
+    avatar: 'avatar',
+  });
+  assert.equal(candidateDto.score, 0);
+  assert.equal(candidateDto.scoreAvailable, false);
+
+  const legacyStoredReplay = resolveDuplicateReplay({
+    requestHash: 'legacy-request-hash',
+    existing: {
+      requestHash: 'legacy-request-hash',
+      state: 'completed',
+      status: 200,
+      responseEnvelope: {
+        ok: true,
+        data: {
+          id: 'legacy-like-id',
+          matchScore: 87,
+        },
+      },
+    },
+  });
+  const projectedLegacyReplay = await projectLegacyMatchLikeResponse(legacyStoredReplay);
+  const projectedLegacyPayload = await projectedLegacyReplay.json() as {
+    data?: {
+      id?: string;
+      matchScore?: number;
+      matchScoreAvailable?: boolean;
+    };
+  };
+  assert.deepEqual(projectedLegacyPayload.data, {
+    id: 'legacy-like-id',
+    matchScore: 0,
+    matchScoreAvailable: false,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(projectedLegacyPayload),
+    /87/,
+    'historical idempotency replay must not expose the stored exact match score'
+  );
+
+  const matchLikeRoute = readProjectFile('src/app/api/match/like/route.ts');
+  assert.match(
+    matchLikeRoute,
+    /projectLegacyMatchLikeResponse\(response\)/,
+    'fresh and replayed create-like responses should pass through the legacy score projection'
+  );
+
+  const matchFeedRoute = readProjectFile('src/app/api/match/feed/route.ts');
+  assert.doesNotMatch(
+    matchFeedRoute,
+    /\bvectors\b|calcMatch|candidateScore|pickVec|\.score\s*-/,
+    'match feed must not query, calculate, or rank by private vectors'
+  );
+  assert.match(matchFeedRoute, /\.sort\(\{ _id: 1 \}\)[\s\S]*\.limit\(50\)/);
+
+  const matchInboxRoute = readProjectFile('src/app/api/match/inbox/route.ts');
+  assert.doesNotMatch(matchInboxRoute, /l\.matchScore/);
+  assert.match(matchInboxRoute, /matchScoreAvailable:\s*LEGACY_MATCH_SCORE_AVAILABLE/);
+
+  const matchLikeDetailRoute = readProjectFile('src/app/api/match/like/[id]/route.ts');
+  assert.doesNotMatch(matchLikeDetailRoute, /like\.matchScore/);
+
+  const matchDtoSource = readProjectFile('src/lib/dto/match.dto.ts');
+  assert.doesNotMatch(matchDtoSource, /matchScore:\s*like\.matchScore/);
+  assert.match(matchDtoSource, /scoreAvailable:\s*LEGACY_MATCH_SCORE_AVAILABLE/);
+  assert.match(matchDtoSource, /matchScoreAvailable:\s*LEGACY_MATCH_SCORE_AVAILABLE/);
+
+  for (const [path, forbiddenPattern] of [
+    ['src/components/CandidateCard.tsx', /c\.score|toFixed\(/],
+    ['src/features/match/inbox/MatchInboxView.tsx', /row\.matchScore/],
+    ['src/features/match/like/LikeDetailsView.tsx', /like\.matchScore/],
+    ['src/components/LikeModal.tsx', /created\.matchScore/],
+  ] as const) {
+    assert.doesNotMatch(
+      readProjectFile(path),
+      forbiddenPattern,
+      `${path} must not display or propagate a legacy exact match percentage`
+    );
+  }
+
+  const auditEventTypes = readProjectFile('src/lib/audit/eventTypes.ts');
+  const auditBlocks = [
+    extractBetween(auditEventTypes, 'QUESTIONNAIRE_ANSWERED:', 'ANSWERS_BULK_SUBMITTED:'),
+    extractBetween(auditEventTypes, 'ANSWERS_BULK_SUBMITTED:', 'USER_ONBOARDING_UPDATED:'),
+    extractBetween(auditEventTypes, 'ACTIVITY_CHECKED_IN:', 'ACTIVITY_COMPLETED:'),
+    extractBetween(auditEventTypes, 'WEEKLY_CHECKIN_SUBMITTED:', 'SAFETY_GATE_UPDATED:'),
+  ];
+  for (const forbiddenField of [
+    'confidence',
+    'sumWeightsTotal',
+    'deltaMagnitude',
+    'appliedStepByAxis',
+    'clampedAxes',
+  ]) {
+    for (const block of auditBlocks) {
+      assert.doesNotMatch(
+        block,
+        new RegExp(`\\b${forbiddenField}\\b`),
+        `${forbiddenField} must not be part of questionnaire/check-in audit metadata`
+      );
+    }
+  }
+
+  const questionnaireService = readProjectFile('src/domain/services/questionnaires.service.ts');
+  assert.doesNotMatch(questionnaireService, /toVectorAuditMetrics|vectorAudit/);
+  assert.match(questionnaireService, /toQuestionnaireAuditCounts/);
+
+  const auditEmitter = readProjectFile('src/lib/audit/emitEvent.ts');
+  for (const blockedAuditKey of [
+    'confidence',
+    'sumweightstotal',
+    'deltamagnitude',
+    'appliedstepbyaxis',
+    'clampedaxes',
+    'matchscore',
+  ]) {
+    assert.match(
+      auditEmitter,
+      new RegExp(`'${blockedAuditKey}'`),
+      `${blockedAuditKey} should be removed by the audit metadata sanitizer`
+    );
+  }
+
+  assert.match(
+    readProjectFile('src/app/api/answers/bulk/route.ts'),
+    /\.min\(1\)\s*\.max\(100\)/,
+    'bulk answers should cap request array length'
+  );
+  assert.match(
+    readProjectFile('src/app/api/questionnaires/[id]/route.ts'),
+    /\.min\(1\)\s*\.max\(100\)/,
+    'questionnaire answers should cap request array length'
+  );
+  assert.match(
+    readProjectFile('src/app/api/activities/[id]/checkin/route.ts'),
+    /\.min\(1\)\s*\.max\(20\)/,
+    'activity check-in answers should cap request array length'
+  );
+
+  for (const routePath of [
+    'src/app/api/pairs/[id]/recommendations/route.ts',
+    'src/app/api/pairs/[id]/activities/suggest/route.ts',
+    'src/app/api/pairs/[id]/suggest/route.ts',
+    'src/app/api/pairs/[id]/activities/from-template/route.ts',
+  ]) {
+    const pairRoute = readProjectFile(routePath);
+    const guardCall = pairRoute.indexOf('await requirePairMember(');
+    const genericDenial = pairRoute.indexOf(
+      "'RECOMMENDATION_UNAVAILABLE'",
+      guardCall
+    );
+    const rateLimit = pairRoute.indexOf('await enforceRateLimit(', genericDenial);
+    const idempotency = pairRoute.indexOf('withIdempotency({', rateLimit);
+    assert.ok(guardCall >= 0, `${routePath} must call the central pair member guard`);
+    assert.ok(
+      genericDenial > guardCall,
+      `${routePath} must map pair denial to the generic recommendation error`
+    );
+    assert.ok(
+      rateLimit > genericDenial,
+      `${routePath} must deny nonmembers before rate or entitlement work`
+    );
+    assert.ok(idempotency > rateLimit, `${routePath} must be idempotent after rate limiting`);
+    assert.match(pairRoute, /RATE_LIMIT_POLICIES\.recommendationMutations/);
+  }
+
+  const recommendationAccess = readProjectFile(
+    'src/lib/entitlements/recommendationAccess.ts'
+  );
+  assert.match(recommendationAccess, /resolveEntitlements\(/);
+  assert.match(recommendationAccess, /assertEntitlement\(/);
+  assert.match(recommendationAccess, /assertQuota\(/);
+  for (const routePath of [
+    'src/app/api/pairs/[id]/activities/suggest/route.ts',
+    'src/app/api/pairs/[id]/suggest/route.ts',
+    'src/app/api/pairs/[id]/activities/from-template/route.ts',
+  ]) {
+    assert.match(readProjectFile(routePath), /assertRecommendationOfferAccess\(/);
+  }
+  const canonicalRecommendationMutation = readProjectFile(
+    'src/app/api/pairs/[id]/recommendations/mutation.ts'
+  );
+  assert.match(canonicalRecommendationMutation, /assertRecommendationOfferAccess\(/);
+
+  const nextRecommendationRoute = readProjectFile('src/app/api/activities/next/route.ts');
+  const activePairGuard = nextRecommendationRoute.indexOf(
+    'await requireActivePairForMember('
+  );
+  const nextRateLimit = nextRecommendationRoute.indexOf(
+    'await enforceRateLimit(',
+    activePairGuard
+  );
+  const nextIdempotency = nextRecommendationRoute.indexOf(
+    'withIdempotency({',
+    nextRateLimit
+  );
+  assert.ok(activePairGuard >= 0);
+  assert.ok(nextRateLimit > activePairGuard);
+  assert.ok(nextIdempotency > nextRateLimit);
+  assert.match(nextRecommendationRoute, /assertRecommendationOfferAccess\(/);
+
+  assert.doesNotMatch(
+    readProjectFile('src/app/api/pairs/[id]/summary/route.ts'),
+    /console\.(log|warn|error)|requestedPairId|foundPairId|membershipOk/,
+    'pair summary denial must not log direct user or pair identifiers'
+  );
+
+  const agentChecks = extractBetween(
+    readProjectFile('scripts/agent-checks.ts'),
+    'const privateMutationWithoutSession',
+    'const rules'
+  );
+  assert.doesNotMatch(
+    agentChecks,
+    /verify\[A-Za-z0-9\]\*Webhook/,
+    'generic verify*Webhook names must not bypass missing-session checks'
+  );
+  assert.match(agentChecks, /billing\/webhooks\/sandbox\/route\.ts/);
+  assert.match(agentChecks, /verifySandboxWebhook/);
   const confirmStart = matchService.indexOf('async confirmLike');
   const confirmSection = matchService.slice(confirmStart);
   assert.ok(confirmStart >= 0, 'confirmLike service boundary should remain explicit');
@@ -414,4 +880,7 @@ const run = () => {
   console.log('Security critical self-check passed.');
 };
 
-run();
+run().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

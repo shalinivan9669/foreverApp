@@ -11,6 +11,7 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { parseJson, parseParams } from '@/lib/api/validate';
+import { cycleEntitlementService } from '@/domain/services/cycleEntitlement.service';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -32,10 +33,17 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!pairGuard.ok) return pairGuard.response;
 
   try {
+    const now = new Date();
+    await cycleEntitlementService.assertCanOpen({
+      pairId: params.data.id,
+      currentUserId: auth.data.userId,
+      cycleKey: weeklyCycleKeyForDate(now),
+    });
     const response = jsonOk(
       await weeklyCycleService.current({
         pair: pairGuard.data.pair,
         currentUserId: auth.data.userId,
+        now,
       })
     );
     response.headers.set('Cache-Control', 'private, no-store');
@@ -58,7 +66,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!params.ok) return params.response;
   const rate = await enforceRateLimit({
     req,
-    policy: RATE_LIMIT_POLICIES.matchMutations,
+    policy: RATE_LIMIT_POLICIES.weeklyMutations,
     userId: auth.data.userId,
     routeForAudit: `/api/pairs/${params.data.id}/weekly-cycle/current`,
   });
@@ -69,6 +77,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!pairGuard.ok) return pairGuard.response;
   const now = new Date();
   const cycleKey = weeklyCycleKeyForDate(now);
+
+  try {
+    await cycleEntitlementService.assertCanOpen({
+      pairId: params.data.id,
+      currentUserId: auth.data.userId,
+      cycleKey,
+    });
+  } catch (error) {
+    const domainError = toDomainError(asError(error));
+    return jsonError(
+      domainError.status,
+      domainError.code,
+      domainError.message,
+      domainError.details
+    );
+  }
 
   const response = await withIdempotency({
     req,

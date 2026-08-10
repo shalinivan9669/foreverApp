@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { pairsApi } from '@/client/api/pairs.api';
 import type { PairMeDTO, PairStatusDTO } from '@/client/api/types';
 import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
@@ -18,13 +18,15 @@ export function usePair(options: UsePairOptions = {}) {
   const statusKey = options.statusCacheKey ?? STATUS_CACHE_KEY;
   const pairKey = options.pairCacheKey ?? ME_CACHE_KEY;
 
-  const getPairStatus = useEntitiesStore((state) => state.getPairStatus);
   const setPairStatus = useEntitiesStore((state) => state.setPairStatus);
-  const getPairMe = useEntitiesStore((state) => state.getPairMe);
   const setPairMe = useEntitiesStore((state) => state.setPairMe);
 
-  const [status, setStatus] = useState<PairStatusDTO | null>(getPairStatus(statusKey));
-  const [pairMe, setPairMeState] = useState<PairMeDTO | null>(getPairMe(pairKey));
+  const status = useEntitiesStore(
+    (state) => state.pairStatusByKey[statusKey]?.data ?? null
+  );
+  const pairMe = useEntitiesStore(
+    (state) => state.pairMeByKey[pairKey]?.data ?? null
+  );
 
   const statusAbortRef = useRef<AbortController | null>(null);
   const pairAbortRef = useRef<AbortController | null>(null);
@@ -56,7 +58,6 @@ export function usePair(options: UsePairOptions = {}) {
     if (!fresh || requestVersion !== statusVersionRef.current) return null;
 
     setPairStatus(statusKey, fresh);
-    setStatus(fresh);
     return fresh;
   }, [runStatusSafe, setPairStatus, statusKey]);
 
@@ -74,18 +75,12 @@ export function usePair(options: UsePairOptions = {}) {
     if (!fresh || requestVersion !== pairVersionRef.current) return null;
 
     setPairMe(pairKey, fresh);
-    setPairMeState(fresh);
     return fresh;
   }, [pairKey, runPairSafe, setPairMe]);
 
   const refetch = useCallback(async () => {
     await Promise.all([refetchStatus(), refetchPair()]);
   }, [refetchPair, refetchStatus]);
-
-  useEffect(() => {
-    setStatus(getPairStatus(statusKey));
-    setPairMeState(getPairMe(pairKey));
-  }, [getPairMe, getPairStatus, pairKey, statusKey]);
 
   useEffect(() => {
     if (!enabled) return;

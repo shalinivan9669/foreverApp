@@ -39,7 +39,9 @@ export function usePairEvents(pairId?: string | null) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void refetch(controller.signal);
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) void refetch(controller.signal);
+    });
     return () => controller.abort();
   }, [refetch]);
 

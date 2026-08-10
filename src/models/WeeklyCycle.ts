@@ -24,6 +24,9 @@ export type WeeklyCycleSubmissionClaim = {
   expiresAt: Date;
 };
 
+export const WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX =
+  'weekly_cycle_pending_expired_reconciliation';
+
 export interface WeeklyCycleType {
   pairId: Types.ObjectId;
   cycleKey: string;
@@ -41,6 +44,7 @@ export interface WeeklyCycleType {
   algorithmVersion: string;
   latestSnapshotId?: Types.ObjectId;
   latestSnapshotRevision?: number;
+  expiredReconciliationCompletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,6 +122,7 @@ const weeklyCycleSchema = new Schema<WeeklyCycleType>(
       ref: 'PairStateSnapshot',
     },
     latestSnapshotRevision: { type: Number, min: 0 },
+    expiredReconciliationCompletedAt: { type: Date },
   },
   {
     collection: 'weekly_cycles',
@@ -128,7 +133,20 @@ const weeklyCycleSchema = new Schema<WeeklyCycleType>(
 
 weeklyCycleSchema.index({ pairId: 1, cycleKey: 1 }, { unique: true });
 weeklyCycleSchema.index({ pairId: 1, startsAt: -1 });
+weeklyCycleSchema.index(
+  { pairId: 1, startsAt: -1, cycleKey: -1 },
+  { name: 'weekly_cycle_history_by_pair_start' }
+);
 weeklyCycleSchema.index({ status: 1, endsAt: 1 });
+weeklyCycleSchema.index(
+  {
+    pairId: 1,
+    expiredReconciliationCompletedAt: 1,
+    endsAt: 1,
+    cycleKey: 1,
+  },
+  { name: WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX }
+);
 
 export const WeeklyCycle =
   (mongoose.models.WeeklyCycle as mongoose.Model<WeeklyCycleType>) ||

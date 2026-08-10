@@ -2,7 +2,7 @@
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
 type Props = {
-  c: { id: string; username: string; avatar: string; score: number };
+  c: { id: string; username: string; avatar: string };
   onLike?: (c: { id: string; username: string; avatar: string }) => void;
 };
 
@@ -18,7 +18,6 @@ export default function CandidateCard({ c, onLike }: Props) {
       />
       <div className="flex w-full items-center gap-3 sm:w-auto sm:flex-1">
         <span className="flex-1 truncate font-medium">{c.username}</span>
-        <span className="app-muted text-sm">{c.score.toFixed(0)}%</span>
       </div>
       {onLike && (
         <button

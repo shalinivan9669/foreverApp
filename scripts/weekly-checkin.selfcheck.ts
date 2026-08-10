@@ -201,14 +201,16 @@ assert.ok(service.includes("layer: 'state'"));
 assert.ok(service.includes("'vectors.psyche.state.level'") || service.includes('vectors.${axis}.state.level'));
 assert.ok(!service.includes("vectors.psyche.trait.level"));
 assert.ok(!service.includes("vectors.communication.trait.level"));
-assert.ok(service.includes('VectorSnapshot.insertMany(snapshots)'));
+assert.ok(service.includes('VectorSnapshot.insertMany(snapshots, { session })'));
 assert.ok(service.includes('requirePairMember'));
 assert.ok(service.includes('pairIdentityFilter'));
 assert.ok(service.includes('buildPairWeeklyCheckInSummary'));
 assert.ok(service.includes('toPairWeeklyCheckInPairDTO'));
 assert.ok(service.includes('WeeklyCheckIn.create'));
 assert.ok(service.includes('isDuplicateKeyError'));
-assert.ok(service.includes('return toStoredWeeklyCheckInDTO(existingCheckIn)'));
+assert.ok(service.includes('reconcileWeeklyCheckIn'));
+assert.ok(service.includes('runWeeklyCheckInFinalization'));
+assert.ok(service.includes("'finalization.state': 'effects_applied'"));
 assert.ok(!service.includes('oldPairReadiness'));
 assert.ok(!service.includes('pairData.pair.readiness?.score ?? answers.readiness'));
 
@@ -262,6 +264,7 @@ const model = readFileSync(
 );
 assert.ok(model.includes('{ userId: 1, pairId: 1, weekKey: 1 }, { unique: true }'));
 assert.ok(model.includes('{ userId: 1, weekKey: 1 }'));
+assert.ok(model.includes('weekly-checkin-finalization-v1'));
 
 const migration = readFileSync(
   join(process.cwd(), 'scripts/migrate-weekly-checkins-pair-scope.ts'),

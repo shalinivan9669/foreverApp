@@ -1,9 +1,7 @@
+import { Types, type PipelineStage } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Subscription, type SubscriptionType } from '@/models/Subscription';
-import {
-  getPlanFeatures,
-  getPlanQuotas,
-} from '@/lib/entitlements/catalog';
+import { getPlanFeatures, getPlanQuotas } from '@/lib/entitlements/catalog';
 import type {
   EntitlementsSnapshot,
   ResolveEntitlementsInput,
@@ -15,11 +13,8 @@ type SubscriptionWithDates = SubscriptionType & {
   updatedAt?: Date;
 };
 
-const STATUS_PRIORITY: Record<SubscriptionStatus, number> = {
-  active: 4,
-  trial: 3,
-  grace: 2,
-  expired: 1,
+type EffectiveSubscription = SubscriptionWithDates & {
+  ownership: 'pair_subscription' | 'legacy_user_subscription';
 };
 
 const normalizeStatus = (
@@ -32,36 +27,103 @@ const normalizeStatus = (
   return status;
 };
 
-const compareByPriority = (
-  left: SubscriptionWithDates,
-  right: SubscriptionWithDates,
+const statusPriorityStage = (now: Date): PipelineStage => ({
+  $addFields: {
+    __statusPriority: {
+      $cond: [
+        {
+          $or: [
+            { $eq: ['$status', 'expired'] },
+            { $lt: [{ $ifNull: ['$periodEnd', now] }, now] },
+          ],
+        },
+        0,
+        {
+          $switch: {
+            branches: [
+              { case: { $eq: ['$status', 'active'] }, then: 4 },
+              { case: { $eq: ['$status', 'trial'] }, then: 3 },
+              { case: { $eq: ['$status', 'grace'] }, then: 2 },
+            ],
+            default: 0,
+          },
+        },
+      ],
+    },
+  },
+});
+
+const pairSubscriptionPipeline = (
+  pairId: Types.ObjectId,
   now: Date
-): number => {
-  const leftStatus = normalizeStatus(left.status, left.periodEnd, now);
-  const rightStatus = normalizeStatus(right.status, right.periodEnd, now);
-  const byStatus = STATUS_PRIORITY[rightStatus] - STATUS_PRIORITY[leftStatus];
-  if (byStatus !== 0) return byStatus;
+): PipelineStage[] => [
+  { $match: { pairId } },
+  statusPriorityStage(now),
+  {
+    $sort: {
+      provider: 1,
+      providerIsCurrent: -1,
+      providerEventOccurredAt: -1,
+      updatedAt: -1,
+      createdAt: -1,
+      _id: -1,
+    },
+  },
+  {
+    $group: {
+      _id: { $ifNull: ['$provider', '__legacy_pair'] },
+      candidate: { $first: '$$ROOT' },
+    },
+  },
+  { $replaceRoot: { newRoot: '$candidate' } },
+  {
+    $sort: {
+      __statusPriority: -1,
+      periodEnd: -1,
+      providerEventOccurredAt: -1,
+      updatedAt: -1,
+      createdAt: -1,
+      _id: -1,
+    },
+  },
+  { $limit: 1 },
+  { $project: { __statusPriority: 0 } },
+];
 
-  const leftPeriodEnd = left.periodEnd?.getTime() ?? 0;
-  const rightPeriodEnd = right.periodEnd?.getTime() ?? 0;
-  const byPeriodEnd = rightPeriodEnd - leftPeriodEnd;
-  if (byPeriodEnd !== 0) return byPeriodEnd;
-
-  const leftUpdated = left.updatedAt?.getTime() ?? left.createdAt?.getTime() ?? 0;
-  const rightUpdated = right.updatedAt?.getTime() ?? right.createdAt?.getTime() ?? 0;
-  return rightUpdated - leftUpdated;
-};
-
-const pickEffectiveSubscription = (
-  subscriptions: SubscriptionWithDates[],
+const legacySubscriptionPipeline = (
+  currentUserId: string,
   now: Date
-): SubscriptionWithDates | null => {
-  if (!subscriptions.length) return null;
-  const sorted = subscriptions.slice().sort((left, right) => compareByPriority(left, right, now));
-  const best = sorted[0];
-  const bestStatus = normalizeStatus(best.status, best.periodEnd, now);
-  if (bestStatus === 'expired') return null;
-  return best;
+): PipelineStage[] => [
+  {
+    $match: {
+      userId: currentUserId,
+      pairId: { $exists: false },
+    },
+  },
+  statusPriorityStage(now),
+  {
+    $sort: {
+      __statusPriority: -1,
+      periodEnd: -1,
+      updatedAt: -1,
+      createdAt: -1,
+      _id: -1,
+    },
+  },
+  { $limit: 1 },
+  { $project: { __statusPriority: 0 } },
+];
+
+const toEffective = (
+  subscription: SubscriptionWithDates | undefined,
+  ownership: EffectiveSubscription['ownership'],
+  now: Date
+): EffectiveSubscription | null => {
+  if (!subscription) return null;
+  if (normalizeStatus(subscription.status, subscription.periodEnd, now) === 'expired') {
+    return null;
+  }
+  return { ...subscription, ownership };
 };
 
 export async function resolveEntitlements(
@@ -70,11 +132,20 @@ export async function resolveEntitlements(
   const now = new Date();
   await connectToDatabase();
 
-  const subscriptions = await Subscription.find({ userId: input.currentUserId })
-    .sort({ updatedAt: -1, createdAt: -1 })
-    .lean<SubscriptionWithDates[]>();
+  const pairQuery =
+    input.pairId && Types.ObjectId.isValid(input.pairId)
+      ? Subscription.aggregate<SubscriptionWithDates>(
+          pairSubscriptionPipeline(new Types.ObjectId(input.pairId), now)
+        )
+      : Promise.resolve<SubscriptionWithDates[]>([]);
+  const legacyQuery = Subscription.aggregate<SubscriptionWithDates>(
+    legacySubscriptionPipeline(input.currentUserId, now)
+  );
+  const [pairOwned, legacyOwned] = await Promise.all([pairQuery, legacyQuery]);
 
-  const effective = pickEffectiveSubscription(subscriptions, now);
+  const effective =
+    toEffective(pairOwned[0], 'pair_subscription', now) ??
+    toEffective(legacyOwned[0], 'legacy_user_subscription', now);
   const status = effective
     ? normalizeStatus(effective.status, effective.periodEnd, now)
     : 'expired';
@@ -85,7 +156,7 @@ export async function resolveEntitlements(
     pairId: input.pairId,
     plan,
     status,
-    source: effective ? 'subscription' : 'default_free',
+    source: effective?.ownership ?? 'default_free',
     resolvedAt: now.toISOString(),
     periodEnd: effective?.periodEnd?.toISOString(),
     features: getPlanFeatures(plan),

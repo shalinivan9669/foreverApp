@@ -33,6 +33,9 @@ import {
   isActivityEligibleForSafetyState,
   isOfferedActivityEligibleForRole,
 } from '@/domain/services/activityEligibility.service';
+import { notificationService } from '@/domain/services/notification.service';
+import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
+import { recordOperationalEvent } from '@/lib/observability/operationalEvents';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -194,12 +197,17 @@ export const activitiesService = {
     );
     assertActivityAccessible({ activity: guarded.activity, role: guarded.by });
     const now = new Date();
-    const outcome: { pairId?: string; activityId?: string } = {};
+    const outcome: {
+      pairId?: string;
+      activityId?: string;
+      alreadyAccepted?: boolean;
+    } = {};
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         outcome.pairId = undefined;
         outcome.activityId = undefined;
+        outcome.alreadyAccepted = false;
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
@@ -223,6 +231,15 @@ export const activitiesService = {
           { type: 'ACCEPT', at: now },
           { currentUserId: input.currentUserId, role: data.by }
         );
+        if (transition.events.some((event) => event.type === 'activity.accept_noop')) {
+          await recommendationDecisionService.claimAcceptedForActivity(
+            input.activityId,
+            now,
+            session
+          );
+          outcome.alreadyAccepted = true;
+          return;
+        }
         await Pair.updateOne(
           { _id: data.pair._id },
           { $set: { updatedAt: new Date() } },
@@ -244,6 +261,7 @@ export const activitiesService = {
     } finally {
       await session.endSession();
     }
+    if (outcome.alreadyAccepted) return {};
     if (!outcome.pairId || !outcome.activityId) return unavailable();
 
     await emitEvent({
@@ -266,7 +284,95 @@ export const activitiesService = {
         status: 'accepted',
       },
     });
+    recordProductAnalyticsEvent({
+      name: 'activity_accepted',
+      technicalScope: 'activity',
+    });
 
+    return {};
+  },
+
+  async startActivity(input: {
+    activityId: string;
+    currentUserId: string;
+    auditRequest?: AuditRequestContext;
+  }): Promise<Record<string, never>> {
+    const guarded = await ensureActivityMember(
+      input.activityId,
+      input.currentUserId
+    );
+    assertActivityAccessible({ activity: guarded.activity, role: guarded.by });
+    await assertActivityAllowedBySafety({
+      activity: guarded.activity,
+      pairId: String(guarded.pair._id),
+    });
+    const outcome: {
+      pairId?: string;
+      activityId?: string;
+      started?: boolean;
+    } = {};
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        outcome.pairId = undefined;
+        outcome.activityId = undefined;
+        outcome.started = false;
+        const data = await reloadActivityContext({
+          activityId: input.activityId,
+          pairId: String(guarded.pair._id),
+          currentUserId: input.currentUserId,
+          session,
+        });
+        if (data.pair.status !== 'active') return unavailable();
+        await assertActivityAllowedBySafety({
+          activity: data.activity,
+          pairId: String(data.pair._id),
+        });
+        const transition = activityTransition(
+          {
+            status: data.activity.status,
+            lifecycleVersion: data.activity.lifecycleVersion,
+            startedAt: data.activity.startedAt,
+            answers: data.activity.answers ?? [],
+          },
+          { type: 'START', at: new Date() },
+          { currentUserId: input.currentUserId, role: data.by }
+        );
+        const started = transition.events.some(
+          (event) => event.type === 'activity.started'
+        );
+        data.activity.status = transition.next.status;
+        if (transition.next.startedAt && !data.activity.startedAt) {
+          data.activity.startedAt = transition.next.startedAt;
+        }
+        await data.activity.save({ session });
+        outcome.pairId = String(data.pair._id);
+        outcome.activityId = String(data.activity._id);
+        outcome.started = started;
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (!outcome.pairId || !outcome.activityId) return unavailable();
+    if (outcome.started) {
+      await emitEvent({
+        event: 'ACTIVITY_STARTED',
+        actor: { userId: input.currentUserId },
+        request: input.auditRequest ?? {
+          route: `/api/activities/${input.activityId}/start`,
+          method: 'POST',
+        },
+        context: {
+          pairId: outcome.pairId,
+          activityId: outcome.activityId,
+        },
+        target: { type: 'activity', id: outcome.activityId },
+        metadata: {
+          activityId: outcome.activityId,
+          status: 'in_progress',
+        },
+      });
+    }
     return {};
   },
 
@@ -358,10 +464,14 @@ export const activitiesService = {
     });
     const outcome: {
       result?: ActivityResultSummaryDTO;
+      newFeedbackSubmission?: boolean;
       audit?: {
         pairId: string;
         activityId: string;
-        status: 'awaiting_checkin' | ActivityCompletedStatus;
+        status:
+          | 'awaiting_feedback'
+          | 'awaiting_checkin'
+          | ActivityCompletedStatus;
         dataStatus: 'ENOUGH' | 'PARTIAL';
         resultVersion: 'activity-result-v1';
       };
@@ -371,6 +481,7 @@ export const activitiesService = {
       await session.withTransaction(async () => {
         outcome.result = undefined;
         outcome.audit = undefined;
+        outcome.newFeedbackSubmission = undefined;
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
@@ -399,13 +510,19 @@ export const activitiesService = {
           });
         }
 
-        const checkIns = effectiveActivityCheckIns(data.activity.checkIns);
+        const checkIns = effectiveActivityCheckIns(
+          data.activity.checkIns,
+          data.activity.feedbackSchemaVersion
+        );
         validateFeedback(checkIns, input.answers);
         if (!data.activity.checkIns.length) {
           data.activity.checkIns = checkIns;
         }
 
         const now = new Date();
+        outcome.newFeedbackSubmission = !(data.activity.answers ?? []).some(
+          (answer) => answer.by === data.by
+        );
         const replacedAnswers = replaceActivityAnswers({
           existing: data.activity.answers ?? [],
           incoming: input.answers,
@@ -419,6 +536,8 @@ export const activitiesService = {
           const transition = activityTransition(
             {
               status: data.activity.status,
+              lifecycleVersion: data.activity.lifecycleVersion,
+              startedAt: data.activity.startedAt,
               answers: data.activity.answers ?? [],
             },
             {
@@ -441,6 +560,7 @@ export const activitiesService = {
           checkIns,
           answers: data.activity.answers ?? [],
           completedAt: data.activity.resultSummary?.completedAt,
+          feedbackSchemaVersion: data.activity.feedbackSchemaVersion,
         });
         if (updatesPreliminaryResult && data.activity.resultSummary) {
           result = refineActivityResultSummary({
@@ -452,13 +572,30 @@ export const activitiesService = {
         }
 
         await data.activity.save({ session });
+        if (
+          !result.bothSubmitted &&
+          (data.activity.status === 'awaiting_feedback' ||
+            data.activity.status === 'awaiting_checkin')
+        ) {
+          const peerId = data.pair.members[data.by === 'A' ? 1 : 0];
+          await notificationService.create({
+            userIds: [peerId],
+            pairId: String(data.pair._id),
+            type: 'FEEDBACK_REQUESTED',
+            sourceKey: `activity:${String(data.activity._id)}`,
+            now,
+            session,
+          });
+        }
         outcome.result = toActivityResultSummaryDTO(result);
         outcome.audit = {
           pairId: String(data.pair._id),
           activityId: String(data.activity._id),
           status: updatesPreliminaryResult
             ? result.status
-            : 'awaiting_checkin',
+            : data.activity.status === 'awaiting_feedback'
+              ? 'awaiting_feedback'
+              : 'awaiting_checkin',
           dataStatus: result.bothSubmitted ? 'ENOUGH' : 'PARTIAL',
           resultVersion: result.resultVersion,
         };
@@ -497,6 +634,12 @@ export const activitiesService = {
         resultVersion: outcome.audit.resultVersion,
       },
     });
+    if (outcome.newFeedbackSubmission) {
+      recordProductAnalyticsEvent({
+        name: 'feedback_submitted',
+        technicalScope: 'activity',
+      });
+    }
 
     return outcome.result;
   },
@@ -560,6 +703,7 @@ export const activitiesService = {
             checkIns: data.activity.checkIns,
             answers: data.activity.answers ?? [],
             completedAt: now,
+            feedbackSchemaVersion: data.activity.feedbackSchemaVersion,
           });
 
         if (alreadyCompleted && !data.activity.resultSummary) {
@@ -599,6 +743,8 @@ export const activitiesService = {
           const transition = activityTransition(
             {
               status: data.activity.status,
+              lifecycleVersion: data.activity.lifecycleVersion,
+              startedAt: data.activity.startedAt,
               answers: data.activity.answers ?? [],
             },
             {
@@ -691,6 +837,15 @@ export const activitiesService = {
           effectApplied: outcome.audit.effectApplied,
           resultVersion: outcome.audit.resultVersion,
         },
+      });
+      recordProductAnalyticsEvent({
+        name: 'activity_completed',
+        technicalScope: 'activity',
+      });
+      recordOperationalEvent({
+        name: 'activity_completed',
+        routeGroup: 'activity',
+        outcome: 'ok',
       });
     }
 

@@ -6,7 +6,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 import { jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
-import { toLikeDTO } from '@/lib/dto';
+import { LEGACY_MATCH_SCORE_SENTINEL, toLikeDTO } from '@/lib/dto';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     _id: like._id,
     fromId: like.fromId,
     toId: like.toId,
-    matchScore: like.matchScore,
+    matchScore: LEGACY_MATCH_SCORE_SENTINEL,
     status: like.status,
     createdAt: like.createdAt,
     updatedAt: like.updatedAt,

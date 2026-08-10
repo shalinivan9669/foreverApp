@@ -53,6 +53,7 @@ export default function CoupleActivityPage() {
     loading,
     error,
     refetch,
+    startActivity,
     cancelActivity,
     checkInActivityDetailed,
     completeActivityDetailed,
@@ -203,6 +204,7 @@ export default function CoupleActivityPage() {
       onRetry={() => void refetch()}
       onSetTab={setTab}
       onCancel={(id) => void cancelActivity(id)}
+      onStart={(id) => void startActivity(id)}
       onOpenCheckIn={setCheckInFor}
       checkInFor={checkInFor}
       onCloseCheckIn={() => {

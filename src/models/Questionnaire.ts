@@ -1,4 +1,8 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, type FilterQuery } from 'mongoose';
+import {
+  CONTENT_PUBLICATION_STATUS_VALUES,
+  type ContentPublicationStatus,
+} from '@/models/ActivityTemplate';
 
 /** Один вопрос внутри анкеты */
 export interface QuestionItem {
@@ -23,6 +27,10 @@ export interface QuestionItem {
 
 export interface QuestionnaireType {
   _id: string;
+  publicationStatus: ContentPublicationStatus;
+  reviewedAt?: Date;
+  publishedAt?: Date;
+  retiredAt?: Date;
   title:       Record<string,string>;
   description?:Record<string,string>;
   meta?: {
@@ -64,6 +72,15 @@ const QuestionSchema = new Schema<QuestionItem>({
 
 const QuestionnaireSchema = new Schema<QuestionnaireType>({
   _id:        { type:String, required:true },
+  publicationStatus: {
+    type: String,
+    enum: CONTENT_PUBLICATION_STATUS_VALUES,
+    required: true,
+    default: 'draft',
+  },
+  reviewedAt: Date,
+  publishedAt: Date,
+  retiredAt: Date,
   title:      { type:Schema.Types.Mixed, required:true },
   description:{ type:Schema.Types.Mixed },
   meta:       { type:Schema.Types.Mixed },
@@ -79,6 +96,32 @@ const QuestionnaireSchema = new Schema<QuestionnaireType>({
   randomize:  { type:Boolean, default:false },
   questions:  { type:[QuestionSchema], required:true }
 }, { collection:'questionnaires', timestamps:true });
+
+QuestionnaireSchema.pre('validate', function validatePublicationGate() {
+  const reviewed = this.reviewedAt instanceof Date;
+  const published = this.publishedAt instanceof Date;
+  const retired = this.retiredAt instanceof Date;
+
+  if (this.publicationStatus === 'published' && (!reviewed || !published || retired)) {
+    throw new Error('Published questionnaire requires review and publish timestamps');
+  }
+  if (this.publicationStatus === 'retired' && (!reviewed || !published || !retired)) {
+    throw new Error('Retired questionnaire requires review, publish, and retire timestamps');
+  }
+});
+
+QuestionnaireSchema.index(
+  { publicationStatus: 1, 'target.type': 1, updatedAt: -1 },
+  { name: 'questionnaire_published_catalog' }
+);
+
+export const publishedQuestionnaireFilter = (): FilterQuery<QuestionnaireType> => ({
+  publicationStatus: 'published',
+  version: { $gte: 1 },
+  reviewedAt: { $type: 'date' },
+  publishedAt: { $type: 'date' },
+  retiredAt: { $exists: false },
+});
 
 export const Questionnaire =
   (mongoose.models.Questionnaire as mongoose.Model<QuestionnaireType>) ||

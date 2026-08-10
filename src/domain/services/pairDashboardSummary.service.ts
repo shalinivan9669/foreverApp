@@ -313,7 +313,14 @@ export const buildPairDashboardSummary = async (input: {
     await Promise.all([
       PairActivity.find({
         pairId,
-        status: { $in: ['accepted', 'in_progress', 'awaiting_checkin'] },
+        status: {
+          $in: [
+            'accepted',
+            'in_progress',
+            'awaiting_feedback',
+            'awaiting_checkin',
+          ],
+        },
       })
         .sort({ createdAt: -1 })
         .limit(20)

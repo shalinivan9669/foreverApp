@@ -1,4 +1,8 @@
 import mongoose, { Schema, Types } from 'mongoose';
+import {
+  RecommendationProvenanceSchema,
+  type RecommendationProvenanceType,
+} from '@/models/RecommendationProvenance';
 
 export type RecommendationDecisionStatus =
   | 'OFFERED'
@@ -19,6 +23,7 @@ export interface RecommendationDecisionType {
   status: RecommendationDecisionStatus;
   reasonCode: RecommendationReasonCode;
   decisionVersion: 'recommendation-decision-v1';
+  provenance?: RecommendationProvenanceType;
   replacementDepth: 0 | 1;
   previousDecisionId?: Types.ObjectId;
   successorDecisionId?: Types.ObjectId;
@@ -57,6 +62,10 @@ const RecommendationDecisionSchema = new Schema<RecommendationDecisionType>(
       enum: ['recommendation-decision-v1'],
       required: true,
       default: 'recommendation-decision-v1',
+    },
+    provenance: {
+      type: RecommendationProvenanceSchema,
+      immutable: true,
     },
     replacementDepth: { type: Number, enum: [0, 1], required: true, default: 0 },
     previousDecisionId: {

@@ -15,11 +15,11 @@ export function useCurrentUser(options: UseCurrentUserOptions = {}) {
   const cacheKey = options.cacheKey ?? DEFAULT_CACHE_KEY;
   const enabled = options.enabled ?? true;
 
-  const getCached = useEntitiesStore((state) => state.getCurrentUser);
   const setCurrentUser = useEntitiesStore((state) => state.setCurrentUser);
-  const cached = getCached(cacheKey);
+  const data = useEntitiesStore(
+    (state) => state.currentUserByKey[cacheKey]?.data ?? null
+  );
 
-  const [data, setData] = useState<CurrentUserDTO | null>(cached);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -45,18 +45,17 @@ export function useCurrentUser(options: UseCurrentUserOptions = {}) {
     }
 
     setCurrentUser(cacheKey, fresh);
-    setData(fresh);
     return fresh;
   }, [cacheKey, runSafe, setCurrentUser]);
 
   useEffect(() => {
-    setData(cached);
-  }, [cached]);
-
-  useEffect(() => {
     if (!enabled) return;
-    void refetch();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refetch();
+    });
     return () => {
+      cancelled = true;
       abortRef.current?.abort();
     };
   }, [enabled, refetch]);

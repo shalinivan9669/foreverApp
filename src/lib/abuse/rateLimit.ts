@@ -1,7 +1,11 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { RateLimitBucket, type RateLimitBucketType } from '@/models/RateLimitBucket';
 import { jsonError } from '@/lib/api/response';
-import { auditContextFromRequest, emitEvent } from '@/lib/audit/emitEvent';
+import {
+  auditContextFromRequest,
+  emitEvent,
+  type TrustedProxyMode,
+} from '@/lib/audit/emitEvent';
 
 export type RateLimitWindowPolicy = {
   limit: number;
@@ -41,14 +45,83 @@ export const RATE_LIMIT_POLICIES = {
   usersCreate: {
     name: 'users-create',
     routeKey: '/api/users',
-    keying: 'ip',
+    keying: 'user',
     windows: [{ name: '5/min', limit: 5, windowMs: 60_000 }],
   },
   pairsCreate: {
     name: 'pairs-create',
     routeKey: '/api/pairs/create',
-    keying: 'ip',
+    keying: 'user',
     windows: [{ name: '5/min', limit: 5, windowMs: 60_000 }],
+  },
+  weeklyMutations: {
+    name: 'weekly-mutations',
+    routeKey: '/api/checkins/weekly*',
+    keying: 'user',
+    windows: [
+      { name: '20/min', limit: 20, windowMs: 60_000 },
+      { name: '100/day', limit: 100, windowMs: 86_400_000 },
+    ],
+  },
+  recommendationMutations: {
+    name: 'recommendation-mutations',
+    routeKey: '/api/pairs/*/recommendations',
+    keying: 'user',
+    windows: [
+      { name: '30/min', limit: 30, windowMs: 60_000 },
+      { name: '200/day', limit: 200, windowMs: 86_400_000 },
+    ],
+  },
+  activityMutations: {
+    name: 'activity-mutations',
+    routeKey: '/api/activities/*',
+    keying: 'user',
+    windows: [
+      { name: '30/min', limit: 30, windowMs: 60_000 },
+      { name: '200/day', limit: 200, windowMs: 86_400_000 },
+    ],
+  },
+  notificationMutations: {
+    name: 'notification-mutations',
+    routeKey: '/api/notifications/*/read',
+    keying: 'user',
+    windows: [
+      { name: '60/min', limit: 60, windowMs: 60_000 },
+      { name: '500/day', limit: 500, windowMs: 86_400_000 },
+    ],
+  },
+  billingWebhook: {
+    name: 'billing-webhook',
+    routeKey: '/api/billing/webhooks/*',
+    keying: 'ip',
+    windows: [
+      { name: '60/min', limit: 60, windowMs: 60_000 },
+      { name: '500/hour', limit: 500, windowMs: 3_600_000 },
+    ],
+  },
+  privacyExport: {
+    name: 'privacy-export',
+    routeKey: '/api/privacy/export',
+    keying: 'user',
+    windows: [
+      { name: '2/hour', limit: 2, windowMs: 3_600_000 },
+      { name: '5/day', limit: 5, windowMs: 86_400_000 },
+    ],
+  },
+  privacyDeletionStatus: {
+    name: 'privacy-deletion-status',
+    routeKey: '/api/privacy/deletion-request',
+    keying: 'user',
+    windows: [{ name: '30/min', limit: 30, windowMs: 60_000 }],
+  },
+  privacyDeletionMutation: {
+    name: 'privacy-deletion-mutation',
+    routeKey: '/api/privacy/deletion-request',
+    keying: 'user',
+    windows: [
+      { name: '5/hour', limit: 5, windowMs: 3_600_000 },
+      { name: '10/day', limit: 10, windowMs: 86_400_000 },
+    ],
   },
 } as const satisfies Record<string, RateLimitPolicy>;
 
@@ -66,26 +139,24 @@ type IncrementWindowResult = {
   window: RateLimitWindowPolicy;
 };
 
-const getClientIp = (req: Request): string | undefined =>
-  auditContextFromRequest(req).ip;
-
-const buildRateLimitIdentity = (params: {
+export const buildRateLimitIdentity = (params: {
   req: Request;
   userId?: string;
   policy: RateLimitPolicy;
-}): string => {
-  const ip = getClientIp(params.req) ?? 'unknown';
+  trustedProxyMode?: TrustedProxyMode;
+}): string | null => {
   const user = params.userId?.trim();
-
-  if (params.policy.keying === 'ip') {
-    return `ip:${ip}`;
+  if (user && params.policy.keying !== 'ip') {
+    return `user:${user}`;
   }
-
   if (params.policy.keying === 'user') {
-    return `user:${user || 'anonymous'}`;
+    return null;
   }
 
-  return user ? `user:${user}` : `ip:${ip}`;
+  const ip = auditContextFromRequest(params.req, undefined, {
+    trustedProxyMode: params.trustedProxyMode,
+  }).ip?.trim();
+  return ip ? `ip:${ip}` : null;
 };
 
 const ttlPaddingMs = 5 * 60 * 1000;
@@ -159,6 +230,14 @@ export async function enforceRateLimit(params: EnforceRateLimitParams): Promise<
     userId: params.userId,
     policy: params.policy,
   });
+
+  // An untrusted forwarding header is not an identity. Anonymous IP policies
+  // are enabled only when a trusted ingress mode can supply a verified client
+  // address; otherwise fail open instead of coupling every client to one
+  // process-wide "unknown" bucket.
+  if (!key) {
+    return { ok: true };
+  }
 
   await connectToDatabase();
 

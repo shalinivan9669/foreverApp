@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
@@ -26,6 +26,7 @@ export default function QuestionnairesPage() {
   const { error, clearError, setErrorFromException } = useApi('questionnaire-start');
 
   const hasPair = Boolean(pairId || (status && status.hasActive));
+  const visibleActiveTab = hasPair ? activeTab : 'personal';
   const cardViewModels = useMemo(() => toQuestionnaireCardVMList(cards), [cards]);
 
   const personalCards = useMemo(
@@ -36,12 +37,6 @@ export default function QuestionnairesPage() {
     () => cardViewModels.filter((card) => card.scope === 'couple'),
     [cardViewModels]
   );
-
-  useEffect(() => {
-    if (activeTab === 'couple' && !hasPair) {
-      setActiveTab('personal');
-    }
-  }, [activeTab, hasPair]);
 
   const setItemLoading = useCallback((questionnaireId: string, loading: boolean) => {
     setLoadingByQuestionnaireId((prev) => ({
@@ -104,7 +99,7 @@ export default function QuestionnairesPage() {
       />
 
       <QuestionnairesPageView
-        activeTab={activeTab}
+        activeTab={visibleActiveTab}
         onChangeTab={setActiveTab}
         canAccessCouple={hasPair}
         personalCards={personalCards}

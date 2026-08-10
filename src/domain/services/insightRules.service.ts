@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { Pair, type PairType } from '@/models/Pair';
@@ -591,7 +591,8 @@ export const buildUserInsightCandidates = (input: {
 };
 
 const findExistingForCandidates = async (
-  candidates: InsightCandidate[]
+  candidates: InsightCandidate[],
+  session?: ClientSession
 ): Promise<StoredInsight[]> => {
   if (candidates.length === 0) return [];
 
@@ -612,14 +613,17 @@ const findExistingForCandidates = async (
   const clauses = [...userRules, ...pairRules];
   if (clauses.length === 0) return [];
 
-  return Insight.find({ $or: clauses }).lean<StoredInsight[]>();
+  const query = Insight.find({ $or: clauses });
+  if (session) query.session(session);
+  return query.lean<StoredInsight[]>();
 };
 
 export const persistInsightCandidates = async (
   candidates: InsightCandidate[],
-  now = new Date()
+  now = new Date(),
+  session?: ClientSession
 ): Promise<StoredInsight[]> => {
-  const existing = await findExistingForCandidates(candidates);
+  const existing = await findExistingForCandidates(candidates, session);
   const fresh = dedupeInsightCandidates(candidates, existing, now);
   if (fresh.length === 0) return [];
 
@@ -639,7 +643,9 @@ export const persistInsightCandidates = async (
     cooldownUntil: addDays(now, candidate.cooldownDays ?? INSIGHT_COOLDOWN_DAYS),
   }));
 
-  const created = await Insight.create(docs);
+  const created = session
+    ? await Insight.create(docs, { session, ordered: true })
+    : await Insight.create(docs);
   return created.map((doc) => doc.toObject() as StoredInsight);
 };
 

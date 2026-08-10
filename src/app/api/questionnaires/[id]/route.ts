@@ -1,7 +1,11 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Questionnaire, type QuestionnaireType } from '@/models/Questionnaire';
+import {
+  Questionnaire,
+  publishedQuestionnaireFilter,
+  type QuestionnaireType,
+} from '@/models/Questionnaire';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
@@ -37,7 +41,8 @@ const answersSchema = z
           ui: answerUiSchema,
         })
       )
-      .min(1),
+      .min(1)
+      .max(100),
   })
   .strict();
 
@@ -68,7 +73,10 @@ export async function GET(
   const { id } = params.data;
 
   await connectToDatabase();
-  const doc = await Questionnaire.findOne({ _id: id }).lean<QuestionnaireType | null>();
+  const doc = await Questionnaire.findOne({
+    _id: id,
+    ...publishedQuestionnaireFilter(),
+  }).lean<QuestionnaireType | null>();
   if (!doc) return jsonError(404, 'QUESTIONNAIRE_NOT_FOUND', 'not found');
   return jsonOk(toQuestionnaireDTO(doc));
 }

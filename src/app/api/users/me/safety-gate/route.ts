@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         ownerUserId: auth.data.userId,
       })
     );
-    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error) {
     const domainError = toDomainError(asError(error));
@@ -64,7 +64,7 @@ export async function PUT(req: NextRequest) {
         auditRequest: auditContextFromRequest(req, '/api/users/me/safety-gate'),
       })
     );
-    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error) {
     const domainError = toDomainError(asError(error));

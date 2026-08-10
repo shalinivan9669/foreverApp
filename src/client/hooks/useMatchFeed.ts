@@ -11,6 +11,7 @@ import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
 import { useApi } from './useApi';
 
 const FEED_CACHE_KEY = 'match:feed:self';
+const EMPTY_FEED_CANDIDATES: MatchFeedCandidateDTO[] = [];
 
 export type MatchFeedGate = 'checking' | 'ready' | 'redirect_pair' | 'redirect_match_card';
 
@@ -25,12 +26,25 @@ export function useMatchFeed(options: UseMatchFeedOptions = {}) {
   const cacheKey = options.cacheKey ?? FEED_CACHE_KEY;
   const preflight = options.preflight ?? true;
 
-  const getMatchFeed = useEntitiesStore((state) => state.getMatchFeed);
   const setMatchFeed = useEntitiesStore((state) => state.setMatchFeed);
-  const cached = getMatchFeed(cacheKey);
+  const cached = useEntitiesStore(
+    (state) => state.matchFeedByKey[cacheKey]?.data ?? null
+  );
+  const candidates = cached ?? EMPTY_FEED_CANDIDATES;
 
-  const [candidates, setCandidates] = useState<MatchFeedCandidateDTO[]>(cached ?? []);
-  const [gate, setGate] = useState<MatchFeedGate>('checking');
+  const [gateState, setGateState] = useState<{
+    cacheKey: string;
+    gate: MatchFeedGate;
+  }>(() => ({
+    cacheKey,
+    gate: candidates.length > 0 ? 'ready' : 'checking',
+  }));
+  const gate =
+    gateState.cacheKey === cacheKey
+      ? gateState.gate
+      : candidates.length > 0
+        ? 'ready'
+        : 'checking';
 
   const {
     runSafe: runLoadSafe,
@@ -55,7 +69,7 @@ export function useMatchFeed(options: UseMatchFeedOptions = {}) {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setGate('checking');
+    setGateState({ cacheKey, gate: 'checking' });
 
     if (preflight) {
       const preflightResult = await runLoadSafe(
@@ -75,11 +89,11 @@ export function useMatchFeed(options: UseMatchFeedOptions = {}) {
       if (!preflightResult || requestVersion !== versionRef.current) return null;
 
       if (preflightResult.pairMe.hasActive) {
-        setGate('redirect_pair');
+        setGateState({ cacheKey, gate: 'redirect_pair' });
         return [];
       }
       if (preflightResult.ownCard === null) {
-        setGate('redirect_match_card');
+        setGateState({ cacheKey, gate: 'redirect_match_card' });
         return [];
       }
     }
@@ -91,8 +105,7 @@ export function useMatchFeed(options: UseMatchFeedOptions = {}) {
 
     const normalized = Array.isArray(fresh) ? fresh : [];
     setMatchFeed(cacheKey, normalized);
-    setCandidates(normalized);
-    setGate('ready');
+    setGateState({ cacheKey, gate: 'ready' });
     return normalized;
   }, [cacheKey, preflight, runLoadSafe, setMatchFeed]);
 
@@ -115,16 +128,13 @@ export function useMatchFeed(options: UseMatchFeedOptions = {}) {
   );
 
   useEffect(() => {
-    setCandidates(cached ?? []);
-    if ((cached ?? []).length > 0) {
-      setGate('ready');
-    }
-  }, [cached]);
-
-  useEffect(() => {
     if (!enabled) return;
-    void refetch();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void refetch();
+    });
     return () => {
+      cancelled = true;
       abortRef.current?.abort();
     };
   }, [enabled, refetch]);

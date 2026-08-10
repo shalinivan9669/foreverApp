@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 type I18nText = Record<string, string>;
 type CheckIn = {
@@ -14,7 +14,7 @@ type Activity = { _id: string; title: I18nText; checkIns: CheckIn[] };
 
 type CheckInAnswer = { checkInId: string; ui: number };
 
-export default function CheckInModal(props: {
+type CheckInModalProps = {
   activity: Activity;
   locale: string;
   onClose: () => void;
@@ -24,7 +24,9 @@ export default function CheckInModal(props: {
   pendingCompleteMessage?: string | null;
   onRetryComplete?: () => void;
   retryCompleteLoading?: boolean;
-}) {
+};
+
+function CheckInModalForm(props: CheckInModalProps) {
   const {
     activity: activityItem,
     locale,
@@ -41,10 +43,6 @@ export default function CheckInModal(props: {
 
   const [answers, setAnswers] =
     useState<Partial<Record<string, number>>>({});
-
-  useEffect(() => {
-    setAnswers({});
-  }, [activityItem._id]);
 
   const handleChange = (id: string, ui: number) => {
     if (submitting || pendingComplete) return;
@@ -111,7 +109,9 @@ export default function CheckInModal(props: {
                     </label>
                   ))}
                   <div className="app-muted basis-full text-xs">
-                    1 — совсем нет / стало хуже, 3 — нейтрально, 5 — да / стало лучше
+                    {checkIn.id === 'difficulty'
+                      ? '1 — совсем легко, 3 — умеренно, 5 — очень сложно'
+                      : '1 — совсем нет / стало хуже, 3 — нейтрально, 5 — да / стало лучше'}
                   </div>
                 </div>
               ) : (
@@ -174,4 +174,8 @@ export default function CheckInModal(props: {
       </div>
     </div>
   );
+}
+
+export default function CheckInModal(props: CheckInModalProps) {
+  return <CheckInModalForm key={props.activity._id} {...props} />;
 }

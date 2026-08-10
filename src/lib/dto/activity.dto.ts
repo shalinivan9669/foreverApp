@@ -43,6 +43,7 @@ export type PairActivityDTO = {
   materials?: string[];
   offeredAt?: string;
   acceptedAt?: string;
+  startedAt?: string;
   windowStart?: string;
   windowEnd?: string;
   dueAt?: string;
@@ -155,6 +156,7 @@ export function toPairActivityDTO(
     materials: activity.materials,
     offeredAt: toIso(activity.offeredAt),
     acceptedAt: toIso(activity.acceptedAt),
+    startedAt: toIso(activity.startedAt),
     windowStart: toIso(activity.windowStart),
     windowEnd: toIso(activity.windowEnd),
     dueAt: toIso(activity.dueAt),
@@ -162,7 +164,10 @@ export function toPairActivityDTO(
     cooldownDays: activity.cooldownDays,
     requiresConsent: activity.requiresConsent,
     status: activity.status,
-    checkIns: effectiveActivityCheckIns(activity.checkIns),
+    checkIns: effectiveActivityCheckIns(
+      activity.checkIns,
+      activity.feedbackSchemaVersion
+    ),
     resultSummary: activity.resultSummary
       ? toActivityResultSummaryDTO(activity.resultSummary)
       : undefined,

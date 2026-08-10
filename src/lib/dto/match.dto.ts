@@ -1,12 +1,19 @@
 import type { LikeStatus, LikeType } from '@/models/Like';
 import type { UserType } from '@/models/User';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
+import {
+  LEGACY_MATCH_SCORE_AVAILABLE,
+  LEGACY_MATCH_SCORE_SENTINEL,
+} from '@/domain/matchScorePolicy';
+
+export { LEGACY_MATCH_SCORE_AVAILABLE, LEGACY_MATCH_SCORE_SENTINEL };
 
 export type MatchFeedCandidateDTO = {
   id: string;
   username: string;
   avatar: string;
-  score: number;
+  score: typeof LEGACY_MATCH_SCORE_SENTINEL;
+  scoreAvailable: typeof LEGACY_MATCH_SCORE_AVAILABLE;
 };
 
 export type MatchCardDTO = {
@@ -31,7 +38,8 @@ export type LikePeerDTO = {
 export type LikeDTO = {
   id: string;
   status: LikeStatus;
-  matchScore: number;
+  matchScore: typeof LEGACY_MATCH_SCORE_SENTINEL;
+  matchScoreAvailable: typeof LEGACY_MATCH_SCORE_AVAILABLE;
   updatedAt?: string;
   from: LikePeerDTO;
   to: LikePeerDTO;
@@ -54,7 +62,8 @@ export type LikeDTO = {
 export type LikeSummaryDTO = {
   id: string;
   status: LikeStatus;
-  matchScore: number;
+  matchScore: typeof LEGACY_MATCH_SCORE_SENTINEL;
+  matchScoreAvailable: typeof LEGACY_MATCH_SCORE_AVAILABLE;
   updatedAt?: string;
   fromId: string;
   toId: string;
@@ -99,12 +108,13 @@ export type ToLikeDtoOptions = {
   avatarMode?: 'url' | 'hash';
 };
 
-export function toMatchFeedCandidateDTO(user: UserLite, score: number): MatchFeedCandidateDTO {
+export function toMatchFeedCandidateDTO(user: UserLite): MatchFeedCandidateDTO {
   return {
     id: user.id,
     username: user.username,
     avatar: user.avatar,
-    score,
+    score: LEGACY_MATCH_SCORE_SENTINEL,
+    scoreAvailable: LEGACY_MATCH_SCORE_AVAILABLE,
   };
 }
 
@@ -150,7 +160,8 @@ export function toLikeDTO(like: LikeSource, opts: ToLikeDtoOptions = {}): LikeDT
   const dto: LikeDTO = {
     id: toId(like._id),
     status: like.status,
-    matchScore: like.matchScore,
+    matchScore: LEGACY_MATCH_SCORE_SENTINEL,
+    matchScoreAvailable: LEGACY_MATCH_SCORE_AVAILABLE,
     updatedAt: toIso(like.updatedAt),
     from: {
       id: fromId,
@@ -207,7 +218,8 @@ export function toLikeSummaryDTO(like: LikeSource): LikeSummaryDTO {
   return {
     id: toId(like._id),
     status: like.status,
-    matchScore: like.matchScore,
+    matchScore: LEGACY_MATCH_SCORE_SENTINEL,
+    matchScoreAvailable: LEGACY_MATCH_SCORE_AVAILABLE,
     updatedAt: toIso(like.updatedAt),
     fromId: like.fromId,
     toId: like.toId,

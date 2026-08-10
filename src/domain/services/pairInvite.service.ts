@@ -14,8 +14,11 @@ import {
 } from '@/models/PairMembershipClaim';
 import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
 import { pairInviteTransition } from '@/domain/state/pairInviteMachine';
+import { notificationService } from '@/domain/services/notification.service';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
+import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
+import { recordOperationalEvent } from '@/lib/observability/operationalEvents';
 
 export const PAIR_INVITE_TOKEN_BYTES = 32;
 export const PAIR_INVITE_TTL_MS = 72 * 60 * 60 * 1000;
@@ -328,6 +331,11 @@ export const pairInviteService = {
           message: 'Pair invite was not found after creation',
         });
       }
+      recordProductAnalyticsEvent({
+        name: 'pair_invite_created',
+        technicalScope: 'pair_invite',
+        at: now,
+      });
       return { invite: toOwnerDTO(invite), token: issued.token };
     } catch (error: unknown) {
       if (isDuplicateKeyError(error)) activeInviteExists();
@@ -660,6 +668,15 @@ export const pairInviteService = {
           ).lean<StoredPairInvite | null>();
           if (!accepted) unavailable();
 
+          await notificationService.create({
+            userIds: liveMembers,
+            pairId: String(targetPairId),
+            type: 'PAIR_JOINED',
+            sourceKey: `invite:${String(invite._id)}`,
+            now,
+            session,
+          });
+
           return {
             kind: 'accepted',
             pairId: String(targetPairId),
@@ -692,6 +709,16 @@ export const pairInviteService = {
           members: result.members,
           source: 'pair_invite_accept',
         },
+      });
+      recordProductAnalyticsEvent({
+        name: 'pair_joined',
+        technicalScope: 'pair_invite',
+        at: now,
+      });
+      recordOperationalEvent({
+        name: 'invite_converted',
+        routeGroup: 'pair_invite',
+        outcome: 'ok',
       });
     }
 

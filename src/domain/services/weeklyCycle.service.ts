@@ -13,6 +13,7 @@ import {
 } from '@/models/PairStateSnapshot';
 import {
   WeeklyCycle,
+  WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX,
   type WeeklyCycleMemberCompletion,
   type WeeklyCycleMemberStatus,
   type WeeklyCyclePairReadiness,
@@ -23,6 +24,9 @@ import {
   type WeeklyCheckInAnswers,
   type WeeklyCheckInType,
 } from '@/models/WeeklyCheckIn';
+import { notificationService } from '@/domain/services/notification.service';
+import { recordOperationalEvent } from '@/lib/observability/operationalEvents';
+import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
 
 export const WEEKLY_CYCLE_INPUT_DEFINITION_VERSION = 'weekly-checkin-v1';
 export const PAIR_STATE_ALGORITHM_VERSION = 'pair-state-v1';
@@ -30,6 +34,7 @@ export const PAIR_STATE_DISPLAY_VERSION = 'pair-state-display-v1';
 export const PAIR_STATE_DIVERGENCE_THRESHOLD = 0.3;
 export const WEEKLY_CYCLE_TIME_ZONE = 'UTC';
 export const WEEKLY_CYCLE_SUBMISSION_CLAIM_TTL_MS = 2 * 60 * 1000;
+export const WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT = 8;
 const WEEKLY_CYCLE_CANONICAL_READ_RETRY_LIMIT = 3;
 
 type PairStateMetrics = {
@@ -361,14 +366,14 @@ const getOrCreateWeeklyCycle = async (input: {
   members: [string, string];
   cycleKey: string;
   now: Date;
-}): Promise<StoredWeeklyCycle> => {
+}): Promise<{ cycle: StoredWeeklyCycle; created: boolean }> => {
   const window = weeklyCycleWindow(input.cycleKey);
   const memberIds = sortedMembers(input.members);
   const initialStatus = input.now.getTime() >= window.endsAt.getTime() ? 'EXPIRED' : 'OPEN';
   const filter = { pairId: input.pairId, cycleKey: input.cycleKey };
 
   try {
-    const cycle = await WeeklyCycle.findOneAndUpdate(
+    const result = await WeeklyCycle.findOneAndUpdate(
       filter,
       {
         $setOnInsert: {
@@ -389,13 +394,24 @@ const getOrCreateWeeklyCycle = async (input: {
           algorithmVersion: PAIR_STATE_ALGORITHM_VERSION,
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    ).lean<StoredWeeklyCycle | null>();
-    if (cycle) return cycle;
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+        includeResultMetadata: true,
+      }
+    );
+    const cycle = result.value;
+    if (cycle) {
+      return {
+        cycle: cycle.toObject<StoredWeeklyCycle>(),
+        created: result.lastErrorObject?.updatedExisting === false,
+      };
+    }
   } catch (error) {
     if (!(error instanceof Error) || !isDuplicateKeyError(error)) throw error;
     const concurrent = await WeeklyCycle.findOne(filter).lean<StoredWeeklyCycle | null>();
-    if (concurrent) return concurrent;
+    if (concurrent) return { cycle: concurrent, created: false };
   }
 
   throw new DomainError({
@@ -410,7 +426,7 @@ const createSnapshotRevision = async (input: {
   cycle: StoredWeeklyCycle;
   projection: PairStateProjection;
   generatedAt: Date;
-}): Promise<StoredPairStateSnapshot> => {
+}): Promise<{ snapshot: StoredPairStateSnapshot; created: boolean }> => {
   const canonicalFilter = {
     cycleId: input.cycle._id,
     'input.hash': input.projection.inputHash,
@@ -421,7 +437,7 @@ const createSnapshotRevision = async (input: {
     const existing = await PairStateSnapshot.findOne(canonicalFilter).lean<
       StoredPairStateSnapshot | null
     >();
-    if (existing) return existing;
+    if (existing) return { snapshot: existing, created: false };
 
     const latest = await PairStateSnapshot.findOne({ cycleId: input.cycle._id })
       .sort({ revision: -1 })
@@ -450,13 +466,16 @@ const createSnapshotRevision = async (input: {
         displayVersion: PAIR_STATE_DISPLAY_VERSION,
         generatedAt: input.generatedAt,
       });
-      return created.toObject<StoredPairStateSnapshot>();
+      return {
+        snapshot: created.toObject<StoredPairStateSnapshot>(),
+        created: true,
+      };
     } catch (error) {
       if (!(error instanceof Error) || !isDuplicateKeyError(error)) throw error;
       const concurrent = await PairStateSnapshot.findOne(canonicalFilter).lean<
         StoredPairStateSnapshot | null
       >();
-      if (concurrent) return concurrent;
+      if (concurrent) return { snapshot: concurrent, created: false };
     }
   }
 
@@ -465,6 +484,50 @@ const createSnapshotRevision = async (input: {
     status: 409,
     message: 'Pair state revision could not be allocated',
   });
+};
+
+const ensureCycleNotifications = async (input: {
+  pairId: string;
+  members: [string, string];
+  cycle: StoredWeeklyCycle;
+  snapshot: StoredPairStateSnapshot;
+  now: Date;
+}): Promise<void> => {
+  const writes: Promise<void>[] = [];
+  if (input.cycle.status === 'OPEN') {
+    writes.push(
+      notificationService.create({
+        userIds: input.members,
+        pairId: input.pairId,
+        type: 'CYCLE_AVAILABLE',
+        sourceKey: `cycle:${String(input.cycle._id)}`,
+        now: input.now,
+      })
+    );
+  }
+  if (input.snapshot.dataStatus === 'ENOUGH') {
+    writes.push(
+      notificationService.create({
+        userIds: input.members,
+        pairId: input.pairId,
+        type: 'SUMMARY_READY',
+        sourceKey: `snapshot:${String(input.snapshot._id)}`,
+        now: input.now,
+      })
+    );
+  }
+  if (writes.length === 0) return;
+
+  try {
+    await Promise.all(writes);
+  } catch {
+    recordOperationalEvent({
+      name: 'request_completed',
+      routeGroup: 'notification',
+      outcome: 'error',
+      code: 'WRITE_FAILED',
+    });
+  }
 };
 
 const projectionFromSnapshot = (
@@ -517,12 +580,31 @@ const materializePairCycle = async (input: {
     });
   }
   const members: [string, string] = [input.pair.members[0], input.pair.members[1]];
-  const cycle = await getOrCreateWeeklyCycle({
+  const materializedCycle = await getOrCreateWeeklyCycle({
     pairId,
     members,
     cycleKey: input.cycleKey,
     now,
   });
+  const cycle = materializedCycle.cycle;
+  if (materializedCycle.created) {
+    const hasPreviousCycle = Boolean(
+      await WeeklyCycle.exists({ pairId, _id: { $ne: cycle._id } })
+    );
+    if (hasPreviousCycle) {
+      recordProductAnalyticsEvent({
+        name: 'next_cycle_started',
+        technicalScope: 'weekly_cycle',
+        at: now,
+      });
+    } else {
+      recordProductAnalyticsEvent({
+        name: 'cycle_started',
+        technicalScope: 'weekly_cycle',
+        at: now,
+      });
+    }
+  }
   const checkIns = await WeeklyCheckIn.find({
     pairId: { $in: [String(pairId), pairId] },
     weekKey: input.cycleKey,
@@ -606,12 +688,13 @@ const materializePairCycle = async (input: {
     }
   );
 
-  const snapshot = await createSnapshotRevision({
+  const snapshotResult = await createSnapshotRevision({
     pairId,
     cycle: refreshedCycle,
     projection,
     generatedAt: now,
   });
+  const snapshot = snapshotResult.snapshot;
   await WeeklyCycle.updateOne(
     {
       _id: refreshedCycle._id,
@@ -660,6 +743,22 @@ const materializePairCycle = async (input: {
       message: 'Canonical weekly cycle snapshot is unavailable',
     });
   }
+
+  if (snapshotResult.created && canonicalSnapshot.dataStatus === 'ENOUGH') {
+    recordOperationalEvent({
+      name: 'cycle_completed',
+      routeGroup: 'weekly_cycle',
+      outcome: 'ok',
+    });
+  }
+
+  await ensureCycleNotifications({
+    pairId: String(pairId),
+    members,
+    cycle: canonicalCycle,
+    snapshot: canonicalSnapshot,
+    now,
+  });
 
   return {
     cycle: canonicalCycle,
@@ -781,6 +880,7 @@ const throwSubmissionClaimConflict = async (input: {
 };
 
 type ExpiredCycleCandidate = {
+  _id: Types.ObjectId;
   cycleKey: string;
 };
 
@@ -788,46 +888,16 @@ const findUnfinalizedExpiredCycles = async (input: {
   pairId: Types.ObjectId;
   now: Date;
 }): Promise<ExpiredCycleCandidate[]> =>
-  WeeklyCycle.aggregate<ExpiredCycleCandidate>([
-    {
-      $match: {
-        pairId: input.pairId,
-        endsAt: { $lte: input.now },
-      },
-    },
-    {
-      $lookup: {
-        from: PairStateSnapshot.collection.name,
-        let: {
-          snapshotId: '$latestSnapshotId',
-          cycleId: '$_id',
-          pairId: '$pairId',
-        },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$_id', '$$snapshotId'] },
-                  { $eq: ['$cycleId', '$$cycleId'] },
-                  { $eq: ['$pairId', '$$pairId'] },
-                ],
-              },
-            },
-          },
-          { $project: { _id: 0, cycleStatus: '$input.cycleStatus' } },
-        ],
-        as: 'canonicalSnapshots',
-      },
-    },
-    {
-      $match: {
-        'canonicalSnapshots.0.cycleStatus': { $ne: 'EXPIRED' },
-      },
-    },
-    { $sort: { startsAt: 1 } },
-    { $project: { _id: 0, cycleKey: 1 } },
-  ]).exec();
+  WeeklyCycle.find({
+    pairId: input.pairId,
+    endsAt: { $lte: input.now },
+    expiredReconciliationCompletedAt: null,
+  })
+    .sort({ endsAt: 1, cycleKey: 1 })
+    .limit(WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT)
+    .hint(WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX)
+    .select({ _id: 1, cycleKey: 1 })
+    .lean<ExpiredCycleCandidate[]>();
 
 const finalizeExpiredPairCycles = async (input: {
   pair: PairDocument;
@@ -838,12 +908,34 @@ const finalizeExpiredPairCycles = async (input: {
   const pairId = new Types.ObjectId(String(input.pair._id));
   const candidates = await findUnfinalizedExpiredCycles({ pairId, now });
   for (const candidate of candidates) {
-    await materializePairCycle({
-      pair: input.pair,
-      cycleKey: candidate.cycleKey,
-      now,
-      allowEndedPair: true,
-    });
+    try {
+      const materialized = await materializePairCycle({
+        pair: input.pair,
+        cycleKey: candidate.cycleKey,
+        now,
+        allowEndedPair: true,
+      });
+      if (materialized.snapshot.input.cycleStatus !== 'EXPIRED') continue;
+      await WeeklyCycle.updateOne(
+        {
+          _id: candidate._id,
+          pairId,
+          endsAt: { $lte: now },
+          status: 'EXPIRED',
+          latestSnapshotId: materialized.snapshot._id,
+          latestSnapshotRevision: materialized.snapshot.revision,
+          expiredReconciliationCompletedAt: null,
+        },
+        { $set: { expiredReconciliationCompletedAt: now } }
+      );
+    } catch {
+      recordOperationalEvent({
+        name: 'reconciliation_failed',
+        routeGroup: 'weekly_cycle',
+        outcome: 'error',
+        code: 'EXPIRED_RECONCILIATION_FAILED',
+      });
+    }
   }
 };
 
@@ -866,6 +958,13 @@ export const weeklyCycleService = {
     }
     const now = input.now ?? new Date();
     const window = weeklyCycleWindow(input.cycleKey);
+    if (now.getTime() < window.startsAt.getTime()) {
+      throw new DomainError({
+        code: 'WEEKLY_CYCLE_NOT_STARTED',
+        status: 409,
+        message: 'Этот недельный цикл ещё не начался.',
+      });
+    }
     if (now.getTime() >= window.endsAt.getTime()) {
       throw new DomainError({
         code: 'WEEKLY_CYCLE_EXPIRED',
@@ -1067,6 +1166,7 @@ export const weeklyCycleService = {
             {
               _id: cycle._id,
               status: 'OPEN',
+              startsAt: { $lte: commitNow },
               endsAt: { $gt: commitNow },
               memberCompletion: {
                 $elemMatch: { userId: input.currentUserId, status: 'PENDING' },

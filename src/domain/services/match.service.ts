@@ -1,15 +1,17 @@
-﻿import { Types } from 'mongoose';
+﻿import { createHash } from 'crypto';
+import { Types } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Like, type LikeType } from '@/models/Like';
-import type { Axis } from '@/models/ActivityTemplate';
 import { User, type UserType } from '@/models/User';
 import { requireLikeParticipant } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { matchTransition } from '@/domain/state/matchMachine';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
-import { distance, score } from '@/utils/calcMatch';
-import { readAxisLayer } from '@/domain/services/vectorScoring.service';
+import {
+  LEGACY_MATCH_SCORE_AVAILABLE,
+  LEGACY_MATCH_SCORE_SENTINEL,
+} from '@/domain/matchScorePolicy';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -67,42 +69,74 @@ const buildInitiatorSnapshot = (
   };
 };
 
-const AXES: readonly Axis[] = [
-  'communication',
-  'domestic',
-  'personalViews',
-  'finance',
-  'sexuality',
-  'psyche',
-] as const;
-
-type AxisVector = {
-  level: number;
-  positives: string[];
-  negatives: string[];
+type LikeCreationIdentity = {
+  keyHash: string;
+  requestHash: string;
 };
 
-const getAxisVector = (user: UserType, axis: Axis): AxisVector => {
-  const vector = readAxisLayer(user, axis, 'trait');
-  return {
-    level: vector.level,
-    positives: vector.positives,
-    negatives: vector.negatives,
-  };
+type LikeCreationRecord = Pick<LikeType, '_id' | 'creationRequestHash'>;
+
+type DuplicateKeyError = Error & {
+  code: number;
 };
 
-const toVectorLevels = (user: UserType): number[] =>
-  AXES.map((axis) => getAxisVector(user, axis).level);
+const isDuplicateKeyError = (error: Error): error is DuplicateKeyError =>
+  'code' in error && (error as { code?: number }).code === 11000;
 
-const hasUsableVectors = (user: UserType): boolean =>
-  AXES.some((axis) => {
-    const vector = getAxisVector(user, axis);
-    return vector.level !== 0 || vector.positives.length > 0 || vector.negatives.length > 0;
-  });
+const sha256 = (value: string): string =>
+  createHash('sha256').update(value).digest('hex');
 
-const calculateMatchScore = (left: UserType, right: UserType): number => {
-  if (!hasUsableVectors(left) || !hasUsableVectors(right)) return 0;
-  return score(distance(toVectorLevels(left), toVectorLevels(right)));
+const deriveLikeCreationIdentity = (
+  input: CreateLikeInput
+): LikeCreationIdentity => ({
+  keyHash: sha256(
+    JSON.stringify([
+      'match-like-create-key-v1',
+      input.currentUserId,
+      input.idempotencyKey,
+    ])
+  ),
+  requestHash: sha256(
+    JSON.stringify({
+      version: 'match-like-create-request-v1',
+      currentUserId: input.currentUserId,
+      toId: input.toId,
+      agreements: input.agreements,
+      answers: input.answers,
+    })
+  ),
+});
+
+const findLikeByCreationKey = async (input: {
+  currentUserId: string;
+  keyHash: string;
+}): Promise<LikeCreationRecord | null> =>
+  Like.findOne({
+    fromId: input.currentUserId,
+    creationKeyHash: input.keyHash,
+  })
+    .select({ _id: 1, creationRequestHash: 1 })
+    .lean<LikeCreationRecord | null>();
+
+const toCreateLikeResult = (likeId: Types.ObjectId) => ({
+  id: String(likeId),
+  matchScore: LEGACY_MATCH_SCORE_SENTINEL,
+  matchScoreAvailable: LEGACY_MATCH_SCORE_AVAILABLE,
+});
+
+const resolveLikeCreationReplay = (
+  record: LikeCreationRecord,
+  requestHash: string
+) => {
+  if (record.creationRequestHash !== requestHash) {
+    throw new DomainError({
+      code: 'IDEMPOTENCY_KEY_REUSE_CONFLICT',
+      status: 409,
+      message: 'Idempotency-Key was already used with a different request',
+    });
+  }
+
+  return toCreateLikeResult(record._id);
 };
 
 const stateConflict = (details: Record<string, string>): never => {
@@ -119,6 +153,7 @@ export type CreateLikeInput = {
   toId: string;
   agreements: [true, true, true];
   answers: [string, string];
+  idempotencyKey: string;
   auditRequest?: AuditRequestContext;
 };
 
@@ -137,8 +172,21 @@ export type DecideLikeInput = {
 };
 
 export const matchService = {
-  async createLike(input: CreateLikeInput): Promise<{ id: string; matchScore: number }> {
+  async createLike(input: CreateLikeInput): Promise<{
+    id: string;
+    matchScore: typeof LEGACY_MATCH_SCORE_SENTINEL;
+    matchScoreAvailable: typeof LEGACY_MATCH_SCORE_AVAILABLE;
+  }> {
     await connectToDatabase();
+
+    const creationIdentity = deriveLikeCreationIdentity(input);
+    const existing = await findLikeByCreationKey({
+      currentUserId: input.currentUserId,
+      keyHash: creationIdentity.keyHash,
+    });
+    if (existing) {
+      return resolveLikeCreationReplay(existing, creationIdentity.requestHash);
+    }
 
     const transition = matchTransition(
       {
@@ -153,12 +201,12 @@ export const matchService = {
       }
     );
 
-    const [initiator, recipient] = await Promise.all([
+    const [initiator, recipientExists] = await Promise.all([
       User.findOne({ id: input.currentUserId }).lean<UserType | null>(),
-      User.findOne({ id: input.toId }).lean<UserType | null>(),
+      User.exists({ id: input.toId }),
     ]);
 
-    if (!initiator || !recipient) {
+    if (!initiator || !recipientExists) {
       throw new DomainError({
         code: 'NOT_FOUND',
         status: 404,
@@ -179,43 +227,53 @@ export const matchService = {
       });
     }
 
-    const matchScore = calculateMatchScore(initiator, recipient);
-    const like = await Like.create({
-      fromId: input.currentUserId,
-      toId: input.toId,
-      matchScore,
-      fromCardSnapshot,
-      agreements: input.agreements,
-      answers: [
-        sanitize(input.answers[0], 280),
-        sanitize(input.answers[1], 280),
-      ],
-      cardSnapshot: fromCardSnapshot,
-      status: transition.next.status,
-    });
+    try {
+      const like = await Like.create({
+        fromId: input.currentUserId,
+        toId: input.toId,
+        matchScore: LEGACY_MATCH_SCORE_SENTINEL,
+        creationKeyHash: creationIdentity.keyHash,
+        creationRequestHash: creationIdentity.requestHash,
+        fromCardSnapshot,
+        agreements: input.agreements,
+        answers: [
+          sanitize(input.answers[0], 280),
+          sanitize(input.answers[1], 280),
+        ],
+        cardSnapshot: fromCardSnapshot,
+        status: transition.next.status,
+      });
 
-    await emitEvent({
-      event: 'MATCH_LIKE_CREATED',
-      actor: { userId: input.currentUserId },
-      request: input.auditRequest ?? { route: '/api/match/like', method: 'POST' },
-      context: {
-        likeId: String(like._id),
-      },
-      target: {
-        type: 'like',
-        id: String(like._id),
-      },
-      metadata: {
-        likeId: String(like._id),
-        toUserId: input.toId,
-        matchScore,
-      },
-    });
+      await emitEvent({
+        event: 'MATCH_LIKE_CREATED',
+        actor: { userId: input.currentUserId },
+        request: input.auditRequest ?? { route: '/api/match/like', method: 'POST' },
+        context: {
+          likeId: String(like._id),
+        },
+        target: {
+          type: 'like',
+          id: String(like._id),
+        },
+        metadata: {
+          likeId: String(like._id),
+          toUserId: input.toId,
+        },
+      });
 
-    return {
-      id: String(like._id),
-      matchScore,
-    };
+      return toCreateLikeResult(like._id);
+    } catch (error) {
+      if (!(error instanceof Error) || !isDuplicateKeyError(error)) {
+        throw error;
+      }
+
+      const raced = await findLikeByCreationKey({
+        currentUserId: input.currentUserId,
+        keyHash: creationIdentity.keyHash,
+      });
+      if (!raced) throw error;
+      return resolveLikeCreationReplay(raced, creationIdentity.requestHash);
+    }
   },
 
   async respondToLike(input: RespondToLikeInput): Promise<{ status: LikeType['status'] }> {

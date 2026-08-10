@@ -215,7 +215,7 @@ const routeSource = readProjectFile('src/app/api/users/me/mvp-onboarding/route.t
 assert.match(routeSource, /requireSession\(req\)/);
 assert.match(routeSource, /currentUserId:\s*auth\.data\.userId/);
 assert.doesNotMatch(routeSource, /withIdempotency/);
-assert.match(routeSource, /Cache-Control', 'no-store/);
+assert.match(routeSource, /Cache-Control', 'private, no-store/);
 assert.match(routeSource, /export async function GET/);
 assert.match(routeSource, /export async function PATCH/);
 assert.doesNotMatch(routeSource, /body\.data\.userId|body\.userId/);

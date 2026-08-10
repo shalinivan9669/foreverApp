@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const response = jsonOk(
       await pairInviteService.ownerCurrent({ currentUserId: auth.data.userId })
     );
-    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     const response = jsonOk(
       await pairInviteService.create({ currentUserId: auth.data.userId })
     );
-    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));

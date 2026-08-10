@@ -10,10 +10,11 @@ import type { MatchCardSnapshotVM, MatchLikeVM } from '@/client/viewmodels/match
 import { toMatchLikeVM } from '@/client/viewmodels/match.viewmodels';
 import LikeDetailsView from '@/features/match/like/LikeDetailsView';
 
+const LOAD_ERROR = 'Не удалось загрузить заявку';
+
 export default function LikeDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-
   const { data: currentUser } = useCurrentUser();
   const {
     fetchLike,
@@ -35,7 +36,7 @@ export default function LikeDetailsPage() {
       const fresh = await fetchLike(id, force);
       setLoading(false);
       if (!fresh) {
-        setLocalError(mutationError?.message ?? 'Не удалось загрузить заявку');
+        setLocalError(mutationError?.message ?? LOAD_ERROR);
         return;
       }
       setLocalError(null);
@@ -45,8 +46,22 @@ export default function LikeDetailsPage() {
   );
 
   useEffect(() => {
-    void loadLike(true);
-  }, [loadLike]);
+    if (!id) return;
+    let active = true;
+    void fetchLike(id, true).then((fresh) => {
+      if (!active) return;
+      setLoading(false);
+      if (!fresh) {
+        setLocalError(mutationError?.message ?? LOAD_ERROR);
+        return;
+      }
+      setLocalError(null);
+      setLike(toMatchLikeVM(fresh));
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchLike, id, mutationError?.message]);
 
   const iAmInitiator = useMemo(() => {
     if (!currentUser || !like) return false;
@@ -63,30 +78,27 @@ export default function LikeDetailsPage() {
     () => iAmInitiator && like?.status === 'awaiting_initiator',
     [iAmInitiator, like]
   );
-  const canCreatePair = useMemo(() => iAmInitiator && like?.status === 'mutual_ready', [iAmInitiator, like]);
+  const canCreatePair = useMemo(
+    () => iAmInitiator && like?.status === 'mutual_ready',
+    [iAmInitiator, like]
+  );
 
   const onAccept = async () => {
     if (!like) return;
     const done = await acceptLike({ likeId: like.id });
-    if (done) {
-      await loadLike(true);
-    }
+    if (done) await loadLike(true);
   };
 
   const onReject = async () => {
     if (!like) return;
     const done = await rejectLike({ likeId: like.id });
-    if (done) {
-      await loadLike(true);
-    }
+    if (done) await loadLike(true);
   };
 
   const onCreatePair = async () => {
     if (!like) return;
     const done = await confirmLike({ likeId: like.id });
-    if (done) {
-      router.replace('/couple-activity');
-    }
+    if (done) router.replace('/couple-activity');
   };
 
   if (loading && !like) {
@@ -102,11 +114,7 @@ export default function LikeDetailsPage() {
   }
 
   if (!like) {
-    return (
-      <div className="p-4 text-red-600">
-        {localError ?? 'Заявка не найдена'}
-      </div>
-    );
+    return <div className="p-4 text-red-600">{localError ?? 'Заявка не найдена'}</div>;
   }
 
   return (

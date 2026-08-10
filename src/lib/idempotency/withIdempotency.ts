@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { randomUUID } from 'crypto';
 import {
   jsonError,
   jsonOk,
@@ -14,10 +15,15 @@ import {
 } from '@/lib/idempotency/key';
 import {
   completeIdempotencyRecord,
-  createInProgressIdempotencyRecord,
-  findIdempotencyRecord,
+  acquireIdempotencyRecord,
+  failIdempotencyRecord,
 } from '@/lib/idempotency/store';
 import type { StoredIdempotencyEnvelope } from '@/lib/idempotency/types';
+import {
+  operationalRouteGroupForPath,
+  recordOperationalEvent,
+  type OperationalRouteGroup,
+} from '@/lib/observability/operationalEvents';
 
 export type WithIdempotencyOptions<T> = {
   req: Request | NextRequest;
@@ -45,16 +51,25 @@ const toResponse = (envelope: StoredIdempotencyEnvelope, status: number): Respon
   );
 };
 
-const resolveDuplicateReplay = (params: {
+export const resolveDuplicateReplay = (params: {
   requestHash: string;
+  routeGroup?: OperationalRouteGroup;
   existing: {
     requestHash: string;
-    state: 'in_progress' | 'completed';
+    state: 'in_progress' | 'completed' | 'failed';
     status: number;
     responseEnvelope?: StoredIdempotencyEnvelope;
   };
 }): Response => {
   if (params.existing.requestHash !== params.requestHash) {
+    if (params.routeGroup) {
+      recordOperationalEvent({
+        name: 'conflict_observed',
+        routeGroup: params.routeGroup,
+        outcome: 'conflict',
+        code: 'IDEMPOTENCY_KEY_REUSE_CONFLICT',
+      });
+    }
     return jsonError(
       409,
       'IDEMPOTENCY_KEY_REUSE_CONFLICT',
@@ -63,6 +78,14 @@ const resolveDuplicateReplay = (params: {
   }
 
   if (params.existing.state !== 'completed' || !params.existing.responseEnvelope) {
+    if (params.routeGroup) {
+      recordOperationalEvent({
+        name: 'retry_observed',
+        routeGroup: params.routeGroup,
+        outcome: 'retry',
+        code: 'IDEMPOTENCY_IN_PROGRESS',
+      });
+    }
     return jsonError(
       409,
       'IDEMPOTENCY_IN_PROGRESS',
@@ -70,8 +93,42 @@ const resolveDuplicateReplay = (params: {
     );
   }
 
+  if (params.routeGroup) {
+    recordOperationalEvent({
+      name: 'retry_observed',
+      routeGroup: params.routeGroup,
+      outcome: 'retry',
+      code: 'IDEMPOTENCY_REPLAY',
+    });
+  }
+
   return toResponse(params.existing.responseEnvelope, params.existing.status);
 };
+
+type ClaimedOutcomePersistence = {
+  complete: () => Promise<void>;
+  fail: (failureCode: string) => Promise<boolean>;
+};
+
+export const persistClaimedIdempotencyOutcome = async (input: {
+  persistence: ClaimedOutcomePersistence;
+  failureCode: string;
+}): Promise<boolean> => {
+  try {
+    await input.persistence.complete();
+    return true;
+  } catch {
+    await input.persistence.fail(input.failureCode).catch(() => false);
+    return false;
+  }
+};
+
+const reconciliationPendingResponse = (): Response =>
+  jsonError(
+    503,
+    'IDEMPOTENCY_IN_PROGRESS',
+    'Request outcome is being reconciled; retry with the same Idempotency-Key'
+  );
 
 export async function withIdempotency<T>(
   options: WithIdempotencyOptions<T>
@@ -88,25 +145,30 @@ export async function withIdempotency<T>(
     body: normalizedBody,
   });
 
-  const existing = await findIdempotencyRecord({
-    key: keyResult.key,
-    route: options.route,
-    userId: options.userId,
-  });
-
-  if (existing) {
-    return resolveDuplicateReplay({ requestHash, existing });
-  }
-
-  const created = await createInProgressIdempotencyRecord({
+  const leaseOwner = randomUUID();
+  const acquired = await acquireIdempotencyRecord({
     key: keyResult.key,
     route: options.route,
     userId: options.userId,
     requestHash,
+    leaseOwner,
   });
+  const routeGroup = operationalRouteGroupForPath(options.route);
 
-  if (created.kind === 'existing') {
-    return resolveDuplicateReplay({ requestHash, existing: created.record });
+  if (acquired.kind === 'existing') {
+    return resolveDuplicateReplay({
+      requestHash,
+      routeGroup,
+      existing: acquired.record,
+    });
+  }
+  if (acquired.takeover) {
+    recordOperationalEvent({
+      name: 'retry_observed',
+      routeGroup,
+      outcome: 'retry',
+      code: 'IDEMPOTENCY_LEASE_TAKEOVER',
+    });
   }
 
   let status = 200;
@@ -122,14 +184,45 @@ export async function withIdempotency<T>(
   }
 
   const storedEnvelope = toStoredEnvelope(envelope);
-  await completeIdempotencyRecord({
+  const identity = {
     key: keyResult.key,
     route: options.route,
     userId: options.userId,
     requestHash,
-    status,
-    responseEnvelope: storedEnvelope,
+    leaseOwner,
+  };
+
+  if (status >= 500) {
+    await failIdempotencyRecord({
+      ...identity,
+      failureCode: envelope.ok ? 'INTERNAL' : envelope.error.code,
+    }).catch(() => false);
+    return toResponse(storedEnvelope, status);
+  }
+
+  const persisted = await persistClaimedIdempotencyOutcome({
+    persistence: {
+      complete: async () => {
+        await completeIdempotencyRecord({
+          ...identity,
+          status,
+          responseEnvelope: storedEnvelope,
+        });
+      },
+      fail: (failureCode) =>
+        failIdempotencyRecord({ ...identity, failureCode }),
+    },
+    failureCode: 'IDEMPOTENCY_COMPLETION_WRITE_FAILED',
   });
+  if (!persisted) {
+    recordOperationalEvent({
+      name: 'retry_observed',
+      routeGroup,
+      outcome: 'retry',
+      code: 'IDEMPOTENCY_COMPLETION_WRITE_FAILED',
+    });
+    return reconciliationPendingResponse();
+  }
 
   return toResponse(storedEnvelope, status);
 }

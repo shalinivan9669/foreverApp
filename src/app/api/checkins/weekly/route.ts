@@ -7,6 +7,7 @@ import { parseJson } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { weeklyCheckInService } from '@/domain/services/weeklyCheckIn.service';
+import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 
 const answersSchema = z
   .object({
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
   const auth = requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
+
+  const rate = await enforceRateLimit({
+    req,
+    policy: RATE_LIMIT_POLICIES.weeklyMutations,
+    userId: currentUserId,
+  });
+  if (!rate.ok) return rate.response;
 
   const bodyResult = await parseJson(req, bodySchema);
   if (!bodyResult.ok) return bodyResult.response;

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { jsonUnauthorized } from '@/lib/auth/errors';
 import { readSessionUser, type SessionUser } from '@/lib/auth/session';
+import { requireTrustedUnsafeRequest } from '@/lib/auth/requestSafety';
 
 export type GuardResult<T> =
   | { ok: true; data: T }
@@ -20,6 +21,9 @@ export const requireSession = (
       response: jsonUnauthorized('AUTH_INVALID_SESSION', 'unauthorized'),
     };
   }
+
+  const requestSafety = requireTrustedUnsafeRequest(req);
+  if (!requestSafety.ok) return requestSafety;
 
   return { ok: true, data: session.session };
 };

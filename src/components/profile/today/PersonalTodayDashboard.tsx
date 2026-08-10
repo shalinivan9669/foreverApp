@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type {
   PersonalDailyCheckInRequest,
   PersonalTodayDTO,
@@ -182,13 +182,14 @@ function PartnerSignalCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [text, setText] = useState(draftText);
+  const [textState, setTextState] = useState({ source: draftText, value: draftText });
   const [status, setStatus] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    setText(draftText);
-  }, [draftText]);
+  if (textState.source !== draftText) {
+    setTextState({ source: draftText, value: draftText });
+  }
+  const text = textState.source === draftText ? textState.value : draftText;
 
   const send = async () => {
     if (!today.checkIn.id) {
@@ -231,7 +232,9 @@ function PartnerSignalCard({
         <textarea
           value={text}
           maxLength={300}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) =>
+            setTextState({ source: draftText, value: event.target.value })
+          }
           className="mt-4 min-h-28 w-full rounded-lg border border-black/10 bg-white/60 p-3 text-sm outline-none focus:border-[var(--app-accent,#8b5cf6)]"
         />
       ) : (
@@ -354,9 +357,6 @@ function TodayMapStrip({ today }: { today: PersonalTodayDTO }) {
 
 function PrivateJournalCard({ today }: { today: PersonalTodayDTO }) {
   const [text, setText] = useState(today.privateJournal.text ?? '');
-  useEffect(() => {
-    setText(today.privateJournal.text ?? '');
-  }, [today.privateJournal.text]);
 
   return (
     <section className="app-panel app-panel-solid p-4">
@@ -580,7 +580,7 @@ export default function PersonalTodayDashboard({
       {firstRow}
       <TodayMapStrip today={today} />
       <div className="app-dashboard-grid">
-        <PrivateJournalCard today={today} />
+        <PrivateJournalCard key={today.privateJournal.text ?? ''} today={today} />
         <DailyCheckInCard today={today} onRefresh={onRefresh} />
       </div>
     </section>

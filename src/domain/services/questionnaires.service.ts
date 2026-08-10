@@ -5,7 +5,12 @@ import { DomainError } from '@/domain/errors';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { Question, type QuestionType } from '@/models/Question';
-import { Questionnaire, type QuestionItem, type QuestionnaireType } from '@/models/Questionnaire';
+import {
+  Questionnaire,
+  publishedQuestionnaireFilter,
+  type QuestionItem,
+  type QuestionnaireType,
+} from '@/models/Questionnaire';
 import {
   PairQuestionnaireSession,
   type PairQuestionnaireSessionType,
@@ -20,13 +25,11 @@ import {
   evaluatePersonalQuestionnaireCooldown,
   scoreAnswersToVectorDelta,
   toVectorQuestionMap,
-  type Axis,
   type PersonalCooldownReason,
   type VectorAnswerInput,
   type VectorDelta,
   type VectorQuestion,
   type VectorQuestionSource,
-  type UserVectorApplyResult,
 } from '@/domain/vectors';
 import { questionnaireTransition } from '@/domain/state/questionnaireMachine';
 import type { VectorSnapshotReasonSource } from '@/models/VectorSnapshot';
@@ -123,57 +126,10 @@ const buildQuestionMapFromQuestionnaire = (
   return toVectorQuestionMap(sources);
 };
 
-const roundTo3 = (value: number): number => Math.round(value * 1000) / 1000;
-
-const toRoundedAppliedSteps = (
-  applied: UserVectorApplyResult
-): Partial<Record<Axis, number>> => {
-  const rounded: Partial<Record<Axis, number>> = {};
-  for (const axis of AXES) {
-    if (!Object.prototype.hasOwnProperty.call(applied.appliedStepByAxis, axis)) continue;
-    const raw = Number(applied.appliedStepByAxis[axis] ?? 0);
-    if (!Number.isFinite(raw)) continue;
-    rounded[axis] = roundTo3(raw);
-  }
-  return rounded;
-};
-
-const toVectorAuditMetrics = (
-  delta: VectorDelta,
-  applied?: UserVectorApplyResult
-) => {
-  const sumWeightsTotal = AXES.reduce((acc, axis) => {
-    const axisWeight = Number(delta.perAxisSumWeights[axis] ?? 0);
-    return Number.isFinite(axisWeight) ? acc + axisWeight : acc;
-  }, 0);
-
-  if (!applied) {
-    return {
-      answeredCount: delta.answeredCount,
-      matchedCount: delta.matchedCount,
-      confidence: 0,
-      sumWeightsTotal: roundTo3(sumWeightsTotal),
-      deltaMagnitude: 0,
-      appliedStepByAxis: {},
-      clampedAxes: [],
-    };
-  }
-
-  const deltaMagnitude = AXES.reduce((acc, axis) => {
-    const step = Number(applied.appliedStepByAxis[axis] ?? 0);
-    return Number.isFinite(step) ? acc + Math.abs(step) : acc;
-  }, 0);
-
-  return {
-    answeredCount: delta.answeredCount,
-    matchedCount: delta.matchedCount,
-    confidence: roundTo3(applied.confidence),
-    sumWeightsTotal: roundTo3(sumWeightsTotal),
-    deltaMagnitude: roundTo3(deltaMagnitude),
-    appliedStepByAxis: toRoundedAppliedSteps(applied),
-    clampedAxes: applied.clampedAxes,
-  };
-};
+const toQuestionnaireAuditCounts = (delta: VectorDelta) => ({
+  answeredCount: delta.answeredCount,
+  matchedCount: delta.matchedCount,
+});
 
 const validateVectorAnswers = (
   answers: VectorAnswerInput[],
@@ -236,7 +192,10 @@ export const questionnairesService = {
 
     let questionMap: Record<string, VectorQuestion>;
     if (input.questionnaireId) {
-      const questionnaire = await Questionnaire.findOne({ _id: input.questionnaireId }).lean<QuestionnaireType | null>();
+      const questionnaire = await Questionnaire.findOne({
+        _id: input.questionnaireId,
+        ...publishedQuestionnaireFilter(),
+      }).lean<QuestionnaireType | null>();
       if (!questionnaire) {
         throw new DomainError({
           code: 'NOT_FOUND',
@@ -279,7 +238,7 @@ export const questionnairesService = {
 
     const shouldApplyVectors = cooldown ? cooldown.applied : true;
     const applied = shouldApplyVectors ? applyDeltaToUserVectors(user, delta) : undefined;
-    const vectorAudit = toVectorAuditMetrics(delta, applied);
+    const questionnaireAudit = toQuestionnaireAuditCounts(delta);
 
     if (applied) {
       const setPayload: Record<string, number | string | Date> = { ...applied.setLevels };
@@ -343,7 +302,7 @@ export const questionnairesService = {
       },
       metadata: {
         answersCount: delta.answeredCount,
-        ...vectorAudit,
+        ...questionnaireAudit,
         audience,
         questionnaireId: auditQuestionnaireId,
         applied: antiFarmApplied,
@@ -555,7 +514,10 @@ export const questionnairesService = {
       }
     );
 
-    const questionnaire = await Questionnaire.findOne({ _id: input.questionnaireId }).lean<QuestionnaireType | null>();
+    const questionnaire = await Questionnaire.findOne({
+      _id: input.questionnaireId,
+      ...publishedQuestionnaireFilter(),
+    }).lean<QuestionnaireType | null>();
     if (!questionnaire) {
       throw new DomainError({
         code: 'NOT_FOUND',
@@ -689,7 +651,7 @@ export const questionnairesService = {
     }
 
     const delta = scoreAnswersToVectorDelta([currentVectorAnswer], questionMap);
-    const vectorAudit = toVectorAuditMetrics(delta);
+    const questionnaireAudit = toQuestionnaireAuditCounts(delta);
 
     await emitEvent({
       event: 'QUESTIONNAIRE_ANSWERED',
@@ -716,7 +678,7 @@ export const questionnairesService = {
         insertedNewAnswer,
         traitMutationApplied: false,
         pairDiagnosticsRefreshed: shouldComplete,
-        ...vectorAudit,
+        ...questionnaireAudit,
       },
     });
 

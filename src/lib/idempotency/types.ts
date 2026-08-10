@@ -1,6 +1,6 @@
 import type { ApiErrorEnvelope, ApiSuccessEnvelope, JsonValue } from '@/lib/api/response';
 
-export type IdempotencyRecordState = 'in_progress' | 'completed';
+export type IdempotencyRecordState = 'in_progress' | 'completed' | 'failed';
 
 export type StoredIdempotencyEnvelope =
   | ApiSuccessEnvelope<JsonValue>
@@ -14,7 +14,12 @@ export type IdempotencyRecordView = {
   state: IdempotencyRecordState;
   status: number;
   responseEnvelope?: StoredIdempotencyEnvelope;
+  leaseOwner?: string;
+  leaseExpiresAt?: Date;
+  attemptCount: number;
+  lastFailureCode?: string;
   createdAt: Date;
+  updatedAt?: Date;
 };
 
 export type IdempotencyRequestFingerprint = {

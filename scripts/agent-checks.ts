@@ -268,6 +268,14 @@ const privateMutationWithoutSession = (filePath: string): boolean => {
   if (!hasMutation) return false;
   if (/requireSession\s*\(/.test(text)) return false;
   if (/canGrant\s*\(|ADMIN_HEADER|ENTITLEMENTS_ADMIN_KEY/.test(text)) return false;
+  const normalizedFilePath = filePath.replace(/\\/g, '/');
+  const isVerifiedSandboxWebhook =
+    normalizedFilePath.endsWith('/src/app/api/billing/webhooks/sandbox/route.ts') &&
+    /import\s*\{[^}]*\bverifySandboxWebhook\b[^}]*\}\s*from\s*['"]@\/lib\/billing\/sandboxWebhook['"]/.test(
+      text
+    ) &&
+    /\bverifySandboxWebhook\s*\(/.test(text);
+  if (isVerifiedSandboxWebhook) return false;
   if (filePath.replace(/\\/g, '/').endsWith('/src/app/api/exchange-code/route.ts')) return false;
   return true;
 };

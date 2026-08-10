@@ -1,9 +1,6 @@
 import type { JsonValue } from '@/lib/api/response';
 import type { LikeType } from '@/models/Like';
 import type { PairActivityType } from '@/models/PairActivity';
-import type { QuestionType } from '@/models/Question';
-
-type AuditAxis = QuestionType['axis'];
 
 export const AUDIT_EVENT_NAMES = [
   'MATCH_LIKE_CREATED',
@@ -12,6 +9,7 @@ export const AUDIT_EVENT_NAMES = [
   'MATCH_REJECTED',
   'MATCH_CONFIRMED',
   'ACTIVITY_ACCEPTED',
+  'ACTIVITY_STARTED',
   'ACTIVITY_CANCELED',
   'ACTIVITY_CHECKED_IN',
   'ACTIVITY_COMPLETED',
@@ -33,6 +31,9 @@ export const AUDIT_EVENT_NAMES = [
   'SUGGESTIONS_GENERATED',
   'WEEKLY_CHECKIN_SUBMITTED',
   'SAFETY_GATE_UPDATED',
+  'PRIVACY_EXPORT_CREATED',
+  'PRIVACY_DELETION_REQUESTED',
+  'PRIVACY_DELETION_CANCELLED',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -66,7 +67,6 @@ export type AuditEventMetadataMap = {
   MATCH_LIKE_CREATED: {
     likeId: string;
     toUserId: string;
-    matchScore: number;
   };
   MATCH_RESPONDED: {
     likeId: string;
@@ -90,6 +90,10 @@ export type AuditEventMetadataMap = {
     activityId: string;
     status: Extract<PairActivityType['status'], 'accepted'>;
   };
+  ACTIVITY_STARTED: {
+    activityId: string;
+    status: Extract<PairActivityType['status'], 'in_progress'>;
+  };
   ACTIVITY_CANCELED: {
     activityId: string;
     status: Extract<PairActivityType['status'], 'cancelled'>;
@@ -98,7 +102,11 @@ export type AuditEventMetadataMap = {
     activityId: string;
     status: Extract<
       PairActivityType['status'],
-      'awaiting_checkin' | 'completed_success' | 'completed_partial' | 'failed'
+      | 'awaiting_feedback'
+      | 'awaiting_checkin'
+      | 'completed_success'
+      | 'completed_partial'
+      | 'failed'
     >;
     dataStatus: 'PARTIAL' | 'ENOUGH';
     resultVersion: 'activity-result-v1';
@@ -126,11 +134,6 @@ export type AuditEventMetadataMap = {
     pairDiagnosticsRefreshed: boolean;
     answeredCount: number;
     matchedCount: number;
-    confidence: number;
-    sumWeightsTotal: number;
-    deltaMagnitude: number;
-    appliedStepByAxis: Partial<Record<AuditAxis, number>>;
-    clampedAxes: AuditAxis[];
   };
   ANSWERS_BULK_SUBMITTED: {
     answersCount: number;
@@ -142,11 +145,6 @@ export type AuditEventMetadataMap = {
     reason: 'APPLIED' | 'COOLDOWN';
     cooldownDays?: number;
     scoringVersion: 'v2';
-    confidence: number;
-    sumWeightsTotal: number;
-    deltaMagnitude: number;
-    appliedStepByAxis: Partial<Record<AuditAxis, number>>;
-    clampedAxes: AuditAxis[];
   };
   USER_ONBOARDING_UPDATED: {
     updatedKeys: string[];
@@ -228,6 +226,17 @@ export type AuditEventMetadataMap = {
     enabled: boolean;
     retentionClass: 'UNTIL_REVOKED_OR_PAIR_END';
   };
+  PRIVACY_EXPORT_CREATED: {
+    exportVersion: 'owner-export-v1';
+  };
+  PRIVACY_DELETION_REQUESTED: {
+    status: 'PENDING_POLICY_REVIEW';
+    requestVersion: 'privacy-request-v1';
+  };
+  PRIVACY_DELETION_CANCELLED: {
+    status: 'CANCELLED';
+    requestVersion: 'privacy-request-v1';
+  };
 };
 
 export type AuditEventMetadata<E extends AuditEventName> = AuditEventMetadataMap[E];
@@ -261,6 +270,7 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   MATCH_REJECTED: 'long',
   MATCH_CONFIRMED: 'long',
   ACTIVITY_ACCEPTED: 'long',
+  ACTIVITY_STARTED: 'long',
   ACTIVITY_CANCELED: 'long',
   ACTIVITY_CHECKED_IN: 'long',
   ACTIVITY_COMPLETED: 'long',
@@ -282,6 +292,9 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   SUGGESTIONS_GENERATED: 'short',
   WEEKLY_CHECKIN_SUBMITTED: 'long',
   SAFETY_GATE_UPDATED: 'long',
+  PRIVACY_EXPORT_CREATED: 'long',
+  PRIVACY_DELETION_REQUESTED: 'long',
+  PRIVACY_DELETION_CANCELLED: 'long',
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

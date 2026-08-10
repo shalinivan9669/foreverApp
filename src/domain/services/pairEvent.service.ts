@@ -72,6 +72,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_ACTIVITY_STATUSES: PairActivityType['status'][] = [
   'accepted',
   'in_progress',
+  'awaiting_feedback',
   'awaiting_checkin',
 ];
 const FINAL_ACTIVITY_STATUSES: PairActivityType['status'][] = [

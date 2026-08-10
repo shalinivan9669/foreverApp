@@ -9,6 +9,12 @@ export interface IdempotencyRecordType {
   state: IdempotencyRecordState;
   status: number;
   responseEnvelope?: StoredIdempotencyEnvelope;
+  leaseOwner?: string;
+  leaseExpiresAt?: Date;
+  attemptCount: number;
+  lastFailureCode?: string;
+  completedAt?: Date;
+  failedAt?: Date;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -21,12 +27,18 @@ const IdempotencyRecordSchema = new Schema<IdempotencyRecordType>(
     requestHash: { type: String, required: true },
     state: {
       type: String,
-      enum: ['in_progress', 'completed'],
+      enum: ['in_progress', 'completed', 'failed'],
       required: true,
       default: 'in_progress',
     },
     status: { type: Number, required: true, default: 0 },
     responseEnvelope: { type: Schema.Types.Mixed, required: false },
+    leaseOwner: { type: String, required: false },
+    leaseExpiresAt: { type: Date, required: false },
+    attemptCount: { type: Number, required: true, min: 1, default: 1 },
+    lastFailureCode: { type: String, required: false, maxlength: 100 },
+    completedAt: { type: Date, required: false },
+    failedAt: { type: Date, required: false },
   },
   { collection: 'idempotency_records', timestamps: true }
 );

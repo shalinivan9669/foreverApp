@@ -8,6 +8,7 @@ import {
   type MvpOnboardingCapturePolicy,
   type MvpOnboardingSessionType,
 } from '@/models/MvpOnboardingSession';
+import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
 
 export const MVP_ONBOARDING_CONTENT_REVISION = 'mvp-onboarding-v1';
 export const MVP_ONBOARDING_POLICY_VERSION = 'mvp-privacy-v1';
@@ -683,7 +684,14 @@ const complete = async (input: {
       },
       { new: true }
     ).lean<StoredSession | null>();
-    if (updated) return responseDTO(updated);
+    if (updated) {
+      recordProductAnalyticsEvent({
+        name: 'onboarding_completed',
+        technicalScope: 'onboarding',
+        at: now,
+      });
+      return responseDTO(updated);
+    }
   }
 
   return stateConflict(

@@ -7,6 +7,8 @@ import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { auditContextFromRequest, emitEvent } from '@/lib/audit/emitEvent';
 import { usersService } from '@/domain/services/users.service';
 import { normalizeDiscordAvatar } from '@/lib/discord/avatar';
+import { requireTrustedUnsafeRequest } from '@/lib/auth/requestSafety';
+import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
 
 const bodySchema = z.object({
   code: z.string().min(1),
@@ -31,6 +33,11 @@ const isJsonObject = (value: JsonValue): value is { [key: string]: JsonValue } =
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export async function POST(req: Request) {
+  const requestSafety = requireTrustedUnsafeRequest(req, {
+    protectWithoutSessionCookie: true,
+  });
+  if (!requestSafety.ok) return requestSafety.response;
+
   const rate = await enforceRateLimit({
     req,
     policy: RATE_LIMIT_POLICIES.exchangeCode,
@@ -179,8 +186,6 @@ export async function POST(req: Request) {
       avatar,
     },
   });
-  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.headers.set('Pragma', 'no-cache');
   const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
   const requestProtocol = (() => {
     try {
@@ -201,6 +206,10 @@ export async function POST(req: Request) {
     sameSite: isSecureContext ? 'none' : 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
+  });
+  recordProductAnalyticsEvent({
+    name: 'auth_completed',
+    technicalScope: 'auth',
   });
   return res;
 }

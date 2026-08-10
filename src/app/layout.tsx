@@ -1,6 +1,7 @@
 import './globals.css';
 import type { ReactNode } from 'react';
 import { Cormorant_Infant, Hachi_Maru_Pop } from 'next/font/google';
+import { connection } from 'next/server';
 
 const cormorantInfant = Cormorant_Infant({
   subsets: ['latin', 'cyrillic'],
@@ -17,7 +18,9 @@ const hachiMaruPop = Hachi_Maru_Pop({
   variable: '--font-accent-face',
 });
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // A per-request CSP nonce can only be attached during dynamic rendering.
+  await connection();
   return (
     <html lang="ru">
       <body className={`${cormorantInfant.variable} ${hachiMaruPop.variable} min-h-dvh font-sans antialiased`}>

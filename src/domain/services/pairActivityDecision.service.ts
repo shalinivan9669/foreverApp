@@ -395,6 +395,10 @@ type TemplateSeed = {
 
 const template = (seed: TemplateSeed): SystemActivityTemplate => ({
   _id: `system-${seed.id}`,
+  contentVersion: 1,
+  publicationStatus: 'published',
+  reviewedAt: new Date('2026-08-01T00:00:00.000Z'),
+  publishedAt: new Date('2026-08-01T00:00:00.000Z'),
   intent: seed.archetype === 'game' || seed.archetype === 'date' ? 'celebrate' : 'improve',
   archetype: seed.archetype,
   axis: [seed.axis],

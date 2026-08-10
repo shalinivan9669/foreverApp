@@ -11,20 +11,17 @@ export default function ProfileMatchingTab() {
   const { data: currentUser } = useCurrentUser();
   const [inbox, setInbox] = useState<number | null>(null);
   const [outbox, setOutbox] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+
+  const currentUserId = currentUser?.id ?? null;
+  const hasCurrentCounts = currentUserId !== null && loadedUserId === currentUserId;
+  const loading = currentUserId !== null && !hasCurrentCounts;
 
   useEffect(() => {
     let active = true;
 
-    if (!currentUser) {
-      setInbox(null);
-      setOutbox(null);
-      return () => {
-        active = false;
-      };
-    }
+    if (!currentUserId) return;
 
-    setLoading(true);
     usersApi
       .getProfileSummary()
       .then((summary) => {
@@ -39,13 +36,13 @@ export default function ProfileMatchingTab() {
         setOutbox(0);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setLoadedUserId(currentUserId);
       });
 
     return () => {
       active = false;
     };
-  }, [currentUser]);
+  }, [currentUserId]);
 
   return (
     <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
@@ -59,11 +56,11 @@ export default function ProfileMatchingTab() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="app-panel app-panel-solid p-4">
           <div className="app-muted text-sm">Входящие</div>
-          <div className="text-2xl font-semibold">{loading ? '...' : inbox ?? 0}</div>
+          <div className="text-2xl font-semibold">{loading ? '...' : hasCurrentCounts ? inbox ?? 0 : 0}</div>
         </div>
         <div className="app-panel app-panel-solid p-4">
           <div className="app-muted text-sm">Исходящие</div>
-          <div className="text-2xl font-semibold">{loading ? '...' : outbox ?? 0}</div>
+          <div className="text-2xl font-semibold">{loading ? '...' : hasCurrentCounts ? outbox ?? 0 : 0}</div>
         </div>
       </div>
     </main>

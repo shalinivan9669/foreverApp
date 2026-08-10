@@ -4,10 +4,12 @@ import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import {
   ActivityTemplate,
+  publishedActivityTemplateFilter,
   type ActivityTemplateType,
   type Axis,
 } from '@/models/ActivityTemplate';
 import { PairActivity, type PairActivityType } from '@/models/PairActivity';
+import type { RecommendationSummaryContext } from '@/models/RecommendationProvenance';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { emitEvent } from '@/lib/audit/emitEvent';
@@ -36,6 +38,11 @@ import {
   isActivityEligibleForSafetyState,
   isOfferedActivityEligibleForRole,
 } from '@/domain/services/activityEligibility.service';
+import {
+  buildActivityContentHash,
+  buildRecommendationProvenance,
+  recommendationProvenanceMatchesContext,
+} from '@/domain/services/recommendationProvenance.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -90,6 +97,7 @@ export type RecentActivitySignals = {
 const ACTIVE_STATUSES: PairActivityType['status'][] = [
   'accepted',
   'in_progress',
+  'awaiting_feedback',
   'awaiting_checkin',
 ];
 const COOLDOWN_STATUSES: PairActivityType['status'][] = [
@@ -417,15 +425,12 @@ const loadCandidates = async (
     );
   }
 
-  const query: {
-    difficulty: { $lte: number };
-    intensity: { $lte: number };
-    axis?: Axis;
-  } = {
+  const query = {
+    ...publishedActivityTemplateFilter(),
     difficulty: { $lte: plan.preferredDifficulty },
     intensity: { $lte: plan.maxIntensity },
+    ...(plan.axis ? { axis: plan.axis } : {}),
   };
-  if (plan.axis) query.axis = plan.axis;
 
   const stored = await ActivityTemplate.find(query)
     .sort({ updatedAt: -1, _id: 1 })
@@ -480,6 +485,7 @@ const createOffer = async (input: {
   candidate: TemplateCandidate;
   plan: PairActivitySuggestionPlan;
   source: OfferSource;
+  recommendationContext: RecommendationSummaryContext;
   now: Date;
   session?: ClientSession;
 }): Promise<StoredActivity> => {
@@ -525,6 +531,8 @@ const createOffer = async (input: {
     requiresConsent,
     visibility: candidate.visibility ?? 'both',
     status: 'offered',
+    lifecycleVersion: 'activity-lifecycle-v2',
+    feedbackSchemaVersion: 'activity-feedback-v2',
     stateMeta: {
       templateId: String(candidate._id),
       source: plan.source,
@@ -538,12 +546,19 @@ const createOffer = async (input: {
       apiSource: input.source,
       ...(stepsPreview ? { stepsPreview } : {}),
     },
-    checkIns: effectiveActivityCheckIns(candidate.checkIns),
+    checkIns: effectiveActivityCheckIns(
+      candidate.checkIns,
+      'activity-feedback-v2'
+    ),
     effect: candidate.effect,
     fatigueDeltaOnComplete: fallback.fatigueDeltaOnComplete,
     readinessDeltaOnComplete: fallback.readinessDeltaOnComplete,
     createdBy: 'system',
   };
+  document.recommendationProvenance = buildRecommendationProvenance({
+    context: input.recommendationContext,
+    activity: document,
+  });
   const created = input.session
     ? (await PairActivity.create([document], { session: input.session }))[0]
     : await PairActivity.create(document);
@@ -557,6 +572,7 @@ type SuggestActivitiesInput = {
   dedupeAgainstLastOffered: boolean;
   count?: number;
   source: OfferSource;
+  recommendationContext: RecommendationSummaryContext;
   auditRequest?: AuditRequestContext;
 };
 
@@ -590,6 +606,12 @@ const smartSuggest = async (
   ]);
   const globallyEligibleOffered = offered.filter(
     (activity) =>
+      recommendationProvenanceMatchesContext(
+        activity.recommendationProvenance,
+        input.recommendationContext
+      ) &&
+      activity.recommendationProvenance?.activityContentHash ===
+        buildActivityContentHash(activity) &&
       !hasP0SensitiveActivityAxis(activity.axis) &&
       isActivityEligibleForSafetyState(activity, safetyVeto)
   );
@@ -753,6 +775,7 @@ const smartSuggest = async (
             candidate,
             plan,
             source: input.source,
+            recommendationContext: input.recommendationContext,
             now,
             session,
           })
@@ -805,6 +828,7 @@ export const activityOfferService = {
 
   async createNextActivity(input: {
     currentUserId: string;
+    recommendationContext: RecommendationSummaryContext;
     auditRequest?: AuditRequestContext;
   }): Promise<{ activityId: string; offer?: ActivityOfferDTO }> {
     await connectToDatabase();
@@ -826,6 +850,7 @@ export const activityOfferService = {
       dedupeAgainstLastOffered: true,
       count: 1,
       source: 'activities.next',
+      recommendationContext: input.recommendationContext,
       auditRequest: input.auditRequest,
     });
     const first = createdOffers[0];
@@ -843,6 +868,7 @@ export const activityOfferService = {
     pairId: string;
     templateId: string;
     currentUserId: string;
+    recommendationContext: RecommendationSummaryContext;
   }): Promise<{ id: string; offer?: ActivityOfferDTO }> {
     await connectToDatabase();
     const pairData = await ensurePairMember(input.pairId, input.currentUserId);
@@ -883,6 +909,16 @@ export const activityOfferService = {
 
     const members = await resolveMembers(pair.members as [string, string]);
     const now = new Date();
+    await PairActivity.updateMany(
+      {
+        pairId: pair._id,
+        status: 'offered',
+        'recommendationProvenance.snapshotId': {
+          $ne: input.recommendationContext.snapshotId,
+        },
+      },
+      { $set: { status: 'cancelled' } }
+    );
     const fallback = autoDeltas(candidate.intent, candidate.intensity);
     const mode = isSystemTemplate(candidate) ? candidate.mode : 'together';
     const assignedMemberIds =
@@ -921,6 +957,8 @@ export const activityOfferService = {
       requiresConsent:
         candidate.requiresConsent === true || candidate.axis.includes('sexuality'),
       status: 'offered',
+      lifecycleVersion: 'activity-lifecycle-v2',
+      feedbackSchemaVersion: 'activity-feedback-v2',
       stateMeta: {
         templateId: candidateTemplateId,
         source: 'manual',
@@ -934,12 +972,19 @@ export const activityOfferService = {
           ? { stepsPreview: buildStepsPreview(candidate) }
           : {}),
       },
-      checkIns: effectiveActivityCheckIns(candidate.checkIns),
+      checkIns: effectiveActivityCheckIns(
+        candidate.checkIns,
+        'activity-feedback-v2'
+      ),
       effect: candidate.effect,
       fatigueDeltaOnComplete: fallback.fatigueDeltaOnComplete,
       readinessDeltaOnComplete: fallback.readinessDeltaOnComplete,
       createdBy: 'user',
     };
+    activityDocument.recommendationProvenance = buildRecommendationProvenance({
+      context: input.recommendationContext,
+      activity: activityDocument,
+    });
     const outcome: { activity?: StoredActivity } = {};
     const session = await mongoose.startSession();
     try {

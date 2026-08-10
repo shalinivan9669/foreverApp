@@ -86,17 +86,16 @@ export default function JoinPairPage() {
 
   useEffect(() => {
     const fragmentToken = readTokenFromFragment();
-    setToken(fragmentToken);
-    if (!fragmentToken) {
-      setPhase('unavailable');
-      return;
-    }
-
     let active = true;
     const controller = new AbortController();
-    void resolveJoinPhase(fragmentToken, controller.signal)
+    const phaseRequest = fragmentToken
+      ? resolveJoinPhase(fragmentToken, controller.signal)
+      : Promise.resolve<JoinPhase>('unavailable');
+
+    void phaseRequest
       .then((nextPhase) => {
         if (!active) return;
+        setToken(fragmentToken);
         setPhase(nextPhase);
       })
       .catch((caughtError: Error) => {

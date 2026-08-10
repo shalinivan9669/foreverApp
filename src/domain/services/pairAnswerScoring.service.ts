@@ -1,7 +1,11 @@
-import { Types } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
-import { Questionnaire, type QuestionnaireType } from '@/models/Questionnaire';
+import {
+  Questionnaire,
+  publishedQuestionnaireFilter,
+  type QuestionnaireType,
+} from '@/models/Questionnaire';
 import type { UserType } from '@/models/User';
 import { AXES, scoreAnswersToVectorDelta, toVectorQuestionMap, type Axis } from '@/domain/vectors';
 import {
@@ -127,14 +131,21 @@ export const buildPairAnswerDiagnostics = async (input: {
   sessionId?: string;
   left: UserType;
   right: UserType;
+  mongoSession?: ClientSession;
 }): Promise<PairAnswerDiagnosticsResult> => {
   const sessionFilter = input.sessionId
     ? { _id: new Types.ObjectId(input.sessionId), pairId: new Types.ObjectId(input.pairId) }
     : { pairId: new Types.ObjectId(input.pairId), status: 'completed' as const };
 
-  const session = await PairQuestionnaireSession.findOne(sessionFilter)
-    .sort({ finishedAt: -1, createdAt: -1 })
-    .lean<{ _id: Types.ObjectId; questionnaireId: string } | null>();
+  const sessionQuery = PairQuestionnaireSession.findOne(sessionFilter).sort({
+    finishedAt: -1,
+    createdAt: -1,
+  });
+  if (input.mongoSession) sessionQuery.session(input.mongoSession);
+  const session = await sessionQuery.lean<{
+    _id: Types.ObjectId;
+    questionnaireId: string;
+  } | null>();
 
   const traitDiagnostics = buildPairDiagnostics(input.left, input.right);
   if (!session) {
@@ -150,10 +161,17 @@ export const buildPairAnswerDiagnostics = async (input: {
     };
   }
 
-  const [questionnaire, answers] = await Promise.all([
-    Questionnaire.findOne({ _id: session.questionnaireId }).lean<QuestionnaireType | null>(),
-    PairQuestionnaireAnswer.find({ sessionId: session._id }).lean<AnswerRow[]>(),
-  ]);
+  const questionnaireQuery = Questionnaire.findOne({
+    _id: session.questionnaireId,
+    ...publishedQuestionnaireFilter(),
+  });
+  const answersQuery = PairQuestionnaireAnswer.find({ sessionId: session._id });
+  if (input.mongoSession) {
+    questionnaireQuery.session(input.mongoSession);
+    answersQuery.session(input.mongoSession);
+  }
+  const questionnaire = await questionnaireQuery.lean<QuestionnaireType | null>();
+  const answers = await answersQuery.lean<AnswerRow[]>();
 
   if (!questionnaire) {
     return {

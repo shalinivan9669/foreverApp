@@ -84,6 +84,7 @@ const currentActivityStatuses: PairActivityType['status'][] = [
   'offered',
   'accepted',
   'in_progress',
+  'awaiting_feedback',
   'awaiting_checkin',
   'completed_partial',
 ];

@@ -7,6 +7,7 @@ export interface EntitlementQuotaUsageType {
   window: QuotaWindow;
   windowStart: Date;
   count: number;
+  claimKeys?: string[];
   expiresAt: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -19,6 +20,7 @@ const EntitlementQuotaUsageSchema = new Schema<EntitlementQuotaUsageType>(
     window: { type: String, enum: ['day', 'week', 'month'], required: true },
     windowStart: { type: Date, required: true },
     count: { type: Number, required: true, default: 0 },
+    claimKeys: { type: [String], required: true, default: [] },
     expiresAt: { type: Date, required: true },
   },
   { collection: 'entitlement_quota_usage', timestamps: true }

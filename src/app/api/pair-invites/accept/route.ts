@@ -44,6 +44,6 @@ export async function POST(req: NextRequest) {
         auditRequest: auditContextFromRequest(req, route),
       }),
   });
-  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }

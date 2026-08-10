@@ -5,7 +5,11 @@ let cachedConn: typeof mongoose | null = null;
 let cachedPromise: Promise<typeof mongoose> | null = null;
 
 export async function connectToDatabase(): Promise<typeof mongoose> {
-  if (cachedConn) return cachedConn;
+  if (cachedConn?.connection.readyState === 1) return cachedConn;
+  if (cachedConn) {
+    cachedConn = null;
+    cachedPromise = null;
+  }
 
   const mongodbUri = process.env.MONGODB_URI?.trim();
   if (!mongodbUri) {
@@ -13,9 +17,23 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   }
 
   if (!cachedPromise) {
-    cachedPromise = mongoose.connect(mongodbUri).then((m) => m);
+    cachedPromise = mongoose.connect(mongodbUri, {
+      autoIndex: false,
+      serverSelectionTimeoutMS: 5_000,
+      connectTimeoutMS: 5_000,
+      socketTimeoutMS: 15_000,
+      maxPoolSize: 20,
+      minPoolSize: 0,
+      maxIdleTimeMS: 60_000,
+    });
   }
 
-  cachedConn = await cachedPromise;
-  return cachedConn;
+  try {
+    cachedConn = await cachedPromise;
+    return cachedConn;
+  } catch (error) {
+    cachedPromise = null;
+    cachedConn = null;
+    throw error;
+  }
 }

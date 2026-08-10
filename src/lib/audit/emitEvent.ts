@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { connectToDatabase } from '@/lib/mongodb';
 import { EventLog } from '@/models/EventLog';
 import {
@@ -33,6 +34,15 @@ const SENSITIVE_METADATA_KEYS = new Set([
   'body',
   'answers',
   'checkins',
+  'confidence',
+  'sumweightstotal',
+  'deltamagnitude',
+  'appliedstepbyaxis',
+  'clampedaxes',
+  'weights',
+  'deltas',
+  'axissteps',
+  'matchscore',
 ]);
 
 const sanitizeString = (value: string): string => value.slice(0, 512);
@@ -111,13 +121,30 @@ const toStoredMetadata = (value: JsonValue): EventMetadata => {
   return metadata;
 };
 
-const firstForwardedIp = (value: string | null): string | undefined => {
+export type TrustedProxyMode = 'none' | 'x-forwarded-for';
+
+export const parseTrustedProxyMode = (
+  value: string | undefined
+): TrustedProxyMode =>
+  value?.trim().toLowerCase() === 'x-forwarded-for'
+    ? 'x-forwarded-for'
+    : 'none';
+
+const firstValidForwardedIp = (value: string | null): string | undefined => {
   if (!value) return undefined;
-  const first = value
-    .split(',')
-    .map((part) => part.trim())
-    .find(Boolean);
-  return first || undefined;
+  const first = value.split(',', 1)[0]?.trim();
+  if (!first || first.length > 64 || isIP(first) === 0) return undefined;
+  return first;
+};
+
+export const clientIpFromRequest = (
+  req: Request,
+  trustedProxyMode: TrustedProxyMode = parseTrustedProxyMode(
+    process.env.TRUSTED_PROXY_MODE
+  )
+): string | undefined => {
+  if (trustedProxyMode !== 'x-forwarded-for') return undefined;
+  return firstValidForwardedIp(req.headers.get('x-forwarded-for'));
 };
 
 const safeRouteFromUrl = (url: string): string => {
@@ -130,19 +157,15 @@ const safeRouteFromUrl = (url: string): string => {
 
 export const auditContextFromRequest = (
   req: Request,
-  routeOverride?: string
+  routeOverride?: string,
+  options?: { trustedProxyMode?: TrustedProxyMode }
 ): AuditRequestContext => {
-  const forwarded = firstForwardedIp(req.headers.get('x-forwarded-for'));
   const route = routeOverride ?? safeRouteFromUrl(req.url);
 
   return {
     route,
     method: req.method.toUpperCase(),
-    ip:
-      forwarded ??
-      req.headers.get('x-real-ip') ??
-      req.headers.get('cf-connecting-ip') ??
-      undefined,
+    ip: clientIpFromRequest(req, options?.trustedProxyMode),
     ua: req.headers.get('user-agent') ?? undefined,
   };
 };

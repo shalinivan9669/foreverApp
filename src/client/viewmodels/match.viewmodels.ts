@@ -19,14 +19,16 @@ export type MatchFeedCandidateVM = {
   id: string;
   username: string;
   avatar: string;
-  score: number;
+  score: 0;
+  scoreAvailable: false;
 };
 
 export type MatchInboxRowVM = {
   id: string;
   direction: MatchDirectionVM;
   status: MatchStatusVM;
-  matchScore: number;
+  matchScore: 0;
+  matchScoreAvailable: false;
   updatedAt?: string;
   peer: {
     id: string;
@@ -45,7 +47,8 @@ export type MatchCardSnapshotVM = {
 export type MatchLikeVM = {
   id: string;
   status: MatchStatusVM;
-  matchScore: number;
+  matchScore: 0;
+  matchScoreAvailable: false;
   updatedAt?: string;
   from: {
     id: string;
@@ -111,6 +114,7 @@ export const toMatchFeedCandidateVM = (
   username: candidate.username,
   avatar: candidate.avatar,
   score: candidate.score,
+  scoreAvailable: candidate.scoreAvailable,
 });
 
 export const toMatchFeedCandidateVMList = (
@@ -125,6 +129,7 @@ export const toMatchInboxRowVM = (row: MatchInboxRowDTO): MatchInboxRowVM => ({
   direction: row.direction,
   status: row.status,
   matchScore: row.matchScore,
+  matchScoreAvailable: row.matchScoreAvailable,
   updatedAt: row.updatedAt,
   peer: {
     id: row.peer.id,
@@ -145,6 +150,7 @@ export const toMatchLikeVM = (like: MatchLikeDTO): MatchLikeVM => ({
   id: like.id,
   status: like.status,
   matchScore: like.matchScore,
+  matchScoreAvailable: like.matchScoreAvailable,
   updatedAt: like.updatedAt,
   from: {
     id: like.from.id,

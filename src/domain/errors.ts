@@ -64,7 +64,7 @@ export const toDomainError = (error: Error | DomainError): DomainError => {
   return new DomainError({
     code: 'INTERNAL',
     status: 500,
-    message: error.message || 'internal',
+    message: 'Internal server error',
   });
 };
 

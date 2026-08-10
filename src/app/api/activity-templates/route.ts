@@ -2,8 +2,11 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ActivityTemplate } from '@/models/ActivityTemplate';
-import type { ActivityTemplateType } from '@/models/ActivityTemplate';
+import {
+  ActivityTemplate,
+  publishedActivityTemplateFilter,
+  type ActivityTemplateType,
+} from '@/models/ActivityTemplate';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
 import { toActivityTemplateDTO } from '@/lib/dto';
@@ -31,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   const { axis, intent, difficulty, limit } = query.data;
 
-  const q: Record<string, unknown> = {};
+  const q = publishedActivityTemplateFilter();
   if (axis) q.axis = axis;
   if (intent) q.intent = intent;
   if (difficulty) q.difficulty = difficulty;

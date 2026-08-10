@@ -117,10 +117,9 @@ function Section(props: {
                         {STATUS_TEXT[row.direction][row.status]}
                       </span>
                     </div>
-                    <div className="app-muted text-xs">
-                      Скор: {Math.round(row.matchScore)}%
-                      {row.updatedAt ? ` · ${formatWhen(row.updatedAt)}` : ''}
-                    </div>
+                    {row.updatedAt && (
+                      <div className="app-muted text-xs">{formatWhen(row.updatedAt)}</div>
+                    )}
                   </div>
                 </button>
 

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
 import type { QuestionnaireCardDTO } from '@/client/api/types';
 import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
 import { useApi } from './useApi';
 
 const DEFAULT_CACHE_KEY = 'questionnaires:cards';
+const EMPTY_QUESTIONNAIRE_CARDS: QuestionnaireCardDTO[] = [];
 
 type UseQuestionnairesOptions = {
   enabled?: boolean;
@@ -17,10 +18,11 @@ export function useQuestionnaires(options: UseQuestionnairesOptions = {}) {
   const cacheKey = options.cacheKey ?? DEFAULT_CACHE_KEY;
   const audience = options.audience;
 
-  const getCards = useEntitiesStore((state) => state.getQuestionnaireCards);
   const setCards = useEntitiesStore((state) => state.setQuestionnaireCards);
-
-  const [cards, setCardsState] = useState<QuestionnaireCardDTO[]>(getCards(cacheKey) ?? []);
+  const cachedCards = useEntitiesStore(
+    (state) => state.questionnairesByKey[cacheKey]?.data ?? null
+  );
+  const cards = cachedCards ?? EMPTY_QUESTIONNAIRE_CARDS;
 
   const {
     runSafe,
@@ -45,13 +47,8 @@ export function useQuestionnaires(options: UseQuestionnairesOptions = {}) {
 
     const normalized = Array.isArray(fresh) ? fresh : [];
     setCards(cacheKey, normalized);
-    setCardsState(normalized);
     return normalized;
   }, [audience, cacheKey, runSafe, setCards]);
-
-  useEffect(() => {
-    setCardsState(getCards(cacheKey) ?? []);
-  }, [cacheKey, getCards]);
 
   useEffect(() => {
     if (!enabled) return;

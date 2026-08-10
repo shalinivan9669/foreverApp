@@ -24,7 +24,8 @@ const bodySchema = z
           ui: answerUiSchema,
         })
       )
-      .min(1),
+      .min(1)
+      .max(100),
   })
   .strict();
 

@@ -1,5 +1,9 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { Axis, CheckInTpl as CheckIn, EffectTpl as Effect, CheckInSchema, EffectSchema } from './ActivityTemplate';
+import {
+  RecommendationProvenanceSchema,
+  type RecommendationProvenanceType,
+} from './RecommendationProvenance';
 
 export interface Answer {
   checkInId: string;
@@ -13,6 +17,14 @@ export type ActivityCompletedStatus =
   | 'completed_partial'
   | 'failed';
 
+export type ActivityLifecycleVersion =
+  | 'activity-lifecycle-v1'
+  | 'activity-lifecycle-v2';
+
+export type ActivityFeedbackSchemaVersion =
+  | 'activity-feedback-v1'
+  | 'activity-feedback-v2';
+
 export interface ActivityResultSummary {
   submittedBy: Array<'A' | 'B'>;
   submittedCount: number;
@@ -23,6 +35,10 @@ export interface ActivityResultSummary {
   comfortAvg?: number;
   tensionAvg?: number;
   wantsSimilarRatio?: number;
+  participationRatio?: number;
+  subjectiveChangeAvg?: number;
+  difficultyAvg?: number;
+  feedbackSchemaVersion: ActivityFeedbackSchemaVersion;
   effectApplied: boolean;
   effect: {
     fatigueDelta: number;
@@ -65,6 +81,7 @@ export interface PairActivityType {
 
   offeredAt: Date;
   acceptedAt?: Date;
+  startedAt?: Date;
   windowStart?: Date;
   windowEnd?: Date;
   dueAt?: Date;
@@ -77,8 +94,12 @@ export interface PairActivityType {
   visibility?: 'both'|'privateA'|'privateB';
 
   status:
-    | 'suggested' | 'offered' | 'accepted' | 'in_progress' | 'awaiting_checkin'
+    | 'suggested' | 'offered' | 'accepted' | 'in_progress'
+    | 'awaiting_feedback' | 'awaiting_checkin'
     | 'completed_success' | 'completed_partial' | 'failed' | 'expired' | 'cancelled';
+  lifecycleVersion?: ActivityLifecycleVersion;
+  feedbackSchemaVersion?: ActivityFeedbackSchemaVersion;
+  recommendationProvenance?: RecommendationProvenanceType;
   stateMeta?: Record<string,unknown>;
 
   checkIns: CheckIn[];
@@ -121,6 +142,15 @@ const ActivityResultSummarySchema = new Schema<ActivityResultSummary>(
     comfortAvg: { type: Number, min: 0, max: 1 },
     tensionAvg: { type: Number, min: 0, max: 1 },
     wantsSimilarRatio: { type: Number, min: 0, max: 1 },
+    participationRatio: { type: Number, min: 0, max: 1 },
+    subjectiveChangeAvg: { type: Number, min: 0, max: 1 },
+    difficultyAvg: { type: Number, min: 0, max: 1 },
+    feedbackSchemaVersion: {
+      type: String,
+      enum: ['activity-feedback-v1', 'activity-feedback-v2'],
+      required: true,
+      default: 'activity-feedback-v1',
+    },
     effectApplied: { type: Boolean, required: true, default: false },
     effect: {
       fatigueDelta: { type: Number, required: true, default: 0 },
@@ -192,6 +222,7 @@ const PairActivitySchema = new Schema<PairActivityType>(
 
     offeredAt:   { type: Date, required: true },
     acceptedAt:  { type: Date },
+    startedAt:   { type: Date },
     windowStart: { type: Date },
     windowEnd:   { type: Date },
     dueAt:       { type: Date },
@@ -206,10 +237,24 @@ const PairActivitySchema = new Schema<PairActivityType>(
     status: {
       type: String,
       enum: [
-        'suggested','offered','accepted','in_progress','awaiting_checkin',
+        'suggested','offered','accepted','in_progress','awaiting_feedback','awaiting_checkin',
         'completed_success','completed_partial','failed','expired','cancelled'
       ],
       required: true
+    },
+    lifecycleVersion: {
+      type: String,
+      enum: ['activity-lifecycle-v1', 'activity-lifecycle-v2'],
+      immutable: true,
+    },
+    feedbackSchemaVersion: {
+      type: String,
+      enum: ['activity-feedback-v1', 'activity-feedback-v2'],
+      immutable: true,
+    },
+    recommendationProvenance: {
+      type: RecommendationProvenanceSchema,
+      immutable: true,
     },
     stateMeta: { type: Schema.Types.Mixed },
 
@@ -228,6 +273,10 @@ const PairActivitySchema = new Schema<PairActivityType>(
 );
 
 PairActivitySchema.index({ pairId: 1, status: 1, dueAt: 1 });
+PairActivitySchema.index(
+  { pairId: 1, status: 1, offeredAt: -1, _id: -1 },
+  { name: 'pair_activity_history_by_pair_status_offered' }
+);
 
 export const PairActivity =
   (mongoose.models.PairActivity as mongoose.Model<PairActivityType>) ||

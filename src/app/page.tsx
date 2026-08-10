@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
@@ -19,44 +19,53 @@ type DiscordProfile = {
 export default function DiscordActivityPage() {
   const [discordUser, setDiscordUser] = useState<DiscordProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(true);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
   const didInit = useRef(false);
   const router = useRouter();
   const { refetch: refetchCurrentUser } = useCurrentUser({ enabled: false });
 
+  const connectDiscord = useCallback(async () => {
+    setConnecting(true);
+    setError(null);
+    setDiscordUser(null);
+
+    try {
+      const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+      const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
+      if (!clientId || !redirectUri) throw new Error('DISCORD_NOT_CONFIGURED');
+
+      const sdk = new DiscordSDK(clientId);
+      await sdk.ready();
+
+      const { code } = await sdk.commands.authorize({
+        client_id: clientId,
+        response_type: 'code',
+        scope: ['identify'],
+        prompt: 'none',
+      });
+
+      const tokenData = await usersApi.exchangeDiscordCode({
+        code,
+        redirect_uri: redirectUri,
+      });
+
+      await sdk.commands.authenticate({ access_token: tokenData.access_token });
+      setDiscordUser(tokenData.user);
+    } catch {
+      setError(
+        'Не удалось подключить профиль. Откройте приложение внутри Discord и повторите попытку.'
+      );
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (didInit.current) return;
     didInit.current = true;
-
-    async function init() {
-      try {
-        const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!;
-        const sdk = new DiscordSDK(clientId);
-        await sdk.ready();
-
-        const { code } = await sdk.commands.authorize({
-          client_id: clientId,
-          response_type: 'code',
-          scope: ['identify'],
-          prompt: 'none',
-        });
-
-        const tokenData = await usersApi.exchangeDiscordCode({
-          code,
-          redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!,
-        });
-
-        await sdk.commands.authenticate({ access_token: tokenData.access_token });
-
-        const profile = tokenData.user;
-        setDiscordUser(profile);
-      } catch {
-        setError('Не удалось подключить Discord профиль. Попробуйте ещё раз.');
-      }
-    }
-
-    init();
-  }, []);
+    void connectDiscord();
+  }, [connectDiscord]);
 
   const goToMenu = async () => {
     if (!discordUser) return;
@@ -73,8 +82,29 @@ export default function DiscordActivityPage() {
     }
   };
 
-  if (error) return <div className="mt-8 text-center text-red-500">Error: {error}</div>;
-  if (!discordUser) {
+  if (error) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-4">
+        <div
+          className="app-panel w-full max-w-sm p-6 text-center text-slate-900"
+          role="alert"
+          aria-live="polite"
+        >
+          <h1 className="text-lg font-semibold">Нужно переподключиться к Discord</h1>
+          <p className="app-muted mt-2 text-sm">{error}</p>
+          <button
+            type="button"
+            onClick={() => void connectDiscord()}
+            disabled={connecting}
+            className="app-btn-primary mt-5 px-4 py-2 text-white disabled:opacity-60"
+          >
+            {connecting ? 'Подключаем...' : 'Повторить подключение'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (connecting || !discordUser) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-4">
         <div className="app-panel flex items-center gap-3 px-5 py-4 text-slate-900">

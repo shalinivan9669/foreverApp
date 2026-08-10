@@ -11,35 +11,41 @@ import {
 export default function SafetySettingsPage() {
   const { pairId, loading: pairLoading } = usePair();
   const [gate, setGate] = useState<OwnerSafetyGateDTO | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasCurrentGate = pairId !== null && loadedPairId === pairId;
+  const visibleGate = hasCurrentGate ? gate : null;
+  const visibleError = hasCurrentGate ? error : null;
+  const loading = pairId !== null && !hasCurrentGate;
 
   useEffect(() => {
     if (!pairId) return;
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
     safetyGateApi
       .get(pairId, controller.signal)
-      .then(setGate)
+      .then((nextGate) => {
+        if (controller.signal.aborted) return;
+        setGate(nextGate);
+        setError(null);
+        setLoadedPairId(pairId);
+      })
       .catch(() => {
         if (!controller.signal.aborted) {
+          setLoadedPairId(pairId);
           setError('Не удалось загрузить приватную настройку.');
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [pairId]);
 
   const toggle = async () => {
-    if (!pairId || !gate) return;
+    if (!pairId || !visibleGate) return;
     setSaving(true);
     setError(null);
     try {
-      setGate(await safetyGateApi.set(pairId, !gate.enabled));
+      setGate(await safetyGateApi.set(pairId, !visibleGate.enabled));
     } catch {
       setError('Не удалось сохранить настройку. Попробуйте ещё раз.');
     } finally {
@@ -67,11 +73,11 @@ export default function SafetySettingsPage() {
           <div className="app-alert app-alert-rate mt-5 text-sm">
             Настройка доступна после создания пары.
           </div>
-        ) : gate ? (
+        ) : visibleGate ? (
           <div className="mt-5">
             <div className="rounded-lg border border-slate-200 bg-white/70 p-4 text-sm">
               <div className="font-medium">
-                {gate.enabled ? 'Нейтральный режим включён' : 'Нейтральный режим выключен'}
+                {visibleGate.enabled ? 'Нейтральный режим включён' : 'Нейтральный режим выключен'}
               </div>
               <p className="app-muted mt-1">
                 Вы можете изменить решение в любой момент. Свободный текст и объяснение
@@ -86,14 +92,14 @@ export default function SafetySettingsPage() {
             >
               {saving
                 ? 'Сохраняем…'
-                : gate.enabled
+                : visibleGate.enabled
                   ? 'Выключить нейтральный режим'
                   : 'Включить нейтральный режим'}
             </button>
           </div>
         ) : null}
 
-        {error && <div className="app-alert app-alert-error mt-4 text-sm">{error}</div>}
+        {visibleError && <div className="app-alert app-alert-error mt-4 text-sm">{visibleError}</div>}
       </section>
     </main>
   );

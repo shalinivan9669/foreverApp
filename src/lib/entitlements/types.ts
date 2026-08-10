@@ -39,7 +39,7 @@ export type EntitlementsSnapshot = {
   pairId?: string;
   plan: Plan;
   status: SubscriptionStatus;
-  source: 'default_free' | 'subscription';
+  source: 'default_free' | 'pair_subscription' | 'legacy_user_subscription';
   resolvedAt: string;
   periodEnd?: string;
   features: Record<EntitlementKey, boolean>;

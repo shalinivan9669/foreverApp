@@ -65,7 +65,11 @@ const clampPercent = (value: number): number =>
 const compactStrings = (items: string[]): string[] =>
   items.map((item) => item.trim()).filter((item) => item.length > 0);
 
-const feedbackStatuses = new Set(['awaiting_checkin', 'completed_partial']);
+const feedbackStatuses = new Set([
+  'awaiting_feedback',
+  'awaiting_checkin',
+  'completed_partial',
+]);
 
 export const buildMyActivityState = (
   input: PairedActivityStateInput | null

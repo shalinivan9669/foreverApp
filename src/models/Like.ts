@@ -32,6 +32,8 @@ export interface LikeType {
   fromId: string;
   toId: string;
   matchScore: number;
+  creationKeyHash?: string;
+  creationRequestHash?: string;
 
   /** новая схема */
   fromCardSnapshot?: CardSnapshot;
@@ -85,6 +87,20 @@ const LikeSchema = new Schema<LikeType>(
     fromId: { type: String, required: true, index: true },
     toId: { type: String, required: true, index: true },
     matchScore: { type: Number, required: true },
+    creationKeyHash: {
+      type: String,
+      required: false,
+      select: false,
+      minlength: 64,
+      maxlength: 64,
+    },
+    creationRequestHash: {
+      type: String,
+      required: false,
+      select: false,
+      minlength: 64,
+      maxlength: 64,
+    },
 
     // новая схема
     fromCardSnapshot: { type: CardSchema, required: false },
@@ -104,6 +120,14 @@ const LikeSchema = new Schema<LikeType>(
 );
 
 LikeSchema.index({ fromId: 1, toId: 1, createdAt: -1 });
+LikeSchema.index(
+  { fromId: 1, creationKeyHash: 1 },
+  {
+    name: 'uniq_like_creation_key',
+    unique: true,
+    partialFilterExpression: { creationKeyHash: { $type: 'string' } },
+  }
+);
 
 /** Мягкая миграция: если в документе есть legacy `cardSnapshot`, а нового нет — копируем. */
 type LegacyDoc = mongoose.HydratedDocument<

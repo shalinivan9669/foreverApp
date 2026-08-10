@@ -14,7 +14,8 @@ export const isHistoryActivityStatus = (
 
 export const isAwaitingCheckinStatus = (
   status: PairActivityDTO['status']
-): boolean => status === 'awaiting_checkin';
+): boolean =>
+  status === 'awaiting_feedback' || status === 'awaiting_checkin';
 
 export type ActivityCardVM = {
   _id: string;

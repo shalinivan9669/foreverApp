@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { matchApi } from '@/client/api/match.api';
 import type {
   MatchDecisionRequest,
@@ -10,6 +10,7 @@ import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
 import { useApi } from './useApi';
 
 const INBOX_CACHE_KEY = 'match:inbox:self';
+const EMPTY_INBOX_ROWS: MatchInboxRowDTO[] = [];
 
 type UseInboxOptions = {
   enabled?: boolean;
@@ -20,12 +21,13 @@ export function useInbox(options: UseInboxOptions = {}) {
   const enabled = options.enabled ?? true;
   const cacheKey = options.cacheKey ?? INBOX_CACHE_KEY;
 
-  const getInbox = useEntitiesStore((state) => state.getInbox);
   const setInbox = useEntitiesStore((state) => state.setInbox);
   const setLikes = useEntitiesStore((state) => state.setLikes);
   const likesById = useEntitiesStore((state) => state.likesById);
-
-  const [rows, setRows] = useState<MatchInboxRowDTO[]>(getInbox(cacheKey) ?? []);
+  const cachedRows = useEntitiesStore(
+    (state) => state.inboxByKey[cacheKey]?.data ?? null
+  );
+  const rows = cachedRows ?? EMPTY_INBOX_ROWS;
 
   const {
     runSafe: runLoadSafe,
@@ -57,7 +59,6 @@ export function useInbox(options: UseInboxOptions = {}) {
 
     const normalized = Array.isArray(fresh) ? fresh : [];
     setInbox(cacheKey, normalized);
-    setRows(normalized);
     return normalized;
   }, [cacheKey, runLoadSafe, setInbox]);
 
@@ -126,11 +127,6 @@ export function useInbox(options: UseInboxOptions = {}) {
     },
     [refetch, runMutationSafe]
   );
-
-  useEffect(() => {
-    const cached = getInbox(cacheKey);
-    setRows(cached ?? []);
-  }, [cacheKey, getInbox]);
 
   useEffect(() => {
     if (!enabled) return;

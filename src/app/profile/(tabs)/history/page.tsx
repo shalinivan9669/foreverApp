@@ -59,24 +59,27 @@ export default function ProfileHistoryTab() {
   const { pairId, loading: pairLoading } = usePair();
   const [items, setItems] = useState<PairHistoryItemDTO[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hasCurrentHistory = pairId !== null && loadedPairId === pairId;
+  const visibleItems = hasCurrentHistory ? items : [];
+  const visibleNextCursor = hasCurrentHistory ? nextCursor : null;
+  const visibleError = hasCurrentHistory ? error : null;
+  const loading = pairId !== null && !hasCurrentHistory;
+
   useEffect(() => {
-    setItems([]);
-    setNextCursor(null);
-    setError(null);
     if (!pairId) return;
 
     const controller = new AbortController();
-    setLoading(true);
     void pairHistoryApi
       .list(pairId, { limit: HISTORY_LIMIT, signal: controller.signal })
       .then((page) => {
         if (controller.signal.aborted) return;
         setItems(page.items);
         setNextCursor(page.nextCursor);
+        setError(null);
       })
       .catch(() => {
         if (!controller.signal.aborted) {
@@ -84,7 +87,7 @@ export default function ProfileHistoryTab() {
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) setLoadedPairId(pairId);
       });
 
     return () => controller.abort();
@@ -146,13 +149,13 @@ export default function ProfileHistoryTab() {
         </div>
       )}
 
-      {error && (
+      {visibleError && (
         <div className="app-panel app-panel-solid border border-rose-300/40 p-4" role="alert">
-          <p className="text-sm">{error}</p>
+          <p className="text-sm">{visibleError}</p>
         </div>
       )}
 
-      {!loading && pairId && items.length === 0 && !error && (
+      {!loading && pairId && visibleItems.length === 0 && !visibleError && (
         <div className="app-panel app-panel-solid p-4">
           <h2 className="font-semibold">История пока пуста</h2>
           <p className="app-muted mt-1 text-sm">
@@ -161,9 +164,9 @@ export default function ProfileHistoryTab() {
         </div>
       )}
 
-      {items.length > 0 && (
+      {visibleItems.length > 0 && (
         <ol className="space-y-3" aria-label="История пары">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <li key={`${item.kind}:${item.id}`} className="app-panel app-panel-solid p-4">
               {item.kind === 'cycle' ? (
                 <article className="space-y-3">
@@ -215,7 +218,7 @@ export default function ProfileHistoryTab() {
         </ol>
       )}
 
-      {nextCursor && (
+      {visibleNextCursor && (
         <button
           type="button"
           className="app-btn-secondary w-full px-4 py-2 text-sm disabled:opacity-60"

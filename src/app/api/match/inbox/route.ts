@@ -8,7 +8,11 @@ import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonOk } from '@/lib/api/response';
 import { parseQuery } from '@/lib/api/validate';
-import { toUserDTO } from '@/lib/dto';
+import {
+  LEGACY_MATCH_SCORE_AVAILABLE,
+  LEGACY_MATCH_SCORE_SENTINEL,
+  toUserDTO,
+} from '@/lib/dto';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
@@ -18,7 +22,8 @@ type Row = {
   id: string;
   direction: Direction;
   status: LikeStatus;
-  matchScore: number;
+  matchScore: typeof LEGACY_MATCH_SCORE_SENTINEL;
+  matchScoreAvailable: typeof LEGACY_MATCH_SCORE_AVAILABLE;
   updatedAt?: string;
   peer: { id: string; username: string; avatar: string };
   canCreatePair: boolean;
@@ -26,7 +31,7 @@ type Row = {
 
 type LikeLean = Pick<
   LikeType,
-  'fromId' | 'toId' | 'status' | 'matchScore'
+  'fromId' | 'toId' | 'status'
 > & {
   _id: Types.ObjectId;
   updatedAt?: Date;
@@ -50,6 +55,7 @@ export async function GET(req: NextRequest) {
   const likes = await Like.find({
     $or: [{ fromId: userId }, { toId: userId }],
   })
+    .select({ fromId: 1, toId: 1, status: 1, updatedAt: 1, createdAt: 1 })
     .sort({ updatedAt: -1 })
     .lean<LikeLean[]>()
     .exec();
@@ -87,7 +93,8 @@ export async function GET(req: NextRequest) {
       id: l._id.toHexString(),
       direction,
       status: l.status,
-      matchScore: l.matchScore,
+      matchScore: LEGACY_MATCH_SCORE_SENTINEL,
+      matchScoreAvailable: LEGACY_MATCH_SCORE_AVAILABLE,
       updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
       peer: peerDto,
       canCreatePair,

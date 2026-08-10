@@ -44,6 +44,23 @@ export const requirePairMember = async (
   return { ok: true, data: { pair, by } };
 };
 
+export const requireActivePairForMember = async (
+  currentUserId: string
+): Promise<ResourceGuardResult<{ pair: PairDoc; by: 'A' | 'B' }>> => {
+  await connectToDatabase();
+
+  const pair = await Pair.findOne({
+    members: currentUserId,
+    status: 'active',
+  });
+  if (!pair) {
+    return { ok: false, response: jsonNotFound('NOT_FOUND', 'pair not found') };
+  }
+
+  const by: 'A' | 'B' = pair.members[0] === currentUserId ? 'A' : 'B';
+  return { ok: true, data: { pair, by } };
+};
+
 export const requireActivityMember = async (
   activityId: string,
   currentUserId: string

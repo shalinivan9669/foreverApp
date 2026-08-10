@@ -219,14 +219,6 @@ function QuestionScreen({
     useState<MvpOnboardingCapturePolicy | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setSingleValue(null);
-    setMultiValues([]);
-    setBooleanValue(null);
-    setCapturePolicy(null);
-    setSubmitting(false);
-  }, [question.id]);
-
   const answerValue = useMemo<MvpOnboardingAnswerValue | null>(() => {
     if (question.kind === 'single') {
       return singleValue ? { kind: 'single', optionId: singleValue } : null;
@@ -379,13 +371,34 @@ export default function MvpOnboardingPage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const token = fragment.get('token')?.trim() ?? '';
     if (fragment.get('return') === 'join' && /^[A-Za-z0-9_-]{43}$/.test(token)) {
-      setReturnHref(`/join#${new URLSearchParams({ token }).toString()}`);
+      const nextReturnHref = `/join#${new URLSearchParams({ token }).toString()}`;
+      void Promise.resolve().then(() => {
+        if (active) setReturnHref(nextReturnHref);
+      });
     }
-    void load();
-  }, [load]);
+
+    void mvpOnboardingApi
+      .getOwnerState()
+      .then((nextPayload) => {
+        if (active) setPayload(nextPayload);
+      })
+      .catch(() => {
+        if (active) {
+          setError('Не удалось загрузить настройку. Проверь вход и попробуй ещё раз.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const start = async () => {
     if (!payload) return;

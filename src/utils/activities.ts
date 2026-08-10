@@ -5,6 +5,7 @@ import { VectorSnapshot, type VectorSnapshotType } from '@/models/VectorSnapshot
 import type { CheckInTpl, EffectTpl, Axis } from '@/models/ActivityTemplate';
 import type {
   ActivityCompletedStatus,
+  ActivityFeedbackSchemaVersion,
   ActivityResultSummary,
   Answer,
 } from '@/models/PairActivity';
@@ -61,10 +62,77 @@ export const UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS: CheckInTpl[] = [
   },
 ];
 
+export const CANONICAL_ACTIVITY_FEEDBACK_CHECKINS: CheckInTpl[] = [
+  {
+    id: 'participated',
+    scale: 'bool',
+    text: {
+      ru: 'Вы участвовали в активности?',
+      en: 'Did you participate in the activity?',
+    },
+    map: [0, 1],
+    weight: 1,
+  },
+  {
+    id: 'usefulness',
+    scale: 'likert5',
+    text: {
+      ru: 'Насколько полезной оказалась активность?',
+      en: 'How useful was the activity?',
+    },
+    map: [-2, -1, 0, 1, 2],
+    weight: 1.2,
+  },
+  {
+    id: 'subjective_change',
+    scale: 'likert5',
+    text: {
+      ru: 'Как изменилось ваше состояние после активности?',
+      en: 'How did you feel after the activity?',
+    },
+    map: [-2, -1, 0, 1, 2],
+    weight: 1,
+  },
+  {
+    id: 'difficulty',
+    scale: 'likert5',
+    text: {
+      ru: 'Насколько сложной была активность?',
+      en: 'How difficult was the activity?',
+    },
+    map: [1, 2, 3, 4, 5],
+    weight: 0,
+  },
+  {
+    id: 'repeat_intent',
+    scale: 'bool',
+    text: {
+      ru: 'Хотели бы вы повторить похожий формат?',
+      en: 'Would you repeat a similar format?',
+    },
+    map: [0, 1],
+    weight: 0.6,
+  },
+];
+
 export const effectiveActivityCheckIns = (
-  checkIns?: CheckInTpl[]
-): CheckInTpl[] =>
-  checkIns?.length ? checkIns : UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS;
+  checkIns?: CheckInTpl[],
+  feedbackSchemaVersion: ActivityFeedbackSchemaVersion = 'activity-feedback-v1'
+): CheckInTpl[] => {
+  if (feedbackSchemaVersion === 'activity-feedback-v1') {
+    return checkIns?.length ? checkIns : UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS;
+  }
+
+  const merged = [...(checkIns ?? [])];
+  const existingIds = new Set(merged.map((checkIn) => checkIn.id));
+  for (const canonical of CANONICAL_ACTIVITY_FEEDBACK_CHECKINS) {
+    if (!existingIds.has(canonical.id)) {
+      merged.push(canonical);
+      existingIds.add(canonical.id);
+    }
+  }
+  return merged;
+};
 
 export const replaceActivityAnswers = (input: {
   existing: Answer[];
@@ -179,8 +247,14 @@ export const buildActivityResultSummary = (input: {
   checkIns?: CheckInTpl[];
   answers?: Answer[];
   completedAt?: Date;
+  feedbackSchemaVersion?: ActivityFeedbackSchemaVersion;
 }): ActivityResultSummary => {
-  const checkIns = effectiveActivityCheckIns(input.checkIns);
+  const feedbackSchemaVersion =
+    input.feedbackSchemaVersion ?? 'activity-feedback-v1';
+  const checkIns = effectiveActivityCheckIns(
+    input.checkIns,
+    feedbackSchemaVersion
+  );
   const answers = input.answers ?? [];
   const submittedBy = (['A', 'B'] as const).filter((role) =>
     answers.some((answer) => answer.by === role)
@@ -195,7 +269,22 @@ export const buildActivityResultSummary = (input: {
   const wantsSimilarRatio = averageForCheckIn(
     checkIns,
     answers,
-    'want_similar'
+    'repeat_intent'
+  ) ?? averageForCheckIn(checkIns, answers, 'want_similar');
+  const participationRatio = averageForCheckIn(
+    checkIns,
+    answers,
+    'participated'
+  );
+  const subjectiveChangeAvg = averageForCheckIn(
+    checkIns,
+    answers,
+    'subjective_change'
+  );
+  const difficultyAvg = averageForCheckIn(
+    checkIns,
+    answers,
+    'difficulty'
   );
   const aScore = roleScore(checkIns, answers, 'A');
   const bScore = roleScore(checkIns, answers, 'B');
@@ -226,6 +315,10 @@ export const buildActivityResultSummary = (input: {
     comfortAvg,
     tensionAvg,
     wantsSimilarRatio,
+    participationRatio,
+    subjectiveChangeAvg,
+    difficultyAvg,
+    feedbackSchemaVersion,
     effectApplied: false,
     effect: {
       fatigueDelta: 0,

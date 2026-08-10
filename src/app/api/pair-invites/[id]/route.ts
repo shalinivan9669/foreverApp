@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         inviteId: params.data.id,
       })
     );
-    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));

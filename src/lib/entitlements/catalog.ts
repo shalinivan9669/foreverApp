@@ -39,7 +39,7 @@ export const ENTITLEMENT_CATALOG: Record<Plan, PlanCatalogEntry> = {
       'lootboxes.access': false,
     },
     quotas: {
-      // TODO: confirm exact business limits with product before billing go-live.
+      // Provisional compatibility limits; product approval is required before billing go-live.
       'match.mutations.per_day': { limit: 50, window: 'day' },
       'pairs.create.per_month': { limit: 1, window: 'month' },
       'activities.suggestions.per_day': { limit: 6, window: 'day' },

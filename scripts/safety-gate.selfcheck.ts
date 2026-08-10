@@ -31,7 +31,7 @@ const route = readFileSync(
 );
 assert.ok(route.includes('requireSession(req)'));
 assert.ok(route.includes('enforceRateLimit'));
-assert.ok(route.includes("Cache-Control', 'no-store"));
+assert.ok(route.includes("Cache-Control', 'private, no-store"));
 assert.equal(route.includes('body.data.ownerUserId'), false);
 
 const offerService = readFileSync(

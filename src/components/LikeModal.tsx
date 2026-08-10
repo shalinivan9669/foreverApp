@@ -10,10 +10,14 @@ type Props = {
   open: boolean;
   onClose: () => void;
   candidate: { id: string; username: string; avatar: string } | null;
-  onSent?: (payload: { matchScore: number; toId: string }) => void;
+  onSent?: (payload: { toId: string }) => void;
 };
 
-export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
+type OpenLikeModalProps = Omit<Props, 'open' | 'candidate'> & {
+  candidate: NonNullable<Props['candidate']>;
+};
+
+function OpenLikeModal({ onClose, candidate, onSent }: OpenLikeModalProps) {
   const [card, setCard] = useState<CandidateMatchCardDTO | null>(null);
   const [agree, setAgree] = useState<[boolean, boolean, boolean]>([false, false, false]);
   const [answers, setAnswers] = useState<[string, string]>(['', '']);
@@ -29,11 +33,6 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
   } = useApi('like-modal-submit');
 
   useEffect(() => {
-    if (!open || !candidate) return;
-    setCard(null);
-    setAgree([false, false, false]);
-    setAnswers(['', '']);
-
     let active = true;
     loadCard(() => matchApi.getCandidateCard(candidate.id), {
         loadingKey: 'like-modal-load',
@@ -46,7 +45,7 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
     return () => {
       active = false;
     };
-  }, [candidate, loadCard, open]);
+  }, [candidate, loadCard]);
 
   const canSend = useMemo(() => {
     if (!card) return false;
@@ -83,7 +82,7 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
     );
     if (!created) return;
 
-    onSent?.({ matchScore: created.matchScore, toId: candidate.id });
+    onSent?.({ toId: candidate.id });
     onClose();
   };
 
@@ -91,7 +90,7 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
 
   return (
     <LikeModalView
-      open={open}
+      open
       candidate={candidate}
       card={card}
       agree={agree}
@@ -103,6 +102,19 @@ export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
       onToggleAgreement={onToggleAgreement}
       onChangeAnswer={onChangeAnswer}
       onSubmit={onSubmit}
+    />
+  );
+}
+
+export default function LikeModal({ open, onClose, candidate, onSent }: Props) {
+  if (!open || !candidate) return null;
+
+  return (
+    <OpenLikeModal
+      key={candidate.id}
+      candidate={candidate}
+      onClose={onClose}
+      onSent={onSent}
     />
   );
 }

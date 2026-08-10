@@ -9,6 +9,9 @@
 - `docs/MVP_FLOWS.md` - detailed MVP acceptance criteria and delivery checklist.
 - `docs/P0_CAPABILITY_MATRIX.md` - P0 implementation evidence and remaining pilot gates.
 - `docs/P0_TWO_USER_E2E.md` - mandatory two-account pilot verification checklist.
+- `docs/MVP_RELEASE_STATUS.md` - active evidence/gap matrix for the current release-candidate hardening run.
+- `docs/SCALE_READINESS.md` - assumptions, measured local evidence, bottlenecks, SLOs, and infrastructure thresholds.
+- `docs/RELEASE_RUNBOOK.md` - env, preflight, migration, rollback, incident, and production-activation procedure.
 - `docs/TARGET_DOMAIN_MODEL.md` - target typed entities and computation model.
 - `docs/TARGET_DOMAIN_OPERATIONS.md` - privacy, safety, versioning, storage, scaling, and AI boundaries.
 - `docs/PROJECT_MAP.md` - codebase map.

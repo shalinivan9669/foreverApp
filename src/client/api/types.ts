@@ -498,7 +498,8 @@ export type MatchFeedCandidateDTO = {
   id: string;
   username: string;
   avatar: string;
-  score: number;
+  score: 0;
+  scoreAvailable: false;
 };
 
 export type MatchCardDTO = {
@@ -536,7 +537,8 @@ export type MatchInboxRowDTO = {
   id: string;
   direction: MatchDirection;
   status: MatchStatus;
-  matchScore: number;
+  matchScore: 0;
+  matchScoreAvailable: false;
   updatedAt?: string;
   peer: PublicUserDTO;
   canCreatePair: boolean;
@@ -551,7 +553,8 @@ export type MatchCardSnapshotDTO = {
 export type MatchLikeDTO = {
   id: string;
   status: MatchStatus;
-  matchScore: number;
+  matchScore: 0;
+  matchScoreAvailable: false;
   updatedAt?: string;
   from: PublicUserDTO;
   to: PublicUserDTO;
@@ -579,7 +582,8 @@ export type MatchLikeCreateRequest = {
 
 export type MatchLikeCreateResponse = {
   id: string;
-  matchScore: number;
+  matchScore: 0;
+  matchScoreAvailable: false;
 };
 
 export type MatchRespondRequest = {
@@ -608,6 +612,7 @@ export type ActivityStatus =
   | 'offered'
   | 'accepted'
   | 'in_progress'
+  | 'awaiting_feedback'
   | 'awaiting_checkin'
   | 'completed_success'
   | 'completed_partial'
@@ -654,6 +659,7 @@ export type PairActivityDTO = {
   intensity: 1 | 2 | 3;
   timeEstimateMin?: number;
   dueAt?: string;
+  startedAt?: string;
   cooldownDays?: number;
   requiresConsent?: boolean;
   status: ActivityStatus;

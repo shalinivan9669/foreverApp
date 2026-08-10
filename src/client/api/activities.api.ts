@@ -65,6 +65,13 @@ export const activitiesApi = {
       idempotency: true,
     }),
 
+  startActivity: (activityId: string): Promise<MutationAckDTO> =>
+    http.post<MutationAckDTO, Record<string, never>>(
+      `/api/activities/${activityId}/start`,
+      {},
+      { idempotency: true }
+    ),
+
   cancelActivity: (activityId: string): Promise<MutationAckDTO> =>
     http.post<MutationAckDTO, Record<string, never>>(`/api/activities/${activityId}/cancel`, {}, {
       idempotency: true,

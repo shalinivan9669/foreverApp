@@ -1,4 +1,5 @@
 import { DomainError } from '@/domain/errors';
+import mongoose from 'mongoose';
 import { emitEvent, auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { connectToDatabase } from '@/lib/mongodb';
 import { EntitlementQuotaUsage } from '@/models/EntitlementQuotaUsage';
@@ -24,6 +25,7 @@ type AssertQuotaInput = {
   snapshot: EntitlementsSnapshot;
   key: QuotaKey;
   incrementBy?: number;
+  claimKey?: string;
 };
 
 export type QuotaCheckResult = {
@@ -159,6 +161,111 @@ export async function assertQuota(input: AssertQuotaInput): Promise<QuotaCheckRe
   const expiresAt = new Date(resetAt.getTime() + TTL_PADDING_IN_MS);
 
   await connectToDatabase();
+
+  const claimKey = input.claimKey?.trim();
+  if (claimKey) {
+    const identity = {
+      subjectId: input.snapshot.userId,
+      quotaKey: input.key,
+      window: quota.window,
+      windowStart,
+    };
+    const currentCount = { $ifNull: ['$count', 0] };
+    const currentClaims = { $ifNull: ['$claimKeys', []] };
+    const alreadyClaimed = { $in: [{ $literal: claimKey }, currentClaims] };
+    const nextCount = { $add: [currentCount, incrementBy] };
+    const canAccept = { $lte: [nextCount, quota.limit] };
+    const pipeline = [
+      {
+        $set: {
+          subjectId: {
+            $ifNull: ['$subjectId', { $literal: input.snapshot.userId }],
+          },
+          quotaKey: { $ifNull: ['$quotaKey', { $literal: input.key }] },
+          window: { $ifNull: ['$window', { $literal: quota.window }] },
+          windowStart: { $ifNull: ['$windowStart', { $literal: windowStart }] },
+          expiresAt: { $ifNull: ['$expiresAt', { $literal: expiresAt }] },
+          count: {
+            $cond: [
+              alreadyClaimed,
+              currentCount,
+              { $cond: [canAccept, nextCount, currentCount] },
+            ],
+          },
+          claimKeys: {
+            $cond: [
+              alreadyClaimed,
+              currentClaims,
+              {
+                $cond: [
+                  canAccept,
+                  { $setUnion: [currentClaims, [{ $literal: claimKey }]] },
+                  currentClaims,
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ];
+    const applyClaim = (upsert: boolean) =>
+      EntitlementQuotaUsage.findOneAndUpdate(identity, pipeline, {
+        upsert,
+        new: true,
+      }).lean<{ count: number; claimKeys?: string[] } | null>();
+
+    let claimed;
+    try {
+      claimed = await applyClaim(true);
+    } catch (error: unknown) {
+      if (
+        !(error instanceof mongoose.mongo.MongoServerError) ||
+        error.code !== 11000
+      ) {
+        throw error;
+      }
+      claimed = await applyClaim(false);
+    }
+
+    const used = claimed?.count ?? 0;
+    const accepted = claimed?.claimKeys?.includes(claimKey) === true;
+    const remaining = Math.max(0, quota.limit - used);
+    const resetAtIso = resetAt.toISOString();
+    if (accepted) {
+      return {
+        key: input.key,
+        limit: quota.limit,
+        used,
+        remaining,
+        resetAt: resetAtIso,
+      };
+    }
+
+    const attemptedUsed = used + incrementBy;
+    await emitDenied({
+      req: input.req,
+      route: input.route,
+      userId: input.snapshot.userId,
+      plan: input.snapshot.plan,
+      reason: 'quota',
+      quota: input.key,
+      limit: quota.limit,
+      used: attemptedUsed,
+      resetAt: resetAtIso,
+    });
+    throw new DomainError({
+      code: 'QUOTA_EXCEEDED',
+      status: 403,
+      message: 'Quota exceeded',
+      details: {
+        quota: input.key,
+        plan: input.snapshot.plan,
+        limit: quota.limit,
+        used: attemptedUsed,
+        resetAt: resetAtIso,
+      },
+    });
+  }
 
   const doc = await EntitlementQuotaUsage.findOneAndUpdate(
     {

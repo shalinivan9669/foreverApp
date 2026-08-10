@@ -21,6 +21,11 @@ type RenderableQuestion = {
 
 export default function PersonalQuestionnaireRunner() {
   const { id } = useParams<{ id: string }>();
+
+  return <PersonalQuestionnaireRunnerContent key={id ?? ''} id={id} />;
+}
+
+function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
   const router = useRouter();
 
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireDTO | null>(null);
@@ -32,7 +37,6 @@ export default function PersonalQuestionnaireRunner() {
     runSafe: runLoadSafe,
     loading: loadingQuestionnaire,
     error: loadError,
-    clearError: clearLoadError,
   } = useApi('questionnaire-personal-load');
 
   const {
@@ -48,11 +52,6 @@ export default function PersonalQuestionnaireRunner() {
     let active = true;
     const controller = new AbortController();
 
-    setIndex(0);
-    setAnswersByQuestionId({});
-    setQuestionnaire(null);
-    clearLoadError();
-
     runLoadSafe(() => questionnairesApi.startPersonalQuestionnaire(id, controller.signal), {
       loadingKey: 'questionnaire-personal-load',
     }).then((data) => {
@@ -64,7 +63,7 @@ export default function PersonalQuestionnaireRunner() {
       active = false;
       controller.abort();
     };
-  }, [clearLoadError, id, runLoadSafe]);
+  }, [id, runLoadSafe]);
 
   const questions = useMemo<RenderableQuestion[]>(() => {
     if (!questionnaire || !Array.isArray(questionnaire.questions)) return [];

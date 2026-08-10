@@ -14,10 +14,27 @@ import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 
 export default function PairQuestionnaireRunner() {
   const params = useParams<{ id: string; qid: string }>();
-  const router = useRouter();
-  const { data: currentUser } = useCurrentUser();
   const pairId = params?.id;
   const questionnaireId = params?.qid;
+
+  return (
+    <PairQuestionnaireRunnerContent
+      key={`${pairId ?? ''}:${questionnaireId ?? ''}`}
+      pairId={pairId}
+      questionnaireId={questionnaireId}
+    />
+  );
+}
+
+function PairQuestionnaireRunnerContent({
+  pairId,
+  questionnaireId,
+}: {
+  pairId?: string;
+  questionnaireId?: string;
+}) {
+  const router = useRouter();
+  const { data: currentUser } = useCurrentUser();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionDTO[]>([]);
@@ -29,7 +46,6 @@ export default function PairQuestionnaireRunner() {
     runSafe: runLoadSafe,
     loading: loading,
     error: loadError,
-    clearError: clearLoadError,
   } = useApi('pair-questionnaire-load');
   const {
     runSafe: runSubmitSafe,
@@ -65,11 +81,6 @@ export default function PairQuestionnaireRunner() {
 
     if (!questionnaireId) return;
 
-    setIndex(0);
-    setQuestions([]);
-    setTitle('');
-    clearLoadError();
-
     runLoadSafe(
       () => questionnairesApi.getQuestionnaire(questionnaireId, controller.signal),
       { loadingKey: 'pair-questionnaire-load' }
@@ -83,7 +94,7 @@ export default function PairQuestionnaireRunner() {
       active = false;
       controller.abort();
     };
-  }, [clearLoadError, questionnaireId, runLoadSafe]);
+  }, [questionnaireId, runLoadSafe]);
 
   useEffect(() => {
     let active = true;

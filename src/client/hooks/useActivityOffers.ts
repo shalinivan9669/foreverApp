@@ -38,6 +38,8 @@ const makeKey = (pairId: string, bucket: 'current' | 'suggested' | 'history'): s
 
 const toActivityId = (activity: PairActivityDTO): string => activity._id ?? activity.id;
 
+const EMPTY_ACTIVITIES: PairActivityDTO[] = [];
+
 const toBuckets = (
   current: PairActivityDTO[],
   suggested: PairActivityDTO[],
@@ -52,18 +54,26 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
   const pairId = options.pairId;
   const enabled = options.enabled ?? true;
 
-  const getActivitiesList = useEntitiesStore((state) => state.getActivitiesList);
   const setActivitiesList = useEntitiesStore((state) => state.setActivitiesList);
+  const currentActivities = useEntitiesStore((state) =>
+    pairId ? state.activitiesByKey[makeKey(pairId, 'current')]?.data ?? null : null
+  );
+  const suggestedActivities = useEntitiesStore((state) =>
+    pairId ? state.activitiesByKey[makeKey(pairId, 'suggested')]?.data ?? null : null
+  );
+  const historicalActivities = useEntitiesStore((state) =>
+    pairId ? state.activitiesByKey[makeKey(pairId, 'history')]?.data ?? null : null
+  );
 
-  const initialBuckets = useMemo<ActivityBuckets>(() => {
-    if (!pairId) return { active: null, suggested: [], history: [] };
-    const current = getActivitiesList(makeKey(pairId, 'current')) ?? [];
-    const suggested = getActivitiesList(makeKey(pairId, 'suggested')) ?? [];
-    const history = getActivitiesList(makeKey(pairId, 'history')) ?? [];
-    return toBuckets(current, suggested, history);
-  }, [getActivitiesList, pairId]);
-
-  const [buckets, setBuckets] = useState<ActivityBuckets>(initialBuckets);
+  const buckets = useMemo<ActivityBuckets>(
+    () =>
+      toBuckets(
+        currentActivities ?? EMPTY_ACTIVITIES,
+        suggestedActivities ?? EMPTY_ACTIVITIES,
+        historicalActivities ?? EMPTY_ACTIVITIES
+      ),
+    [currentActivities, historicalActivities, suggestedActivities]
+  );
   const [lastOfferBatch, setLastOfferBatch] = useState<PairActivityDTO[]>([]);
   const [suggestionPlan, setSuggestionPlan] =
     useState<PairActivitySuggestionPlanDTO | null>(null);
@@ -114,9 +124,7 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     setActivitiesList(makeKey(pairId, 'suggested'), fresh.suggested);
     setActivitiesList(makeKey(pairId, 'history'), fresh.history);
 
-    const nextBuckets = toBuckets(fresh.current, fresh.suggested, fresh.history);
-    setBuckets(nextBuckets);
-    return nextBuckets;
+    return toBuckets(fresh.current, fresh.suggested, fresh.history);
   }, [pairId, runLoadSafe, setActivitiesList]);
 
   const suggestNext = useCallback(async (): Promise<boolean> => {
@@ -162,6 +170,18 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
   const cancelActivity = useCallback(
     async (activityId: string): Promise<boolean> => {
       const done = await runMutationSafe(() => activitiesApi.cancelActivity(activityId));
+      if (!done) return false;
+      await refetch();
+      return true;
+    },
+    [refetch, runMutationSafe]
+  );
+
+  const startActivity = useCallback(
+    async (activityId: string): Promise<boolean> => {
+      const done = await runMutationSafe(() =>
+        activitiesApi.startActivity(activityId)
+      );
       if (!done) return false;
       await refetch();
       return true;
@@ -248,17 +268,6 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
   );
 
   useEffect(() => {
-    if (!pairId) {
-      setBuckets({ active: null, suggested: [], history: [] });
-      return;
-    }
-    const current = getActivitiesList(makeKey(pairId, 'current')) ?? [];
-    const suggested = getActivitiesList(makeKey(pairId, 'suggested')) ?? [];
-    const history = getActivitiesList(makeKey(pairId, 'history')) ?? [];
-    setBuckets(toBuckets(current, suggested, history));
-  }, [getActivitiesList, pairId]);
-
-  useEffect(() => {
     if (!enabled || !pairId) return;
     void refetch();
     return () => {
@@ -287,6 +296,7 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
     createFromTemplate,
     requestPersonalNext,
     acceptActivity,
+    startActivity,
     cancelActivity,
     checkInActivity,
     checkInActivityDetailed,

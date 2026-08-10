@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { IDEMPOTENCY_HEADER } from '@/lib/idempotency/key';
 import { matchService } from '@/domain/services/match.service';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
@@ -12,6 +13,7 @@ import {
   assertQuota,
   resolveEntitlements,
 } from '@/lib/entitlements';
+import { projectLegacyMatchLikeResponse } from '@/app/api/match/like/projectResponse';
 
 export const runtime = 'nodejs';
 
@@ -51,8 +53,9 @@ export async function POST(req: NextRequest) {
 
   const body = parsedBody.data as Body;
   const auditRequest = auditContextFromRequest(req, '/api/match/like');
+  const idempotencyKey = req.headers.get(IDEMPOTENCY_HEADER)?.trim() ?? '';
 
-  return withIdempotency({
+  const response = await withIdempotency({
     req,
     route: '/api/match/like',
     userId: currentUserId,
@@ -81,8 +84,11 @@ export async function POST(req: NextRequest) {
         toId: body.toId,
         agreements: body.agreements,
         answers: body.answers,
+        idempotencyKey,
         auditRequest,
       });
     },
   });
+
+  return projectLegacyMatchLikeResponse(response);
 }

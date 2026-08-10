@@ -5,6 +5,7 @@ import {
   recommendationsApi,
   type RecommendationDecisionDTO,
 } from '@/client/api/recommendations.api';
+import { isApiClientError } from '@/client/api/errors';
 
 type RecommendationDecisionPanelProps = {
   pairId: string;
@@ -15,8 +16,30 @@ type Action = 'offer' | 'accept' | 'replace' | 'skip';
 
 const ACTION_ERROR =
   'Не удалось обновить рекомендацию. Обновите экран и попробуйте ещё раз.';
+const SUMMARY_NOT_READY_ERROR =
+  'Сначала завершите текущий цикл check-in. Рекомендация появится после общего итога или завершённого сценария с недостаточными данными.';
+
+const actionErrorMessage = (error: unknown): string =>
+  error instanceof Error &&
+  isApiClientError(error) &&
+  error.code === 'RECOMMENDATION_SUMMARY_NOT_READY'
+    ? SUMMARY_NOT_READY_ERROR
+    : ACTION_ERROR;
 
 export default function RecommendationDecisionPanel({
+  pairId,
+  onActivityChanged,
+}: RecommendationDecisionPanelProps) {
+  return (
+    <RecommendationDecisionPanelSession
+      key={pairId}
+      pairId={pairId}
+      onActivityChanged={onActivityChanged}
+    />
+  );
+}
+
+function RecommendationDecisionPanelSession({
   pairId,
   onActivityChanged,
 }: RecommendationDecisionPanelProps) {
@@ -26,27 +49,43 @@ export default function RecommendationDecisionPanel({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const fetchOverview = useCallback(
+    (signal?: AbortSignal) => recommendationsApi.getOverview(pairId, signal),
+    [pairId]
+  );
+
   const load = useCallback(
-    async (signal?: AbortSignal) => {
+    (signal?: AbortSignal) => {
       setLoading(true);
       setError(null);
-      try {
-        const overview = await recommendationsApi.getOverview(pairId, signal);
-        if (!signal?.aborted) setCurrent(overview.current);
-      } catch {
-        if (!signal?.aborted) setError(ACTION_ERROR);
-      } finally {
-        if (!signal?.aborted) setLoading(false);
-      }
+      return fetchOverview(signal)
+        .then((overview) => {
+          if (!signal?.aborted) setCurrent(overview.current);
+        })
+        .catch(() => {
+          if (!signal?.aborted) setError(ACTION_ERROR);
+        })
+        .finally(() => {
+          if (!signal?.aborted) setLoading(false);
+        });
     },
-    [pairId]
+    [fetchOverview]
   );
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
+    void fetchOverview(controller.signal)
+      .then((overview) => {
+        if (!controller.signal.aborted) setCurrent(overview.current);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError(ACTION_ERROR);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
-  }, [load]);
+  }, [fetchOverview]);
 
   const run = useCallback(
     async (nextAction: Action) => {
@@ -77,8 +116,8 @@ export default function RecommendationDecisionPanel({
         setCurrent(null);
         setMessage('Рекомендация пропущена без штрафа. Можно вернуться в следующем цикле.');
         onActivityChanged();
-      } catch {
-        setError(ACTION_ERROR);
+      } catch (actionError) {
+        setError(actionErrorMessage(actionError));
       } finally {
         setAction(null);
       }

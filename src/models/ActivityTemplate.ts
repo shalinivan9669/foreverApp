@@ -1,4 +1,14 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, type FilterQuery } from 'mongoose';
+
+export const CONTENT_PUBLICATION_STATUS_VALUES = [
+  'draft',
+  'in_review',
+  'published',
+  'retired',
+] as const;
+
+export type ContentPublicationStatus =
+  (typeof CONTENT_PUBLICATION_STATUS_VALUES)[number];
 
 export type Axis =
   | 'communication'
@@ -28,6 +38,11 @@ export interface EffectTpl {
 
 export interface ActivityTemplateType {
   _id: string;
+  contentVersion: number;
+  publicationStatus: ContentPublicationStatus;
+  reviewedAt?: Date;
+  publishedAt?: Date;
+  retiredAt?: Date;
   intent: 'improve' | 'celebrate';
   archetype: 'micro_habit' | 'dialogue' | 'ritual' | 'date' | 'game' | 'education' | 'task';
   axis: Axis[];                        // обычно одна ось
@@ -92,6 +107,16 @@ const EffectSchema = new Schema<EffectTpl>(
 const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
   {
     _id: { type: String, required: true },
+    contentVersion: { type: Number, required: true, min: 1, default: 1 },
+    publicationStatus: {
+      type: String,
+      enum: CONTENT_PUBLICATION_STATUS_VALUES,
+      required: true,
+      default: 'draft',
+    },
+    reviewedAt: Date,
+    publishedAt: Date,
+    retiredAt: Date,
     intent: { type: String, enum: ['improve','celebrate'], required: true },
     archetype: {
       type: String,
@@ -127,6 +152,32 @@ const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
   },
   { collection: 'activity_templates', timestamps: true }
 );
+
+ActivityTemplateSchema.pre('validate', function validatePublicationGate() {
+  const reviewed = this.reviewedAt instanceof Date;
+  const published = this.publishedAt instanceof Date;
+  const retired = this.retiredAt instanceof Date;
+
+  if (this.publicationStatus === 'published' && (!reviewed || !published || retired)) {
+    throw new Error('Published activity content requires review and publish timestamps');
+  }
+  if (this.publicationStatus === 'retired' && (!reviewed || !published || !retired)) {
+    throw new Error('Retired activity content requires review, publish, and retire timestamps');
+  }
+});
+
+ActivityTemplateSchema.index(
+  { publicationStatus: 1, difficulty: 1, intensity: 1, updatedAt: -1 },
+  { name: 'activity_template_published_selection' }
+);
+
+export const publishedActivityTemplateFilter = (): FilterQuery<ActivityTemplateType> => ({
+  publicationStatus: 'published',
+  contentVersion: { $gte: 1 },
+  reviewedAt: { $type: 'date' },
+  publishedAt: { $type: 'date' },
+  retiredAt: { $exists: false },
+});
 
 export const ActivityTemplate =
   (mongoose.models.ActivityTemplate as mongoose.Model<ActivityTemplateType>) ||

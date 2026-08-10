@@ -19,6 +19,15 @@ for (const questionnaire of BETA_QUESTIONNAIRES) {
   const spec = expected.get(questionnaire._id) ?? fail(`unexpected questionnaire ${questionnaire._id}`);
   const meta = questionnaire.meta ?? fail(`missing meta for ${questionnaire._id}`);
   if (questionnaire.title.ru !== spec.title) fail(`bad title for ${questionnaire._id}`);
+  if (questionnaire.publicationStatus !== 'published') {
+    fail(`questionnaire is not explicitly published: ${questionnaire._id}`);
+  }
+  if (!(questionnaire.reviewedAt instanceof Date) || !(questionnaire.publishedAt instanceof Date)) {
+    fail(`questionnaire publication timestamps are missing: ${questionnaire._id}`);
+  }
+  if (questionnaire.retiredAt !== undefined) {
+    fail(`published questionnaire is retired: ${questionnaire._id}`);
+  }
   if (!meta.isBeta) fail(`missing beta meta for ${questionnaire._id}`);
   if (meta.scoringVersion !== BETA_SCORING_VERSION) {
     fail(`bad scoring version meta for ${questionnaire._id}`);

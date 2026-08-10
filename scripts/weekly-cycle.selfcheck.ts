@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Types } from 'mongoose';
 import {
   PAIR_STATE_ALGORITHM_VERSION,
+  WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT,
   WEEKLY_CYCLE_SUBMISSION_CLAIM_TTL_MS,
   WEEKLY_CYCLE_TIME_ZONE,
   WEEKLY_CYCLE_INPUT_DEFINITION_VERSION,
@@ -12,6 +13,7 @@ import {
   weeklyCycleWindow,
   type PairStateCheckInInput,
 } from '@/domain/services/weeklyCycle.service';
+import { isRecommendationSummaryPublishable } from '@/domain/services/recommendationDecision.service';
 
 const memberA = 'member-a';
 const memberB = 'member-b';
@@ -26,6 +28,7 @@ assert.equal(WEEKLY_CYCLE_INPUT_DEFINITION_VERSION, 'weekly-checkin-v1');
 assert.equal(PAIR_STATE_ALGORITHM_VERSION, 'pair-state-v1');
 assert.equal(WEEKLY_CYCLE_TIME_ZONE, 'UTC');
 assert.equal(WEEKLY_CYCLE_SUBMISSION_CLAIM_TTL_MS, 120_000);
+assert.equal(WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT, 8);
 assert.equal(
   weeklyCycleKeyForDate(new Date('2026-06-08T00:30:00.000+02:00')),
   weeklyCycleKeyForDate(new Date('2026-06-07T22:30:00.000Z')),
@@ -82,6 +85,11 @@ assert.equal(firstPartial.dataStatus, 'PARTIAL');
 assert.equal(firstPartial.submissionCount, 1);
 assert.equal(firstPartial.signals.length, 0);
 assert.equal(
+  isRecommendationSummaryPublishable(firstPartial),
+  false,
+  'a partial canonical snapshot cannot open a recommendation'
+);
+assert.equal(
   firstPartial.memberCompletion.find((member) => member.userId === memberA)?.status,
   'SUBMITTED'
 );
@@ -118,6 +126,11 @@ const secondThenFirst = buildPairStateProjection({
 assert.equal(firstThenSecond.dataStatus, 'ENOUGH');
 assert.equal(firstThenSecond.submissionCount, 2);
 assert.equal(firstThenSecond.signals.length, 4);
+assert.equal(
+  isRecommendationSummaryPublishable(firstThenSecond),
+  true,
+  'an ENOUGH canonical snapshot may open a recommendation'
+);
 assert.deepEqual(secondThenFirst, firstThenSecond);
 assert.notEqual(
   firstPartial.inputHash,
@@ -154,6 +167,11 @@ const skippedWithPeerSubmission = buildPairStateProjection({
 });
 assert.equal(skippedWithPeerSubmission.dataStatus, 'INSUFFICIENT');
 assert.equal(skippedWithPeerSubmission.signals.length, 0);
+assert.equal(
+  isRecommendationSummaryPublishable(skippedWithPeerSubmission),
+  true,
+  'a terminal resolved INSUFFICIENT snapshot may use the fallback path'
+);
 assert.equal(
   skippedWithPeerSubmission.memberCompletion.find(
     (member) => member.userId === memberB
@@ -278,6 +296,11 @@ assert.ok(cycleModel.includes("'EXPIRED'"));
 assert.ok(cycleModel.includes("timeZone: 'UTC'"));
 assert.ok(cycleModel.includes('submissionClaims'));
 assert.ok(cycleModel.includes('select: false'));
+assert.ok(cycleModel.includes('expiredReconciliationCompletedAt?: Date'));
+assert.ok(cycleModel.includes('weekly_cycle_pending_expired_reconciliation'));
+assert.ok(
+  cycleModel.includes('expiredReconciliationCompletedAt: 1,')
+);
 assert.ok(!cycleModel.includes('WAITING_A'));
 assert.ok(!cycleModel.includes('WAITING_B'));
 
@@ -322,13 +345,46 @@ assert.ok(
   'mutable readiness and latest snapshot pointer must both CAS member completion'
 );
 assert.ok(cycleService.includes("code: 'WEEKLY_CYCLE_EXPIRED'"));
+assert.ok(cycleService.includes("code: 'WEEKLY_CYCLE_NOT_STARTED'"));
+assert.ok(cycleService.includes('now.getTime() < window.startsAt.getTime()'));
 assert.ok(cycleService.includes("'WEEKLY_CYCLE_SUBMISSION_IN_PROGRESS'"));
 assert.equal(cycleService.includes('PairStateSnapshot.findOneAndUpdate'), false);
 assert.ok(cycleService.includes('findUnfinalizedExpiredCycles'));
-assert.ok(cycleService.includes("'canonicalSnapshots.0.cycleStatus': { $ne: 'EXPIRED' }"));
+const reconciliationFinderStart = cycleService.indexOf(
+  'const findUnfinalizedExpiredCycles'
+);
+const reconciliationFinalizerStart = cycleService.indexOf(
+  'const finalizeExpiredPairCycles'
+);
+assert.ok(
+  reconciliationFinderStart >= 0 &&
+    reconciliationFinalizerStart > reconciliationFinderStart
+);
+const reconciliationFinder = cycleService.slice(
+  reconciliationFinderStart,
+  reconciliationFinalizerStart
+);
+assert.match(reconciliationFinder, /WeeklyCycle\.find\(/);
+assert.match(reconciliationFinder, /expiredReconciliationCompletedAt: null/);
+assert.match(
+  reconciliationFinder,
+  /\.limit\(WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT\)/
+);
+assert.match(
+  reconciliationFinder,
+  /\.hint\(WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX\)/
+);
+assert.doesNotMatch(reconciliationFinder, /aggregate|\$lookup/);
+assert.ok(
+  cycleService.includes('$set: { expiredReconciliationCompletedAt: now }')
+);
+assert.ok(cycleService.includes("code: 'EXPIRED_RECONCILIATION_FAILED'"));
 assert.ok(cycleService.includes('allowEndedPair: true'));
 assert.ok(cycleService.includes('canonicalSnapshotId'));
 assert.ok(cycleService.includes('projectionFromSnapshot(canonicalSnapshot)'));
+assert.ok(cycleService.includes("type: 'CYCLE_AVAILABLE'"));
+assert.ok(cycleService.includes("type: 'SUMMARY_READY'"));
+assert.ok(cycleService.includes("routeGroup: 'notification'"));
 assert.ok(cycleService.includes('status: projection.cycleStatus'));
 assert.ok(cycleService.includes('pairReadiness: projection.dataStatus'));
 assert.equal(
@@ -375,7 +431,8 @@ const weeklyService = readFileSync(
   join(process.cwd(), 'src/domain/services/weeklyCheckIn.service.ts'),
   'utf8'
 );
-assert.ok((weeklyService.match(/syncAfterCheckIn/g) ?? []).length >= 3);
+assert.ok((weeklyService.match(/syncAfterCheckIn/g) ?? []).length >= 2);
+assert.ok(weeklyService.includes('runWeeklyCheckInFinalization'));
 assert.ok(weeklyService.includes('submissionClaimToken'));
 assert.ok(weeklyService.includes('token: submissionClaimToken'));
 assert.ok(weeklyService.includes('commitClaimedSubmission'));
@@ -403,5 +460,22 @@ const pairPanel = readFileSync(
 assert.ok(pairPanel.includes('Цикл завершён; ответ задним числом не требуется.'));
 assert.ok(pairPanel.includes('Индивидуальные ответы остаются личными.'));
 assert.equal(pairPanel.includes('Оба check-in получены'), false);
+
+const recommendationService = readFileSync(
+  join(process.cwd(), 'src/domain/services/recommendationDecision.service.ts'),
+  'utf8'
+);
+assert.ok(recommendationService.includes('RECOMMENDATION_SUMMARY_NOT_READY'));
+assert.ok(recommendationService.includes('latestSnapshotId'));
+assert.ok(recommendationService.includes('recommendationContextIsStillCanonical'));
+assert.ok(recommendationService.includes('inputHash: snapshot.input.hash'));
+
+const recommendationProvenanceModel = readFileSync(
+  join(process.cwd(), 'src/models/RecommendationProvenance.ts'),
+  'utf8'
+);
+assert.ok(recommendationProvenanceModel.includes('snapshotId'));
+assert.ok(recommendationProvenanceModel.includes('activityContentHash'));
+assert.equal(recommendationProvenanceModel.includes('evidenceRevisionIds'), false);
 
 console.log('weekly-cycle selfcheck passed');

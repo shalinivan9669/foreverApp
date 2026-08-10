@@ -1,8 +1,14 @@
-import { Types, type HydratedDocument } from 'mongoose';
+import { randomUUID } from 'crypto';
+import mongoose, {
+  Types,
+  type ClientSession,
+  type HydratedDocument,
+} from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
+import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 import { DomainError } from '@/domain/errors';
 import { Pair, type PairType } from '@/models/Pair';
@@ -11,6 +17,7 @@ import { Insight, type InsightType } from '@/models/Insight';
 import { VectorSnapshot } from '@/models/VectorSnapshot';
 import {
   WeeklyCheckIn,
+  WEEKLY_CHECK_IN_FINALIZATION_VERSION,
   type WeeklyCheckInAnswers,
   type WeeklyCheckInType,
 } from '@/models/WeeklyCheckIn';
@@ -27,6 +34,7 @@ import {
   weeklyCycleKeyForDate,
   weeklyCycleService,
 } from '@/domain/services/weeklyCycle.service';
+import { cycleEntitlementService } from '@/domain/services/cycleEntitlement.service';
 import {
   buildPairInsightCandidates,
   buildUserInsightCandidates,
@@ -34,6 +42,10 @@ import {
   toInsightDTO,
   type InsightDTO,
 } from '@/domain/services/insightRules.service';
+import {
+  runWeeklyCheckInFinalization,
+  type WeeklyCheckInFinalizationPhase,
+} from '@/domain/services/weeklyCheckInFinalization.service';
 
 export type WeeklyCheckInSubmitInput = {
   currentUserId: string;
@@ -95,6 +107,11 @@ export type PairWeeklyCheckInSummaryDTO = {
     };
     status: 'missing' | 'partial' | 'complete' | 'divergent';
   };
+};
+
+export type WeeklyCheckInReliabilityTestHooks = {
+  afterPrimaryCommit?: () => Promise<void>;
+  beforeFinalizationCompletion?: () => Promise<void>;
 };
 
 export type PairWeeklyCheckInDataStatus =
@@ -487,24 +504,29 @@ export const buildPairWeeklyCheckInSummary = async (input: {
   pair: HydratedDocument<PairType>;
   currentUserId: string;
   weekKey?: string;
+  mongoSession?: ClientSession;
 }): Promise<PairWeeklyCheckInSummaryDTO> => {
   const pairId = String(input.pair._id);
   const weekKey = input.weekKey?.trim() || currentWeekKey();
   const peerId =
     input.pair.members.find((memberId) => memberId !== input.currentUserId) ??
     input.pair.members[1];
-  const [checkIns, peer] = await Promise.all([
-    WeeklyCheckIn.find({
-      pairId: { $in: pairIdVariants(pairId) },
-      weekKey,
-      userId: { $in: input.pair.members },
-    })
-      .sort({ updatedAt: -1 })
-      .lean<PairWeeklyCheckInRow[]>(),
-    User.findOne({ id: peerId })
-      .select({ id: 1, username: 1, avatar: 1 })
-      .lean<PairWeeklyMember | null>(),
-  ]);
+  const checkInsQuery = WeeklyCheckIn.find({
+    pairId: { $in: pairIdVariants(pairId) },
+    weekKey,
+    userId: { $in: input.pair.members },
+  }).sort({ updatedAt: -1 });
+  const peerQuery = User.findOne({ id: peerId }).select({
+    id: 1,
+    username: 1,
+    avatar: 1,
+  });
+  if (input.mongoSession) {
+    checkInsQuery.session(input.mongoSession);
+    peerQuery.session(input.mongoSession);
+  }
+  const checkIns = await checkInsQuery.lean<PairWeeklyCheckInRow[]>();
+  const peer = await peerQuery.lean<PairWeeklyMember | null>();
 
   return summarizePairWeeklyCheckIns({
     pairId,
@@ -608,16 +630,607 @@ const toStoredWeeklyCheckInDTO = async (
     insights: await visibleInsightsForIds(checkIn.computed.generatedInsightIds),
   });
 
+const WEEKLY_CHECK_IN_FINALIZATION_LEASE_MS = 120_000;
+
+type WeeklyCheckInFinalizationClaim =
+  | { kind: 'legacy'; checkIn: StoredWeeklyCheckIn }
+  | { kind: 'completed'; checkIn: StoredWeeklyCheckIn }
+  | {
+      kind: 'acquired';
+      checkIn: StoredWeeklyCheckIn;
+      leaseOwner: string;
+      phase: Exclude<WeeklyCheckInFinalizationPhase, 'completed'>;
+    };
+
+const claimWeeklyCheckInFinalization = async (
+  checkInId: Types.ObjectId
+): Promise<WeeklyCheckInFinalizationClaim> => {
+  const now = new Date();
+  const leaseOwner = randomUUID();
+  const leaseExpiresAt = new Date(
+    now.getTime() + WEEKLY_CHECK_IN_FINALIZATION_LEASE_MS
+  );
+  const availableLease = [
+    { 'finalization.leaseOwner': { $exists: false } },
+    { 'finalization.leaseExpiresAt': { $lte: now } },
+  ];
+
+  const effectsApplied = await WeeklyCheckIn.findOneAndUpdate(
+    {
+      _id: checkInId,
+      'finalization.version': WEEKLY_CHECK_IN_FINALIZATION_VERSION,
+      'finalization.state': 'effects_applied',
+      $or: availableLease,
+    },
+    {
+      $set: {
+        'finalization.leaseOwner': leaseOwner,
+        'finalization.leaseExpiresAt': leaseExpiresAt,
+      },
+      $unset: { 'finalization.lastFailureCode': 1 },
+      $inc: { 'finalization.attemptCount': 1 },
+    },
+    { new: true }
+  ).lean<StoredWeeklyCheckIn | null>();
+  if (effectsApplied) {
+    return {
+      kind: 'acquired',
+      checkIn: effectsApplied,
+      leaseOwner,
+      phase: 'effects_applied',
+    };
+  }
+
+  const processing = await WeeklyCheckIn.findOneAndUpdate(
+    {
+      _id: checkInId,
+      'finalization.version': WEEKLY_CHECK_IN_FINALIZATION_VERSION,
+      'finalization.state': { $in: ['pending', 'processing', 'failed'] },
+      $or: [
+        { 'finalization.state': 'pending' },
+        { 'finalization.state': 'failed' },
+        ...availableLease,
+      ],
+    },
+    {
+      $set: {
+        'finalization.state': 'processing',
+        'finalization.leaseOwner': leaseOwner,
+        'finalization.leaseExpiresAt': leaseExpiresAt,
+      },
+      $unset: {
+        'finalization.lastFailureCode': 1,
+        'finalization.completedAt': 1,
+      },
+      $inc: { 'finalization.attemptCount': 1 },
+    },
+    { new: true }
+  ).lean<StoredWeeklyCheckIn | null>();
+  if (processing) {
+    return {
+      kind: 'acquired',
+      checkIn: processing,
+      leaseOwner,
+      phase: 'processing',
+    };
+  }
+
+  const current = await WeeklyCheckIn.findById(checkInId).lean<
+    StoredWeeklyCheckIn | null
+  >();
+  if (!current) {
+    throw new DomainError({
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'Weekly check-in not found',
+    });
+  }
+  if (!current.finalization) return { kind: 'legacy', checkIn: current };
+  if (current.finalization.state === 'completed') {
+    return { kind: 'completed', checkIn: current };
+  }
+
+  throw new DomainError({
+    code: 'IDEMPOTENCY_IN_PROGRESS',
+    status: 503,
+    message: 'Weekly check-in finalization is already in progress; retry shortly',
+  });
+};
+
+const applyWeeklyCheckInEffects = async (input: {
+  checkInId: Types.ObjectId;
+  currentUserId: string;
+  pairId?: string;
+  weekKey: string;
+  leaseOwner: string;
+}): Promise<void> => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const checkIn = await WeeklyCheckIn.findOne({
+        _id: input.checkInId,
+        'finalization.version': WEEKLY_CHECK_IN_FINALIZATION_VERSION,
+        'finalization.state': 'processing',
+        'finalization.leaseOwner': input.leaseOwner,
+      })
+        .session(session)
+        .lean<StoredWeeklyCheckIn | null>();
+      if (!checkIn) {
+        throw new DomainError({
+          code: 'IDEMPOTENCY_IN_PROGRESS',
+          status: 503,
+          message: 'Weekly check-in finalization lease was lost',
+        });
+      }
+
+      const user = await User.findOne({ id: input.currentUserId })
+        .session(session)
+        .lean<UserType | null>();
+      if (!user) {
+        throw new DomainError({
+          code: 'NOT_FOUND',
+          status: 404,
+          message: 'User not found',
+        });
+      }
+
+      const now = new Date();
+      const answers = checkIn.answers;
+      const psycheTarget = clamp01(
+        answers.readiness * 0.55 + (1 - answers.fatigue) * 0.45
+      );
+      const communicationTarget = clamp01(
+        1 - Math.max(answers.irritation, answers.unresolvedTopic ? 0.8 : 0)
+      );
+      const psycheApplied = applyState({
+        user,
+        axis: 'psyche',
+        target01: psycheTarget,
+        positives: answers.fatigue < 0.35 ? ['weekly_recovered'] : [],
+        now,
+      });
+      const communicationApplied =
+        answers.irritation >= 0.6 || answers.unresolvedTopic
+          ? applyState({
+              user,
+              axis: 'communication',
+              target01: communicationTarget,
+              positives: answers.unresolvedTopic
+                ? ['weekly_unresolved_topic']
+                : [],
+              now,
+            })
+          : null;
+
+      const setPayload: Record<string, number | string | Date> = {
+        ...stateSetPayload('psyche', psycheApplied, user),
+        'fatigue.score': answers.fatigue,
+        'fatigue.updatedAt': now,
+        'readiness.score': answers.readiness,
+        'readiness.updatedAt': now,
+      };
+      if (communicationApplied) {
+        Object.assign(
+          setPayload,
+          stateSetPayload('communication', communicationApplied, user)
+        );
+      }
+      await User.updateOne(
+        { id: input.currentUserId },
+        { $set: setPayload },
+        { session }
+      );
+
+      const snapshots = [
+        createAppliedVectorSnapshot({
+          userId: input.currentUserId,
+          pairId: input.pairId,
+          axis: 'psyche',
+          layer: 'state',
+          applied: psycheApplied,
+          reason: { source: 'weekly_checkin' },
+          createdAt: now,
+        }),
+      ];
+      if (communicationApplied) {
+        snapshots.push(
+          createAppliedVectorSnapshot({
+            userId: input.currentUserId,
+            pairId: input.pairId,
+            axis: 'communication',
+            layer: 'state',
+            applied: communicationApplied,
+            reason: { source: 'weekly_checkin' },
+            createdAt: now,
+          })
+        );
+      }
+      await VectorSnapshot.insertMany(snapshots, { session });
+
+      let pairRiskDelta: number | undefined;
+      let generatedInsightIds: string[] = [];
+      if (input.pairId) {
+        const pair = await Pair.findById(input.pairId).session(session);
+        if (!pair) {
+          throw new DomainError({
+            code: 'NOT_FOUND',
+            status: 404,
+            message: 'pair not found',
+          });
+        }
+        const pairSummary = await buildPairWeeklyCheckInSummary({
+          pair,
+          currentUserId: input.currentUserId,
+          weekKey: input.weekKey,
+          mongoSession: session,
+        });
+        if (
+          pairSummary.pair.bothSubmitted &&
+          pairSummary.pair.readiness !== undefined &&
+          pairSummary.pair.fatigue !== undefined
+        ) {
+          await Pair.updateOne(
+            { _id: pair._id },
+            {
+              $set: {
+                'readiness.score': pairSummary.pair.readiness,
+                'readiness.updatedAt': now,
+                'fatigue.score': pairSummary.pair.fatigue,
+                'fatigue.updatedAt': now,
+              },
+            },
+            { session }
+          );
+        }
+
+        const left = await User.findOne({ id: pair.members[0] })
+          .session(session)
+          .lean<UserType | null>();
+        const right = await User.findOne({ id: pair.members[1] })
+          .session(session)
+          .lean<UserType | null>();
+        const insightCandidates = buildUserInsightCandidates({
+          user: {
+            ...user,
+            fatigue: { score: answers.fatigue, updatedAt: now },
+          } as UserType,
+          activePair: {
+            fatigue: {
+              score: pairSummary.pair.fatigue ?? answers.fatigue,
+              updatedAt: now,
+            },
+          },
+        });
+
+        if (left && right) {
+          const diagnostics = await buildPairAnswerDiagnostics({
+            pairId: input.pairId,
+            left,
+            right,
+            mongoSession: session,
+          });
+          pairRiskDelta = diagnostics.pairAnswerSignals.filter(
+            (signal) => signal.status === 'risk'
+          ).length;
+          await Pair.updateOne(
+            { _id: pair._id },
+            {
+              $set: {
+                'passport.strongSides': diagnostics.passport.strongSides,
+                'passport.riskZones': diagnostics.passport.riskZones,
+                'passport.complementMap': diagnostics.passport.complementMap,
+                'passport.levelDelta': diagnostics.passport.levelDelta,
+                'passport.lastDiagnosticsAt': now,
+                'passport.axes': diagnostics.axes,
+                'passport.pairAnswerSignals': diagnostics.pairAnswerSignals,
+                'passport.overall': diagnostics.overall,
+              },
+            },
+            { session }
+          );
+          insightCandidates.unshift(
+            ...buildPairInsightCandidates({
+              pairId: input.pairId,
+              members: [pair.members[0], pair.members[1]],
+              left,
+              right,
+              fatigue: {
+                score: pairSummary.pair.fatigue ?? answers.fatigue,
+                updatedAt: now,
+              },
+              readiness: {
+                score: pairSummary.pair.readiness ?? answers.readiness,
+                updatedAt: now,
+              },
+              weekly: {
+                fatigue: pairSummary.pair.fatigue,
+                closeness: pairSummary.pair.closeness,
+              },
+            })
+          );
+        }
+
+        const created = await persistInsightCandidates(
+          insightCandidates,
+          now,
+          session
+        );
+        generatedInsightIds = created.map((insight) => String(insight._id));
+      } else {
+        const created = await persistInsightCandidates(
+          buildUserInsightCandidates({
+            user: {
+              ...user,
+              fatigue: { score: answers.fatigue, updatedAt: now },
+            } as UserType,
+            activePair: {
+              fatigue: { score: answers.fatigue, updatedAt: now },
+            },
+          }),
+          now,
+          session
+        );
+        generatedInsightIds = created.map((insight) => String(insight._id));
+      }
+
+      const computed: WeeklyCheckInType['computed'] = {
+        userStateDelta: {
+          psyche: psycheApplied.delta,
+          ...(communicationApplied
+            ? { communication: communicationApplied.delta }
+            : {}),
+        },
+        ...(pairRiskDelta !== undefined ? { pairRiskDelta } : {}),
+        generatedInsightIds,
+      };
+      const marked = await WeeklyCheckIn.updateOne(
+        {
+          _id: checkIn._id,
+          'finalization.state': 'processing',
+          'finalization.leaseOwner': input.leaseOwner,
+        },
+        {
+          $set: {
+            computed,
+            'finalization.state': 'effects_applied',
+            'finalization.leaseExpiresAt': new Date(
+              now.getTime() + WEEKLY_CHECK_IN_FINALIZATION_LEASE_MS
+            ),
+          },
+        },
+        { session }
+      );
+      if (marked.modifiedCount !== 1) {
+        throw new DomainError({
+          code: 'IDEMPOTENCY_IN_PROGRESS',
+          status: 503,
+          message: 'Weekly check-in finalization lease was lost',
+        });
+      }
+    });
+  } catch (error) {
+    const current = await WeeklyCheckIn.findById(input.checkInId)
+      .select({ finalization: 1 })
+      .lean<Pick<StoredWeeklyCheckIn, 'finalization'> | null>();
+    if (
+      current?.finalization?.state === 'effects_applied' &&
+      current.finalization.leaseOwner === input.leaseOwner
+    ) {
+      return;
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const completeWeeklyCheckInFinalization = async (input: {
+  checkInId: Types.ObjectId;
+  leaseOwner: string;
+}): Promise<void> => {
+  const completedAt = new Date();
+  const completed = await WeeklyCheckIn.updateOne(
+    {
+      _id: input.checkInId,
+      'finalization.version': WEEKLY_CHECK_IN_FINALIZATION_VERSION,
+      'finalization.state': 'effects_applied',
+      'finalization.leaseOwner': input.leaseOwner,
+    },
+    {
+      $set: {
+        'finalization.state': 'completed',
+        'finalization.completedAt': completedAt,
+      },
+      $unset: {
+        'finalization.leaseOwner': 1,
+        'finalization.leaseExpiresAt': 1,
+        'finalization.lastFailureCode': 1,
+      },
+    }
+  );
+  if (completed.modifiedCount === 1) return;
+
+  const current = await WeeklyCheckIn.findById(input.checkInId)
+    .select({ finalization: 1 })
+    .lean<Pick<StoredWeeklyCheckIn, 'finalization'> | null>();
+  if (current?.finalization?.state === 'completed') return;
+  throw new Error('Weekly check-in finalization completion lease was lost');
+};
+
+const releaseWeeklyCheckInFinalization = async (input: {
+  checkInId: Types.ObjectId;
+  leaseOwner: string;
+  effectsApplied: boolean;
+  failureCode: string;
+}): Promise<void> => {
+  const identity = {
+    _id: input.checkInId,
+    'finalization.leaseOwner': input.leaseOwner,
+  };
+  if (input.effectsApplied) {
+    await WeeklyCheckIn.updateOne(
+      { ...identity, 'finalization.state': 'effects_applied' },
+      {
+        $set: {
+          'finalization.lastFailureCode': input.failureCode.slice(0, 100),
+        },
+        $unset: {
+          'finalization.leaseOwner': 1,
+          'finalization.leaseExpiresAt': 1,
+        },
+      }
+    );
+    return;
+  }
+
+  await WeeklyCheckIn.updateOne(
+    { ...identity, 'finalization.state': 'processing' },
+    {
+      $set: {
+        'finalization.state': 'failed',
+        'finalization.lastFailureCode': input.failureCode.slice(0, 100),
+      },
+      $unset: {
+        'finalization.leaseOwner': 1,
+        'finalization.leaseExpiresAt': 1,
+      },
+    }
+  );
+};
+
+const reconcileWeeklyCheckIn = async (input: {
+  checkIn: StoredWeeklyCheckIn;
+  currentUserId: string;
+  pairData: PairGuardData | null;
+  hooks: WeeklyCheckInReliabilityTestHooks;
+  auditRequest?: AuditRequestContext;
+}): Promise<WeeklyCheckInDTO> => {
+  const claim = await claimWeeklyCheckInFinalization(input.checkIn._id);
+  if (claim.kind === 'legacy') {
+    if (input.pairData) {
+      await weeklyCycleService.syncAfterCheckIn({
+        pair: input.pairData.pair,
+        cycleKey: claim.checkIn.weekKey,
+      });
+    }
+    return toStoredWeeklyCheckInDTO(claim.checkIn);
+  }
+  if (claim.kind === 'completed') {
+    return toStoredWeeklyCheckInDTO(claim.checkIn);
+  }
+
+  const pairId = input.pairData ? String(input.pairData.pair._id) : undefined;
+  await runWeeklyCheckInFinalization({
+    phase: claim.phase,
+    applyEffects: () =>
+      applyWeeklyCheckInEffects({
+        checkInId: claim.checkIn._id,
+        currentUserId: input.currentUserId,
+        pairId,
+        weekKey: claim.checkIn.weekKey,
+        leaseOwner: claim.leaseOwner,
+      }),
+    syncMaterializedCycle: async () => {
+      if (!input.pairData) return;
+      await weeklyCycleService.syncAfterCheckIn({
+        pair: input.pairData.pair,
+        cycleKey: claim.checkIn.weekKey,
+        now: new Date(),
+      });
+    },
+    beforeComplete: input.hooks.beforeFinalizationCompletion,
+    complete: () =>
+      completeWeeklyCheckInFinalization({
+        checkInId: claim.checkIn._id,
+        leaseOwner: claim.leaseOwner,
+      }),
+    releaseAfterFailure: (failure) =>
+      releaseWeeklyCheckInFinalization({
+        checkInId: claim.checkIn._id,
+        leaseOwner: claim.leaseOwner,
+        ...failure,
+      }),
+  });
+
+  const finalized = await WeeklyCheckIn.findById(claim.checkIn._id).lean<
+    StoredWeeklyCheckIn | null
+  >();
+  if (!finalized || finalized.finalization?.state !== 'completed') {
+    throw new DomainError({
+      code: 'IDEMPOTENCY_IN_PROGRESS',
+      status: 503,
+      message: 'Weekly check-in finalization is incomplete; retry shortly',
+    });
+  }
+
+  const pairSummary = input.pairData
+    ? await buildPairWeeklyCheckInSummary({
+        pair: input.pairData.pair,
+        currentUserId: input.currentUserId,
+        weekKey: finalized.weekKey,
+      })
+    : null;
+  await emitEvent({
+    event: 'WEEKLY_CHECKIN_SUBMITTED',
+    actor: { userId: input.currentUserId },
+    request: input.auditRequest ?? {
+      route: '/api/checkins/weekly',
+      method: 'POST',
+    },
+    context: pairId ? { pairId } : undefined,
+    target: { type: 'user', id: input.currentUserId },
+    metadata: {
+      ...(pairId ? { pairId } : {}),
+      weekKey: finalized.weekKey,
+      snapshotCount:
+        finalized.answers.irritation >= 0.6 ||
+        finalized.answers.unresolvedTopic
+          ? 2
+          : 1,
+      generatedInsightCount: finalized.computed.generatedInsightIds.length,
+      traitMutationApplied: false,
+      ...(pairSummary
+        ? {
+            submittedCount: pairSummary.pair.submittedCount,
+            bothSubmitted: pairSummary.pair.bothSubmitted,
+          }
+        : {}),
+      pairStateUpdated: pairSummary?.pair.bothSubmitted ?? false,
+    },
+  });
+  recordProductAnalyticsEvent({
+    name: 'checkin_submitted',
+    technicalScope: 'weekly_cycle',
+  });
+  return toDTO({
+    checkIn: finalized,
+    readiness: {
+      score: finalized.answers.readiness,
+      updatedAt: finalized.updatedAt,
+    },
+    fatigue: {
+      score: finalized.answers.fatigue,
+      updatedAt: finalized.updatedAt,
+    },
+    insights: await visibleInsightsForIds(
+      finalized.computed.generatedInsightIds
+    ),
+  });
+};
+
 export const weeklyCheckInService = {
-  async submit(input: WeeklyCheckInSubmitInput): Promise<WeeklyCheckInDTO> {
+  async submit(
+    input: WeeklyCheckInSubmitInput,
+    hooks: WeeklyCheckInReliabilityTestHooks = {}
+  ): Promise<WeeklyCheckInDTO> {
     await connectToDatabase();
     const answers = validateWeeklyAnswers(input.answers);
     const weekKey = input.weekKey?.trim() || currentWeekKey();
     const pairData = await resolvePair(input.pairId, input.currentUserId);
     if (pairData) assertPairAcceptsCheckIn(pairData.pair);
 
-    const user = await User.findOne({ id: input.currentUserId }).lean<UserType | null>();
-    if (!user) {
+    const userExists = await User.exists({ id: input.currentUserId });
+    if (!userExists) {
       throw new DomainError({
         code: 'NOT_FOUND',
         status: 404,
@@ -633,42 +1246,26 @@ export const weeklyCheckInService = {
       StoredWeeklyCheckIn | null
     >();
     if (existingCheckIn) {
-      if (pairData) {
-        await weeklyCycleService.syncAfterCheckIn({
-          pair: pairData.pair,
-          cycleKey: weekKey,
-        });
-      }
-      return toStoredWeeklyCheckInDTO(existingCheckIn);
+      return reconcileWeeklyCheckIn({
+        checkIn: existingCheckIn,
+        currentUserId: input.currentUserId,
+        pairData,
+        hooks,
+        auditRequest: input.auditRequest,
+      });
+    }
+
+    if (pairData) {
+      await cycleEntitlementService.assertCanOpen({
+        pairId: String(pairData.pair._id),
+        currentUserId: input.currentUserId,
+        cycleKey: weekKey,
+      });
     }
 
     const now = new Date();
-    const psycheTarget = clamp01(answers.readiness * 0.55 + (1 - answers.fatigue) * 0.45);
-    const communicationTarget = clamp01(
-      1 - Math.max(answers.irritation, answers.unresolvedTopic ? 0.8 : 0)
-    );
-    const psycheApplied = applyState({
-      user,
-      axis: 'psyche',
-      target01: psycheTarget,
-      positives: answers.fatigue < 0.35 ? ['weekly_recovered'] : [],
-      now,
-    });
-    const communicationApplied =
-      answers.irritation >= 0.6 || answers.unresolvedTopic
-        ? applyState({
-            user,
-            axis: 'communication',
-            target01: communicationTarget,
-            positives: answers.unresolvedTopic ? ['weekly_unresolved_topic'] : [],
-            now,
-          })
-        : null;
     const preliminaryComputed: WeeklyCheckInType['computed'] = {
-      userStateDelta: {
-        psyche: psycheApplied.delta,
-        ...(communicationApplied ? { communication: communicationApplied.delta } : {}),
-      },
+      userStateDelta: {},
       generatedInsightIds: [],
     };
 
@@ -708,21 +1305,21 @@ export const weeklyCheckInService = {
           StoredWeeklyCheckIn | null
         >();
         if (concurrent) {
-          if (pairData) {
-            if (submissionClaimToken) {
-              await weeklyCycleService.releaseSubmissionClaim({
-                pair: pairData.pair,
-                currentUserId: input.currentUserId,
-                cycleKey: weekKey,
-                token: submissionClaimToken,
-              });
-            }
-            await weeklyCycleService.syncAfterCheckIn({
+          if (pairData && submissionClaimToken) {
+            await weeklyCycleService.releaseSubmissionClaim({
               pair: pairData.pair,
+              currentUserId: input.currentUserId,
               cycleKey: weekKey,
+              token: submissionClaimToken,
             });
           }
-          return toStoredWeeklyCheckInDTO(concurrent);
+          return reconcileWeeklyCheckIn({
+            checkIn: concurrent,
+            currentUserId: input.currentUserId,
+            pairData,
+            hooks,
+            auditRequest: input.auditRequest,
+          });
         }
       }
       if (pairData && submissionClaimToken) {
@@ -736,190 +1333,13 @@ export const weeklyCheckInService = {
       throw error;
     }
 
-    const setPayload: Record<string, number | string | Date> = {
-      ...stateSetPayload('psyche', psycheApplied, user),
-      'fatigue.score': answers.fatigue,
-      'fatigue.updatedAt': now,
-      'readiness.score': answers.readiness,
-      'readiness.updatedAt': now,
-    };
-    if (communicationApplied) {
-      Object.assign(setPayload, stateSetPayload('communication', communicationApplied, user));
-    }
-    await User.updateOne({ id: input.currentUserId }, { $set: setPayload });
-
-    const snapshots = [
-      createAppliedVectorSnapshot({
-        userId: input.currentUserId,
-        pairId,
-        axis: 'psyche',
-        layer: 'state',
-        applied: psycheApplied,
-        reason: { source: 'weekly_checkin' },
-        createdAt: now,
-      }),
-    ];
-    if (communicationApplied) {
-      snapshots.push(
-        createAppliedVectorSnapshot({
-          userId: input.currentUserId,
-          pairId,
-          axis: 'communication',
-          layer: 'state',
-          applied: communicationApplied,
-          reason: { source: 'weekly_checkin' },
-          createdAt: now,
-        })
-      );
-    }
-    await VectorSnapshot.insertMany(snapshots);
-
-    let pairRiskDelta: number | undefined;
-    let generatedInsightIds: string[] = [];
-    let pairSummary: PairWeeklyCheckInSummaryDTO | null = null;
-    let pairStateUpdated = false;
-
-    if (pairData && pairId) {
-      pairSummary = await buildPairWeeklyCheckInSummary({
-        pair: pairData.pair,
-        currentUserId: input.currentUserId,
-        weekKey,
-      });
-      if (
-        pairSummary.pair.bothSubmitted &&
-        pairSummary.pair.readiness !== undefined &&
-        pairSummary.pair.fatigue !== undefined
-      ) {
-        await Pair.updateOne(
-          { _id: pairData.pair._id },
-          {
-            $set: {
-              'readiness.score': pairSummary.pair.readiness,
-              'readiness.updatedAt': now,
-              'fatigue.score': pairSummary.pair.fatigue,
-              'fatigue.updatedAt': now,
-            },
-          }
-        );
-        pairStateUpdated = true;
-      }
-
-      const [left, right] = await Promise.all([
-        User.findOne({ id: pairData.pair.members[0] }).lean<UserType | null>(),
-        User.findOne({ id: pairData.pair.members[1] }).lean<UserType | null>(),
-      ]);
-      const insightCandidates = buildUserInsightCandidates({
-        user: { ...user, fatigue: { score: answers.fatigue, updatedAt: now } } as UserType,
-        activePair: {
-          fatigue: {
-            score: pairSummary.pair.fatigue ?? answers.fatigue,
-            updatedAt: now,
-          },
-        },
-      });
-
-      if (left && right) {
-        const diagnostics = await buildPairAnswerDiagnostics({ pairId, left, right });
-        pairRiskDelta = diagnostics.pairAnswerSignals.filter(
-          (signal) => signal.status === 'risk'
-        ).length;
-        await Pair.updateOne(
-          { _id: pairData.pair._id },
-          {
-            $set: {
-              'passport.strongSides': diagnostics.passport.strongSides,
-              'passport.riskZones': diagnostics.passport.riskZones,
-              'passport.complementMap': diagnostics.passport.complementMap,
-              'passport.levelDelta': diagnostics.passport.levelDelta,
-              'passport.lastDiagnosticsAt': now,
-              'passport.axes': diagnostics.axes,
-              'passport.pairAnswerSignals': diagnostics.pairAnswerSignals,
-              'passport.overall': diagnostics.overall,
-            },
-          }
-        );
-        insightCandidates.unshift(
-          ...buildPairInsightCandidates({
-            pairId,
-            members: [pairData.pair.members[0], pairData.pair.members[1]],
-            left,
-            right,
-            fatigue: {
-              score: pairSummary.pair.fatigue ?? answers.fatigue,
-              updatedAt: now,
-            },
-            readiness: {
-              score: pairSummary.pair.readiness ?? answers.readiness,
-              updatedAt: now,
-            },
-            weekly: {
-              fatigue: pairSummary.pair.fatigue,
-              closeness: pairSummary.pair.closeness,
-            },
-          })
-        );
-      }
-
-      const created = await persistInsightCandidates(insightCandidates);
-      generatedInsightIds = created.map((insight) => String(insight._id));
-    } else {
-      const created = await persistInsightCandidates(
-        buildUserInsightCandidates({
-          user: { ...user, fatigue: { score: answers.fatigue, updatedAt: now } } as UserType,
-          activePair: { fatigue: { score: answers.fatigue, updatedAt: now } },
-        })
-      );
-      generatedInsightIds = created.map((insight) => String(insight._id));
-    }
-
-    const computed: WeeklyCheckInType['computed'] = {
-      userStateDelta: preliminaryComputed.userStateDelta,
-      ...(pairRiskDelta !== undefined ? { pairRiskDelta } : {}),
-      generatedInsightIds,
-    };
-    const updatedCheckIn = await WeeklyCheckIn.findByIdAndUpdate(
-      checkIn._id,
-      { $set: { computed } },
-      { new: true }
-    ).lean<StoredWeeklyCheckIn | null>();
-
-    if (pairData) {
-      await weeklyCycleService.syncAfterCheckIn({
-        pair: pairData.pair,
-        cycleKey: weekKey,
-        now: new Date(),
-      });
-    }
-
-    await emitEvent({
-      event: 'WEEKLY_CHECKIN_SUBMITTED',
-      actor: { userId: input.currentUserId },
-      request: input.auditRequest ?? { route: '/api/checkins/weekly', method: 'POST' },
-      context: pairId ? { pairId } : undefined,
-      target: { type: 'user', id: input.currentUserId },
-      metadata: {
-        ...(pairId ? { pairId } : {}),
-        weekKey,
-        snapshotCount: snapshots.length,
-        generatedInsightCount: generatedInsightIds.length,
-        traitMutationApplied: false,
-        ...(pairSummary
-          ? {
-              submittedCount: pairSummary.pair.submittedCount,
-              bothSubmitted: pairSummary.pair.bothSubmitted,
-            }
-          : {}),
-        pairStateUpdated,
-      },
-    });
-
-    const visibleInsights = await visibleInsightsForIds(generatedInsightIds);
-
-    return toDTO({
-      checkIn: updatedCheckIn ?? { ...checkIn, computed },
-      readiness: { score: answers.readiness, updatedAt: now },
-      fatigue: { score: answers.fatigue, updatedAt: now },
-      insights: visibleInsights,
+    await hooks.afterPrimaryCommit?.();
+    return reconcileWeeklyCheckIn({
+      checkIn,
+      currentUserId: input.currentUserId,
+      pairData,
+      hooks,
+      auditRequest: input.auditRequest,
     });
   },
 
