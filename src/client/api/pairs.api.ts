@@ -1,5 +1,5 @@
 import { http, type HttpRequestOptions } from './http';
-import type { InsightDTO, MutationAckDTO, PairDiagnosticsDTO } from './types';
+import type { MutationAckDTO } from './types';
 import {
   normalizePairMe,
   normalizePairStatus,
@@ -32,17 +32,18 @@ export const pairsApi = {
     return summary;
   },
 
-  getDiagnostics: (pairId: string, signal?: AbortSignal): Promise<PairDiagnosticsDTO> =>
-    http.get<PairDiagnosticsDTO>(`/api/pairs/${pairId}/diagnostics`, withSignal(signal)),
-
-  getInsights: (pairId: string, signal?: AbortSignal): Promise<{ pairId: string; insights: InsightDTO[] }> =>
-    http.get<{ pairId: string; insights: InsightDTO[] }>(`/api/pairs/${pairId}/insights`, withSignal(signal)),
-
   pausePair: (pairId: string): Promise<MutationAckDTO> =>
     http.post<MutationAckDTO, Record<string, never>>(`/api/pairs/${pairId}/pause`, {}, { idempotency: true }),
 
   resumePair: (pairId: string): Promise<MutationAckDTO> =>
     http.post<MutationAckDTO, Record<string, never>>(`/api/pairs/${pairId}/resume`, {}, { idempotency: true }),
+
+  endPair: (pairId: string): Promise<{ endedAt: string }> =>
+    http.post<{ endedAt: string }, { confirmation: 'END_PAIR' }>(
+      `/api/pairs/${pairId}/end`,
+      { confirmation: 'END_PAIR' },
+      { idempotency: true }
+    ),
 };
 
 export type { PairSummaryDTO };

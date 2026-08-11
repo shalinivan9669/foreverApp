@@ -1,4 +1,8 @@
-import type { ActivityTemplateType, Axis, CheckInTpl, EffectTpl } from '@/models/ActivityTemplate';
+import type {
+  ActionDefinitionRef,
+  ActivityTemplateType,
+  CheckInTpl,
+} from '@/models/ActivityTemplate';
 import type {
   ActivityResultSummary,
   PairActivityType,
@@ -28,8 +32,8 @@ export type PairActivityDTO = {
   pairId: string;
   intent: PairActivityType['intent'];
   archetype: PairActivityType['archetype'];
-  axis: Axis[];
-  facetsTarget?: string[];
+  actionDefinition?: ActionDefinitionRef;
+  targetFactorKeys: string[];
   title: { ru: string; en: string };
   description?: { ru: string; en: string };
   why: { ru: string; en: string };
@@ -71,6 +75,7 @@ export type ActivityResultSummaryDTO = {
   status: ActivityResultSummary['status'];
   completedAt?: string;
   resultVersion: ActivityResultSummary['resultVersion'];
+  evidenceStatus: 'RECORDED' | 'PENDING';
 };
 
 export const toActivityResultSummaryDTO = (
@@ -81,14 +86,15 @@ export const toActivityResultSummaryDTO = (
   status: result.status,
   completedAt: toIso(result.completedAt),
   resultVersion: result.resultVersion,
+  evidenceStatus: result.factorEvidenceRecorded ? 'RECORDED' : 'PENDING',
 });
 
 export type ActivityTemplateDTO = {
   id: string;
   intent: ActivityTemplateType['intent'];
   archetype: ActivityTemplateType['archetype'];
-  axis: Axis[];
-  facetsTarget?: string[];
+  actionDefinition: ActionDefinitionRef;
+  targetFactorKeys: string[];
   difficulty: ActivityTemplateType['difficulty'];
   intensity: ActivityTemplateType['intensity'];
   timeEstimateMin?: number;
@@ -100,14 +106,14 @@ export type ActivityTemplateDTO = {
   steps?: { ru: string[]; en: string[] };
   materials?: string[];
   checkIns: CheckInTpl[];
-  effect: EffectTpl[];
   cooldownDays?: number;
 };
 
 export type ActivityOfferDTO = {
   id: string;
   title: { ru: string; en: string };
-  axis: Axis[];
+  actionDefinition: ActionDefinitionRef;
+  targetFactorKeys: string[];
   difficulty: PairActivityType['difficulty'];
   stepsPreview?: { ru: string[]; en: string[] };
   expiresAt?: string;
@@ -134,16 +140,16 @@ export function toPairActivityDTO(
     pairId: toId(activity.pairId as IdLike),
     intent: activity.intent,
     archetype: activity.archetype,
-    axis: activity.axis,
-    facetsTarget: activity.facetsTarget,
+    actionDefinition: activity.actionDefinition,
+    targetFactorKeys: [...activity.targetFactorKeys],
     title: activity.title,
     description: activity.description,
     why:
-      activity.stateMeta?.decisionVersion === 'activity-decision-v1' ||
+      activity.stateMeta?.decisionVersion === 'activity-decision-v2' ||
       typeof activity.stateMeta?.primaryReason === 'string'
         ? {
-            ru: 'Формат подобран с учётом текущего цикла, доступности и паузы между повторами.',
-            en: 'Selected using the current cycle, eligibility, and repetition cooldown.',
+            ru: 'Формат подобран по актуальному состоянию, доступности и паузе между повторами.',
+            en: 'Selected using current availability and repetition cooldown.',
           }
         : activity.why,
     mode: activity.mode === 'together' ? 'together' : 'solo',
@@ -191,8 +197,8 @@ export function toActivityTemplateDTO(template: ActivityTemplateSource): Activit
     id: template._id,
     intent: template.intent,
     archetype: template.archetype,
-    axis: template.axis,
-    facetsTarget: template.facetsTarget,
+    actionDefinition: template.actionDefinition,
+    targetFactorKeys: [...template.targetFactorKeys],
     difficulty: template.difficulty,
     intensity: template.intensity,
     timeEstimateMin: template.timeEstimateMin,
@@ -204,7 +210,6 @@ export function toActivityTemplateDTO(template: ActivityTemplateSource): Activit
     steps: template.steps,
     materials: template.materials,
     checkIns: template.checkIns,
-    effect: template.effect,
     cooldownDays: template.cooldownDays,
   };
 }
@@ -255,14 +260,15 @@ export function toActivityOfferDTO(activity: PairActivitySource): ActivityOfferD
   return {
     id,
     title: activity.title,
-    axis: activity.axis,
+    actionDefinition: activity.actionDefinition,
+    targetFactorKeys: [...activity.targetFactorKeys],
     difficulty: activity.difficulty,
     stepsPreview: meta.stepsPreview,
     expiresAt: toIso(activity.dueAt),
     reasonCode: 'CURRENT_CYCLE_SUPPORT',
     explanation: {
-      ru: 'Формат подобран с учётом текущего цикла, доступности и паузы между повторами.',
-      en: 'Selected using the current cycle, eligibility, and repetition cooldown.',
+      ru: 'Формат подобран по актуальному состоянию, доступности и паузе между повторами.',
+      en: 'Selected using current availability and repetition cooldown.',
     },
   };
 }
@@ -313,8 +319,7 @@ export function toLegacyRelationshipActivityDTO(
     pairId: activity.pairId,
     intent: 'improve',
     archetype: LEGACY_ARCHETYPE_BY_TYPE[activity.type],
-    axis: ['communication'],
-    facetsTarget: [],
+    targetFactorKeys: [],
     title: { ru: titleRu, en: titleEn },
     description: descriptionText
       ? { ru: descriptionText, en: descriptionText }

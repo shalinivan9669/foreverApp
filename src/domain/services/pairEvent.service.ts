@@ -6,19 +6,17 @@ import { Pair, type PairType } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { PairActivity, type PairActivityType } from '@/models/PairActivity';
 import { PairEvent, type PairEventStatus, type PairEventType, type PairEventTypeModel } from '@/models/PairEvent';
-import type { Axis } from '@/models/ActivityTemplate';
 import { toPairActivityDTO, toPairEventDTO, type PairActivityDTO, type PairEventDTO } from '@/lib/dto';
 import {
-  buildPairWeeklyCheckInSummary,
-  currentWeekKey,
-  type PairWeeklyCheckInSummaryDTO,
-} from '@/domain/services/weeklyCheckIn.service';
+  weeklyCycleService,
+  weeklyCycleKeyForDate,
+  type CurrentWeeklyCycleDTO,
+} from '@/domain/services/weeklyCycle.service';
 import { SYSTEM_ACTIVITY_TEMPLATES } from '@/domain/services/pairActivityDecision.service';
-import { isPairSafetyVetoActive } from '@/domain/services/safetyGate.service';
 import {
-  hasP0SensitiveActivityAxis,
-  isActivityEligibleForSafetyState,
+  hasEligibleActivityFactorBinding,
 } from '@/domain/services/activityEligibility.service';
+import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
 
 type PairDoc = HydratedDocument<PairType>;
 type StoredEvent = PairEventTypeModel & { _id: Types.ObjectId };
@@ -32,21 +30,24 @@ export type PairEventCandidate = Omit<
   'pairId' | 'generatedActivityIds' | 'createdAt' | 'updatedAt'
 >;
 
+export type PairEventWeeklyProjection = {
+  cycleKey: string;
+  bothSubmitted: boolean;
+  dataStatus: CurrentWeeklyCycleDTO['pair']['dataStatus'];
+  signals: CurrentWeeklyCycleDTO['pair']['signals'];
+};
+
 export type PairEventRuleInput = {
   pairId: string;
   pairStatus: PairType['status'];
   pairCreatedAt?: Date;
-  weekly?: PairWeeklyCheckInSummaryDTO;
+  weekly?: PairEventWeeklyProjection;
   hasCurrentActivity: boolean;
   latestFinalActivity?: {
     id: string;
     status: Extract<PairActivityType['status'], 'completed_success' | 'completed_partial' | 'failed'>;
   };
   completedActivityCountLast14Days: number;
-  diagnostics?: {
-    riskZones?: Array<{ axis: string; severity: 1 | 2 | 3 }>;
-    lastDiagnosticsAt?: Date;
-  };
   now: Date;
 };
 
@@ -55,6 +56,11 @@ export type RefreshPairEventsInput = {
   currentUserId: string;
   include?: 'active' | 'all';
   now?: Date;
+};
+
+export type PairEventReliabilityTestHooks = {
+  beforeTransactionalPairGuard?: (candidateCount: number) => Promise<void>;
+  beforeMutationTransactionalPairGuard?: () => Promise<void>;
 };
 
 export type PairEventMutationInput = {
@@ -83,18 +89,51 @@ const FINAL_ACTIVITY_STATUSES: PairActivityType['status'][] = [
   'expired',
 ];
 
+const MAX_EVENT_TARGET_FACTORS = 4;
+
+export const isPairEventFactorBindingEligible = (input: {
+  factorRegistryVersion?: number;
+  targetFactorKeys?: readonly string[];
+}): boolean => {
+  if (input.factorRegistryVersion !== MVP_FACTOR_REGISTRY.registryVersion) {
+    return false;
+  }
+  const targetFactorKeys = input.targetFactorKeys;
+  if (
+    !Array.isArray(targetFactorKeys) ||
+    targetFactorKeys.length === 0 ||
+    targetFactorKeys.length > MAX_EVENT_TARGET_FACTORS ||
+    new Set(targetFactorKeys).size !== targetFactorKeys.length
+  ) {
+    return false;
+  }
+  return targetFactorKeys.every((factorKey) => {
+    const factor = MVP_FACTOR_REGISTRY.factors.find(
+      (candidate) => candidate.key === factorKey
+    );
+    return Boolean(
+      factor &&
+        factor.contexts.includes('COMMITTED_RELATIONSHIP') &&
+        factor.privacyClass !== 'SENSITIVE' &&
+        factor.privacyClass !== 'MATCHING_ONLY'
+    );
+  });
+};
+
 const eventEligibleForPairProjection = (
-  event: Pick<PairEventTypeModel, 'axis' | 'category'>,
-  safetyVeto: boolean
-): boolean =>
-  !hasP0SensitiveActivityAxis(event.axis ?? []) &&
-  (!safetyVeto || event.category !== 'system_signal');
+  event: Pick<
+    PairEventTypeModel,
+    'factorRegistryVersion' | 'targetFactorKeys'
+  >
+): boolean => isPairEventFactorBindingEligible(event);
 
 const assertEventEligibleForPairProjection = (
-  event: Pick<PairEventTypeModel, 'axis' | 'category'>,
-  safetyVeto: boolean
+  event: Pick<
+    PairEventTypeModel,
+    'factorRegistryVersion' | 'targetFactorKeys'
+  >
 ): void => {
-  if (!eventEligibleForPairProjection(event, safetyVeto)) {
+  if (!eventEligibleForPairProjection(event)) {
     throw new DomainError({
       code: 'NOT_FOUND',
       status: 404,
@@ -185,6 +224,40 @@ const eventText = (
   why: { ru: ru.why, en: ru.why },
 });
 
+type PairEventActionKey =
+  | 'action.gentleThreeMinuteCheckIn'
+  | 'action.repairConversation'
+  | 'action.householdRoleMap';
+
+const targetFactorKeysForAction = (
+  actionKey: PairEventActionKey
+): string[] => {
+  const action = MVP_FACTOR_REGISTRY.actions.find(
+    (candidate) => candidate.key === actionKey
+  );
+  if (!action) {
+    throw new DomainError({
+      code: 'INTERNAL',
+      status: 500,
+      message: 'Canonical pair event action is unavailable',
+    });
+  }
+  const targetFactorKeys = [...action.targetFactors];
+  if (
+    !isPairEventFactorBindingEligible({
+      factorRegistryVersion: MVP_FACTOR_REGISTRY.registryVersion,
+      targetFactorKeys,
+    })
+  ) {
+    throw new DomainError({
+      code: 'INTERNAL',
+      status: 500,
+      message: 'Canonical pair event action is not privacy eligible',
+    });
+  }
+  return targetFactorKeys;
+};
+
 const baseEvent = (input: {
   pairId: string;
   type: PairEventType;
@@ -194,31 +267,47 @@ const baseEvent = (input: {
   windowEnd: Date;
   priority: 1 | 2 | 3;
   severity?: 1 | 2 | 3;
-  axis?: Axis[];
+  targetFactorKeys: readonly string[];
   source: PairEventCandidate['source'];
   text: { title: LocalText; description: LocalText; why: LocalText };
   maxGeneratedActivities?: 1 | 2 | 3;
-}): PairEventCandidate => ({
-  key: `${input.pairId}:${input.type}:${dateKey(input.eventDate ?? input.windowStart)}`,
-  category: input.category,
-  type: input.type,
-  ...input.text,
-  eventDate: input.eventDate,
-  windowStart: input.windowStart,
-  windowEnd: input.windowEnd,
-  expiresAt: input.windowEnd,
-  status: 'upcoming',
-  priority: input.priority,
-  severity: input.severity,
-  axis: input.axis ?? [],
-  source: input.source,
-  actionPolicy: {
-    canAccept: true,
-    canDecline: true,
-    canSnooze: true,
-    maxGeneratedActivities: input.maxGeneratedActivities ?? 2,
-  },
-});
+}): PairEventCandidate => {
+  const targetFactorKeys = [...input.targetFactorKeys];
+  if (
+    !isPairEventFactorBindingEligible({
+      factorRegistryVersion: MVP_FACTOR_REGISTRY.registryVersion,
+      targetFactorKeys,
+    })
+  ) {
+    throw new DomainError({
+      code: 'INTERNAL',
+      status: 500,
+      message: 'Pair event factor binding is invalid',
+    });
+  }
+  return {
+    key: `${input.pairId}:${input.type}:${dateKey(input.eventDate ?? input.windowStart)}`,
+    category: input.category,
+    type: input.type,
+    ...input.text,
+    eventDate: input.eventDate,
+    windowStart: input.windowStart,
+    windowEnd: input.windowEnd,
+    expiresAt: input.windowEnd,
+    status: 'upcoming',
+    priority: input.priority,
+    severity: input.severity,
+    factorRegistryVersion: MVP_FACTOR_REGISTRY.registryVersion,
+    targetFactorKeys,
+    source: input.source,
+    actionPolicy: {
+      canAccept: true,
+      canDecline: true,
+      canSnooze: true,
+      maxGeneratedActivities: input.maxGeneratedActivities ?? 2,
+    },
+  };
+};
 
 const milestoneTexts: Record<
   Extract<PairEventType, 'first_month' | 'three_months' | 'six_months' | 'anniversary'>,
@@ -286,8 +375,10 @@ const relationshipMilestones = (input: PairEventRuleInput): PairEventCandidate[]
       windowStart: addDays(eventDate, -7),
       windowEnd: addDays(eventDate, 7),
       priority: 2,
-      axis: ['communication'],
-      source: { kind: 'pair_created_at', date: createdAt },
+      targetFactorKeys: targetFactorKeysForAction(
+        'action.gentleThreeMinuteCheckIn'
+      ),
+      source: { kind: 'pair_lifecycle', date: createdAt },
       text: eventText(milestoneTexts[type]),
       maxGeneratedActivities: 2,
     });
@@ -310,8 +401,10 @@ const relationshipMilestones = (input: PairEventRuleInput): PairEventCandidate[]
         windowStart: addDays(eventDate, -7),
         windowEnd: addDays(eventDate, 7),
         priority: 2,
-        axis: ['communication', 'personalViews'],
-        source: { kind: 'pair_created_at', date: createdAt },
+        targetFactorKeys: targetFactorKeysForAction(
+          'action.gentleThreeMinuteCheckIn'
+        ),
+        source: { kind: 'pair_lifecycle', date: createdAt },
         text: eventText(milestoneTexts.anniversary),
         maxGeneratedActivities: 3,
       })
@@ -330,28 +423,28 @@ const calendarEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
       eventDate: utcDate(year, 1, 14),
       windowStart: utcDate(year, 1, 7),
       windowEnd: utcDate(year, 1, 15),
-      axis: ['communication', 'sexuality'] as Axis[],
+      actionKey: 'action.gentleThreeMinuteCheckIn' as const,
     },
     {
       type: 'march_8' as const,
       eventDate: utcDate(year, 2, 8),
       windowStart: utcDate(year, 2, 1),
       windowEnd: utcDate(year, 2, 9),
-      axis: ['communication'] as Axis[],
+      actionKey: 'action.gentleThreeMinuteCheckIn' as const,
     },
     {
       type: 'new_year' as const,
       eventDate: utcDate(year, 11, 31),
       windowStart: utcDate(year, 11, 25),
       windowEnd: utcDate(year + 1, 0, 3),
-      axis: ['personalViews', 'communication'] as Axis[],
+      actionKey: 'action.gentleThreeMinuteCheckIn' as const,
     },
     {
       type: 'new_year' as const,
       eventDate: utcDate(year - 1, 11, 31),
       windowStart: utcDate(year - 1, 11, 25),
       windowEnd: utcDate(year, 0, 3),
-      axis: ['personalViews', 'communication'] as Axis[],
+      actionKey: 'action.gentleThreeMinuteCheckIn' as const,
     },
   ];
 
@@ -365,7 +458,7 @@ const calendarEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
         windowStart: definition.windowStart,
         windowEnd: definition.windowEnd,
         priority: 3,
-        axis: definition.axis,
+        targetFactorKeys: targetFactorKeysForAction(definition.actionKey),
         source: { kind: 'calendar_rule', date: definition.eventDate },
         text: eventText(calendarTexts[definition.type]),
         maxGeneratedActivities: 2,
@@ -374,17 +467,9 @@ const calendarEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
     .filter((event) => inHorizon(event, input.now));
 };
 
-const highestDivergence = (weekly: PairWeeklyCheckInSummaryDTO): number =>
-  Math.max(0, ...Object.values(weekly.pair.divergence ?? {}).filter((value): value is number => typeof value === 'number'));
-
-const toAxis = (axis?: string): Axis | undefined => {
-  const valid = new Set<Axis>(['communication', 'domestic', 'personalViews', 'psyche']);
-  return axis && valid.has(axis as Axis) ? (axis as Axis) : undefined;
-};
-
 const behavioralEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
   const items: PairEventCandidate[] = [];
-  const weekKey = input.weekly?.weekKey ?? currentWeekKey(input.now);
+  const cycleKey = input.weekly?.cycleKey ?? weeklyCycleKeyForDate(input.now);
   if (!input.hasCurrentActivity && input.completedActivityCountLast14Days === 0) {
     items.push({
       ...baseEvent({
@@ -394,15 +479,17 @@ const behavioralEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
         windowStart: addDays(input.now, -1),
         windowEnd: addDays(input.now, 13),
         priority: 2,
-        axis: ['psyche', 'communication'],
-        source: { kind: 'activity_history', weekKey },
+        targetFactorKeys: targetFactorKeysForAction(
+          'action.gentleThreeMinuteCheckIn'
+        ),
+        source: { kind: 'activity_history', cycleKey },
         text: eventText({
           title: 'Давно не было совместного действия',
           description: 'Лучше не начинать с тяжелого разговора. Подойдет короткая легкая активность.',
           why: 'Регулярность важнее редких больших рывков.',
         }),
       }),
-      key: `${input.pairId}:inactive_pair:${weekKey}`,
+      key: `${input.pairId}:inactive_pair:${cycleKey}`,
     });
   }
 
@@ -416,7 +503,9 @@ const behavioralEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
         windowEnd: addDays(input.now, 13),
         priority: 1,
         severity: 2,
-        axis: ['psyche', 'communication'],
+        targetFactorKeys: targetFactorKeysForAction(
+          'action.gentleThreeMinuteCheckIn'
+        ),
         source: { kind: 'activity_history', refId: input.latestFinalActivity.id },
         text: eventText({
           title: 'После неудачного формата',
@@ -429,60 +518,71 @@ const behavioralEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
   }
 
   const weekly = input.weekly;
-  if (weekly) {
-    const fatigue = weekly.pair.fatigue;
-    if (typeof fatigue === 'number' && fatigue >= 0.75) {
+  const weeklySignalsReady =
+    weekly?.dataStatus === 'ENOUGH' &&
+    weekly.bothSubmitted &&
+    weekly.signals.length === 4;
+  if (weekly && weeklySignalsReady) {
+    const signal = (key: CurrentWeeklyCycleDTO['pair']['signals'][number]['key']) =>
+      weekly.signals.find((candidate) => candidate.key === key);
+    const recovery = signal('recovery');
+    const tension = signal('tension');
+    const connection = signal('connection');
+    const resource = signal('resource');
+
+    if (recovery?.status === 'LOW') {
       items.push({
         ...baseEvent({
           pairId: input.pairId,
-          type: 'high_fatigue_recovery',
+          type: 'weekly_overload_recovery',
           category: 'behavioral_event',
           windowStart: addDays(input.now, -1),
           windowEnd: addDays(input.now, 7),
           priority: 1,
-          severity: fatigue >= 0.85 ? 3 : 2,
-          axis: ['psyche'],
-          source: { kind: 'weekly_checkin', weekKey },
+          severity: 2,
+          targetFactorKeys: targetFactorKeysForAction(
+            'action.gentleThreeMinuteCheckIn'
+          ),
+          source: { kind: 'weekly_pair_state', cycleKey },
           text: eventText({
-            title: 'Неделя с высокой усталостью',
+            title: 'Неделя с высокой перегрузкой',
             description: 'Сейчас лучше не перегружать пару. Подойдет мягкий формат восстановления.',
-            why: 'При высокой усталости тяжелые разговоры часто дают хуже результат.',
+            why: 'При высокой перегрузке тяжелые разговоры часто дают хуже результат.',
           }),
         }),
-        key: `${input.pairId}:high_fatigue_recovery:${weekKey}`,
+        key: `${input.pairId}:weekly_overload_recovery:${cycleKey}`,
       });
     }
 
-    if (weekly.pair.hasDivergence) {
-      const divergence = highestDivergence(weekly);
+    if (tension?.status === 'HIGH' || tension?.status === 'MIXED') {
       items.push({
         ...baseEvent({
           pairId: input.pairId,
-          type: 'weekly_divergence_repair',
+          type: 'weekly_tension_support',
           category: 'behavioral_event',
           windowStart: addDays(input.now, -1),
           windowEnd: addDays(input.now, 7),
           priority: 1,
-          severity: divergence >= 0.55 ? 3 : 2,
-          axis: ['communication'],
-          source: { kind: 'weekly_checkin', weekKey },
+          severity: tension.status === 'HIGH' ? 3 : 2,
+          targetFactorKeys: targetFactorKeysForAction(
+            'action.gentleThreeMinuteCheckIn'
+          ),
+          source: { kind: 'weekly_pair_state', cycleKey },
           text: eventText({
-            title: 'Есть расхождение в ощущении недели',
+            title: 'Неделе нужна мягкая сверка',
             description: 'Лучше начать с короткой сверки без обвинений и попытки сразу все решить.',
-            why: 'Расхождение в ответах - сигнал синхронизироваться, а не спорить о том, кто прав.',
+            why: 'Общий сигнал напряжения — повод выбрать безопасный формат разговора, а не искать виноватого.',
           }),
         }),
-        key: `${input.pairId}:weekly_divergence_repair:${weekKey}`,
+        key: `${input.pairId}:weekly_tension_support:${cycleKey}`,
       });
     }
 
     if (
-      weekly.pair.bothSubmitted &&
-      weekly.pair.hasDivergence === false &&
-      typeof weekly.pair.fatigue === 'number' &&
-      typeof weekly.pair.readiness === 'number' &&
-      weekly.pair.fatigue <= 0.35 &&
-      weekly.pair.readiness >= 0.7
+      connection?.status === 'STEADY' &&
+      tension?.status === 'LOW' &&
+      recovery?.status === 'STEADY' &&
+      resource?.status === 'STEADY'
     ) {
       items.push({
         ...baseEvent({
@@ -492,48 +592,19 @@ const behavioralEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
           windowStart: addDays(input.now, -1),
           windowEnd: addDays(input.now, 7),
           priority: 3,
-          axis: ['communication', 'psyche'],
-          source: { kind: 'weekly_checkin', weekKey },
+          targetFactorKeys: targetFactorKeysForAction(
+            'action.gentleThreeMinuteCheckIn'
+          ),
+          source: { kind: 'weekly_pair_state', cycleKey },
           text: eventText({
             title: 'Хорошая неделя для пары',
             description: 'Можно закрепить удачный ритм коротким приятным действием.',
             why: 'Сильные недели тоже стоит замечать, а не только чинить проблемы.',
           }),
         }),
-        key: `${input.pairId}:weekly_success_celebration:${weekKey}`,
+        key: `${input.pairId}:weekly_success_celebration:${cycleKey}`,
       });
     }
-  }
-
-  const topRisk = (input.diagnostics?.riskZones ?? [])
-    .filter((risk) => risk.severity === 3)
-    .sort((left, right) => right.severity - left.severity)[0];
-  const riskAxis = toAxis(topRisk?.axis);
-  if (topRisk && riskAxis && input.diagnostics?.lastDiagnosticsAt && !input.hasCurrentActivity) {
-    items.push({
-      ...baseEvent({
-        pairId: input.pairId,
-        type: 'diagnostics_risk_focus',
-        category: 'system_signal',
-        windowStart: addDays(input.now, -1),
-        windowEnd: addDays(input.now, 14),
-        priority: 1,
-        severity: 3,
-        axis: [riskAxis],
-        source: {
-          kind: 'diagnostics',
-          weekKey,
-          date: input.diagnostics.lastDiagnosticsAt,
-          refId: riskAxis,
-        },
-        text: eventText({
-          title: 'Важная зона внимания',
-          description: 'В диагностике есть высокий сигнал. Лучше выбрать один короткий безопасный шаг.',
-          why: 'Высокий риск лучше разбирать маленькими действиями, а не большим тяжелым разговором.',
-        }),
-      }),
-      key: `${input.pairId}:diagnostics_risk_focus:${riskAxis}:${dateKey(input.diagnostics.lastDiagnosticsAt)}`,
-    });
   }
 
   return items;
@@ -569,6 +640,26 @@ const ensurePairMember = async (pairId: string, currentUserId: string): Promise<
   return guard.data.pair;
 };
 
+const fenceMutablePairForEventMutation = async (input: {
+  pairId: Types.ObjectId;
+  currentUserId: string;
+  allowedStatuses: readonly PairType['status'][];
+  session: ClientSession;
+}): Promise<boolean> => {
+  const pair = await Pair.findOneAndUpdate(
+    {
+      _id: input.pairId,
+      members: input.currentUserId,
+      status: { $in: [...input.allowedStatuses] },
+    },
+    { $inc: { lifecycleRevision: 1 } },
+    { new: false, session: input.session }
+  )
+    .select({ _id: 1 })
+    .lean<{ _id: Types.ObjectId } | null>();
+  return Boolean(pair);
+};
+
 const eventSort = (left: StoredEvent, right: StoredEvent): number => {
   const offeredRank = (event: StoredEvent) => (event.status === 'offered' ? 0 : event.status === 'snoozed' ? 1 : 2);
   const rankDiff = offeredRank(left) - offeredRank(right);
@@ -588,20 +679,28 @@ const upsertCandidates = async (input: {
   pairId: Types.ObjectId;
   candidates: PairEventCandidate[];
   now: Date;
+  session?: ClientSession;
 }): Promise<void> => {
   for (const candidate of input.candidates) {
-    const existing = await PairEvent.findOne({ pairId: input.pairId, key: candidate.key }).lean<StoredEvent | null>();
+    const existing = await PairEvent.findOne({ pairId: input.pairId, key: candidate.key })
+      .session(input.session ?? null)
+      .lean<StoredEvent | null>();
     const status = resolvePairEventStatus(candidate, existing, input.now);
     const setPayload: Partial<PairEventTypeModel> = {
+      category: candidate.category,
+      type: candidate.type,
       title: candidate.title,
       description: candidate.description,
       why: candidate.why,
+      eventDate: candidate.eventDate,
       windowStart: candidate.windowStart,
       windowEnd: candidate.windowEnd,
       expiresAt: candidate.expiresAt,
       priority: candidate.priority,
       severity: candidate.severity,
-      axis: candidate.axis,
+      factorRegistryVersion: candidate.factorRegistryVersion,
+      targetFactorKeys: candidate.targetFactorKeys,
+      source: candidate.source,
       actionPolicy: candidate.actionPolicy,
       status,
     };
@@ -611,37 +710,45 @@ const upsertCandidates = async (input: {
         $setOnInsert: {
           pairId: input.pairId,
           key: candidate.key,
-          category: candidate.category,
-          type: candidate.type,
-          eventDate: candidate.eventDate,
-          source: candidate.source,
           generatedActivityIds: [],
         },
         $set: setPayload,
       },
-      { upsert: true }
+      {
+        upsert: true,
+        runValidators: true,
+        ...(input.session ? { session: input.session } : {}),
+      }
     );
   }
 };
 
-const refreshExpiredAndCompleted = async (pairId: Types.ObjectId, now: Date): Promise<void> => {
+const refreshExpiredAndCompleted = async (
+  pairId: Types.ObjectId,
+  now: Date,
+  session?: ClientSession
+): Promise<void> => {
   await PairEvent.updateMany(
     {
       pairId,
       expiresAt: { $lt: now },
       status: { $nin: ['accepted', 'completed', 'declined'] },
     },
-    { $set: { status: 'expired' } }
+    { $set: { status: 'expired' } },
+    session ? { session } : undefined
   );
 
   const accepted = await PairEvent.find({
     pairId,
     status: 'accepted',
     generatedActivityIds: { $exists: true, $ne: [] },
-  }).lean<StoredEvent[]>();
+  })
+    .session(session ?? null)
+    .lean<StoredEvent[]>();
   for (const event of accepted) {
     const activities = await PairActivity.find({ _id: { $in: event.generatedActivityIds } })
       .select({ status: 1 })
+      .session(session ?? null)
       .lean<Array<Pick<StoredActivity, '_id' | 'status'>>>();
     if (
       activities.length === event.generatedActivityIds.length &&
@@ -649,7 +756,8 @@ const refreshExpiredAndCompleted = async (pairId: Types.ObjectId, now: Date): Pr
     ) {
       await PairEvent.updateOne(
         { _id: event._id },
-        { $set: { status: 'completed', completedAt: now } }
+        { $set: { status: 'completed', completedAt: now } },
+        session ? { session } : undefined
       );
     }
   }
@@ -662,8 +770,12 @@ const loadRuleInput = async (input: {
 }): Promise<PairEventRuleInput> => {
   const pairId = input.pair._id as Types.ObjectId;
   const since = addDays(input.now, -14);
-  const [weekly, current, latestFinal, completedRecent] = await Promise.all([
-    buildPairWeeklyCheckInSummary({ pair: input.pair, currentUserId: input.currentUserId }),
+  const [currentWeekly, current, latestFinal, completedRecent] = await Promise.all([
+    weeklyCycleService.current({
+      pair: input.pair,
+      currentUserId: input.currentUserId,
+      now: input.now,
+    }),
     PairActivity.findOne({ pairId, status: { $in: ACTIVE_ACTIVITY_STATUSES } })
       .select({ _id: 1 })
       .lean<Pick<StoredActivity, '_id'> | null>(),
@@ -682,7 +794,12 @@ const loadRuleInput = async (input: {
     pairId: String(pairId),
     pairStatus: input.pair.status,
     pairCreatedAt: input.pair.createdAt,
-    weekly,
+    weekly: {
+      cycleKey: currentWeekly.cycleKey,
+      bothSubmitted: currentWeekly.pair.bothSubmitted,
+      dataStatus: currentWeekly.pair.dataStatus,
+      signals: currentWeekly.pair.signals,
+    },
     hasCurrentActivity: Boolean(current),
     latestFinalActivity: latestFinal
       ? {
@@ -691,10 +808,6 @@ const loadRuleInput = async (input: {
         }
       : undefined,
     completedActivityCountLast14Days: completedRecent,
-    diagnostics: {
-      riskZones: input.pair.passport?.riskZones ?? [],
-      lastDiagnosticsAt: input.pair.passport?.lastDiagnosticsAt,
-    },
     now: input.now,
   };
 };
@@ -713,42 +826,35 @@ const findVisibleEvents = async (
 
 type EventActivityTemplate = {
   id: string;
-  canonicalTemplateId?: string;
-  title: string;
-  description: string;
-  why: string;
-  axis: Axis[];
-  archetype: PairActivityType['archetype'];
-  intent: PairActivityType['intent'];
-  difficulty: PairActivityType['difficulty'];
-  intensity: PairActivityType['intensity'];
-  minutes: number;
+  canonicalTemplateId: string;
 };
 
-const safetyEventActivityTemplate = (): EventActivityTemplate => {
-  const fallback = SYSTEM_ACTIVITY_TEMPLATES.find(
-    (template) => template._id === 'system-resource-relief'
+const canonicalTemplateForEvent = (
+  eventTemplate: EventActivityTemplate,
+  event: PairEventTypeModel
+) => {
+  const canonical = SYSTEM_ACTIVITY_TEMPLATES.find(
+    (template) => String(template._id) === eventTemplate.canonicalTemplateId
   );
-  if (!fallback) {
+  if (!canonical || !hasEligibleActivityFactorBinding(canonical)) {
     throw new DomainError({
       code: 'INTERNAL',
       status: 500,
-      message: 'Safety activity fallback is unavailable',
+      message: 'Canonical pair event activity is unavailable',
     });
   }
-  return {
-    id: 'neutral-resource-relief',
-    canonicalTemplateId: String(fallback._id),
-    title: fallback.title.ru ?? fallback.title.en ?? '',
-    description: fallback.description.ru ?? fallback.description.en ?? '',
-    why: fallback.why.ru ?? fallback.why.en ?? '',
-    axis: fallback.axis,
-    archetype: fallback.archetype,
-    intent: fallback.intent,
-    difficulty: fallback.difficulty,
-    intensity: fallback.intensity,
-    minutes: fallback.timeEstimateMin ?? 10,
-  };
+  if (
+    canonical.targetFactorKeys.some(
+      (factorKey) => !event.targetFactorKeys.includes(factorKey)
+    )
+  ) {
+    throw new DomainError({
+      code: 'INTERNAL',
+      status: 500,
+      message: 'Pair event activity does not match its factor targets',
+    });
+  }
+  return canonical;
 };
 
 const activityTemplatesForEvent = (event: PairEventTypeModel): EventActivityTemplate[] => {
@@ -756,27 +862,11 @@ const activityTemplatesForEvent = (event: PairEventTypeModel): EventActivityTemp
     return [
       {
         id: 'event-best-moment',
-        title: 'Лучший момент периода',
-        description: 'Каждый называет один момент, который хочется сохранить, и одну маленькую просьбу на следующий период.',
-        why: 'Помогает превратить дату в спокойную сверку, а не только в поздравление.',
-        axis: ['communication'],
-        archetype: 'dialogue',
-        intent: 'celebrate',
-        difficulty: 1,
-        intensity: 1,
-        minutes: 15,
+        canonicalTemplateId: 'system-resource-phone-free',
       },
       {
         id: 'event-shared-marker',
-        title: 'Один общий ориентир',
-        description: 'Выберите одно небольшое совместное правило или ритуал на ближайшие две недели.',
-        why: 'После значимой даты проще договориться о практичном следующем шаге.',
-        axis: ['personalViews'],
-        archetype: 'ritual',
-        intent: 'improve',
-        difficulty: 1,
-        intensity: 1,
-        minutes: 10,
+        canonicalTemplateId: 'system-resource-relief',
       },
     ];
   }
@@ -784,54 +874,32 @@ const activityTemplatesForEvent = (event: PairEventTypeModel): EventActivityTemp
     return [
       {
         id: 'event-care-without-guessing',
-        title: 'Жест внимания без угадывания',
-        description: 'Каждый коротко говорит, какой формат внимания сейчас был бы уместен: время, помощь, прогулка или спокойный вечер.',
-        why: 'Снижает давление и помогает выбрать действие, которое действительно подходит.',
-        axis: ['communication'],
-        archetype: 'dialogue',
-        intent: 'celebrate',
-        difficulty: 1,
-        intensity: 1,
-        minutes: 12,
+        canonicalTemplateId: 'system-resource-phone-free',
       },
       {
         id: 'event-evening-plan',
-        title: 'План вечера без давления',
-        description: 'Согласуйте один простой формат на ближайшие дни: дома, прогулка, короткое свидание или общий отдых.',
-        why: 'Событие становится поводом для конкретного теплого действия без обязательного сценария.',
-        axis: ['psyche'],
-        archetype: 'date',
-        intent: 'celebrate',
-        difficulty: 1,
-        intensity: 1,
-        minutes: 20,
+        canonicalTemplateId: 'system-resource-relief',
+      },
+    ];
+  }
+  if (
+    event.type === 'failed_activity_recovery' ||
+    event.type === 'weekly_tension_support'
+  ) {
+    return [
+      {
+        id: 'event-check-without-blame',
+        canonicalTemplateId: 'system-resource-phone-free',
       },
     ];
   }
   return [
     {
       id: 'event-soft-reconnect',
-      title: 'Мягкое возвращение в контакт',
-      description: 'Проведите 10-15 минут рядом без сложных тем: чай, короткая прогулка или спокойный разговор.',
-      why: 'Когда есть сигнал усталости или паузы, лучше начать с простого контакта.',
-      axis: event.axis?.length ? event.axis : ['psyche'],
-      archetype: 'micro_habit',
-      intent: 'improve',
-      difficulty: 1,
-      intensity: 1,
-      minutes: 15,
-    },
-    {
-      id: 'event-check-without-blame',
-      title: 'Сверка без обвинений',
-      description: 'Каждый отвечает на два вопроса: что сейчас помогает, и что стоит сделать легче.',
-      why: 'Короткая сверка помогает увидеть следующий шаг без спора о том, кто прав.',
-      axis: ['communication'],
-      archetype: 'dialogue',
-      intent: 'improve',
-      difficulty: 1,
-      intensity: 1,
-      minutes: 12,
+      canonicalTemplateId:
+        event.type === 'weekly_success_celebration'
+          ? 'system-resource-phone-free'
+          : 'system-resource-relief',
     },
   ];
 };
@@ -856,26 +924,9 @@ const createActivitiesFromEvent = async (input: {
   pair: PairDoc;
   event: StoredEvent;
   now: Date;
-  safetyVeto: boolean;
-  createOffers: boolean;
   session?: ClientSession;
 }): Promise<StoredActivity[]> => {
   const pairId = input.pair._id as Types.ObjectId;
-  if (!input.createOffers) {
-    await PairActivity.updateMany(
-      {
-        pairId,
-        status: 'offered',
-        'stateMeta.sourceMeta.eventId': String(input.event._id),
-      },
-      { $set: { status: 'cancelled' } }
-    ).session(input.session ?? null);
-    await PairEvent.updateOne(
-      { _id: input.event._id },
-      { $set: { generatedActivityIds: [] } }
-    ).session(input.session ?? null);
-    return [];
-  }
   if (input.event.generatedActivityIds.length > 0) {
     const generated = await PairActivity.find({
       _id: { $in: input.event.generatedActivityIds },
@@ -883,11 +934,7 @@ const createActivitiesFromEvent = async (input: {
       .session(input.session ?? null)
       .lean<StoredActivity[]>();
     const ineligibleIds = generated
-      .filter(
-        (activity) =>
-          hasP0SensitiveActivityAxis(activity.axis) ||
-          !isActivityEligibleForSafetyState(activity, input.safetyVeto)
-      )
+      .filter((activity) => !hasEligibleActivityFactorBinding(activity))
       .map((activity) => activity._id);
     if (ineligibleIds.length > 0) {
       await PairActivity.updateMany(
@@ -897,26 +944,24 @@ const createActivitiesFromEvent = async (input: {
     }
   }
 
-  const templates = (input.safetyVeto
-    ? [safetyEventActivityTemplate()]
-    : activityTemplatesForEvent(input.event)
-  )
-    .filter((template) => !hasP0SensitiveActivityAxis(template.axis))
+  const templates = activityTemplatesForEvent(input.event)
     .slice(0, input.event.actionPolicy.maxGeneratedActivities);
   const created: StoredActivity[] = [];
   const missingTemplates: EventActivityTemplate[] = [];
   for (const template of templates) {
-    const templateId =
-      template.canonicalTemplateId ??
-      `event-${input.event.type}-${template.id}`;
+    const templateId = template.canonicalTemplateId;
     const existing = await PairActivity.findOne({
       pairId,
       'stateMeta.sourceMeta.eventId': String(input.event._id),
       'stateMeta.templateId': templateId,
     })
+      .sort({ createdAt: -1 })
       .session(input.session ?? null)
       .lean<StoredActivity | null>();
-    if (existing) {
+    if (
+      existing &&
+      hasEligibleActivityFactorBinding(existing)
+    ) {
       created.push(existing);
       continue;
     }
@@ -961,37 +1006,37 @@ const createActivitiesFromEvent = async (input: {
 
   const members = await resolveMembers(input.pair.members as [string, string]);
   for (const template of missingTemplates.slice(0, slots)) {
-    const templateId =
-      template.canonicalTemplateId ??
-      `event-${input.event.type}-${template.id}`;
+    const canonicalTemplate = canonicalTemplateForEvent(template, input.event);
+    const templateId = template.canonicalTemplateId;
 
     const [activity] = await PairActivity.create([{
       pairId,
       members,
-      intent: template.intent,
-      archetype: template.archetype,
-      axis: template.axis,
-      facetsTarget: [],
-      title: { ru: template.title, en: template.title },
-      description: { ru: template.description, en: template.description },
-      why: input.safetyVeto
-        ? { ru: template.why, en: template.why }
-        : {
-            ru: `${input.event.why.ru} ${template.why}`.trim(),
-            en: `${input.event.why.en} ${template.why}`.trim(),
-          },
-      mode: 'together',
-      sync: template.archetype === 'micro_habit' ? 'async' : 'sync',
-      difficulty: template.difficulty,
-      intensity: template.intensity,
-      timeEstimateMin: template.minutes,
-      location: 'any',
-      materials: [],
+      intent: canonicalTemplate.intent,
+      archetype: canonicalTemplate.archetype,
+      actionDefinition: canonicalTemplate.actionDefinition,
+      targetFactorKeys: canonicalTemplate.targetFactorKeys,
+      title: { ...canonicalTemplate.title },
+      description: { ...canonicalTemplate.description },
+      why: {
+        ru: `${input.event.why.ru} ${canonicalTemplate.why.ru}`.trim(),
+        en: `${input.event.why.en} ${canonicalTemplate.why.en}`.trim(),
+      },
+      mode: canonicalTemplate.mode,
+      sync: canonicalTemplate.sync,
+      difficulty: canonicalTemplate.difficulty,
+      intensity: canonicalTemplate.intensity,
+      timeEstimateMin: canonicalTemplate.timeEstimateMin,
+      location: canonicalTemplate.location,
+      materials: [...(canonicalTemplate.materials ?? [])],
       offeredAt: input.now,
       dueAt: addDays(input.now, 3),
-      cooldownDays: 14,
-      requiresConsent: false,
+      cooldownDays: canonicalTemplate.cooldownDays,
+      requiresConsent: canonicalTemplate.requiresConsent,
+      visibility: canonicalTemplate.visibility,
       status: 'offered',
+      lifecycleVersion: 'activity-lifecycle-v3',
+      feedbackSchemaVersion: 'activity-feedback-v2',
       stateMeta: {
         templateId,
         source: input.event.category,
@@ -1002,23 +1047,21 @@ const createActivitiesFromEvent = async (input: {
           eventType: input.event.type,
           eventCategory: input.event.category,
           eventDate: input.event.eventDate?.toISOString(),
-          weekKey: input.event.source.weekKey,
-          axis: input.event.axis?.[0],
+          cycleKey: input.event.source.cycleKey,
           severity: input.event.severity,
-          decisionVersion: 'activity-decision-v1',
+          actionKey: canonicalTemplate.actionDefinition.key,
+          factorKey: canonicalTemplate.targetFactorKeys[0],
+          registryVersion: canonicalTemplate.actionDefinition.registryVersion,
+          decisionVersion: 'activity-decision-v2',
         },
         primaryReason: input.event.type,
-        axis: input.event.axis?.[0],
         severity: input.event.severity,
-        weekKey: input.event.source.weekKey,
-        decisionVersion: 'activity-decision-v1',
+        cycleKey: input.event.source.cycleKey,
+        decisionVersion: 'activity-decision-v2',
         assignedMemberIds: members.map(String),
         apiSource: 'pairs.events.accept',
       },
-      checkIns: [],
-      effect: template.axis.map((axis) => ({ axis, baseDelta: 0.04, target: 'both' })),
-      fatigueDeltaOnComplete: template.intent === 'celebrate' ? -0.04 : 0.02,
-      readinessDeltaOnComplete: template.intent === 'celebrate' ? 0.08 : 0.05,
+      checkIns: canonicalTemplate.checkIns,
       createdBy: 'system',
     }], { session: input.session });
     created.push(activity.toObject() as StoredActivity);
@@ -1075,31 +1118,67 @@ const assertEventCanBeSnoozed = (event: StoredEvent, now: Date): void => {
 };
 
 export const pairEventService = {
-  async refreshPairEvents(input: RefreshPairEventsInput): Promise<PairEventDTO[]> {
+  async refreshPairEvents(
+    input: RefreshPairEventsInput,
+    hooks: PairEventReliabilityTestHooks = {}
+  ): Promise<PairEventDTO[]> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
     const now = input.now ?? new Date();
 
-    if (pair.status !== 'ended') {
-      const ruleInput = await loadRuleInput({ pair, currentUserId: input.currentUserId, now });
-      await upsertCandidates({
-        pairId,
-        candidates: buildPairEventCandidates(ruleInput),
-        now,
+    if (pair.status === 'ended') return [];
+    const candidates =
+      pair.status === 'active'
+        ? buildPairEventCandidates(
+            await loadRuleInput({
+              pair,
+              currentUserId: input.currentUserId,
+              now,
+            })
+          )
+        : [];
+    let lifecycleFenced = false;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        lifecycleFenced = false;
+        await hooks.beforeTransactionalPairGuard?.(candidates.length);
+        if (
+          !(await fenceMutablePairForEventMutation({
+            pairId,
+            currentUserId: input.currentUserId,
+            allowedStatuses: [pair.status],
+            session,
+          }))
+        ) {
+          return;
+        }
+        if (pair.status === 'active') {
+          await upsertCandidates({ pairId, candidates, now, session });
+        }
+        await refreshExpiredAndCompleted(pairId, now, session);
+        lifecycleFenced = true;
       });
+    } finally {
+      await session.endSession();
     }
-    await refreshExpiredAndCompleted(pairId, now);
+    if (!lifecycleFenced) return [];
 
-    if (pair.status === 'ended' && input.include !== 'all') return [];
+    const currentPair = await Pair.findById(pairId)
+      .select({ status: 1 })
+      .lean<Pick<PairType, 'status'> | null>();
+    if (!currentPair || currentPair.status === 'ended') return [];
     const events = await findVisibleEvents(pairId, input.include ?? 'active');
-    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
     return events
-      .filter((event) => eventEligibleForPairProjection(event, safetyVeto))
+      .filter(eventEligibleForPairProjection)
       .map(toPairEventDTO);
   },
 
-  async acceptEvent(input: PairEventMutationInput): Promise<{
+  async acceptEvent(
+    input: PairEventMutationInput,
+    hooks: PairEventReliabilityTestHooks = {}
+  ): Promise<{
     event: PairEventDTO;
     activities: PairActivityDTO[];
   }> {
@@ -1115,14 +1194,28 @@ export const pairEventService = {
 
     const now = input.now ?? new Date();
     const pairId = pair._id as Types.ObjectId;
-    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
     let updated: StoredEvent | null = null;
     let activities: StoredActivity[] = [];
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
+        await hooks.beforeMutationTransactionalPairGuard?.();
+        if (
+          !(await fenceMutablePairForEventMutation({
+            pairId,
+            currentUserId: input.currentUserId,
+            allowedStatuses: ['active'],
+            session,
+          }))
+        ) {
+          throw new DomainError({
+            code: 'STATE_CONFLICT',
+            status: 409,
+            message: 'Pair is no longer active',
+          });
+        }
         const event = await findEventForMutation(pairId, input.eventId, session);
-        assertEventEligibleForPairProjection(event, safetyVeto);
+        assertEventEligibleForPairProjection(event);
         assertEventCanBeAccepted(event, now);
 
         const accepted = await PairEvent.findOneAndUpdate(
@@ -1138,8 +1231,6 @@ export const pairEventService = {
           pair,
           event: accepted,
           now,
-          safetyVeto,
-          createOffers: false,
           session,
         });
         updated = await PairEvent.findById(event._id)
@@ -1156,12 +1247,9 @@ export const pairEventService = {
     if (!updated) {
       throw new DomainError({ code: 'NOT_FOUND', status: 404, message: 'event not found' });
     }
-    const currentSafetyVeto = await isPairSafetyVetoActive(String(pairId));
-    assertEventEligibleForPairProjection(updated, currentSafetyVeto);
+    assertEventEligibleForPairProjection(updated);
     const projectedActivities = activities.filter(
-      (activity) =>
-        !hasP0SensitiveActivityAxis(activity.axis) &&
-        isActivityEligibleForSafetyState(activity, currentSafetyVeto)
+      (activity) => hasEligibleActivityFactorBinding(activity)
     );
     return {
       event: toPairEventDTO(updated),
@@ -1171,52 +1259,98 @@ export const pairEventService = {
     };
   },
 
-  async declineEvent(input: PairEventMutationInput): Promise<{ event: PairEventDTO }> {
+  async declineEvent(
+    input: PairEventMutationInput,
+    hooks: PairEventReliabilityTestHooks = {}
+  ): Promise<{ event: PairEventDTO }> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
-    const event = await findEventForMutation(pairId, input.eventId);
-    assertEventEligibleForPairProjection(
-      event,
-      await isPairSafetyVetoActive(String(pairId))
-    );
     const now = input.now ?? new Date();
-    assertEventCanBeDeclined(event, now);
-    const updated = await PairEvent.findOneAndUpdate(
-      { _id: event._id, pairId, status: { $in: DECLINABLE_EVENT_STATUSES } },
-      { $set: { status: 'declined', declinedAt: now } },
-      { new: true }
-    ).lean<StoredEvent | null>();
+    let updated: StoredEvent | null = null;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await hooks.beforeMutationTransactionalPairGuard?.();
+        if (
+          !(await fenceMutablePairForEventMutation({
+            pairId,
+            currentUserId: input.currentUserId,
+            allowedStatuses: ['active', 'paused'],
+            session,
+          }))
+        ) {
+          throw new DomainError({
+            code: 'STATE_CONFLICT',
+            status: 409,
+            message: 'Pair is no longer mutable',
+          });
+        }
+        const event = await findEventForMutation(pairId, input.eventId, session);
+        assertEventEligibleForPairProjection(event);
+        assertEventCanBeDeclined(event, now);
+        updated = await PairEvent.findOneAndUpdate(
+          { _id: event._id, pairId, status: { $in: DECLINABLE_EVENT_STATUSES } },
+          { $set: { status: 'declined', declinedAt: now } },
+          { new: true, session }
+        ).lean<StoredEvent | null>();
+      });
+    } finally {
+      await session.endSession();
+    }
     if (!updated) {
       throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be declined' });
     }
     return { event: toPairEventDTO(updated) };
   },
 
-  async snoozeEvent(input: SnoozePairEventInput): Promise<{ event: PairEventDTO }> {
+  async snoozeEvent(
+    input: SnoozePairEventInput,
+    hooks: PairEventReliabilityTestHooks = {}
+  ): Promise<{ event: PairEventDTO }> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     const pairId = pair._id as Types.ObjectId;
-    const event = await findEventForMutation(pairId, input.eventId);
-    assertEventEligibleForPairProjection(
-      event,
-      await isPairSafetyVetoActive(String(pairId))
-    );
     const now = input.now ?? new Date();
-    assertEventCanBeSnoozed(event, now);
-    const snoozedUntil = addDays(now, input.days ?? 3);
-    if (event.expiresAt && snoozedUntil > event.expiresAt) {
-      throw new DomainError({
-        code: 'VALIDATION_ERROR',
-        status: 400,
-        message: 'Snooze would exceed event window',
+    let updated: StoredEvent | null = null;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await hooks.beforeMutationTransactionalPairGuard?.();
+        if (
+          !(await fenceMutablePairForEventMutation({
+            pairId,
+            currentUserId: input.currentUserId,
+            allowedStatuses: ['active', 'paused'],
+            session,
+          }))
+        ) {
+          throw new DomainError({
+            code: 'STATE_CONFLICT',
+            status: 409,
+            message: 'Pair is no longer mutable',
+          });
+        }
+        const event = await findEventForMutation(pairId, input.eventId, session);
+        assertEventEligibleForPairProjection(event);
+        assertEventCanBeSnoozed(event, now);
+        const snoozedUntil = addDays(now, input.days ?? 3);
+        if (event.expiresAt && snoozedUntil > event.expiresAt) {
+          throw new DomainError({
+            code: 'VALIDATION_ERROR',
+            status: 400,
+            message: 'Snooze would exceed event window',
+          });
+        }
+        updated = await PairEvent.findOneAndUpdate(
+          { _id: event._id, pairId, status: { $in: SNOOZABLE_EVENT_STATUSES } },
+          { $set: { status: 'snoozed', snoozedUntil } },
+          { new: true, session }
+        ).lean<StoredEvent | null>();
       });
+    } finally {
+      await session.endSession();
     }
-    const updated = await PairEvent.findOneAndUpdate(
-      { _id: event._id, pairId, status: { $in: SNOOZABLE_EVENT_STATUSES } },
-      { $set: { status: 'snoozed', snoozedUntil } },
-      { new: true }
-    ).lean<StoredEvent | null>();
     if (!updated) {
       throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Event cannot be snoozed' });
     }
@@ -1229,9 +1363,8 @@ export const pairEventService = {
     const pair = await Pair.findById(pairId).select({ _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
     if (!pair) return [];
     const events = await findVisibleEvents(pair._id as Types.ObjectId, 'all');
-    const safetyVeto = await isPairSafetyVetoActive(String(pair._id));
     return events
-      .filter((event) => eventEligibleForPairProjection(event, safetyVeto))
+      .filter(eventEligibleForPairProjection)
       .map(toPairEventDTO);
   },
 };

@@ -64,7 +64,7 @@ export function useCurrentUser(options: UseCurrentUserOptions = {}) {
 
   return {
     data,
-    loading: loading && !hasData,
+    loading: enabled && !hasData && (loading || isRefreshing || error === null),
     refreshing: isRefreshing,
     error,
     refetch,

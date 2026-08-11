@@ -1,19 +1,28 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { usePair } from '@/client/hooks/usePair';
 import {
   safetyGateApi,
   type OwnerSafetyGateDTO,
 } from '@/client/api/safetyGate.api';
+import ErrorView from '@/components/ui/ErrorView';
 
 export default function SafetySettingsPage() {
-  const { pairId, loading: pairLoading } = usePair();
+  const router = useRouter();
+  const {
+    pairId,
+    loading: pairLoading,
+    error: pairError,
+    refetch: refetchPair,
+  } = usePair();
   const [gate, setGate] = useState<OwnerSafetyGateDTO | null>(null);
   const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const hasCurrentGate = pairId !== null && loadedPairId === pairId;
   const visibleGate = hasCurrentGate ? gate : null;
@@ -38,7 +47,7 @@ export default function SafetySettingsPage() {
         }
       });
     return () => controller.abort();
-  }, [pairId]);
+  }, [loadAttempt, pairId]);
 
   const toggle = async () => {
     if (!pairId || !visibleGate) return;
@@ -69,6 +78,14 @@ export default function SafetySettingsPage() {
 
         {pairLoading || loading ? (
           <p className="app-muted mt-5 text-sm">Загружаем настройку…</p>
+        ) : pairError ? (
+          <div className="mt-5">
+            <ErrorView
+              error={pairError}
+              onRetry={() => void refetchPair()}
+              onAuthRequired={() => router.push('/')}
+            />
+          </div>
         ) : !pairId ? (
           <div className="app-alert app-alert-rate mt-5 text-sm">
             Настройка доступна после создания пары.
@@ -86,6 +103,8 @@ export default function SafetySettingsPage() {
             </div>
             <button
               type="button"
+              role="switch"
+              aria-checked={visibleGate.enabled}
               className="app-btn-primary mt-4 px-4 py-2 text-sm disabled:opacity-60"
               disabled={saving}
               onClick={() => void toggle()}
@@ -99,7 +118,21 @@ export default function SafetySettingsPage() {
           </div>
         ) : null}
 
-        {visibleError && <div className="app-alert app-alert-error mt-4 text-sm">{visibleError}</div>}
+        {visibleError && (
+          <div className="app-alert app-alert-error mt-4 text-sm" role="alert">
+            <p>{visibleError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoadedPairId(null);
+                setLoadAttempt((attempt) => attempt + 1);
+              }}
+              className="app-btn-secondary mt-3 px-3 py-2 text-sm"
+            >
+              Повторить
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );

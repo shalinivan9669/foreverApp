@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { ProfileSummaryDTO } from '@/client/api/types';
 import { usersApi } from '@/client/api/users.api';
-import { createEmptyProfileSummary, normalizeProfileSummary } from '@/client/viewmodels';
+import {
+  createEmptyProfileSummary,
+  normalizeProfileSummary,
+} from '@/client/viewmodels/profile.viewmodels';
 import { AccountDetailsView } from '@/components/profile/ModeAwareProfileOverview';
 import Skeleton from '@/components/common/Skeleton';
 
@@ -12,6 +15,7 @@ export default function ProfileDetailsTab() {
   const [data, setData] = useState<ProfileSummaryDTO>(createEmptyProfileSummary());
   const [loading, setLoading] = useState(true);
   const [hasSummary, setHasSummary] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -35,7 +39,7 @@ export default function ProfileDetailsTab() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   return (
     <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
@@ -57,8 +61,18 @@ export default function ProfileDetailsTab() {
       )}
 
       {!loading && !hasSummary && (
-        <div className="app-panel app-panel-solid p-4 text-sm app-muted">
-          Не удалось загрузить детали аккаунта. Попробуйте открыть страницу ещё раз.
+        <div className="app-panel app-panel-solid p-4 text-sm app-muted" role="alert">
+          <p>Не удалось загрузить детали аккаунта.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              setLoadAttempt((attempt) => attempt + 1);
+            }}
+            className="app-btn-secondary mt-3 px-3 py-2 text-sm"
+          >
+            Повторить
+          </button>
         </div>
       )}
 

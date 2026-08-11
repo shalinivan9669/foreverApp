@@ -20,7 +20,7 @@ const snoozeSchema = z.object({
 });
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const params = parseParams(await ctx.params, paramsSchema);

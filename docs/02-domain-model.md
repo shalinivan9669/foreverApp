@@ -1,6 +1,6 @@
 ﻿**Current State (Overview)**
 
-> Scope: датированный historical snapshot; evidence и часть текста не перепроверены против текущего кода. Не использовать как current source of truth до targeted re-audit. Целевая модель находится в `docs/TARGET_DOMAIN_MODEL.md` и не является уже применённой схемой БД.
+> Status: historical snapshot. Evidence/line references and six-axis assumptions are stale. The implemented NEW_ONLY contract is `docs/TARGET_DOMAIN_MODEL.md`; do not use this file as current schema or runtime behavior.
 
 1. Key repository path snapshot is captured in `docs/_evidence/repo-tree.txt`.
 2. User model fields: `id`, `username`, `avatar`, `personal`, `vectors`, `embeddings`, `preferences`, `matchMeta`, `profile`, `location`, `createdAt`, `updatedAt`. Evidence: `src/models/User.ts`.

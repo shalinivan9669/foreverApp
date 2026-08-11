@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Types } from 'mongoose';
 import type { UiErrorState } from '../src/client/api/errors';
-import type { PairActivityType } from '../src/models/PairActivity';
+import type { Answer, PairActivityType } from '../src/models/PairActivity';
 import {
   toActivityOfferDTO,
   toActivityResultSummaryDTO,
@@ -22,10 +22,11 @@ import {
   buildRecommendationProvenance,
 } from '../src/domain/services/recommendationProvenance.service';
 import {
-  hasP0SensitiveActivityAxis,
+  hasEligibleActivityFactorBinding,
   isActivityAccessibleToRole,
   isActivityEligibleForSafetyState,
 } from '../src/domain/services/activityEligibility.service';
+import { MVP_FACTOR_REGISTRY } from '../src/domain/model/definitions/mvpDefinitions';
 import {
   CONFLICT_RESOLVED_MESSAGE,
   createCheckinCompleteAttempt,
@@ -36,25 +37,27 @@ import {
 import {
   CANONICAL_ACTIVITY_FEEDBACK_CHECKINS,
   UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS,
-  activityEffectMultiplier,
   buildActivityResultSummary,
   effectiveActivityCheckIns,
   hasActivityFeedback,
   refineActivityResultSummary,
   replaceActivityAnswers,
-  scaleActivityPairDeltas,
-  shouldApplyActivityEffect,
+  shouldRecordActivityFactorEvidence,
 } from '../src/utils/activities';
 
 const feedback = (
   by: 'A' | 'B',
   values: [number, number, number, number]
-) =>
+): Answer[] =>
   UNIVERSAL_ACTIVITY_COMPLETION_CHECKINS.map((checkIn, index) => ({
     checkInId: checkIn.id,
     by,
     ui: values[index],
     at: new Date('2026-06-05T00:00:00.000Z'),
+    feedbackRevision: 1,
+    captureMode: 'PAIR_MODEL_ONLY',
+    policyVersion: 'activity-feedback-policy-v1',
+    consentRevision: 'activity-feedback-pair-model-consent-v1',
   }));
 
 const makeError = (input: Partial<UiErrorState>): UiErrorState => ({
@@ -110,8 +113,8 @@ const run = () => {
   );
   assert.match(
     validationMessage,
-    /idempotency/i,
-    '422 retry message should explain idempotency key issue'
+    /безопасно повторить.*Ответы сохранены/i,
+    '422 retry message should explain the safe user action without exposing transport internals'
   );
 
   const serverMessage = toCompleteRetryMessage(
@@ -119,7 +122,7 @@ const run = () => {
   );
   assert.match(
     serverMessage,
-    /Answers were saved/i,
+    /Ответы сохранены/i,
     'server-failure message should reassure that check-in answers were saved'
   );
 
@@ -128,13 +131,13 @@ const run = () => {
   );
   assert.match(
     inProgressMessage,
-    /still processing/i,
+    /ещё обрабатывается/i,
     'idempotency-in-progress should give actionable retry guidance'
   );
 
   assert.match(
     CONFLICT_RESOLVED_MESSAGE,
-    /state has already changed/i,
+    /Состояние.*изменилось/i,
     'conflict resolved helper message should be user-facing'
   );
 
@@ -163,12 +166,17 @@ const run = () => {
     CANONICAL_ACTIVITY_FEEDBACK_CHECKINS.length,
     'canonical feedback ids must be unique'
   );
-  const canonicalAnswers = canonicalFeedback.map((checkIn) => ({
-    checkInId: checkIn.id,
-    by: 'A' as const,
-    ui: checkIn.scale === 'bool' ? 2 : 4,
+  const canonicalAnswers = replaceActivityAnswers({
+    existing: [],
+    incoming: canonicalFeedback.map((checkIn) => ({
+      checkInId: checkIn.id,
+      ui: checkIn.scale === 'bool' ? 2 : 4,
+    })),
+    role: 'A',
     at: new Date('2026-06-05T00:00:00.000Z'),
-  }));
+    feedbackRevision: 1,
+    allowPairModelUse: false,
+  });
   const canonicalResult = buildActivityResultSummary({
     checkIns: canonicalFeedback,
     answers: canonicalAnswers,
@@ -207,11 +215,8 @@ const run = () => {
     ],
   });
   assert.equal(bothLow.status, 'failed');
-  assert.equal(
-    activityEffectMultiplier(bothLow),
-    0,
-    'failed activity must not receive positive vector effect'
-  );
+  assert.equal(bothLow.factorEvidenceRecorded, false);
+  assert.equal(shouldRecordActivityFactorEvidence(bothLow), true);
 
   const replaced = replaceActivityAnswers({
     existing: feedback('A', [1, 1, 1, 1]),
@@ -221,6 +226,8 @@ const run = () => {
     })),
     role: 'A',
     at: new Date('2026-06-05T01:00:00.000Z'),
+    feedbackRevision: 2,
+    allowPairModelUse: false,
   });
   assert.equal(replaced.length, 4, 'retry should replace answers, not append');
   assert.equal(
@@ -228,36 +235,31 @@ const run = () => {
     4
   );
 
-  const recoveryDeltas = scaleActivityPairDeltas({
-    result: bothHigh,
-    fatigueDelta: -0.2,
-    readinessDelta: 0.2,
-  });
-  assert.equal(recoveryDeltas.fatigueDelta, -0.08);
-  assert.equal(recoveryDeltas.readinessDelta, 0.06);
+  assert.ok(replaced.every((answer) => answer.feedbackRevision === 2));
+  assert.ok(replaced.every((answer) => answer.captureMode === 'PRIVATE'));
+  assert.ok(replaced.every((answer) => answer.consentRevision === 'not-granted'));
 
-  const appliedPartial = {
+  const recordedPartial = {
     ...oneHigh,
-    effectApplied: true,
-    effect: {
-      fatigueDelta: -0.02,
-      readinessDelta: 0.03,
-      axisDeltas: [{ axis: 'communication' as const, delta: 0.01 }],
+    factorEvidenceRecorded: true,
+    factorEvidence: {
+      taskResultEventIds: ['task-event-1'],
+      pairActivityEventIds: [],
+      individualSnapshotIds: ['individual-snapshot-1'],
+      pairSnapshotIds: [],
+      pairEvaluationSnapshotIds: [],
+      recordedAt: new Date('2026-06-05T00:00:00.000Z'),
     },
   };
   const refined = refineActivityResultSummary({
-    previous: appliedPartial,
+    previous: recordedPartial,
     next: bothHigh,
   });
   assert.equal(refined.status, 'completed_success');
-  assert.equal(refined.effectApplied, true);
-  assert.deepEqual(refined.effect, appliedPartial.effect);
-  assert.match(refined.effectExplanation.ru, /без повторного усиления эффекта/);
-  assert.equal(
-    shouldApplyActivityEffect(refined),
-    false,
-    'late peer feedback must not apply the effect twice'
-  );
+  assert.equal(refined.factorEvidenceRecorded, false);
+  assert.deepEqual(refined.factorEvidence, recordedPartial.factorEvidence);
+  assert.match(refined.explanation.en ?? '', /duplicate evidence/);
+  assert.equal(shouldRecordActivityFactorEvidence(refined), true);
 
   const activityId = new Types.ObjectId();
   const pairId = new Types.ObjectId();
@@ -271,7 +273,15 @@ const run = () => {
     members,
     intent: 'improve',
     archetype: 'dialogue',
-    axis: ['communication'],
+    actionDefinition: {
+      key: 'action.gentleThreeMinuteCheckIn',
+      actionVersion: 1,
+      registryVersion: MVP_FACTOR_REGISTRY.registryVersion,
+    },
+    targetFactorKeys: [
+      'communication.weekly.connection',
+      'wellbeing.current.overload',
+    ],
     title: { ru: 'Проверка', en: 'Check' },
     why: { ru: 'Высокая усталость партнёра', en: 'Partner fatigue is high' },
     mode: 'together',
@@ -282,19 +292,20 @@ const run = () => {
     status: 'completed_partial',
     stateMeta: {
       templateId: 'private-template-id',
-      primaryReason: 'high_fatigue',
-      decisionVersion: 'activity-decision-v1',
+      primaryReason: 'factor_signal',
+      decisionVersion: 'activity-decision-v2',
       sourceMeta: {
         trigger: 'pair_event',
-        eventType: 'weekly_divergence_repair',
+        eventType: 'weekly_tension_support',
         divergenceMetric: 'readiness',
       },
     },
     checkIns: [],
     answers: feedback('A', [5, 5, 5, 2]),
     successScore: oneHigh.successScore,
-    effect: [],
-    resultSummary: appliedPartial,
+    lifecycleVersion: 'activity-lifecycle-v3',
+    feedbackSchemaVersion: 'activity-feedback-v2',
+    resultSummary: recordedPartial,
     createdBy: 'system',
   };
   const provenance = buildRecommendationProvenance({
@@ -309,7 +320,7 @@ const run = () => {
     },
     activity,
   });
-  assert.equal(provenance.recommendationRuleVersion, 'recommendation-rule-v2');
+  assert.equal(provenance.recommendationRuleVersion, 'recommendation-rule-v3');
   assert.equal(provenance.activityContentHash, buildActivityContentHash(activity));
   assert.notEqual(
     provenance.activityContentHash,
@@ -325,7 +336,7 @@ const run = () => {
     'recommendation provenance must not copy raw evidence references'
   );
   const dto = toPairActivityDTO(activity, { includeLegacyId: true });
-  assert.equal(dto.checkIns.length, 4);
+  assert.equal(dto.checkIns.length, CANONICAL_ACTIVITY_FEEDBACK_CHECKINS.length);
   assert.equal(dto.resultSummary?.completedAt, undefined);
   assert.equal(dto.resultSummary?.dataStatus, 'PARTIAL');
   assert.equal(
@@ -378,8 +389,18 @@ const run = () => {
   };
   assert.equal(isActivityAccessibleToRole(privateSolo, 'A'), true);
   assert.equal(isActivityAccessibleToRole(privateSolo, 'B'), false);
-  assert.equal(hasP0SensitiveActivityAxis(['finance']), true);
-  assert.equal(hasP0SensitiveActivityAxis(['communication']), false);
+  assert.equal(hasEligibleActivityFactorBinding(activity), true);
+  assert.equal(
+    hasEligibleActivityFactorBinding({
+      ...activity,
+      actionDefinition: {
+        ...activity.actionDefinition,
+        registryVersion: MVP_FACTOR_REGISTRY.registryVersion - 1,
+      },
+    }),
+    false,
+    'stale action definitions must fail closed'
+  );
   assert.equal(
     isActivityEligibleForSafetyState(
       { stateMeta: { templateId: 'system-resource-relief' } },
@@ -408,6 +429,12 @@ const run = () => {
     'feedbackSchemaVersion',
     'effect',
     'effectExplanation',
+    'factorEvidence',
+    'taskResultEventIds',
+    'pairActivityEventIds',
+    'individualSnapshotIds',
+    'pairSnapshotIds',
+    'pairEvaluationSnapshotIds',
   ]) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(dto.resultSummary ?? {}, field),
@@ -421,7 +448,7 @@ const run = () => {
     answers: feedback('A', [3, 3, 3, 1]),
   });
   assert.deepEqual(
-    toActivityResultSummaryDTO(appliedPartial),
+    toActivityResultSummaryDTO(oneHigh),
     toActivityResultSummaryDTO(oneDifferent),
     'different one-sided values must have the same pair-visible projection'
   );
@@ -451,8 +478,8 @@ const run = () => {
     resolve(process.cwd(), 'src/utils/activities.ts'),
     'utf8'
   );
-  assert.match(activityUtilsSource, /source: 'activity_completion'/);
-  assert.doesNotMatch(activityUtilsSource, /source: 'manual_recalculation'/);
+  assert.match(activityUtilsSource, /shouldRecordActivityFactorEvidence/);
+  assert.doesNotMatch(activityUtilsSource, /applyEffects|scaleActivityPairDeltas/);
 
   const activityServiceSource = readFileSync(
     resolve(process.cwd(), 'src/domain/services/activities.service.ts'),
@@ -465,13 +492,21 @@ const run = () => {
   assert.match(activityServiceSource, /activity\.accept_noop/);
   assert.match(activityServiceSource, /if \(outcome\.alreadyAccepted\) return \{\};/);
   assert.match(activityServiceSource, /event: 'ACTIVITY_STARTED'/);
-  assert.match(activityServiceSource, /alreadyCompleted && resultSummary\.effectApplied/);
+  assert.match(activityServiceSource, /alreadyCompleted && resultSummary\.factorEvidenceRecorded/);
+  assert.match(activityServiceSource, /recordActivityCheckInFactorEvidence/);
+  assert.match(activityServiceSource, /recordActivityCompletionFactorEvidence/);
+  assert.doesNotMatch(activityServiceSource, /\.vectors\b|\.passport\b/);
   assert.match(activityServiceSource, /toActivityResultSummaryDTO/);
   assert.match(activityServiceSource, /claimAcceptedForActivity/);
   assert.match(activityServiceSource, /claimSkippedForActivity/);
   assert.match(activityServiceSource, /mongoose\.startSession/);
   assert.match(activityServiceSource, /session\.withTransaction/);
   assert.match(activityServiceSource, /session,/);
+  assert.match(activityServiceSource, /assertPairLifecycleForActivityMutation/);
+  assert.match(activityServiceSource, /Pair\.findOneAndUpdate/);
+  assert.match(activityServiceSource, /\$inc: \{ lifecycleRevision: 1 \}/);
+  assert.match(activityServiceSource, /statuses: \['active'\]/);
+  assert.match(activityServiceSource, /statuses: \['active', 'paused'\]/);
   const acceptClaimIndex = activityServiceSource.indexOf('claimAcceptedForActivity');
   const acceptSaveIndex = activityServiceSource.indexOf(
     'await data.activity.save({ session })',
@@ -525,21 +560,54 @@ const run = () => {
     /fatigue|readiness|closeness|irritation|axis|severity|sourceMeta|recentActivitySignals/i,
     'public suggestion result type must not expose internal decision evidence'
   );
-  assert.match(activityOfferSource, /toPairActivitySuggestionPlanDTO\(plan\)/);
+  assert.match(activityOfferSource, /toPlanDTO\(plan\)/);
   assert.match(
     activityOfferSource,
     /assignedMemberIds/,
     'legacy A/B template modes must be bound to concrete persisted member ids'
   );
-  assert.match(activityOfferSource, /hasP0SensitiveActivityAxis/);
+  assert.match(activityOfferSource, /hasEligibleActivityFactorBinding/);
   assert.match(activityOfferSource, /isOfferedActivityEligibleForRole/);
   assert.match(activityOfferSource, /if \(!isSafetyFallbackTemplateId\(input\.templateId\)\)/);
-  assert.match(activityOfferSource, /Pair\.updateOne\(/);
+  assert.match(activityOfferSource, /readActivityRecommendationInputs/);
   assert.match(activityOfferSource, /offeredInTransaction/);
   assert.match(activityOfferSource, /availableSlots/);
-  assert.match(activityOfferSource, /activity-lifecycle-v2/);
-  assert.match(activityOfferSource, /activity-feedback-v2/);
+  assert.match(activityOfferSource, /activity-lifecycle-v3/);
+  assert.match(activityOfferSource, /feedbackSchemaVersion: binding\.action\.feedbackSchemaKey/);
   assert.match(activityOfferSource, /buildRecommendationProvenance/);
+  const lifecycleGuardDefinition = activityOfferSource.slice(
+    activityOfferSource.indexOf('const assertActivePairForOffer'),
+    activityOfferSource.indexOf('type LeanUser')
+  );
+  assert.match(lifecycleGuardDefinition, /Pair\.findOneAndUpdate/);
+  assert.match(lifecycleGuardDefinition, /members: input\.currentUserId/);
+  assert.match(lifecycleGuardDefinition, /status: 'active'/);
+  assert.match(lifecycleGuardDefinition, /session: input\.session/);
+  const lifecycleGuardCalls = Array.from(
+    activityOfferSource.matchAll(/await assertActivePairForOffer\(/g)
+  );
+  assert.equal(
+    lifecycleGuardCalls.length,
+    2,
+    'both smart and direct-template offer transactions need a Pair lifecycle fence'
+  );
+  for (const guardCall of lifecycleGuardCalls) {
+    const guardPosition = guardCall.index ?? -1;
+    const nextActivityRead = activityOfferSource.indexOf(
+      'PairActivity.',
+      guardPosition
+    );
+    const nextOfferWrite = activityOfferSource.indexOf(
+      'await createOffer(',
+      guardPosition
+    );
+    assert.ok(
+      guardPosition >= 0 &&
+        nextActivityRead > guardPosition &&
+        nextOfferWrite > nextActivityRead,
+      'Pair lifecycle fence must be the first transactional datastore operation before offer writes'
+    );
+  }
 
   const clientTypesSource = readFileSync(
     resolve(process.cwd(), 'src/client/api/types.ts'),
@@ -568,7 +636,7 @@ const run = () => {
   const started = activityTransition(
     {
       status: 'accepted',
-      lifecycleVersion: 'activity-lifecycle-v2',
+      lifecycleVersion: 'activity-lifecycle-v3',
       answers: [],
     },
     { type: 'START', at },
@@ -579,7 +647,7 @@ const run = () => {
   const startRetry = activityTransition(
     {
       status: 'in_progress',
-      lifecycleVersion: 'activity-lifecycle-v2',
+      lifecycleVersion: 'activity-lifecycle-v3',
       startedAt: at,
       answers: [],
     },
@@ -593,7 +661,7 @@ const run = () => {
       activityTransition(
         {
           status: 'accepted',
-          lifecycleVersion: 'activity-lifecycle-v2',
+          lifecycleVersion: 'activity-lifecycle-v3',
           answers: [],
         },
         {
@@ -607,12 +675,12 @@ const run = () => {
         transitionContext
       ),
     (error) => error instanceof DomainError && error.code === 'STATE_CONFLICT',
-    'v2 activity must be started before feedback'
+    'v3 activity must be started before feedback'
   );
   const awaitingFeedback = activityTransition(
     {
       status: 'in_progress',
-      lifecycleVersion: 'activity-lifecycle-v2',
+      lifecycleVersion: 'activity-lifecycle-v3',
       startedAt: at,
       answers: [],
     },
@@ -803,7 +871,22 @@ const run = () => {
     /safety|fatigue|readiness|closeness|irritation/i,
     'public explanations must stay neutral'
   );
-  assert.match(decisionServiceSource, /isPairSafetyVetoActive/);
+  assert.match(decisionServiceSource, /isOwnerSafetyGateActive/);
+  assert.match(decisionServiceSource, /ownerUserId: input\.currentUserId/);
+  assert.doesNotMatch(decisionServiceSource, /isPairSafetyVetoActive/);
+  const actionNotificationBlock = decisionServiceSource.slice(
+    decisionServiceSource.indexOf('const reconcileActionNotification'),
+    decisionServiceSource.indexOf('const loadCurrentRecommendationContext')
+  );
+  assert.match(actionNotificationBlock, /actionNotificationFlights/);
+  assert.match(actionNotificationBlock, /activePair\.members\.map/);
+  assert.match(actionNotificationBlock, /ownerUserId: userId/);
+  assert.match(actionNotificationBlock, /isOfferedActivityEligibleForRole/);
+  assert.match(actionNotificationBlock, /notificationService\.create\(\{[\s\S]*?userIds/);
+  assert.match(actionNotificationBlock, /Pair\.findOneAndUpdate/);
+  assert.match(actionNotificationBlock, /\$inc: \{ lifecycleRevision: 1 \}/);
+  assert.match(actionNotificationBlock, /status: 'OFFERED'/);
+  assert.match(actionNotificationBlock, /session,/);
   assert.match(decisionServiceSource, /isActivityEligibleForSafetyState/);
   assert.match(decisionServiceSource, /if \(!decision\) return unavailable\(\)/);
   assert.match(decisionServiceSource, /status: \{ \$in: ACTIVE_ACTIVITY_STATUSES \}/);

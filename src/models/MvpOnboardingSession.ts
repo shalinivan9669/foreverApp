@@ -36,6 +36,12 @@ export type MvpOnboardingSessionType = {
   consent: MvpOnboardingConsent;
   cursor: number;
   answers: MvpOnboardingAnswer[];
+  factorEngine: {
+    status: 'PENDING' | 'MATERIALIZED';
+    registryVersion?: number;
+    evidenceEventIds: string[];
+    individualSnapshotIds: string[];
+  };
   startedAt: Date;
   completedAt?: Date;
   createdAt: Date;
@@ -82,6 +88,21 @@ const consentSchema = new Schema<MvpOnboardingConsent>(
   { _id: false }
 );
 
+const factorEngineSchema = new Schema<MvpOnboardingSessionType['factorEngine']>(
+  {
+    status: {
+      type: String,
+      enum: ['PENDING', 'MATERIALIZED'],
+      required: true,
+      default: 'PENDING',
+    },
+    registryVersion: { type: Number, min: 1 },
+    evidenceEventIds: { type: [String], required: true, default: [] },
+    individualSnapshotIds: { type: [String], required: true, default: [] },
+  },
+  { _id: false }
+);
+
 const mvpOnboardingSessionSchema = new Schema<MvpOnboardingSessionType>(
   {
     userId: { type: String, required: true },
@@ -96,6 +117,15 @@ const mvpOnboardingSessionSchema = new Schema<MvpOnboardingSessionType>(
     consent: { type: consentSchema, required: true },
     cursor: { type: Number, required: true, min: 0, default: 0 },
     answers: { type: [answerSchema], default: [] },
+    factorEngine: {
+      type: factorEngineSchema,
+      required: true,
+      default: () => ({
+        status: 'PENDING',
+        evidenceEventIds: [],
+        individualSnapshotIds: [],
+      }),
+    },
     startedAt: { type: Date, required: true },
     completedAt: { type: Date },
   },

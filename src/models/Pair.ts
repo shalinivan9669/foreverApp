@@ -16,17 +16,13 @@ export interface PairType {
   members: [string, string];        // Discord IDs, отсортированы
   key: string;                      // "A|B"
   status: 'active' | 'paused' | 'ended';
+  contextVersion: 'pair-context-v1';
+  lifecycleRevision?: number;
+  endedAt?: Date;
+  endedByUserId?: string;
+  endReason?: 'MEMBER_REQUEST' | 'ACCOUNT_DELETION';
   activeActivity?: ActiveActivity;  // опционально
   progress?: Progress;              // опционально
-  passport?: {
-    strongSides: { axis: string; facets: string[] }[];
-    riskZones:   { axis: string; facets: string[]; severity: 1|2|3 }[];
-    complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
-    levelDelta:  { axis: string; delta: number }[];
-    lastDiagnosticsAt?: Date;
-  };
-  fatigue?:   { score: number; updatedAt: Date };
-  readiness?: { score: number; updatedAt: Date };
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -59,28 +55,41 @@ const PairSchema = new Schema<PairType>(
         message: 'Pair must contain two different members',
       },
     },
-    key:    { type: String, required: true, unique: true },
+    // `key` groups the same two members. It is intentionally not unique: a
+    // reconnect creates a new Pair document and therefore a new private
+    // relationship context instead of reviving the ended one.
+    key:    { type: String, required: true },
     status: { type: String, enum: ['active', 'paused', 'ended'], default: 'active' },
+    lifecycleRevision: {
+      type: Number,
+      default: 0,
+      min: 0,
+      validate: Number.isInteger,
+    },
+    contextVersion: {
+      type: String,
+      enum: ['pair-context-v1'],
+      default: 'pair-context-v1',
+      required: true,
+      immutable: true,
+    },
+    endedAt: { type: Date },
+    endedByUserId: { type: String },
+    endReason: {
+      type: String,
+      enum: ['MEMBER_REQUEST', 'ACCOUNT_DELETION'],
+    },
 
     // ВАЖНО: никаких default: undefined
     activeActivity: { type: ActiveActivitySchema, required: false },
     progress:       { type: ProgressSchema,     required: false },
 
-  passport: {
-      strongSides:   [{ axis: String, facets: [String] }],
-      riskZones:     [{ axis: String, facets: [String], severity: { type: Number, enum: [1,2,3] } }],
-      complementMap: [{ axis: String, A_covers_B: [String], B_covers_A: [String] }],
-      levelDelta:    [{ axis: String, delta: Number }],
-      lastDiagnosticsAt: { type: Date },
-    },
-
-    fatigue:   { score: { type: Number, default: 0 }, updatedAt: { type: Date, default: Date.now } },
-    readiness: { score: { type: Number, default: 0 }, updatedAt: { type: Date, default: Date.now } },
   },
   { timestamps: true, collection: 'pairs' }
 );
 
 PairSchema.index({ members: 1, status: 1 });
+PairSchema.index({ key: 1, createdAt: -1 }, { name: 'pair_contexts_by_member_key' });
 
 export const Pair =
   (mongoose.models.Pair as mongoose.Model<PairType>) ||

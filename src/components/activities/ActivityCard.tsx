@@ -11,7 +11,6 @@ export default function ActivityCard(props: {
   onStart: () => void;
   onCancel: () => void;
   onComplete: () => void;
-  onSuggestNext: () => void;
 }) {
   const {
     activity,
@@ -31,13 +30,11 @@ export default function ActivityCard(props: {
         ''
       : '';
 
-  const axisLabels: Record<string, string> = {
-    communication: 'Коммуникация',
-    domestic: 'Быт',
-    finance: 'Финансы',
-    sexuality: 'Близость',
-    personalViews: 'Личные взгляды',
-    psyche: 'Ресурс',
+  const factorLabels: Record<string, string> = {
+    'communication.weekly.connection': 'Контакт',
+    'wellbeing.current.overload': 'Текущий ресурс',
+    'communication.conflict.repairSkill': 'Восстановление разговора',
+    'sharedLife.roles.householdCapability': 'Бытовые роли',
   };
   const statusLabels: Record<string, string> = {
     completed_success: 'Выполнено',
@@ -46,9 +43,8 @@ export default function ActivityCard(props: {
     cancelled: 'Отложено',
     expired: 'Срок завершён',
   };
-  const axes = Array.isArray(activity.axis) ? activity.axis : [activity.axis];
-  const axisText = axes
-    .map((axis) => axisLabels[axis] ?? 'Общая')
+  const factorText = activity.targetFactorKeys
+    .map((factorKey) => factorLabels[factorKey] ?? 'Совместный шаг')
     .join(', ');
   const difficultyText =
     activity.difficulty <= 2
@@ -76,7 +72,7 @@ export default function ActivityCard(props: {
             <span className={`rounded px-2 py-0.5 text-xs ${badge}`}>
               {activity.intent === 'celebrate' ? 'Поддержка' : 'Развитие'}
             </span>
-            {axisText && <span className="app-muted text-xs">{axisText}</span>}
+            {factorText && <span className="app-muted text-xs">{factorText}</span>}
             <span className="app-muted text-xs">{difficultyText}</span>
             <span className="app-muted text-xs">{intensityText}</span>
             {activity.requiresConsent && (
@@ -161,12 +157,14 @@ export default function ActivityCard(props: {
         {variant === 'suggested' && (
           <>
             <button
+              type="button"
               onClick={onAccept}
               className="app-btn-primary w-full px-3 py-2 sm:w-auto"
             >
               Принять
             </button>
             <button
+              type="button"
               onClick={onCancel}
               className="app-btn-secondary w-full px-3 py-2 sm:w-auto"
             >
@@ -179,6 +177,7 @@ export default function ActivityCard(props: {
           <>
             {activity.status === 'accepted' ? (
               <button
+                type="button"
                 onClick={onStart}
                 className="app-btn-primary w-full px-3 py-2 sm:w-auto"
               >
@@ -186,6 +185,7 @@ export default function ActivityCard(props: {
               </button>
             ) : (
               <button
+                type="button"
                 onClick={onComplete}
                 className="app-btn-primary w-full px-3 py-2 sm:w-auto"
               >
@@ -193,6 +193,7 @@ export default function ActivityCard(props: {
               </button>
             )}
             <button
+              type="button"
               onClick={onCancel}
               className="app-btn-secondary w-full px-3 py-2 sm:w-auto"
             >
@@ -209,6 +210,7 @@ export default function ActivityCard(props: {
             {result?.bothSubmitted === false &&
               activity.status === 'completed_partial' && (
                 <button
+                  type="button"
                   onClick={onComplete}
                   className="app-btn-secondary w-full px-3 py-2 sm:w-auto"
                 >

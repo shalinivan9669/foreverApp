@@ -1,25 +1,16 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { connectToDatabase } from '@/lib/mongodb';
-import {
-  Questionnaire,
-  publishedQuestionnaireFilter,
-  type QuestionnaireType,
-} from '@/models/Questionnaire';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
-import { toQuestionnaireDTO } from '@/lib/dto';
 import { questionnairesService } from '@/domain/services/questionnaires.service';
+import { questionnaireCatalogService } from '@/domain/services/questionnaireCatalog.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
 type AnswerItem = { qid: string; ui: number };
-type Body =
-  | { userId?: string; answers: AnswerItem[] }
-  | { userId?: string; qid: string; ui: number };
 
 const paramsSchema = z.object({
   id: z.string().min(1),
@@ -33,7 +24,6 @@ const answerUiSchema = z.number().int().min(1);
 
 const answersSchema = z
   .object({
-    userId: z.string().optional(),
     answers: z
       .array(
         z.object({
@@ -46,21 +36,11 @@ const answersSchema = z
   })
   .strict();
 
-const singleAnswerSchema = z
-  .object({
-    userId: z.string().optional(),
-    qid: z.string().min(1),
-    ui: answerUiSchema,
-  })
-  .strict();
-
-const bodySchema = z.union([answersSchema, singleAnswerSchema]);
-
 export async function GET(
   req: NextRequest,
   context: RouteContext
 ) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const paramsInput = await context.params;
@@ -72,17 +52,15 @@ export async function GET(
   if (!params.ok) return params.response;
   const { id } = params.data;
 
-  await connectToDatabase();
-  const doc = await Questionnaire.findOne({
-    _id: id,
-    ...publishedQuestionnaireFilter(),
-  }).lean<QuestionnaireType | null>();
-  if (!doc) return jsonError(404, 'QUESTIONNAIRE_NOT_FOUND', 'not found');
-  return jsonOk(toQuestionnaireDTO(doc));
+  const questionnaire = await questionnaireCatalogService.getPublishedById(id);
+  if (!questionnaire) {
+    return jsonError(404, 'QUESTIONNAIRE_NOT_FOUND', 'not found');
+  }
+  return jsonOk(questionnaire);
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 
@@ -95,16 +73,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
   if (!params.ok) return params.response;
   const { id: questionnaireId } = params.data;
 
-  const bodyResult = await parseJson(req, bodySchema);
+  const bodyResult = await parseJson(req, answersSchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const body = bodyResult.data as Body;
-
-  const answers: AnswerItem[] =
-    'answers' in body
-      ? body.answers
-      : 'qid' in body && typeof body.qid === 'string'
-        ? [{ qid: body.qid, ui: body.ui }]
-        : [];
+  const answers: AnswerItem[] = bodyResult.data.answers;
 
   const route = `/api/questionnaires/${questionnaireId}`;
   const auditRequest = auditContextFromRequest(req, route);
@@ -122,8 +93,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
         currentUserId: userId,
         questionnaireId,
         answers,
-        strictQuestionMatch: true,
-        audience: 'personal',
         auditRequest,
       }),
   });

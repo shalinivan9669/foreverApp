@@ -1,6 +1,5 @@
-'use client';
-import OnboardingWizard from '@/components/OnboardingWizard';
+import { redirect } from 'next/navigation';
 
-export default function WelcomePage() {
-  return <OnboardingWizard />;
+export default function WelcomeLegacyRedirect() {
+  redirect('/mvp-onboarding');
 }

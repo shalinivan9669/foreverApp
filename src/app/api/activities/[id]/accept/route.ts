@@ -16,7 +16,7 @@ const paramsSchema = z.object({
 });
 
 export async function POST(req: Request, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 

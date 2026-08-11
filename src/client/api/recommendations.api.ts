@@ -1,4 +1,5 @@
 import { http, type HttpRequestOptions } from './http';
+import type { ActivityActionDefinitionRef } from './types';
 
 export type RecommendationDecisionStatus =
   | 'OFFERED'
@@ -13,7 +14,7 @@ export type RecommendationDecisionDTO = {
   activity: {
     id: string;
     title: { ru: string; en: string };
-    axis: string[];
+    actionDefinition: ActivityActionDefinitionRef;
     difficulty: 1 | 2 | 3 | 4 | 5;
     expiresAt?: string;
   };

@@ -1,5 +1,9 @@
 import mongoose, { Types } from 'mongoose';
 import { asError, DomainError } from '@/domain/errors';
+import {
+  accountWriteBarrierService,
+  type AccountWriteLease,
+} from '@/domain/services/accountWriteBarrier.service';
 import { connectToDatabase } from '@/lib/mongodb';
 import type { SandboxWebhookPayload } from '@/lib/billing/sandboxWebhook';
 import { BillingWebhookEvent } from '@/models/BillingWebhookEvent';
@@ -34,10 +38,7 @@ type IncomingProviderEventOrder = {
 };
 
 export type ProviderEventDisposition =
-  | 'APPLY'
-  | 'STALE'
-  | 'EQUIVALENT'
-  | 'CONFLICT';
+  'APPLY' | 'STALE' | 'EQUIVALENT' | 'CONFLICT';
 
 const compareText = (left: string, right: string): number => {
   if (left === right) return 0;
@@ -47,7 +48,9 @@ const compareText = (left: string, right: string): number => {
 export const classifyProviderEvent = (input: {
   current: Pick<
     StoredSubscriptionOrder,
-    'providerEventVersion' | 'providerEventOccurredAt' | 'providerLastPayloadHash'
+    | 'providerEventVersion'
+    | 'providerEventOccurredAt'
+    | 'providerLastPayloadHash'
   > | null;
   incoming: IncomingProviderEventOrder;
 }): ProviderEventDisposition => {
@@ -85,7 +88,7 @@ export const compareProviderCurrentOrder = (
     | 'providerEventVersion'
     | 'providerEventOccurredAt'
     | 'providerLastEventId'
-  >
+  >,
 ): number => {
   const currentOccurredAt = current.providerEventOccurredAt;
   if (!currentOccurredAt) return 1;
@@ -101,12 +104,12 @@ export const compareProviderCurrentOrder = (
 
   const eventDifference = compareText(
     incoming.eventId,
-    current.providerLastEventId ?? ''
+    current.providerLastEventId ?? '',
   );
   if (eventDifference !== 0) return eventDifference;
   return compareText(
     incoming.subscriptionId,
-    current.providerSubscriptionId ?? ''
+    current.providerSubscriptionId ?? '',
   );
 };
 
@@ -152,99 +155,93 @@ export const billingWebhookService = {
     const now = input.now ?? new Date();
     const providerOccurredAt = new Date(input.payload.occurredAt);
     const pairId = new Types.ObjectId(input.payload.pairId);
-    const incomingOrder: IncomingProviderEventOrder = {
-      subscriptionId: input.payload.subscriptionId,
-      version: input.payload.version,
-      occurredAt: providerOccurredAt,
-      eventId: input.eventId,
-      payloadHash: input.payloadHash,
-    };
-    let equivalent = false;
-    let analyticsTransition:
-      | 'subscription_started'
-      | 'subscription_cancelled'
-      | undefined;
-    const session = await mongoose.startSession();
+    const pairForLease = await Pair.findOne({
+      _id: pairId,
+      members: input.payload.billingOwnerUserId,
+      status: { $in: ['active', 'paused'] },
+    })
+      .select({ members: 1 })
+      .lean<{ members: string[] } | null>();
+    if (!pairForLease) {
+      throw new DomainError({
+        code: 'WEBHOOK_EVENT_REJECTED',
+        status: 409,
+        message: 'Webhook event is unavailable',
+      });
+    }
+
+    const leases: AccountWriteLease[] = [];
     try {
-      await session.withTransaction(async () => {
-        analyticsTransition = undefined;
-        const pair = await Pair.findOne({
-          _id: pairId,
-          members: input.payload.billingOwnerUserId,
-          status: { $in: ['active', 'paused'] },
-        })
-          .select({ _id: 1 })
-          .session(session)
-          .lean<{ _id: Types.ObjectId } | null>();
-        if (!pair) {
-          throw new DomainError({
-            code: 'WEBHOOK_EVENT_REJECTED',
-            status: 409,
-            message: 'Webhook event is unavailable',
-          });
-        }
-
-        await BillingWebhookEvent.create(
-          [
-            {
-              provider: 'sandbox',
-              eventId: input.eventId,
-              payloadHash: input.payloadHash,
-              pairId,
-              providerSubscriptionId: input.payload.subscriptionId,
-              providerEventVersion: input.payload.version,
-              providerOccurredAt,
-              status: 'RECEIVED',
-              receivedAt: now,
-            },
-          ],
-          { session }
+      for (const userId of [...new Set(pairForLease.members)].sort()) {
+        leases.push(
+          await accountWriteBarrierService.acquireExternal({
+            userId,
+            kind: 'BILLING_WEBHOOK',
+          }),
         );
+      }
 
-        const subscriptionIdentity = {
-          pairId,
-          provider: 'sandbox' as const,
-          providerSubscriptionId: input.payload.subscriptionId,
-        };
-        const existingSubscription = await Subscription.findOne(
-          subscriptionIdentity
-        )
-          .select({
-            _id: 1,
-            providerSubscriptionId: 1,
-            providerIsCurrent: 1,
-            providerEventVersion: 1,
-            providerEventOccurredAt: 1,
-            providerLastEventId: 1,
-            providerLastPayloadHash: 1,
-            status: 1,
-          })
-          .session(session)
-          .lean<StoredSubscriptionOrder | null>();
-        const disposition = classifyProviderEvent({
-          current: existingSubscription,
-          incoming: incomingOrder,
-        });
-        if (disposition === 'CONFLICT') {
-          throw new DomainError({
-            code: 'WEBHOOK_EVENT_ORDER_CONFLICT',
-            status: 409,
-            message: 'Webhook event is unavailable',
-          });
-        }
+      const incomingOrder: IncomingProviderEventOrder = {
+        subscriptionId: input.payload.subscriptionId,
+        version: input.payload.version,
+        occurredAt: providerOccurredAt,
+        eventId: input.eventId,
+        payloadHash: input.payloadHash,
+      };
+      let equivalent = false;
+      let analyticsTransition:
+        'subscription_started' | 'subscription_cancelled' | undefined;
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          analyticsTransition = undefined;
+          const pair = await Pair.findOneAndUpdate(
+            {
+              _id: pairId,
+              members: input.payload.billingOwnerUserId,
+              status: { $in: ['active', 'paused'] },
+            },
+            { $inc: { lifecycleRevision: 1 } },
+            {
+              new: true,
+              projection: { _id: 1 },
+              session,
+              timestamps: false,
+            },
+          ).lean<{ _id: Types.ObjectId } | null>();
+          if (!pair) {
+            throw new DomainError({
+              code: 'WEBHOOK_EVENT_REJECTED',
+              status: 409,
+              message: 'Webhook event is unavailable',
+            });
+          }
 
-        if (disposition === 'APPLY') {
-          const currentSubscription = await Subscription.findOne({
+          await BillingWebhookEvent.create(
+            [
+              {
+                provider: 'sandbox',
+                eventId: input.eventId,
+                payloadHash: input.payloadHash,
+                pairId,
+                providerSubscriptionId: input.payload.subscriptionId,
+                providerEventVersion: input.payload.version,
+                providerOccurredAt,
+                status: 'RECEIVED',
+                receivedAt: now,
+              },
+            ],
+            { session },
+          );
+
+          const subscriptionIdentity = {
             pairId,
-            provider: 'sandbox',
-            providerIsCurrent: true,
-          })
-            .sort({
-              providerEventOccurredAt: -1,
-              providerEventVersion: -1,
-              providerLastEventId: -1,
-              providerSubscriptionId: -1,
-            })
+            provider: 'sandbox' as const,
+            providerSubscriptionId: input.payload.subscriptionId,
+          };
+          const existingSubscription = await Subscription.findOne(
+            subscriptionIdentity,
+          )
             .select({
               _id: 1,
               providerSubscriptionId: 1,
@@ -253,151 +250,196 @@ export const billingWebhookService = {
               providerEventOccurredAt: 1,
               providerLastEventId: 1,
               providerLastPayloadHash: 1,
+              status: 1,
             })
             .session(session)
             .lean<StoredSubscriptionOrder | null>();
-          const shouldBeCurrent =
-            !currentSubscription ||
-            currentSubscription.providerSubscriptionId ===
-              input.payload.subscriptionId ||
-            compareProviderCurrentOrder(incomingOrder, currentSubscription) > 0;
-
-          if (shouldBeCurrent) {
-            await Subscription.updateMany(
-              {
-                pairId,
-                provider: 'sandbox',
-                providerIsCurrent: true,
-                providerSubscriptionId: { $ne: input.payload.subscriptionId },
-              },
-              { $set: { providerIsCurrent: false } },
-              { session }
-            );
+          const disposition = classifyProviderEvent({
+            current: existingSubscription,
+            incoming: incomingOrder,
+          });
+          if (disposition === 'CONFLICT') {
+            throw new DomainError({
+              code: 'WEBHOOK_EVENT_ORDER_CONFLICT',
+              status: 409,
+              message: 'Webhook event is unavailable',
+            });
           }
 
-          const status =
-            input.payload.eventType === 'subscription.deleted'
-              ? 'expired'
-              : input.payload.status;
-          const subscriptionFields = {
-            userId: input.payload.billingOwnerUserId,
-            billingOwnerUserId: input.payload.billingOwnerUserId,
-            pairId,
-            provider: 'sandbox' as const,
-            providerSubscriptionId: input.payload.subscriptionId,
-            providerIsCurrent: shouldBeCurrent,
-            providerEventVersion: input.payload.version,
-            providerEventOccurredAt: providerOccurredAt,
-            providerLastEventId: input.eventId,
-            providerLastPayloadHash: input.payloadHash,
-            providerLastEventType: input.payload.eventType,
-            plan: input.payload.plan,
-            status,
-            ...(input.payload.periodEnd
-              ? { periodEnd: new Date(input.payload.periodEnd) }
-              : {}),
-            meta: {
-              source: 'sandbox_webhook',
-              lastEventAt: now.toISOString(),
-            },
-          };
+          if (disposition === 'APPLY') {
+            const currentSubscription = await Subscription.findOne({
+              pairId,
+              provider: 'sandbox',
+              providerIsCurrent: true,
+            })
+              .sort({
+                providerEventOccurredAt: -1,
+                providerEventVersion: -1,
+                providerLastEventId: -1,
+                providerSubscriptionId: -1,
+              })
+              .select({
+                _id: 1,
+                providerSubscriptionId: 1,
+                providerIsCurrent: 1,
+                providerEventVersion: 1,
+                providerEventOccurredAt: 1,
+                providerLastEventId: 1,
+                providerLastPayloadHash: 1,
+              })
+              .session(session)
+              .lean<StoredSubscriptionOrder | null>();
+            const shouldBeCurrent =
+              !currentSubscription ||
+              currentSubscription.providerSubscriptionId ===
+                input.payload.subscriptionId ||
+              compareProviderCurrentOrder(incomingOrder, currentSubscription) >
+                0;
 
-          if (existingSubscription) {
-            const orderFilter =
-              existingSubscription.providerEventVersion === undefined
-                ? { providerEventVersion: { $exists: false } }
-                : {
-                    providerEventVersion:
-                      existingSubscription.providerEventVersion,
-                  };
-            const updated = await Subscription.updateOne(
-              { _id: existingSubscription._id, ...orderFilter },
-              {
-                $set: subscriptionFields,
-                ...(input.payload.periodEnd ? {} : { $unset: { periodEnd: 1 } }),
-              },
-              { session }
-            );
-            if (updated.matchedCount !== 1) {
-              throw new DomainError({
-                code: 'WEBHOOK_EVENT_IN_PROGRESS',
-                status: 409,
-                message: 'Webhook event is unavailable',
-              });
+            if (shouldBeCurrent) {
+              await Subscription.updateMany(
+                {
+                  pairId,
+                  provider: 'sandbox',
+                  providerIsCurrent: true,
+                  providerSubscriptionId: { $ne: input.payload.subscriptionId },
+                },
+                { $set: { providerIsCurrent: false } },
+                { session },
+              );
             }
-          } else {
-            await Subscription.create([subscriptionFields], { session });
-          }
-          const wasEntitled =
-            existingSubscription?.status === 'active' ||
-            existingSubscription?.status === 'trial' ||
-            existingSubscription?.status === 'grace';
-          const isEntitled =
-            status === 'active' || status === 'trial' || status === 'grace';
-          if (!wasEntitled && isEntitled) {
-            analyticsTransition = 'subscription_started';
-          } else if (wasEntitled && !isEntitled) {
-            analyticsTransition = 'subscription_cancelled';
-          }
-        } else if (disposition === 'EQUIVALENT') {
-          equivalent = true;
-        }
 
-        await BillingWebhookEvent.updateOne(
-          { provider: 'sandbox', eventId: input.eventId, status: 'RECEIVED' },
-          {
-            $set: {
-              status: 'PROCESSED',
-              processedAt: now,
-              outcome:
-                disposition === 'APPLY'
-                  ? 'APPLIED'
-                  : disposition === 'STALE'
-                    ? 'STALE'
-                    : 'EQUIVALENT',
+            const status =
+              input.payload.eventType === 'subscription.deleted'
+                ? 'expired'
+                : input.payload.status;
+            const subscriptionFields = {
+              userId: input.payload.billingOwnerUserId,
+              billingOwnerUserId: input.payload.billingOwnerUserId,
+              pairId,
+              provider: 'sandbox' as const,
+              providerSubscriptionId: input.payload.subscriptionId,
+              providerIsCurrent: shouldBeCurrent,
+              providerEventVersion: input.payload.version,
+              providerEventOccurredAt: providerOccurredAt,
+              providerLastEventId: input.eventId,
+              providerLastPayloadHash: input.payloadHash,
+              providerLastEventType: input.payload.eventType,
+              plan: input.payload.plan,
+              status,
+              ...(input.payload.periodEnd
+                ? { periodEnd: new Date(input.payload.periodEnd) }
+                : {}),
+              meta: {
+                source: 'sandbox_webhook',
+                lastEventAt: now.toISOString(),
+              },
+            };
+
+            if (existingSubscription) {
+              const orderFilter =
+                existingSubscription.providerEventVersion === undefined
+                  ? { providerEventVersion: { $exists: false } }
+                  : {
+                      providerEventVersion:
+                        existingSubscription.providerEventVersion,
+                    };
+              const updated = await Subscription.updateOne(
+                { _id: existingSubscription._id, ...orderFilter },
+                {
+                  $set: subscriptionFields,
+                  ...(input.payload.periodEnd
+                    ? {}
+                    : { $unset: { periodEnd: 1 } }),
+                },
+                { session },
+              );
+              if (updated.matchedCount !== 1) {
+                throw new DomainError({
+                  code: 'WEBHOOK_EVENT_IN_PROGRESS',
+                  status: 409,
+                  message: 'Webhook event is unavailable',
+                });
+              }
+            } else {
+              await Subscription.create([subscriptionFields], { session });
+            }
+            const wasEntitled =
+              existingSubscription?.status === 'active' ||
+              existingSubscription?.status === 'trial' ||
+              existingSubscription?.status === 'grace';
+            const isEntitled =
+              status === 'active' || status === 'trial' || status === 'grace';
+            if (!wasEntitled && isEntitled) {
+              analyticsTransition = 'subscription_started';
+            } else if (wasEntitled && !isEntitled) {
+              analyticsTransition = 'subscription_cancelled';
+            }
+          } else if (disposition === 'EQUIVALENT') {
+            equivalent = true;
+          }
+
+          await BillingWebhookEvent.updateOne(
+            { provider: 'sandbox', eventId: input.eventId, status: 'RECEIVED' },
+            {
+              $set: {
+                status: 'PROCESSED',
+                processedAt: now,
+                outcome:
+                  disposition === 'APPLY'
+                    ? 'APPLIED'
+                    : disposition === 'STALE'
+                      ? 'STALE'
+                      : 'EQUIVALENT',
+              },
             },
-          },
-          { session }
-        );
-      });
-      if (analyticsTransition === 'subscription_started') {
-        recordProductAnalyticsEvent({
-          name: 'subscription_started',
-          technicalScope: 'subscription',
-          at: now,
+            { session },
+          );
         });
-      } else if (analyticsTransition === 'subscription_cancelled') {
-        recordProductAnalyticsEvent({
-          name: 'subscription_cancelled',
-          technicalScope: 'subscription',
-          at: now,
-        });
-      }
-      return { processed: true, duplicate: equivalent };
-    } catch (error) {
-      const normalized = asError(error);
-      if (isDuplicateKeyError(normalized)) {
-        const concurrent = await existingResult(input);
-        if (concurrent) return concurrent;
-      }
-      const code = normalized instanceof DomainError ? normalized.code : 'INTERNAL';
-      if (code.includes('CONFLICT')) {
+        if (analyticsTransition === 'subscription_started') {
+          recordProductAnalyticsEvent({
+            name: 'subscription_started',
+            technicalScope: 'subscription',
+            at: now,
+          });
+        } else if (analyticsTransition === 'subscription_cancelled') {
+          recordProductAnalyticsEvent({
+            name: 'subscription_cancelled',
+            technicalScope: 'subscription',
+            at: now,
+          });
+        }
+        return { processed: true, duplicate: equivalent };
+      } catch (error) {
+        const normalized = asError(error);
+        if (isDuplicateKeyError(normalized)) {
+          const concurrent = await existingResult(input);
+          if (concurrent) return concurrent;
+        }
+        const code =
+          normalized instanceof DomainError ? normalized.code : 'INTERNAL';
+        if (code.includes('CONFLICT')) {
+          recordOperationalEvent({
+            name: 'conflict_observed',
+            routeGroup: 'billing',
+            outcome: 'conflict',
+            code,
+          });
+        }
         recordOperationalEvent({
-          name: 'conflict_observed',
+          name: 'webhook_failed',
           routeGroup: 'billing',
-          outcome: 'conflict',
+          outcome: code.includes('CONFLICT') ? 'conflict' : 'error',
           code,
         });
+        throw normalized;
+      } finally {
+        await session.endSession();
       }
-      recordOperationalEvent({
-        name: 'webhook_failed',
-        routeGroup: 'billing',
-        outcome: code.includes('CONFLICT') ? 'conflict' : 'error',
-        code,
-      });
-      throw normalized;
     } finally {
-      await session.endSession();
+      await Promise.allSettled(
+        leases.map((lease) => accountWriteBarrierService.release(lease)),
+      );
     }
   },
 };

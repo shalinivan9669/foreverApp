@@ -1,8 +1,10 @@
 import type { RelationshipLens } from '@/domain/services/relationshipLens.service';
 import type {
   PersonalTodayFocus,
+  PersonalTodayMetricValues,
   PersonalTodayMetrics,
 } from '@/domain/services/personalTodayRules.service';
+import { personalTodayOverallDataStatus } from '@/domain/services/personalTodayRules.service';
 
 export type PersonalTodayPairContext = {
   hasPair: boolean;
@@ -60,14 +62,8 @@ const percentValue = (value: number): number => Math.max(0, Math.min(1, value));
 
 const hintsForFocus = (
   focus: PersonalTodayFocus,
-  metrics: PersonalTodayMetrics
+  metrics: PersonalTodayMetricValues
 ): string[] => {
-  if (focus.mode === 'low_data') {
-    return [
-      'Можно отметить состояние за 30 секунд',
-      'Дневник останется только для тебя',
-    ];
-  }
   if (focus.mode === 'repair') {
     return [
       'Начать лучше с короткой фразы',
@@ -102,6 +98,34 @@ const hintsForFocus = (
     `Ресурс ${Math.round(metrics.resource * 100)}%`,
     'Подойдёт спокойный темп',
   ];
+};
+
+const availableValues = (
+  metrics: PersonalTodayMetrics
+): PersonalTodayMetricValues => {
+  const values = metrics.values;
+  if (
+    typeof values.resource !== 'number' ||
+    typeof values.closeness !== 'number' ||
+    typeof values.tension !== 'number' ||
+    typeof values.supportNeed !== 'number' ||
+    typeof values.conversationReadiness !== 'number' ||
+    typeof values.irritationRisk !== 'number' ||
+    typeof values.initiative !== 'number' ||
+    typeof values.repair !== 'number'
+  ) {
+    throw new Error('PERSONAL_TODAY_AVAILABLE_METRICS_INCOMPLETE');
+  }
+  return {
+    resource: values.resource,
+    closeness: values.closeness,
+    tension: values.tension,
+    supportNeed: values.supportNeed,
+    conversationReadiness: values.conversationReadiness,
+    irritationRisk: values.irritationRisk,
+    initiative: values.initiative,
+    repair: values.repair,
+  };
 };
 
 const feminineCards = (
@@ -267,6 +291,34 @@ const softPhrase = (
 export const buildPersonalTodayCopy = (
   input: PersonalTodayCopyInput
 ): PersonalTodayCopy => {
+  if (personalTodayOverallDataStatus(input.metrics) !== 'AVAILABLE') {
+    return {
+      hero: {
+        title: input.focus.title,
+        subtitle: input.focus.subtitle,
+        hints: [
+          'Числовые выводы появятся только после вашей отметки',
+          'Дневник останется только для вас',
+        ],
+      },
+      quickCards: [],
+      partnerSignal: {
+        title: input.pairContext.hasPair ? 'Сигнал партнёру' : 'Фраза для себя',
+        text: '',
+      },
+      softOption: {
+        title: 'Сначала отметьте состояние',
+        intro: 'Без данных мы не предлагаем личный вывод.',
+        phrase: '',
+        alternatives: [],
+        primaryCta: 'Отметить состояние',
+        secondaryCta: 'Оставить себе',
+      },
+      todayMap: [],
+    };
+  }
+
+  const metrics = availableValues(input.metrics);
   const quickCards =
     input.lens.type === 'feminine'
       ? feminineCards(input.focus)
@@ -279,7 +331,7 @@ export const buildPersonalTodayCopy = (
     hero: {
       title: input.focus.title,
       subtitle: input.focus.subtitle,
-      hints: hintsForFocus(input.focus, input.metrics),
+      hints: hintsForFocus(input.focus, metrics),
     },
     quickCards,
     partnerSignal: {
@@ -295,19 +347,19 @@ export const buildPersonalTodayCopy = (
       secondaryCta: 'Оставить себе',
     },
     todayMap: [
-      { key: 'resource', label: 'Ресурс', value: percentValue(input.metrics.resource) },
-      { key: 'closeness', label: 'Близость', value: percentValue(input.metrics.closeness) },
-      { key: 'stress', label: 'Стресс', value: percentValue(input.metrics.tension) },
-      { key: 'support', label: 'Поддержка', value: percentValue(input.metrics.supportNeed) },
+      { key: 'resource', label: 'Ресурс', value: percentValue(metrics.resource) },
+      { key: 'closeness', label: 'Близость', value: percentValue(metrics.closeness) },
+      { key: 'stress', label: 'Стресс', value: percentValue(metrics.tension) },
+      { key: 'support', label: 'Поддержка', value: percentValue(metrics.supportNeed) },
       {
         key: 'conversation',
         label: 'Разговор',
-        value: percentValue(input.metrics.conversationReadiness),
+        value: percentValue(metrics.conversationReadiness),
       },
       {
         key: 'irritation',
         label: 'Раздражение',
-        value: percentValue(input.metrics.irritationRisk),
+        value: percentValue(metrics.irritationRisk),
       },
     ],
   };

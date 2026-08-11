@@ -1,16 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BackBar from '@/components/ui/BackBar';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
-import { pairsApi } from '@/client/api/pairs.api';
+import QuestionCard from '@/components/QuestionCard';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
 import type { QuestionDTO } from '@/client/api/types';
 import { useApi } from '@/client/hooks/useApi';
-import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 
 export default function PairQuestionnaireRunner() {
   const params = useParams<{ id: string; qid: string }>();
@@ -34,19 +33,28 @@ function PairQuestionnaireRunnerContent({
   questionnaireId?: string;
 }) {
   const router = useRouter();
-  const { data: currentUser } = useCurrentUser();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionDTO[]>([]);
   const [title, setTitle] = useState<string>('');
   const [index, setIndex] = useState(0);
-  const [by, setBy] = useState<'A' | 'B'>('A');
+  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, number>>({});
+  const [loadSettled, setLoadSettled] = useState(false);
+  const [sessionSettled, setSessionSettled] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
+  const questionRegionRef = useRef<HTMLDivElement | null>(null);
 
   const {
     runSafe: runLoadSafe,
     loading: loading,
     error: loadError,
   } = useApi('pair-questionnaire-load');
+  const {
+    runSafe: runStartSafe,
+    loading: starting,
+    error: startError,
+  } = useApi('pair-questionnaire-start');
   const {
     runSafe: runSubmitSafe,
     loading: submitting,
@@ -56,77 +64,64 @@ function PairQuestionnaireRunnerContent({
 
   useEffect(() => {
     let active = true;
-    if (!pairId || !currentUser) return;
-
-    pairsApi
-      .getSummary(pairId)
-      .then((summary) => {
-        if (!active) return;
-        const members = summary.pair.members ?? [];
-        setBy(members[0] === currentUser.id ? 'A' : 'B');
-      })
-      .catch(() => {
-        if (!active) return;
-        setBy('A');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [currentUser, pairId]);
-
-  useEffect(() => {
-    let active = true;
     const controller = new AbortController();
 
     if (!questionnaireId) return;
 
-    runLoadSafe(
+    void runLoadSafe(
       () => questionnairesApi.getQuestionnaire(questionnaireId, controller.signal),
       { loadingKey: 'pair-questionnaire-load' }
-    ).then((questionnaire) => {
-      if (!active || !questionnaire) return;
-      setTitle(questionnaire.title?.ru ?? questionnaire.title?.en ?? 'Анкета');
-      setQuestions(Array.isArray(questionnaire.questions) ? questionnaire.questions : []);
-    });
+    )
+      .then((questionnaire) => {
+        if (!active || !questionnaire) return;
+        setTitle(questionnaire.title?.ru ?? questionnaire.title?.en ?? 'Анкета');
+        setQuestions(Array.isArray(questionnaire.questions) ? questionnaire.questions : []);
+      })
+      .finally(() => {
+        if (active) setLoadSettled(true);
+      });
 
     return () => {
       active = false;
       controller.abort();
     };
-  }, [questionnaireId, runLoadSafe]);
+  }, [loadAttempt, questionnaireId, runLoadSafe]);
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     if (!pairId || !questionnaireId) return;
 
-    questionnairesApi
-      .startCoupleQuestionnaire(pairId, questionnaireId)
+    void runStartSafe(
+      () => questionnairesApi.startCoupleQuestionnaire(pairId, questionnaireId, controller.signal),
+      { loadingKey: 'pair-questionnaire-start' }
+    )
       .then((response) => {
-        if (!active) return;
-        setSessionId(response.sessionId ?? null);
+        if (!active || !response) return;
+        setSessionId(response.sessionId);
       })
-      .catch(() => {
-        if (!active) return;
-        setSessionId(null);
+      .finally(() => {
+        if (active) setSessionSettled(true);
       });
 
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [pairId, questionnaireId]);
+  }, [pairId, questionnaireId, runStartSafe, sessionAttempt]);
 
   const currentQuestion = questions[index];
-  const questionText = currentQuestion?.text?.ru ?? currentQuestion?.text?.en ?? '';
-  const scale = currentQuestion?.scale ?? 'likert5';
-
   const totalQuestions = useMemo(() => questions.length || 1, [questions.length]);
+
+  useEffect(() => {
+    if (currentQuestion && sessionId) questionRegionRef.current?.focus();
+  }, [currentQuestion, index, sessionId]);
 
   const submitAnswer = async (ui: number) => {
     if (!pairId || !questionnaireId || !currentQuestion) return;
 
-    const questionId = currentQuestion.id ?? currentQuestion._id;
-    if (!questionId) return;
+    const questionId = currentQuestion.id;
+    setAnswersByQuestionId((current) => ({ ...current, [questionId]: ui }));
 
     clearSubmitError();
     const saved = await runSubmitSafe(
@@ -156,7 +151,7 @@ function PairQuestionnaireRunnerContent({
     );
   }
 
-  if (loading && questions.length === 0) {
+  if ((loading || starting || !loadSettled || !sessionSettled) && (questions.length === 0 || !sessionId)) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}`} />
@@ -165,14 +160,23 @@ function PairQuestionnaireRunnerContent({
     );
   }
 
-  if (loadError) {
+  if (loadError || startError) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <BackBar title="Анкета пары" fallbackHref={`/pair/${pairId}`} />
         <ErrorView
-          error={loadError}
+          error={loadError ?? startError}
           onRetry={() => {
-            router.refresh();
+            if (loadError) {
+              setQuestions([]);
+              setLoadSettled(false);
+              setLoadAttempt((attempt) => attempt + 1);
+            }
+            if (startError) {
+              setSessionId(null);
+              setSessionSettled(false);
+              setSessionAttempt((attempt) => attempt + 1);
+            }
           }}
           onAuthRequired={() => {
             router.push('/');
@@ -199,60 +203,29 @@ function PairQuestionnaireRunnerContent({
       <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}`} />
 
       <div className="app-panel-soft p-3 text-sm">
-        Ваша роль в паре: <span className="font-medium">{by}</span>
+        Ответ сохраняется от вашего аккаунта. Партнёр не увидит выбранный вариант напрямую.
       </div>
 
-      <div className="app-panel space-y-5 p-5 sm:p-7">
-        <div className="text-sm text-gray-500">
+      <div>
+        <div className="app-muted mb-3 text-sm">
           Вопрос {index + 1} / {totalQuestions}
         </div>
-        <div className="font-display text-xl leading-snug text-slate-900 sm:text-2xl">{questionText}</div>
-
-        {scale === 'bool' ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                void submitAnswer(1);
-              }}
-              disabled={submitting}
-              className="app-btn-secondary min-h-12 px-4 py-3 text-sm text-slate-900 disabled:opacity-60"
-            >
-              Да
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void submitAnswer(2);
-              }}
-              disabled={submitting}
-              className="app-btn-secondary min-h-12 px-4 py-3 text-sm text-slate-900 disabled:opacity-60"
-            >
-              Нет
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-5 gap-2 sm:gap-3">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  void submitAnswer(value);
-                }}
-                disabled={submitting}
-                className="app-btn-secondary min-h-12 px-2 py-3 text-base text-slate-900 disabled:opacity-60"
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-        )}
+        <div ref={questionRegionRef} tabIndex={-1} className={submitting ? 'pointer-events-none opacity-70 outline-none' : 'outline-none'}>
+          <QuestionCard
+            q={currentQuestion}
+            selected={answersByQuestionId[currentQuestion.id]}
+            onAnswer={(_, value) => void submitAnswer(value)}
+          />
+        </div>
       </div>
 
       {submitError && (
         <ErrorView
           error={submitError}
+          onRetry={() => {
+            const selected = answersByQuestionId[currentQuestion.id];
+            if (typeof selected === 'number') void submitAnswer(selected);
+          }}
           onAuthRequired={() => {
             router.push('/');
           }}

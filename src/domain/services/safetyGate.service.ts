@@ -1,7 +1,8 @@
-import { Types } from 'mongoose';
+import mongoose, { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
+import { Pair } from '@/models/Pair';
 import { SafetyGate, type SafetyGateType } from '@/models/SafetyGate';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
@@ -13,6 +14,10 @@ export type OwnerSafetyGateDTO = {
 };
 
 type StoredSafetyGate = SafetyGateType & { _id: Types.ObjectId };
+
+export type SafetyGateReliabilityTestHooks = {
+  beforeTransactionalPairGuard?: () => Promise<void>;
+};
 
 const ensurePairMember = async (pairId: string, ownerUserId: string) => {
   const guard = await requirePairMember(pairId, ownerUserId);
@@ -57,22 +62,54 @@ export const setOwnerSafetyGate = async (input: {
   ownerUserId: string;
   enabled: boolean;
   auditRequest?: AuditRequestContext;
-}): Promise<OwnerSafetyGateDTO> => {
+}, hooks: SafetyGateReliabilityTestHooks = {}): Promise<OwnerSafetyGateDTO> => {
   await connectToDatabase();
-  await ensurePairMember(input.pairId, input.ownerUserId);
+  const pair = await ensurePairMember(input.pairId, input.ownerUserId);
   const now = new Date();
-  const gate = await SafetyGate.findOneAndUpdate(
-    { pairId: input.pairId, ownerUserId: input.ownerUserId },
-    {
-      $set: {
-        enabled: input.enabled,
-        retentionClass: 'UNTIL_REVOKED_OR_PAIR_END',
-        ...(input.enabled ? {} : { revokedAt: now }),
-      },
-      ...(input.enabled ? { $unset: { revokedAt: 1 } } : {}),
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  ).lean<StoredSafetyGate | null>();
+  let gate: StoredSafetyGate | null = null;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await hooks.beforeTransactionalPairGuard?.();
+      const activePair = await Pair.findOneAndUpdate(
+        {
+          _id: pair._id,
+          members: input.ownerUserId,
+          status: { $in: ['active', 'paused'] },
+        },
+        { $inc: { lifecycleRevision: 1 } },
+        { new: false, session, timestamps: false }
+      )
+        .select({ _id: 1 })
+        .lean<{ _id: Types.ObjectId } | null>();
+      if (!activePair) {
+        throw new DomainError({
+          code: 'STATE_CONFLICT',
+          status: 409,
+          message: 'Safety controls are unavailable after pair end',
+        });
+      }
+      gate = await SafetyGate.findOneAndUpdate(
+        { pairId: pair._id, ownerUserId: input.ownerUserId },
+        {
+          $set: {
+            enabled: input.enabled,
+            retentionClass: 'UNTIL_REVOKED_OR_PAIR_END',
+            ...(input.enabled ? {} : { revokedAt: now }),
+          },
+          ...(input.enabled ? { $unset: { revokedAt: 1 } } : {}),
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+          session,
+        }
+      ).lean<StoredSafetyGate | null>();
+    });
+  } finally {
+    await session.endSession();
+  }
   if (!gate) {
     throw new DomainError({
       code: 'INTERNAL',
@@ -91,16 +128,25 @@ export const setOwnerSafetyGate = async (input: {
     target: { type: 'pair', id: input.pairId },
     metadata: {
       pairId: input.pairId,
-      enabled: input.enabled,
       retentionClass: 'UNTIL_REVOKED_OR_PAIR_END',
     },
   });
   return toOwnerDTO(gate);
 };
 
-export const isPairSafetyVetoActive = async (pairId: string): Promise<boolean> => {
+export const isOwnerSafetyGateActive = async (input: {
+  pairId: string;
+  ownerUserId: string;
+  session?: ClientSession;
+}): Promise<boolean> => {
   await connectToDatabase();
-  return Boolean(await SafetyGate.exists({ pairId, enabled: true }));
+  return Boolean(
+    await SafetyGate.exists({
+      pairId: input.pairId,
+      ownerUserId: input.ownerUserId,
+      enabled: true,
+    }).session(input.session ?? null)
+  );
 };
 
 const SAFETY_FALLBACK_TEMPLATE_IDS = new Set([

@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import mongoose, { Types } from 'mongoose';
+import {
+  FACTOR_EVIDENCE_SELECTION_MAXIMUM,
+  factorEvidenceSelectionWindow,
+} from '@/domain/model/aggregation/factorAggregation';
+import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
+import { WEEKLY_FACTOR_KEYS } from '@/domain/services/factorEngineRuntime.service';
 import { pairHistoryService } from '@/domain/services/pairHistory.service';
 import { notificationService } from '@/domain/services/notification.service';
 import { buildPairDashboardSummary } from '@/domain/services/pairDashboardSummary.service';
@@ -9,10 +15,20 @@ import { weeklyCheckInService } from '@/domain/services/weeklyCheckIn.service';
 import { weeklyCycleKeyForDate } from '@/domain/services/weeklyCycle.service';
 import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
 import { activitiesService } from '@/domain/services/activities.service';
+import { SYSTEM_ACTIVITY_TEMPLATES } from '@/domain/services/pairActivityDecision.service';
 import { resolveEntitlements } from '@/lib/entitlements/resolve';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { EventLog } from '@/models/EventLog';
-import { Insight } from '@/models/Insight';
+import { EvidenceEvent } from '@/models/EvidenceEvent';
+import {
+  IndividualFactorSnapshot,
+  type IndividualFactorSnapshotType,
+} from '@/models/IndividualFactorSnapshot';
+import {
+  PairFactorEvaluationSnapshot,
+  type PairFactorEvaluationSnapshotType,
+} from '@/models/PairFactorEvaluationSnapshot';
+import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
 import { Notification } from '@/models/Notification';
 import { Pair } from '@/models/Pair';
 import { PairActivity, type PairActivityType } from '@/models/PairActivity';
@@ -20,7 +36,6 @@ import { PairStateSnapshot } from '@/models/PairStateSnapshot';
 import { RecommendationDecision } from '@/models/RecommendationDecision';
 import { Subscription } from '@/models/Subscription';
 import { User } from '@/models/User';
-import { VectorSnapshot } from '@/models/VectorSnapshot';
 import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
 import { WeeklyCycle } from '@/models/WeeklyCycle';
 
@@ -44,11 +59,18 @@ const ACTIVITY_COMPLETION_SAMPLES = 8;
 const WEEKLY_SUBMISSION_SAMPLES = 2;
 const CYCLE_COUNT = 180;
 const ACTIVITY_COUNT = 360;
+const FACTOR_HISTORY_DEPTH = 180;
 const NOTIFICATIONS_PER_USER = 80;
 const LEGACY_SUBSCRIPTIONS_PER_USER = 20;
 const LOAD_NOW = new Date();
 const DAY_MS = 24 * 60 * 60 * 1000;
+const SYNTHETIC_HISTORY_OFFSET_MS = 30 * DAY_MS;
 const PAGE_LIMIT = 20;
+const P95_BUDGET_MS = {
+  dashboardRead: 500,
+  historyPagination: 500,
+  repeatedRecommendation: 1_500,
+} as const;
 
 const userFixture = (id: string, username: string) => ({
   id,
@@ -60,7 +82,6 @@ const userFixture = (id: string, username: string) => ({
     city: 'Qyzylorda',
     relationshipStatus: 'in_relationship' as const,
   },
-  vectors: {},
   preferences: {
     desiredAgeRange: { min: 18, max: 99 },
     maxDistanceKm: 50,
@@ -169,6 +190,226 @@ const runConcurrentScenario = async (input: {
   };
 };
 
+type DeepFactorFixtureStats = {
+  evidenceEvents: number;
+  individualSnapshots: number;
+  pairSnapshots: number;
+  pairEvaluations: number;
+};
+
+const historicalWindowAt = (revision: number): Date => {
+  const currentWindow = new Date(LOAD_NOW.getTime());
+  currentWindow.setUTCHours(0, 0, 0, 0);
+  return new Date(
+    currentWindow.getTime() - (FACTOR_HISTORY_DEPTH - revision + 2) * DAY_MS
+  );
+};
+
+const seedDeepFactorHistory = async (input: {
+  runId: string;
+  pairId: string;
+  memberIds: readonly [string, string];
+}): Promise<DeepFactorFixtureStats> => {
+  const individualRows = await IndividualFactorSnapshot.find({
+    subjectId: { $in: input.memberIds },
+    contextPairId: input.pairId,
+    projectionPurpose: 'PAIR_MODEL',
+    factorKey: { $in: WEEKLY_FACTOR_KEYS },
+  })
+    .sort({ revision: -1 })
+    .lean<(IndividualFactorSnapshotType & { _id: Types.ObjectId })[]>();
+  const currentIndividuals = [
+    ...new Map(
+      individualRows.map((row) => [
+        `${row.subjectId}|${row.factorKey}`,
+        row,
+      ])
+    ).values(),
+  ];
+  assert.equal(
+    currentIndividuals.length,
+    WEEKLY_FACTOR_KEYS.length * input.memberIds.length,
+    'weekly load did not produce every current individual Factor snapshot'
+  );
+
+  const evaluationRows = await PairFactorEvaluationSnapshot.find({
+    pairId: input.pairId,
+    factorKey: { $in: WEEKLY_FACTOR_KEYS },
+  })
+    .sort({ revision: -1 })
+    .lean<(PairFactorEvaluationSnapshotType & { _id: Types.ObjectId })[]>();
+  const currentEvaluations = [
+    ...new Map(
+      evaluationRows.map((row) => [
+        `${row.factorKey}|${row.context}|${row.strategy}`,
+        row,
+      ])
+    ).values(),
+  ];
+  assert.equal(
+    currentEvaluations.length,
+    WEEKLY_FACTOR_KEYS.length,
+    'weekly load did not produce every current pair Factor evaluation'
+  );
+
+  await IndividualFactorSnapshot.collection.bulkWrite(
+    currentIndividuals.map((row) => ({
+      updateOne: {
+        filter: { _id: row._id, revision: row.revision },
+        update: { $set: { revision: row.revision + FACTOR_HISTORY_DEPTH } },
+      },
+    }))
+  );
+  await PairFactorEvaluationSnapshot.collection.bulkWrite(
+    currentEvaluations.map((row) => ({
+      updateOne: {
+        filter: { _id: row._id, revision: row.revision },
+        update: { $set: { revision: row.revision + FACTOR_HISTORY_DEPTH } },
+      },
+    }))
+  );
+
+  const individualHistory = currentIndividuals.flatMap((row) =>
+    Array.from({ length: FACTOR_HISTORY_DEPTH }, (_, revision) => {
+      const calculatedAt = historicalWindowAt(revision);
+      return {
+        snapshotId: `${input.runId}-ifs-${row.subjectId}-${row.factorKey}-${revision}`,
+        subjectId: row.subjectId,
+        contextPairId: row.contextPairId,
+        projectionPurpose: row.projectionPurpose,
+        factorKey: row.factorKey,
+        revision,
+        status: row.status,
+        value: row.value,
+        metrics: row.metrics,
+        evidenceIds: row.evidenceIds,
+        versions: {
+          ...row.versions,
+          registryVersion: MVP_FACTOR_REGISTRY.registryVersion - 1,
+          algorithmVersion: MVP_FACTOR_REGISTRY.algorithmVersion - 1,
+        },
+        inputHash: `${input.runId}-ifs-input-${row.subjectId}-${row.factorKey}-${revision}`,
+        outputHash: `${input.runId}-ifs-output-${row.subjectId}-${row.factorKey}-${revision}`,
+        calculatedAt,
+        effectiveFrom: calculatedAt,
+        effectiveUntil: new Date(calculatedAt.getTime() + DAY_MS),
+      };
+    })
+  );
+  await IndividualFactorSnapshot.insertMany(individualHistory, { ordered: true });
+
+  const evaluationHistory = currentEvaluations.flatMap((row) =>
+    Array.from({ length: FACTOR_HISTORY_DEPTH }, (_, revision) => {
+      const calculatedAt = historicalWindowAt(revision);
+      return {
+        snapshotId: `${input.runId}-pfe-${row.factorKey}-${revision}`,
+        pairId: row.pairId,
+        memberAId: row.memberAId,
+        memberBId: row.memberBId,
+        factorKey: row.factorKey,
+        context: row.context,
+        strategy: row.strategy,
+        strategyVersion: row.strategyVersion,
+        directionality: row.directionality,
+        revision,
+        evaluation: row.evaluation,
+        individualSnapshotIds: row.individualSnapshotIds,
+        pairSnapshotId: row.pairSnapshotId,
+        versions: {
+          ...row.versions,
+          registryVersion: MVP_FACTOR_REGISTRY.registryVersion - 1,
+          algorithmVersion: MVP_FACTOR_REGISTRY.algorithmVersion - 1,
+        },
+        inputHash: `${input.runId}-pfe-input-${row.factorKey}-${revision}`,
+        outputHash: `${input.runId}-pfe-output-${row.factorKey}-${revision}`,
+        calculatedAt,
+        effectiveFrom: calculatedAt,
+        effectiveUntil: new Date(calculatedAt.getTime() + DAY_MS),
+      };
+    })
+  );
+  await PairFactorEvaluationSnapshot.insertMany(evaluationHistory, {
+    ordered: true,
+  });
+
+  const individualByFactor = new Map(
+    currentIndividuals.map((row) => [row.factorKey, row] as const)
+  );
+  const pairHistory = WEEKLY_FACTOR_KEYS.flatMap((factorKey) => {
+    const source = individualByFactor.get(factorKey);
+    assert.ok(source, `missing source snapshot for ${factorKey}`);
+    return Array.from({ length: FACTOR_HISTORY_DEPTH }, (_, revision) => {
+      const calculatedAt = historicalWindowAt(revision);
+      return {
+        snapshotId: `${input.runId}-pfs-${factorKey}-${revision}`,
+        pairId: input.pairId,
+        factorKey,
+        revision,
+        status: source.status,
+        value: source.value,
+        metrics: source.metrics,
+        evidenceIds: source.evidenceIds,
+        versions: {
+          ...source.versions,
+          registryVersion: MVP_FACTOR_REGISTRY.registryVersion - 1,
+          algorithmVersion: MVP_FACTOR_REGISTRY.algorithmVersion - 1,
+        },
+        inputHash: `${input.runId}-pfs-input-${factorKey}-${revision}`,
+        outputHash: `${input.runId}-pfs-output-${factorKey}-${revision}`,
+        calculatedAt,
+        effectiveFrom: calculatedAt,
+        effectiveUntil: new Date(calculatedAt.getTime() + DAY_MS),
+      };
+    });
+  });
+  await PairFactorSnapshot.insertMany(pairHistory, { ordered: true });
+
+  const currentEvidence = await EvidenceEvent.collection
+    .find({
+      pairId: input.pairId,
+      actorId: { $in: input.memberIds },
+      factorKey: { $in: WEEKLY_FACTOR_KEYS },
+      'versions.registryVersion': MVP_FACTOR_REGISTRY.registryVersion,
+      'versions.algorithmVersion': MVP_FACTOR_REGISTRY.algorithmVersion,
+    })
+    .toArray();
+  assert.equal(
+    currentEvidence.length,
+    WEEKLY_FACTOR_KEYS.length * input.memberIds.length,
+    'weekly load did not produce every current Factor evidence event'
+  );
+  const evidenceHistory = currentEvidence.flatMap((row) =>
+    Array.from({ length: FACTOR_HISTORY_DEPTH }, (_, revision) => {
+      const { _id: ignoredId, ...artifact } = row;
+      void ignoredId;
+      const observedAt = historicalWindowAt(revision);
+      return {
+        ...artifact,
+        eventId: `${input.runId}-fev-${row.factorKey}-${row.actorId}-${revision}`,
+        idempotencyKey: `${input.runId}-fev-idem-${row.factorKey}-${row.actorId}-${revision}`,
+        sourceRef: `${input.runId}:deep-factor:${revision}`,
+        sourceRevision: `deep-factor-${revision}`,
+        observedAt,
+        recordedAt: observedAt,
+        versions: {
+          ...row.versions,
+          registryVersion: MVP_FACTOR_REGISTRY.registryVersion - 1,
+          algorithmVersion: MVP_FACTOR_REGISTRY.algorithmVersion - 1,
+        },
+        inputHash: `${input.runId}-fev-input-${row.factorKey}-${row.actorId}-${revision}`,
+      };
+    })
+  );
+  await EvidenceEvent.collection.insertMany(evidenceHistory, { ordered: true });
+
+  return {
+    evidenceEvents: evidenceHistory.length,
+    individualSnapshots: individualHistory.length,
+    pairSnapshots: pairHistory.length,
+    pairEvaluations: evaluationHistory.length,
+  };
+};
+
 const explainEvidence = async (input: {
   pairId: Types.ObjectId;
   memberA: string;
@@ -176,6 +417,27 @@ const explainEvidence = async (input: {
   pairActivity: { index: string; docsExamined: number; returned: number };
   weeklyCycle: { index: string; docsExamined: number; returned: number };
   pairStateSnapshot: { index: string; docsExamined: number; returned: number };
+  factorEvidence: {
+    index: string;
+    docsExamined: number;
+    returned: number;
+    maximumEvents: number;
+  };
+  individualFactorSnapshot: {
+    index: string;
+    docsExamined: number;
+    returned: number;
+  };
+  pairFactorSnapshot: {
+    index: string;
+    docsExamined: number;
+    returned: number;
+  };
+  pairFactorEvaluation: {
+    index: string;
+    docsExamined: number;
+    returned: number;
+  };
 }> => {
   const activityIndex = 'pair_activity_history_by_pair_status_offered';
   const weeklyIndex = 'weekly_cycle_history_by_pair_start';
@@ -234,12 +496,94 @@ const explainEvidence = async (input: {
     .limit(1)
     .explain('executionStats');
 
+  const factor = MVP_FACTOR_REGISTRY.factors.find(
+    (candidate) => candidate.key === WEEKLY_FACTOR_KEYS[0]
+  );
+  assert.ok(factor);
+  const strategy = factor.pairStrategies.find(
+    (candidate) => candidate.context === 'COMMITTED_RELATIONSHIP'
+  );
+  assert.ok(strategy);
+  const evidenceCutoffAt = new Date();
+  const evidenceSelection = factorEvidenceSelectionWindow(
+    factor,
+    evidenceCutoffAt
+  );
+  const factorEvidenceIndex = 'factor_evidence_bounded_subject_history';
+  const factorEvidenceExplain = await EvidenceEvent.collection
+    .find({
+      subjectKind: 'INDIVIDUAL',
+      subjectId: input.memberA,
+      pairId: input.pairId.toHexString(),
+      factorKey: factor.key,
+      status: 'ACCEPTED',
+      'versions.registryVersion': MVP_FACTOR_REGISTRY.registryVersion,
+      'versions.definitionVersion': factor.definitionVersion,
+      'versions.algorithmVersion': MVP_FACTOR_REGISTRY.algorithmVersion,
+      observedAt: {
+        $lte: evidenceSelection.evidenceCutoffAt,
+        ...(evidenceSelection.earliestObservedAt
+          ? { $gte: evidenceSelection.earliestObservedAt }
+          : {}),
+      },
+      recordedAt: { $lte: evidenceSelection.evidenceCutoffAt },
+    })
+    .sort({ observedAt: -1, eventId: -1 })
+    .limit(evidenceSelection.maximumEvents)
+    .hint(factorEvidenceIndex)
+    .explain('executionStats');
+
+  const individualFactorIndex =
+    'subjectId_1_contextPairId_1_projectionPurpose_1_factorKey_1_revision_-1';
+  const individualFactorExplain = await IndividualFactorSnapshot.collection
+    .find({
+      subjectId: input.memberA,
+      contextPairId: input.pairId.toHexString(),
+      projectionPurpose: 'PAIR_MODEL',
+      factorKey: factor.key,
+    })
+    .sort({ revision: -1 })
+    .limit(1)
+    .hint(individualFactorIndex)
+    .explain('executionStats');
+
+  const pairFactorIndex = 'pairId_1_factorKey_1_revision_-1';
+  const pairFactorExplain = await PairFactorSnapshot.collection
+    .find({ pairId: input.pairId.toHexString(), factorKey: factor.key })
+    .sort({ revision: -1 })
+    .limit(1)
+    .hint(pairFactorIndex)
+    .explain('executionStats');
+
+  const pairEvaluationIndex = 'pair_factor_evaluation_current_history';
+  const pairEvaluationExplain = await PairFactorEvaluationSnapshot.collection
+    .find({
+      pairId: input.pairId.toHexString(),
+      factorKey: factor.key,
+      context: strategy.context,
+      strategy: strategy.config.type,
+      strategyVersion: strategy.strategyVersion,
+      directionality: strategy.directionality,
+    })
+    .sort({ revision: -1 })
+    .limit(1)
+    .hint(pairEvaluationIndex)
+    .explain('executionStats');
+
   const activityExplainText = JSON.stringify(activityExplain);
   const weeklyExplainText = JSON.stringify(weeklyExplain);
   const snapshotExplainText = JSON.stringify(snapshotExplain);
+  const factorEvidenceExplainText = JSON.stringify(factorEvidenceExplain);
+  const individualFactorExplainText = JSON.stringify(individualFactorExplain);
+  const pairFactorExplainText = JSON.stringify(pairFactorExplain);
+  const pairEvaluationExplainText = JSON.stringify(pairEvaluationExplain);
   assert.match(activityExplainText, new RegExp(activityIndex));
   assert.match(weeklyExplainText, new RegExp(weeklyIndex));
   assert.match(snapshotExplainText, /_id_/);
+  assert.match(factorEvidenceExplainText, new RegExp(factorEvidenceIndex));
+  assert.match(individualFactorExplainText, new RegExp(individualFactorIndex));
+  assert.match(pairFactorExplainText, new RegExp(pairFactorIndex));
+  assert.match(pairEvaluationExplainText, new RegExp(pairEvaluationIndex));
 
   return {
     pairActivity: {
@@ -256,6 +600,27 @@ const explainEvidence = async (input: {
       index: '_id_',
       docsExamined: snapshotExplain.executionStats.totalDocsExamined,
       returned: snapshotExplain.executionStats.nReturned,
+    },
+    factorEvidence: {
+      index: factorEvidenceIndex,
+      docsExamined: factorEvidenceExplain.executionStats.totalDocsExamined,
+      returned: factorEvidenceExplain.executionStats.nReturned,
+      maximumEvents: evidenceSelection.maximumEvents,
+    },
+    individualFactorSnapshot: {
+      index: individualFactorIndex,
+      docsExamined: individualFactorExplain.executionStats.totalDocsExamined,
+      returned: individualFactorExplain.executionStats.nReturned,
+    },
+    pairFactorSnapshot: {
+      index: pairFactorIndex,
+      docsExamined: pairFactorExplain.executionStats.totalDocsExamined,
+      returned: pairFactorExplain.executionStats.nReturned,
+    },
+    pairFactorEvaluation: {
+      index: pairEvaluationIndex,
+      docsExamined: pairEvaluationExplain.executionStats.totalDocsExamined,
+      returned: pairEvaluationExplain.executionStats.nReturned,
     },
   };
 };
@@ -291,8 +656,10 @@ const main = async (): Promise<void> => {
       Subscription.createIndexes(),
       WeeklyCheckIn.createIndexes(),
       RecommendationDecision.createIndexes(),
-      VectorSnapshot.createIndexes(),
-      Insight.createIndexes(),
+      EvidenceEvent.createIndexes(),
+      IndividualFactorSnapshot.createIndexes(),
+      PairFactorSnapshot.createIndexes(),
+      PairFactorEvaluationSnapshot.createIndexes(),
       EventLog.createIndexes(),
     ]);
 
@@ -394,7 +761,8 @@ const main = async (): Promise<void> => {
         members: memberObjectIds,
         intent: index % 2 === 0 ? ('improve' as const) : ('celebrate' as const),
         archetype: 'micro_habit' as const,
-        axis: ['communication' as const],
+        actionDefinition: SYSTEM_ACTIVITY_TEMPLATES[0].actionDefinition,
+        targetFactorKeys: SYSTEM_ACTIVITY_TEMPLATES[0].targetFactorKeys,
         title: { ru: `Synthetic activity ${index}`, en: `Synthetic ${index}` },
         why: { ru: 'Synthetic load evidence', en: 'Synthetic load evidence' },
         mode:
@@ -406,7 +774,9 @@ const main = async (): Promise<void> => {
         sync: 'async' as const,
         difficulty: 1 as const,
         intensity: 1 as const,
-        offeredAt: new Date(LOAD_NOW.getTime() - index * 60 * 60 * 1000),
+        offeredAt: new Date(
+          LOAD_NOW.getTime() - SYNTHETIC_HISTORY_OFFSET_MS - index * 60 * 60 * 1000
+        ),
         visibility:
           index % 5 === 0
             ? ('privateA' as const)
@@ -424,7 +794,9 @@ const main = async (): Promise<void> => {
                   by: 'A' as const,
                   ui: 4,
                   at: new Date(
-                    LOAD_NOW.getTime() - index * 60 * 60 * 1000
+                    LOAD_NOW.getTime() -
+                      SYNTHETIC_HISTORY_OFFSET_MS -
+                      index * 60 * 60 * 1000
                   ),
                 },
               ]
@@ -536,13 +908,21 @@ const main = async (): Promise<void> => {
     });
     assert.ok(loadCycle?.latestSnapshotId, 'weekly submissions did not publish a snapshot');
 
+    const factorSeedStartedAt = performance.now();
+    const deepFactorFixture = await seedDeepFactorHistory({
+      runId,
+      pairId: String(pairId),
+      memberIds: [memberA, memberB],
+    });
+    const factorSeedMs = roundMs(performance.now() - factorSeedStartedAt);
+
     const repeatedRecommendation = await runConcurrentScenario({
       samples: RECOMMENDATION_SAMPLES,
       concurrency: RUN_CONCURRENCY,
-      operation: async () => {
+      operation: async (sample) => {
         const decision = await recommendationWorkflowService.offer({
           pairId: String(pairId),
-          currentUserId: memberA,
+          currentUserId: sample % 2 === 0 ? memberA : memberB,
           auditRequest,
         });
         assert.equal(decision.cycleKey, loadCycleKey);
@@ -589,9 +969,6 @@ const main = async (): Promise<void> => {
       answers: positiveFeedback,
       auditRequest,
     });
-    const pairBeforeCompletion = await Pair.findById(pairId).lean();
-    assert.ok(pairBeforeCompletion);
-    const completedBefore = pairBeforeCompletion.progress?.completed ?? 0;
     const activityCompletionRace = await runConcurrentScenario({
       samples: ACTIVITY_COMPLETION_SAMPLES,
       concurrency: ACTIVITY_COMPLETION_SAMPLES,
@@ -743,7 +1120,6 @@ const main = async (): Promise<void> => {
       canonicalDecisionCount,
       canonicalRecommendedActivityCount,
       finalActivity,
-      pairAfterCompletion,
       duplicateActivityEffects,
     ] = await Promise.all([
       WeeklyCheckIn.countDocuments({
@@ -758,17 +1134,21 @@ const main = async (): Promise<void> => {
         'recommendationProvenance.cycleId': loadCycle._id,
       }),
       PairActivity.findById(activityId).lean<PairActivityType | null>(),
-      Pair.findById(pairId).lean(),
-      VectorSnapshot.aggregate<{ count: number }>([
+      EvidenceEvent.aggregate<{ count: number }>([
         {
           $match: {
-            'reason.source': 'activity_completion',
-            'reason.activityId': activityId,
+            sourceRef: {
+              $regex: `^pair-activity:${String(activityId)}:(feedback|completion)`,
+            },
           },
         },
         {
           $group: {
-            _id: { userId: '$userId', axis: '$axis', layer: '$layer' },
+            _id: {
+              eventId: '$eventId',
+              factorKey: '$factorKey',
+              sourceRevision: '$sourceRevision',
+            },
             count: { $sum: 1 },
           },
         },
@@ -790,13 +1170,7 @@ const main = async (): Promise<void> => {
     assert.equal(canonicalDecisionCount, 1);
     assert.equal(canonicalRecommendedActivityCount, 1);
     assert.ok(finalActivity);
-    assert.ok(pairAfterCompletion);
     assert.ok(finalActivity.status.startsWith('completed_'));
-    assert.equal(
-      pairAfterCompletion.progress?.completed ?? 0,
-      completedBefore + 1,
-      'completion race applied pair progress more than once'
-    );
     const finalFeedback = finalActivity.answers ?? [];
     assert.equal(
       new Set(finalFeedback.map((answer) => `${answer.by}:${answer.checkInId}`)).size,
@@ -819,6 +1193,7 @@ const main = async (): Promise<void> => {
     const report = {
       runId,
       seedMs,
+      factorSeedMs,
       environment: {
         database: databaseName,
         node: process.version,
@@ -837,6 +1212,11 @@ const main = async (): Promise<void> => {
         seededPlusSummaryReadyNotifications:
           notificationRows.length + canonicalNotificationCount,
         subscriptions: subscriptionRows.length,
+        factorHistoryDepth: FACTOR_HISTORY_DEPTH,
+        seededFactorEvidenceEvents: deepFactorFixture.evidenceEvents,
+        seededIndividualFactorSnapshots: deepFactorFixture.individualSnapshots,
+        seededPairFactorSnapshots: deepFactorFixture.pairSnapshots,
+        seededPairFactorEvaluations: deepFactorFixture.pairEvaluations,
       },
       bounds: {
         concurrency: RUN_CONCURRENCY,
@@ -873,6 +1253,30 @@ const main = async (): Promise<void> => {
     }
     assert.equal(queryEvidence.pairStateSnapshot.docsExamined, 1);
     assert.equal(queryEvidence.pairStateSnapshot.returned, 1);
+    assert.ok(
+      queryEvidence.factorEvidence.docsExamined <=
+        queryEvidence.factorEvidence.maximumEvents,
+      'bounded Factor evidence query examined more documents than its policy cap'
+    );
+    assert.ok(
+      queryEvidence.factorEvidence.maximumEvents <=
+        FACTOR_EVIDENCE_SELECTION_MAXIMUM,
+      'Factor evidence selection exceeded the global hard cap'
+    );
+    assert.ok(queryEvidence.factorEvidence.returned > 0);
+    assert.equal(queryEvidence.individualFactorSnapshot.docsExamined, 1);
+    assert.equal(queryEvidence.individualFactorSnapshot.returned, 1);
+    assert.equal(queryEvidence.pairFactorSnapshot.docsExamined, 1);
+    assert.equal(queryEvidence.pairFactorSnapshot.returned, 1);
+    assert.equal(queryEvidence.pairFactorEvaluation.docsExamined, 1);
+    assert.equal(queryEvidence.pairFactorEvaluation.returned, 1);
+    for (const [scenario, budgetMs] of Object.entries(P95_BUDGET_MS)) {
+      const stats = results[scenario as keyof typeof P95_BUDGET_MS];
+      assert.ok(
+        stats.p95Ms < budgetMs,
+        `${scenario} p95 ${stats.p95Ms}ms must stay below ${budgetMs}ms`
+      );
+    }
   } finally {
     try {
       await Notification.deleteMany({
@@ -895,20 +1299,17 @@ const main = async (): Promise<void> => {
           { userId: { $in: [memberA, memberB] } },
         ],
       });
-      await VectorSnapshot.deleteMany({
+      await EvidenceEvent.deleteMany({
         $or: [
-          { pairId },
           { pairId: String(pairId) },
-          { userId: { $in: [memberA, memberB] } },
+          { actorId: { $in: [memberA, memberB] } },
         ],
       });
-      await Insight.deleteMany({
-        $or: [
-          { pairId },
-          { pairId: String(pairId) },
-          { userId: { $in: [memberA, memberB] } },
-        ],
+      await IndividualFactorSnapshot.deleteMany({
+        subjectId: { $in: [memberA, memberB] },
       });
+      await PairFactorSnapshot.deleteMany({ pairId: String(pairId) });
+      await PairFactorEvaluationSnapshot.deleteMany({ pairId: String(pairId) });
       await WeeklyCycle.deleteMany({ pairId });
       await Subscription.deleteMany({
         $or: [
@@ -942,20 +1343,17 @@ const main = async (): Promise<void> => {
             { userId: { $in: [memberA, memberB] } },
           ],
         }),
-        VectorSnapshot.countDocuments({
+        EvidenceEvent.countDocuments({
           $or: [
-            { pairId },
             { pairId: String(pairId) },
-            { userId: { $in: [memberA, memberB] } },
+            { actorId: { $in: [memberA, memberB] } },
           ],
         }),
-        Insight.countDocuments({
-          $or: [
-            { pairId },
-            { pairId: String(pairId) },
-            { userId: { $in: [memberA, memberB] } },
-          ],
+        IndividualFactorSnapshot.countDocuments({
+          subjectId: { $in: [memberA, memberB] },
         }),
+        PairFactorSnapshot.countDocuments({ pairId: String(pairId) }),
+        PairFactorEvaluationSnapshot.countDocuments({ pairId: String(pairId) }),
         WeeklyCycle.countDocuments({ pairId }),
         Subscription.countDocuments({
           $or: [

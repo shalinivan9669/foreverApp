@@ -7,7 +7,7 @@ import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { requireSession } from '@/lib/auth/guards';
 
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const rate = await enforceRateLimit({

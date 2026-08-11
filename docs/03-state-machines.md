@@ -1,136 +1,96 @@
-**Как Сейчас (Обзор)**
-1. Pair status допускает `active | paused | ended` (enum в модели). Переходы, реализованные в роутерах: `active > paused` и `paused > active`, а также создание пары со статусом `active`. Доказательства: `src/models/Pair.ts:18,57`, `src/app/api/pairs/[id]/pause/route.ts:8-13`, `src/app/api/pairs/[id]/resume/route.ts:8-13`, `src/app/api/pairs/create/route.ts:73-79`, `src/app/api/match/confirm/route.ts:121-126`.
-2. PairActivity status допускает `suggested | offered | accepted | in_progress | awaiting_checkin | completed_success | completed_partial | failed | expired | cancelled`. В коде явно устанавливаются: `offered` (создание инстанса), `accepted`, `awaiting_checkin`, `completed_success|completed_partial|failed`, `cancelled`. Доказательства: `src/models/PairActivity.ts:47-49`, `src/app/api/pairs/[id]/suggest/route.ts:41-63`, `src/app/api/pairs/[id]/activities/from-template/route.ts:31-55`, `src/app/api/activities/next/route.ts:103-134`, `src/app/api/activities/[id]/accept/route.ts:14-16`, `src/app/api/activities/[id]/checkin/route.ts:18-24`, `src/app/api/activities/[id]/complete/route.ts:22-26`, `src/app/api/activities/[id]/cancel/route.ts:11-13`.
-3. Для списка активностей пары текущими считаются статусы `accepted | in_progress | awaiting_checkin`, а историческими — `completed_success | completed_partial | failed | cancelled | expired`. Доказательства: `src/app/api/pairs/[id]/activities/route.ts:19-32`.
-4. PairQuestionnaireSession status допускает `in_progress | completed`; старт сессии создаёт `in_progress`. Доказательства: `src/models/PairQuestionnaireSession.ts:9-23`, `src/app/api/pairs/[id]/questionnaires/[qid]/start/route.ts:39-45`.
+# Current state machines
 
-**State Machines (Observed)**
-```mermaid
-stateDiagram-v2
-  [*] --> active: create/confirm
-  active --> paused: /api/pairs/[id]/pause
-  paused --> active: /api/pairs/[id]/resume
+Status: active reference. Updated 2026-08-11.
+
+Domain transition guards live in `src/domain/state/**`; stateful orchestration and transactional cleanup live in `src/domain/services/**`. Forbidden transitions return a domain conflict instead of being repaired by the client.
+
+## PairInvite
+
+```text
+[none] → ACTIVE
+ACTIVE → ACCEPTED | CANCELLED | EXPIRED
+ACTIVE --reissue→ CANCELLED + new ACTIVE invite
 ```
 
-```mermaid
-stateDiagram-v2
-  [*] --> offered: create (suggest/next/from-template)
-  offered --> accepted: /api/activities/[id]/accept
-  offered --> cancelled: /api/activities/[id]/cancel
-  accepted --> awaiting_checkin: /api/activities/[id]/checkin
-  awaiting_checkin --> completed_success: /api/activities/[id]/complete
-  awaiting_checkin --> completed_partial: /api/activities/[id]/complete
-  awaiting_checkin --> failed: /api/activities/[id]/complete
+Accept by the same authenticated user is replay-safe; any other terminal/reused token returns a generic unavailable result. Only the token hash is persisted.
+
+## Pair
+
+```text
+[none] --invite accept→ active
+active --pause→ paused
+paused --resume→ active
+active|paused --end→ ended
 ```
 
-```mermaid
-stateDiagram-v2
-  [*] --> in_progress: /api/pairs/[id]/questionnaires/[qid]/start
+Pause/resume are idempotent no-ops in their current state. `ended` is terminal. End runs pair-scoped cleanup and releases membership claims; reconnect creates a new Pair rather than reviving the old id.
+
+## WeeklyCycle
+
+Cycle lifecycle:
+
+```text
+OPEN --deadline/pair end→ EXPIRED
 ```
 
-**Evidence**
-| Факт | Тип | Источник (path:line) | Цитата (?2 строки) |
-|---|---|---|---|
-| Pair status enum | model | `src/models/Pair.ts:18` | `status: 'active' | 'paused' | 'ended';` |
-| Pair schema enum и default | model | `src/models/Pair.ts:56-57` | `status: { type: String, enum: ['active', 'paused', 'ended'], default: 'active' },` |
-| Пауза пары | api | `src/app/api/pairs/[id]/pause/route.ts:8-12` | `const doc = await Pair.findByIdAndUpdate(id, { $set: { status: 'paused' } }, { new: true });` |
-| Возобновление пары | api | `src/app/api/pairs/[id]/resume/route.ts:8-12` | `const doc = await Pair.findByIdAndUpdate(id, { $set: { status: 'active' } }, { new: true });` |
-| Создание пары со статусом active | api | `src/app/api/pairs/create/route.ts:73-77` | `const pair = await Pair.create({`<br>`  members, key, status: 'active',` |
-| Confirm пары ставит status active | api | `src/app/api/match/confirm/route.ts:121-126` | `const pair = await Pair.findOneAndUpdate(` |
-| PairActivity status enum | model | `src/models/PairActivity.ts:47-49` | `status:`<br>`  | 'suggested' | 'offered' | 'accepted' | 'in_progress' | 'awaiting_checkin'` |
-| Offered при suggest | api | `src/app/api/pairs/[id]/suggest/route.ts:41-63` | `status: 'offered',` |
-| Offered при from-template | api | `src/app/api/pairs/[id]/activities/from-template/route.ts:50-55` | `status: 'offered',` |
-| Offered при /api/activities/next | api | `src/app/api/activities/next/route.ts:124-133` | `status: 'offered',`<br>`createdBy: 'system',` |
-| Accept > accepted | api | `src/app/api/activities/[id]/accept/route.ts:14-16` | `doc.status = 'accepted';`<br>`doc.acceptedAt = new Date();` |
-| Cancel > cancelled | api | `src/app/api/activities/[id]/cancel/route.ts:11-13` | `findByIdAndUpdate(id, { $set: { status:'cancelled' } }, { new:true });` |
-| Checkin > awaiting_checkin | api | `src/app/api/activities/[id]/checkin/route.ts:18-23` | `act.answers = act.answers || [];`<br>`act.status = 'awaiting_checkin';` |
-| Complete > completed_* / failed | api | `src/app/api/activities/[id]/complete/route.ts:22-25` | `let status:'completed_success'|'completed_partial'|'failed' = 'completed_partial';` |
-| Current/history buckets | api | `src/app/api/pairs/[id]/activities/route.ts:19-32` | `q.status = { $in: ['accepted', 'in_progress', 'awaiting_checkin'] };` |
-| PairQuestionnaireSession status enum | model | `src/models/PairQuestionnaireSession.ts:9-23` | `status: 'in_progress' | 'completed';` |
-| Start session sets in_progress | api | `src/app/api/pairs/[id]/questionnaires/[qid]/start/route.ts:39-45` | `status: 'in_progress',` |
+Each unordered member has an independent terminal completion:
 
-**Гипотезы/Риски/Куда Идём**
-- Ввести явные диаграммы переходов и запреты для статусов `ended`, `suggested`, `expired`, `completed` (сейчас переходы не описаны в коде).
-- Добавить идемпотентность для мутаций статуса (accept/cancel/checkin/complete).
+```text
+PENDING → SUBMITTED | SKIPPED | EXPIRED
+```
 
-## Update 2026-02-07 (Core Refactor: Centralized Transition Guards)
+Pair readiness is separate from lifecycle: `NOT_READY | PARTIAL | ENOUGH | INSUFFICIENT | EXPIRED`. One valid submit remains partial/insufficient and publishes no pair signal. Two valid submissions materialize one canonical semantic result. A submission lease/CAS serializes submit versus skip; retries cannot create duplicate evidence/snapshots.
 
-Centralized pure transition machines added:
-- `src/domain/state/matchMachine.ts` (`matchTransition`)
-- `src/domain/state/activityMachine.ts` (`activityTransition`)
-- `src/domain/state/questionnaireMachine.ts` (`questionnaireTransition`)
+## RecommendationDecision
 
-All migrated machines now throw:
-- `409 STATE_CONFLICT` for forbidden transitions.
+```text
+[none] → OFFERED(primary)
+OFFERED → ACCEPTED | SKIPPED | REPLACED | EXPIRED
+REPLACED → new OFFERED(replacement depth 1)
+```
 
-### Match transition map
-- `draft --CREATE--> sent`
-- `sent|viewed --RESPOND(to)--> awaiting_initiator`
-- `awaiting_initiator --ACCEPT(from)--> mutual_ready`
-- `sent|viewed --REJECT(to)--> rejected`
-- `mutual_ready --CONFIRM(from)--> paired`
+Only one replacement is allowed. One pair/cycle has at most one current offered decision. Acceptance links one activity; reconciliation repairs an interrupted pointer write.
 
-### Activity transition map
-- `offered --ACCEPT--> accepted`
-- `offered|accepted|in_progress|awaiting_checkin --CANCEL--> cancelled`
-- `accepted|in_progress|awaiting_checkin --CHECKIN--> awaiting_checkin`
-- `accepted|in_progress|awaiting_checkin --COMPLETE--> completed_success|completed_partial|failed`
+## PairActivity
 
-### Pair questionnaire session transition map
-- `[none] --START--> in_progress`
-- `in_progress --START--> in_progress` (reuse existing active session)
-- `in_progress --ANSWER--> in_progress`
-- `in_progress --COMPLETE--> completed` (reserved path, service-ready)
+Canonical lifecycle-v3:
 
-### Migration scope in this sprint
-- `/api/match/like|respond|accept|reject|confirm`
-- `/api/activities/[id]/accept|cancel|checkin|complete`
-- `/api/answers/bulk`
-- `/api/pairs/[id]/questionnaires/[qid]/start|answer`
+```text
+offered → accepted → in_progress → awaiting_feedback
+offered|accepted|in_progress|awaiting_feedback → cancelled
+awaiting_feedback → completed_partial | completed_success | failed
+completed_partial → completed_success | failed
+```
 
-## Update 2026-02-08 (Pair machine)
+Legacy-readable `suggested`/`awaiting_checkin` records may remain in persistence compatibility shapes, but new recommendation-backed activities use the current lifecycle and Factor action definition. First-member feedback yields a privacy-safe partial result; late peer feedback refines it once and materializes evidence idempotently.
 
-Added centralized pair transition machine:
-- `src/domain/state/pairMachine.ts` (`CREATE`, `PAUSE`, `RESUME`)
+## Pair questionnaire session
 
-Applied to mutation services/routes:
-- `src/domain/services/pairs.service.ts`
-- `/api/pairs/create` POST
-- `/api/pairs/[id]/pause` POST
-- `/api/pairs/[id]/resume` POST
+```text
+[none] → in_progress
+in_progress --start/retry/answer→ in_progress
+in_progress --all members/all questions→ completed
+```
 
-## Update 2026-08-07 (P0 pilot lifecycle)
+Answers are private source records. Completion does not create legacy passport/vector mutations.
 
-The P0 public pair-creation boundary is invite-only. These state machines are centralized under `src/domain/state` and enforced by the corresponding domain services.
+## PrivacyRequest
 
-### Pair invite
+```text
+[none] → PENDING_CONFIRMATION
+PENDING_CONFIRMATION → CANCELLED | EXECUTING
+EXECUTING → EXECUTED | FAILED
+FAILED → EXECUTING
+```
 
-- `[none] --CREATE--> ACTIVE`
-- `ACTIVE --ACCEPT--> ACCEPTED`
-- `ACTIVE --CANCEL--> CANCELLED`
-- `ACTIVE --REISSUE--> REISSUED` and a new `ACTIVE` invite
-- `ACTIVE --DEADLINE--> EXPIRED`
-- Repeated accept by the same authenticated accepter returns the already-created Pair; every other terminal transition is rejected with a generic unavailable result.
+Only an explicit `DELETE_ACCOUNT` confirmation enters execution. Existing sessions are revoked before destructive work. Retry is allowed from `FAILED`; `EXECUTED` and `CANCELLED` are terminal.
 
-### Weekly cycle participant completion
+## SafetyGate and PartnerSignal
 
-- `[none] --> PENDING`
-- `PENDING --SUBMIT--> SUBMITTED`
-- `PENDING --SKIP--> SKIPPED`
-- `PENDING --DEADLINE--> EXPIRED`
-- A transient token-specific submission lease serializes submit against skip. `SUBMITTED`, `SKIPPED`, and `EXPIRED` are terminal per participant/cycle.
-- Snapshot readiness is separate from lifecycle: two valid submissions can remain `ENOUGH` after deadline; an incomplete expired cycle is `INSUFFICIENT`.
+SafetyGate is not a relationship score/state machine. It is an owner-private boolean eligibility veto scoped to one Pair; Pair end revokes it.
 
-### Recommendation decision
+PartnerSignal is created only by an explicit confirmed send. A unique source-check-in binding makes resend idempotent; attempting different text for the same source conflicts. A TTL expires the stored signal after 30 days.
 
-- `[none] --OFFER--> OFFERED_PRIMARY`
-- `OFFERED_PRIMARY --ACCEPT--> ACCEPTED`
-- `OFFERED_PRIMARY --REPLACE--> OFFERED_REPLACEMENT`
-- `OFFERED_PRIMARY|OFFERED_REPLACEMENT --SKIP--> SKIPPED`
-- `OFFERED_REPLACEMENT --ACCEPT--> ACCEPTED`
-- `OFFERED_PRIMARY|OFFERED_REPLACEMENT --DEADLINE--> EXPIRED`
-- Only one replacement is allowed. Terminal acceptance links exactly one activity and reconciliation repairs an interrupted decision-to-activity pointer write.
+## Legacy matching
 
-### Safety gate
-
-Safety is not a partner-visible relationship state. It is an owner-private boolean eligibility veto; enabling or disabling it does not transition Pair, WeeklyCycle, or RecommendationDecision state and never produces a partner-visible reason.
+The old `/api/match/**` transition surface is removed from active runtime. `/api/pairs/create` remains only as a guarded compatibility seam and returns `PAIR_INVITE_REQUIRED`; invitation acceptance is the sole Pair-activation path. Retained legacy records never bypass Pair membership, Factor disclosure or the public core lifecycle.

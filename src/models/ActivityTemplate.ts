@@ -10,30 +10,19 @@ export const CONTENT_PUBLICATION_STATUS_VALUES = [
 export type ContentPublicationStatus =
   (typeof CONTENT_PUBLICATION_STATUS_VALUES)[number];
 
-export type Axis =
-  | 'communication'
-  | 'domestic'
-  | 'personalViews'
-  | 'finance'
-  | 'sexuality'
-  | 'psyche';
+export type ActionDefinitionRef = {
+  key: string;
+  actionVersion: number;
+  registryVersion: number;
+};
 
 export interface CheckInTpl {
   id: string;
   scale: 'likert5' | 'bool';
-  map: number[];                       // [-3,-1,0,1,3] / [-3,3]
+  map: number[];
   text: { ru: string; en: string };
-  successThreshold?: number;           // 0..1
-  weight?: number;                     // 0..1
-}
-
-export interface EffectTpl {
-  axis: Axis;
-  baseDelta: number;                   // 0..1
-  facetsAdd?: string[];
-  facetsRemove?: string[];
-  riskFacetsGuard?: string[];
-  target?: 'A' | 'B' | 'both';         // <- добавили, по умолчанию both
+  successThreshold?: number;
+  weight?: number;
 }
 
 export interface ActivityTemplateType {
@@ -44,9 +33,16 @@ export interface ActivityTemplateType {
   publishedAt?: Date;
   retiredAt?: Date;
   intent: 'improve' | 'celebrate';
-  archetype: 'micro_habit' | 'dialogue' | 'ritual' | 'date' | 'game' | 'education' | 'task';
-  axis: Axis[];                        // обычно одна ось
-  facetsTarget?: string[];
+  archetype:
+    | 'micro_habit'
+    | 'dialogue'
+    | 'ritual'
+    | 'date'
+    | 'game'
+    | 'education'
+    | 'task';
+  actionDefinition: ActionDefinitionRef;
+  targetFactorKeys: string[];
 
   difficulty: 1 | 2 | 3 | 4 | 5;
   intensity: 1 | 2 | 3;
@@ -62,19 +58,18 @@ export interface ActivityTemplateType {
   materials?: string[];
 
   checkIns: CheckInTpl[];
-  effect: EffectTpl[];
-
-  preconditions?: {
-    minPairLevel?: Partial<Record<Axis, number>>;
-    maxFatigue?: number;
-    blockedIfRiskFacets?: string[];
-    needsComplementarity?: boolean;
-  };
-
   cooldownDays?: number;
 }
 
-/* subdocs */
+const ActionDefinitionRefSchema = new Schema<ActionDefinitionRef>(
+  {
+    key: { type: String, required: true, immutable: true },
+    actionVersion: { type: Number, required: true, min: 1, immutable: true },
+    registryVersion: { type: Number, required: true, min: 1, immutable: true },
+  },
+  { _id: false }
+);
+
 const CheckInSchema = new Schema<CheckInTpl>(
   {
     id: { type: String, required: true },
@@ -87,23 +82,6 @@ const CheckInSchema = new Schema<CheckInTpl>(
   { _id: false }
 );
 
-const EffectSchema = new Schema<EffectTpl>(
-  {
-    axis: {
-      type: String,
-      enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
-      required: true,
-    },
-    baseDelta: { type: Number, required: true },
-    facetsAdd: { type: [String], default: [] },
-    facetsRemove: { type: [String], default: [] },
-    riskFacetsGuard: { type: [String], default: [] },
-    target: { type: String, enum: ['A','B','both'], default: 'both' },
-  },
-  { _id: false }
-);
-
-/* root */
 const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
   {
     _id: { type: String, required: true },
@@ -117,38 +95,30 @@ const ActivityTemplateSchema = new Schema<ActivityTemplateType>(
     reviewedAt: Date,
     publishedAt: Date,
     retiredAt: Date,
-    intent: { type: String, enum: ['improve','celebrate'], required: true },
+    intent: { type: String, enum: ['improve', 'celebrate'], required: true },
     archetype: {
       type: String,
-      enum: ['micro_habit','dialogue','ritual','date','game','education','task'],
+      enum: ['micro_habit', 'dialogue', 'ritual', 'date', 'game', 'education', 'task'],
       required: true,
     },
-
-    axis: {
-      type: [String],
-      enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
-      required: true,
-    },
-    facetsTarget: { type: [String], default: [] },
-
-    difficulty: { type: Number, enum: [1,2,3,4,5], required: true },
-    intensity:  { type: Number, enum: [1,2,3],     required: true },
-
+    actionDefinition: { type: ActionDefinitionRefSchema, required: true },
+    targetFactorKeys: { type: [String], required: true },
+    difficulty: { type: Number, enum: [1, 2, 3, 4, 5], required: true },
+    intensity: { type: Number, enum: [1, 2, 3], required: true },
     timeEstimateMin: Number,
     costEstimate: Number,
-    location: { type: String, enum: ['home','outdoor','online','any'], default: 'any' },
+    location: {
+      type: String,
+      enum: ['home', 'outdoor', 'online', 'any'],
+      default: 'any',
+    },
     requiresConsent: { type: Boolean, default: false },
-
-    title:       { type: Schema.Types.Mixed, required: true },
+    title: { type: Schema.Types.Mixed, required: true },
     description: { type: Schema.Types.Mixed, required: true },
-    steps:       { type: Schema.Types.Mixed },
-    materials:   { type: [String], default: [] },
-
+    steps: { type: Schema.Types.Mixed },
+    materials: { type: [String], default: [] },
     checkIns: { type: [CheckInSchema], required: true },
-    effect:   { type: [EffectSchema],  required: true },
-
-    preconditions: { type: Schema.Types.Mixed },
-    cooldownDays:  Number,
+    cooldownDays: Number,
   },
   { collection: 'activity_templates', timestamps: true }
 );
@@ -158,6 +128,9 @@ ActivityTemplateSchema.pre('validate', function validatePublicationGate() {
   const published = this.publishedAt instanceof Date;
   const retired = this.retiredAt instanceof Date;
 
+  if (this.targetFactorKeys.length === 0) {
+    throw new Error('Activity content requires at least one target factor');
+  }
   if (this.publicationStatus === 'published' && (!reviewed || !published || retired)) {
     throw new Error('Published activity content requires review and publish timestamps');
   }
@@ -167,13 +140,23 @@ ActivityTemplateSchema.pre('validate', function validatePublicationGate() {
 });
 
 ActivityTemplateSchema.index(
-  { publicationStatus: 1, difficulty: 1, intensity: 1, updatedAt: -1 },
+  {
+    publicationStatus: 1,
+    'actionDefinition.key': 1,
+    difficulty: 1,
+    intensity: 1,
+    updatedAt: -1,
+  },
   { name: 'activity_template_published_selection' }
 );
 
 export const publishedActivityTemplateFilter = (): FilterQuery<ActivityTemplateType> => ({
   publicationStatus: 'published',
   contentVersion: { $gte: 1 },
+  'actionDefinition.key': { $type: 'string' },
+  'actionDefinition.actionVersion': { $gte: 1 },
+  'actionDefinition.registryVersion': { $gte: 1 },
+  'targetFactorKeys.0': { $exists: true },
   reviewedAt: { $type: 'date' },
   publishedAt: { $type: 'date' },
   retiredAt: { $exists: false },
@@ -183,4 +166,4 @@ export const ActivityTemplate =
   (mongoose.models.ActivityTemplate as mongoose.Model<ActivityTemplateType>) ||
   mongoose.model<ActivityTemplateType>('ActivityTemplate', ActivityTemplateSchema);
 
-export { CheckInSchema, EffectSchema };
+export { ActionDefinitionRefSchema, CheckInSchema };

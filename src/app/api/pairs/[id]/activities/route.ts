@@ -1,4 +1,4 @@
-﻿// src/app/api/pairs/[id]/activities/route.ts
+// src/app/api/pairs/[id]/activities/route.ts
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
@@ -22,7 +22,7 @@ const querySchema = z
   .passthrough();
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
@@ -40,6 +40,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return jsonOk(
     await pairActivityReadService.list({
       pairId: pairGuard.data.pair._id,
+      currentUserId,
       role: pairGuard.data.by,
       ...(s ? { status: s } : {}),
     })

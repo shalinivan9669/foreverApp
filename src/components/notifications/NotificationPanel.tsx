@@ -16,7 +16,11 @@ const displayDate = (value: string): string => {
   }).format(date);
 };
 
-export default function NotificationPanel() {
+type NotificationPanelProps = {
+  enabled?: boolean;
+};
+
+export default function NotificationPanel({ enabled = true }: NotificationPanelProps) {
   const [items, setItems] = useState<NotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -24,6 +28,7 @@ export default function NotificationPanel() {
   const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     void notificationsApi
       .list(controller.signal)
@@ -40,7 +45,7 @@ export default function NotificationPanel() {
         setLoaded(true);
       });
     return () => controller.abort();
-  }, [loadAttempt]);
+  }, [enabled, loadAttempt]);
 
   const retryLoad = (): void => {
     setLoaded(false);
@@ -66,7 +71,7 @@ export default function NotificationPanel() {
     });
   };
 
-  if (!loaded) return null;
+  if (!enabled || !loaded) return null;
 
   if (loadFailed) {
     return (

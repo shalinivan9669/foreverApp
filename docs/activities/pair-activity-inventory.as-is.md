@@ -1,5 +1,7 @@
 # Pair Activity Inventory As-Is (2026-02-08)
 
+> Status: historical snapshot. Do not use as current behavior; see `docs/MVP_FLOWS.md` and `docs/API_CONTRACTS.md`.
+
 ## 1) Scope map (what is included)
 
 | Component | Files | Purpose | Evidence |

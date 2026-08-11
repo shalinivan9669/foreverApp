@@ -22,7 +22,6 @@ export const PUBLIC_USER_FIELDS = ['id', 'username', 'avatar'] as const;
 export const PRIVATE_USER_FIELDS = [
   'profileStatus',
   'personal',
-  'vectors',
   'preferences',
   'profile.onboarding',
   'profile.matchCard',
@@ -52,7 +51,6 @@ export type UserOnboardingDTO = NonNullable<NonNullable<UserType['profile']>['on
 export type UserDTO = PublicUserDTO & {
   profileStatus?: UserProfileStatus;
   personal?: UserType['personal'];
-  vectors?: UserType['vectors'];
   preferences?: UserType['preferences'];
   profile?: {
     onboarding?: UserOnboardingDTO;
@@ -67,7 +65,7 @@ type MatchCardSource = NonNullable<NonNullable<UserType['profile']>['matchCard']
 
 type UserSource = Pick<UserType, 'id' | 'username' | 'avatar'> &
   Partial<
-    Pick<UserType, 'personal' | 'vectors' | 'preferences' | 'profile' | 'location' | 'createdAt' | 'updatedAt'>
+    Pick<UserType, 'personal' | 'preferences' | 'profile' | 'location' | 'createdAt' | 'updatedAt'>
   >;
 
 export type ToUserDtoOptions = {
@@ -121,7 +119,6 @@ export function toUserDTO(user: UserSource, opts: ToUserDtoOptions = {}): UserDT
   if (scope === 'private') {
     dto.profileStatus = getUserProfileStatus(user);
     if (user.personal) dto.personal = user.personal;
-    if (user.vectors) dto.vectors = user.vectors;
     if (user.preferences) dto.preferences = user.preferences;
     dto.createdAt = toIso(user.createdAt);
     dto.updatedAt = toIso(user.updatedAt);

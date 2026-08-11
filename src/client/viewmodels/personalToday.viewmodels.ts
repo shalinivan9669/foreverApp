@@ -1,14 +1,17 @@
-import type { PersonalTodayDTO } from '@/client/api/types';
+import type {
+  PersonalTodayDataStatus,
+  PersonalTodayDTO,
+} from '@/client/api/types';
 
 type PersonalTodayInput = Partial<PersonalTodayDTO> | null | undefined;
 
-export const clamp01 = (value: number | undefined): number =>
-  typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.min(1, value))
-    : 0;
+export const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
-export const clampPercent = (value: number | undefined): number =>
+export const clampPercent = (value: number): number =>
   Math.max(0, Math.min(100, Math.round(clamp01(value) * 100)));
+
+const normalizeMetric = (value: number | null | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? clamp01(value) : null;
 
 const asString = (value: string | undefined | null): string | undefined =>
   typeof value === 'string' && value.trim().length > 0 ? value : undefined;
@@ -22,7 +25,7 @@ const currentDateLabel = (): string =>
     month: 'long',
   }).format(new Date());
 
-export const createEmptyPersonalToday = (): PersonalTodayDTO => ({
+const safeFallback = (): PersonalTodayDTO => ({
   user: {
     id: '',
     name: 'Друг',
@@ -43,73 +46,40 @@ export const createEmptyPersonalToday = (): PersonalTodayDTO => ({
     mode: 'private',
     label: 'Лично',
     explanation:
-      'Видно только тебе. Партнёр увидит только явно отправленную фразу. Дневник и детали состояния не отправляются.',
+      'Видно только вам. Другой человек увидит только явно отправленную фразу.',
   },
   pairContext: {
     hasPair: false,
     label: 'Пара пока не активна',
   },
+  dataStatus: {
+    overall: 'MISSING',
+    metricGroups: {
+      resource: 'MISSING',
+      connection: 'MISSING',
+    },
+  },
   hero: {
     mode: 'low_data',
-    title: 'Сегодня можно начать с короткой сверки',
-    subtitle: 'Данных пока мало, поэтому лучше выбрать мягкий ориентир',
-    rings: {
-      resource: 0.5,
-      closeness: 0.5,
-      tension: 0.25,
-    },
+    title: 'Для фокуса дня пока недостаточно данных',
+    subtitle: 'Отметьте своё состояние, чтобы увидеть личную сводку без догадок',
+    rings: {},
     hints: [
-      'Можно отметить состояние за 30 секунд',
-      'Дневник останется только для тебя',
+      'Числовые выводы появятся только после вашей отметки',
+      'Дневник останется только для вас',
     ],
   },
-  quickCards: [
-    {
-      key: 'state',
-      title: 'Моё состояние',
-      body: 'Сегодня полезно начать с честной и короткой сверки с собой.',
-      icon: 'heart',
-    },
-    {
-      key: 'need',
-      title: 'Что сейчас важно',
-      body: 'Мягкий темп, простая фраза и право оставить детали личными.',
-      icon: 'hand',
-    },
-    {
-      key: 'influence',
-      title: 'Что влияет',
-      body: 'Ресурс, напряжение, потребность в близости и готовность говорить.',
-      icon: 'cloud',
-    },
-  ],
+  quickCards: [],
   partnerSignal: {
     available: false,
-    title: 'Фраза для себя',
-    text: 'Мне хочется немного тепла и спокойного контакта. Можно вечером просто побыть рядом.',
+    title: 'Сигнал партнёру',
+    text: '',
     visibility: 'disabled',
     primaryCta: 'Отправить',
     secondaryCta: 'Оставить себе',
   },
-  softOption: {
-    title: 'Мягкий вариант',
-    intro: 'Один бережный вариант на сегодня.',
-    phrase: 'Можно попробовать один мягкий вариант контакта.',
-    alternatives: [
-      'Если захочется контакта, можно начать с одной простой фразы.',
-      'Можно оставить это только для себя.',
-    ],
-    primaryCta: 'Выбрать фразу',
-    secondaryCta: 'Оставить себе',
-  },
-  todayMap: [
-    { key: 'resource', label: 'Ресурс', value: 0.5 },
-    { key: 'closeness', label: 'Близость', value: 0.5 },
-    { key: 'stress', label: 'Стресс', value: 0.25 },
-    { key: 'support', label: 'Поддержка', value: 0.5 },
-    { key: 'conversation', label: 'Разговор', value: 0.45 },
-    { key: 'irritation', label: 'Раздражение', value: 0.2 },
-  ],
+  softOption: null,
+  todayMap: [],
   privateJournal: {
     hasEntry: false,
     placeholder: 'Что сегодня важно оставить только для себя?',
@@ -120,6 +90,20 @@ export const createEmptyPersonalToday = (): PersonalTodayDTO => ({
     editable: true,
   },
 });
+
+const normalizeDataStatus = (
+  value: PersonalTodayDataStatus | undefined
+): PersonalTodayDataStatus =>
+  value === 'AVAILABLE' || value === 'INSUFFICIENT' ? value : 'MISSING';
+
+const overallStatus = (
+  resource: PersonalTodayDataStatus,
+  connection: PersonalTodayDataStatus
+): PersonalTodayDataStatus => {
+  if (resource === 'AVAILABLE' && connection === 'AVAILABLE') return 'AVAILABLE';
+  if (resource === 'MISSING' && connection === 'MISSING') return 'MISSING';
+  return 'INSUFFICIENT';
+};
 
 const normalizeLens = (input: PersonalTodayInput): PersonalTodayDTO['lens'] => {
   const type = input?.lens?.type;
@@ -134,13 +118,34 @@ const normalizeLens = (input: PersonalTodayInput): PersonalTodayDTO['lens'] => {
   };
 };
 
-const normalizeHero = (
-  input: PersonalTodayInput,
-  fallback: PersonalTodayDTO
-): PersonalTodayDTO['hero'] => {
-  const mode = input?.hero?.mode;
+export const normalizePersonalToday = (
+  input?: Partial<PersonalTodayDTO> | null
+): PersonalTodayDTO | null => {
+  if (!input) return null;
+
+  const fallback = safeFallback();
+  const resource = normalizeMetric(input.hero?.rings?.resource);
+  const closeness = normalizeMetric(input.hero?.rings?.closeness);
+  const tension = normalizeMetric(input.hero?.rings?.tension);
+  const requestedResourceStatus = normalizeDataStatus(
+    input.dataStatus?.metricGroups.resource
+  );
+  const requestedConnectionStatus = normalizeDataStatus(
+    input.dataStatus?.metricGroups.connection
+  );
+  const resourceStatus =
+    requestedResourceStatus === 'AVAILABLE' && resource === null
+      ? 'INSUFFICIENT'
+      : requestedResourceStatus;
+  const connectionStatus =
+    requestedConnectionStatus === 'AVAILABLE' &&
+    (closeness === null || tension === null)
+      ? 'INSUFFICIENT'
+      : requestedConnectionStatus;
+  const dataStatus = overallStatus(resourceStatus, connectionStatus);
+  const metricsAvailable = dataStatus === 'AVAILABLE';
+  const mode = input.hero?.mode;
   const allowedModes: PersonalTodayDTO['hero']['mode'][] = [
-    'low_data',
     'stable',
     'low_resource',
     'closeness',
@@ -148,46 +153,42 @@ const normalizeHero = (
     'repair',
     'growth',
   ];
-  return {
-    mode: mode && allowedModes.includes(mode) ? mode : fallback.hero.mode,
-    title: asString(input?.hero?.title) ?? fallback.hero.title,
-    subtitle: asString(input?.hero?.subtitle) ?? fallback.hero.subtitle,
-    rings: {
-      resource: clamp01(input?.hero?.rings?.resource ?? fallback.hero.rings.resource),
-      closeness: clamp01(input?.hero?.rings?.closeness ?? fallback.hero.rings.closeness),
-      tension: clamp01(input?.hero?.rings?.tension ?? fallback.hero.rings.tension),
-    },
-    hints:
-      input?.hero?.hints
-        ?.map((hint) => hint.trim())
-        .filter((hint) => hint.length > 0)
-        .slice(0, 3) ?? fallback.hero.hints,
-  };
-};
-
-export const normalizePersonalToday = (input?: Partial<PersonalTodayDTO> | null): PersonalTodayDTO => {
-  const fallback = createEmptyPersonalToday();
-  if (!input) return fallback;
-
-  const quickCards =
-    input.quickCards
-      ?.filter((card) => asString(card.title) && asString(card.body))
-      .map((card) => ({
-        key: card.key ?? 'state',
-        title: card.title,
-        body: card.body,
-        icon: card.icon ?? 'heart',
-      }))
-      .slice(0, 3) ?? fallback.quickCards;
-  const todayMap =
-    input.todayMap
-      ?.filter((item) => asString(item.label))
-      .map((item) => ({
-        key: item.key ?? 'resource',
-        label: item.label,
-        value: clamp01(item.value),
-      }))
-      .slice(0, 8) ?? fallback.todayMap;
+  const quickCards = metricsAvailable
+    ? input.quickCards
+        ?.filter((card) => asString(card.title) && asString(card.body))
+        .map((card) => ({
+          key: card.key ?? 'state',
+          title: card.title,
+          body: card.body,
+          icon: card.icon ?? 'heart',
+        }))
+        .slice(0, 3) ?? []
+    : [];
+  const todayMap = metricsAvailable
+    ? input.todayMap
+        ?.flatMap((item) => {
+          const label = asString(item.label);
+          const value = normalizeMetric(item.value);
+          return label && value !== null
+            ? [{ key: item.key ?? 'resource', label, value }]
+            : [];
+        })
+        .slice(0, 8) ?? []
+    : [];
+  const softOption = metricsAvailable && input.softOption
+    ? {
+        title: asString(input.softOption.title) ?? 'Мягкий вариант',
+        intro: asString(input.softOption.intro) ?? '',
+        phrase: asString(input.softOption.phrase) ?? '',
+        alternatives:
+          input.softOption.alternatives
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0)
+            .slice(0, 4),
+        primaryCta: asString(input.softOption.primaryCta) ?? 'Выбрать фразу',
+        secondaryCta: asString(input.softOption.secondaryCta) ?? 'Оставить себе',
+      }
+    : null;
 
   return {
     user: {
@@ -213,35 +214,57 @@ export const normalizePersonalToday = (input?: Partial<PersonalTodayDTO> | null)
     lens: normalizeLens(input),
     privacy: {
       mode: 'private',
-      label: asString(input.privacy?.label) ?? 'Лично',
-      explanation: asString(input.privacy?.explanation) ?? fallback.privacy.explanation,
+      label: asString(input.privacy?.label) ?? fallback.privacy.label,
+      explanation:
+        asString(input.privacy?.explanation) ?? fallback.privacy.explanation,
     },
     pairContext: {
       hasPair: input.pairContext?.hasPair === true,
       pairId: asString(input.pairContext?.pairId),
       status:
-        input.pairContext?.status === 'active' || input.pairContext?.status === 'paused'
+        input.pairContext?.status === 'active' ||
+        input.pairContext?.status === 'paused'
           ? input.pairContext.status
-          : undefined,
-      warmth:
-        typeof input.pairContext?.warmth === 'number'
-          ? clamp01(input.pairContext.warmth)
           : undefined,
       label: asString(input.pairContext?.label) ?? fallback.pairContext.label,
     },
-    hero: normalizeHero(input, fallback),
+    dataStatus: {
+      overall: dataStatus,
+      metricGroups: {
+        resource: resourceStatus,
+        connection: connectionStatus,
+      },
+    },
+    hero: metricsAvailable
+      ? {
+          mode: mode && allowedModes.includes(mode) ? mode : 'stable',
+          title: asString(input.hero?.title) ?? 'Личная сводка на сегодня',
+          subtitle: asString(input.hero?.subtitle) ?? '',
+          rings: {
+            resource: resource ?? undefined,
+            closeness: closeness ?? undefined,
+            tension: tension ?? undefined,
+          },
+          hints:
+            input.hero?.hints
+              ?.map((hint) => hint.trim())
+              .filter((hint) => hint.length > 0)
+              .slice(0, 3) ?? [],
+        }
+      : fallback.hero,
     quickCards,
     partnerSignal: {
-      available: input.partnerSignal?.available === true,
+      available: metricsAvailable && input.partnerSignal?.available === true,
       title: asString(input.partnerSignal?.title) ?? fallback.partnerSignal.title,
-      text: asString(input.partnerSignal?.text) ?? fallback.partnerSignal.text,
+      text: asString(input.partnerSignal?.text) ?? '',
       visibility:
         input.partnerSignal?.visibility === 'private_draft' ||
         input.partnerSignal?.visibility === 'sent'
           ? input.partnerSignal.visibility
           : 'disabled',
       primaryCta: asString(input.partnerSignal?.primaryCta) ?? 'Отправить',
-      secondaryCta: asString(input.partnerSignal?.secondaryCta) ?? 'Оставить себе',
+      secondaryCta:
+        asString(input.partnerSignal?.secondaryCta) ?? 'Оставить себе',
       sentAt: asString(input.partnerSignal?.sentAt),
     },
     ...(input.incomingPartnerSignal
@@ -260,25 +283,14 @@ export const normalizePersonalToday = (input?: Partial<PersonalTodayDTO> | null)
           },
         }
       : {}),
-    softOption: {
-      title: asString(input.softOption?.title) ?? fallback.softOption.title,
-      intro: asString(input.softOption?.intro) ?? fallback.softOption.intro,
-      phrase: asString(input.softOption?.phrase) ?? fallback.softOption.phrase,
-      alternatives:
-        input.softOption?.alternatives
-          ?.map((item) => item.trim())
-          .filter((item) => item.length > 0)
-          .slice(0, 4) ?? fallback.softOption.alternatives,
-      primaryCta: asString(input.softOption?.primaryCta) ?? fallback.softOption.primaryCta,
-      secondaryCta:
-        asString(input.softOption?.secondaryCta) ?? fallback.softOption.secondaryCta,
-    },
+    softOption,
     todayMap,
     privateJournal: {
       hasEntry: input.privateJournal?.hasEntry === true,
       text: input.privateJournal?.text,
       placeholder:
-        asString(input.privateJournal?.placeholder) ?? fallback.privateJournal.placeholder,
+        asString(input.privateJournal?.placeholder) ??
+        fallback.privateJournal.placeholder,
       maxLength:
         typeof input.privateJournal?.maxLength === 'number'
           ? Math.max(1, Math.min(2000, Math.round(input.privateJournal.maxLength)))

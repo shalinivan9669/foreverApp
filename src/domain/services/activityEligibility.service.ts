@@ -1,10 +1,8 @@
-import type { Axis } from '@/models/ActivityTemplate';
 import type { PairActivityType } from '@/models/PairActivity';
 import { isSafetyFallbackTemplateId } from '@/domain/services/safetyGate.service';
+import { resolveActivityFactorBinding } from '@/domain/services/activityFactorRuntime.service';
 
 export type PairMemberRole = 'A' | 'B';
-
-const P0_SENSITIVE_AXES = new Set<Axis>(['finance', 'sexuality']);
 
 const stateMetaString = (
   stateMeta: PairActivityType['stateMeta'],
@@ -24,9 +22,20 @@ const assignedMemberIds = (
   return value.filter((entry): entry is string => typeof entry === 'string');
 };
 
-export const hasP0SensitiveActivityAxis = (
-  axes: readonly Axis[]
-): boolean => axes.some((axis) => P0_SENSITIVE_AXES.has(axis));
+export const hasEligibleActivityFactorBinding = (
+  activity: Pick<PairActivityType, 'actionDefinition' | 'targetFactorKeys'>
+): boolean => {
+  try {
+    const binding = resolveActivityFactorBinding(activity);
+    return binding.factors.every(
+      (factor) =>
+        factor.privacyClass !== 'SENSITIVE' &&
+        factor.privacyClass !== 'MATCHING_ONLY'
+    );
+  } catch {
+    return false;
+  }
+};
 
 export const activityTemplateId = (
   activity: Pick<PairActivityType, 'stateMeta'>
@@ -74,11 +83,16 @@ export const isActivityAccessibleToRole = (
 export const isOfferedActivityEligibleForRole = (input: {
   activity: Pick<
     PairActivityType,
-    'axis' | 'members' | 'mode' | 'stateMeta' | 'visibility'
+    | 'actionDefinition'
+    | 'targetFactorKeys'
+    | 'members'
+    | 'mode'
+    | 'stateMeta'
+    | 'visibility'
   >;
   role: PairMemberRole;
   safetyVeto: boolean;
 }): boolean =>
-  !hasP0SensitiveActivityAxis(input.activity.axis) &&
+  hasEligibleActivityFactorBinding(input.activity) &&
   isActivityEligibleForSafetyState(input.activity, input.safetyVeto) &&
   isActivityAccessibleToRole(input.activity, input.role);

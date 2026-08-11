@@ -3,10 +3,16 @@ import { verifyJwt } from '@/lib/jwt';
 
 export type SessionUser = {
   userId: string;
+  sessionVersion: string;
+  issuedAt: number;
 };
 
 export type SessionReadResult =
   | { ok: true; session: SessionUser }
+  | { ok: false; reason: 'missing_token' | 'missing_secret' | 'invalid_token' };
+
+export type SessionCandidatesReadResult =
+  | { ok: true; sessions: SessionUser[] }
   | { ok: false; reason: 'missing_token' | 'missing_secret' | 'invalid_token' };
 
 type RequestCookiesShape = {
@@ -88,7 +94,44 @@ export const readSessionUser = (
     ok: true,
     session: {
       userId: payload.sub,
+      sessionVersion: payload.sv,
+      issuedAt: payload.iat,
     },
+  };
+};
+
+export const readSessionCandidates = (
+  req: Request | NextRequest,
+  cookieName = 'session'
+): SessionCandidatesReadResult => {
+  const cookieToken = getCookieToken(req, cookieName);
+  const bearerToken = getBearerToken(req);
+  if (!cookieToken && !bearerToken) return { ok: false, reason: 'missing_token' };
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return { ok: false, reason: 'missing_secret' };
+
+  const payloads = [
+    cookieToken ? verifyJwt(cookieToken, secret) : null,
+    bearerToken ? verifyJwt(bearerToken, secret) : null,
+  ].filter((payload): payload is NonNullable<typeof payload> => Boolean(payload));
+  if (payloads.length === 0) return { ok: false, reason: 'invalid_token' };
+
+  const sessions = payloads.map((payload) => ({
+    userId: payload.sub,
+    sessionVersion: payload.sv,
+    issuedAt: payload.iat,
+  }));
+  return {
+    ok: true,
+    sessions: sessions.filter(
+      (session, index) =>
+        sessions.findIndex(
+          (candidate) =>
+            candidate.userId === session.userId &&
+            candidate.sessionVersion === session.sessionVersion
+        ) === index
+    ),
   };
 };
 

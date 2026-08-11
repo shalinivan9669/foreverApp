@@ -1,231 +1,163 @@
 # ForeverApp / «Вместе»: направление продукта
 
-Статус: каноническое целевое описание продукта. Дата решения: 2026-08-07.
+Статус: каноническое описание публичного бесплатного продукта. Обновлено 2026-08-11.
 
-Этот документ отвечает на вопрос, **что и зачем строится**. Scope первой версии находится в `docs/MVP_SPEC.md`, подробные flows — в `docs/MVP_FLOWS.md`, целевая модель и её операционные границы — в `docs/TARGET_DOMAIN_MODEL.md` и `docs/TARGET_DOMAIN_OPERATIONS.md`.
+Scope и gates: [MVP_SPEC.md](./MVP_SPEC.md). Подробное поведение: [MVP_FLOWS.md](./MVP_FLOWS.md). Вычислительная модель: [TARGET_DOMAIN_MODEL.md](./TARGET_DOMAIN_MODEL.md).
 
-## 1. Как читать документацию
+## 1. Продукт
 
-При конфликте источников действует такой порядок:
+«Вместе» — приложение для двух совершеннолетних людей, которые уже состоят в отношениях и добровольно создают общую Pair-область.
 
-1. текущий код и специализированные активные contracts/security/architecture docs описывают уже существующее поведение;
-2. канонические product/MVP/target-domain docs и их приложения задают направление будущей разработки;
-3. `docs/01-product-loop.md`, `docs/02-domain-model.md`, старые аудиты и исходные концепты являются датированными snapshots и используются только как контекст до повторной проверки.
+Оно помогает:
 
-Ни один статус `IMPLEMENTED` из старых материалов не считается подтверждённым без проверки актуального кода. Новые документы не меняют API, схему БД или поведение приложения сами по себе.
-
-Статусы требований:
-
-- `MVP_CORE` — минимальный законченный цикл ценности;
-- `MVP_RELEASE` — необходимо до коммерческого публичного запуска;
-- `NEXT` — только после подтверждения основного цикла;
-- `LATER` — стратегическая возможность, не текущий roadmap;
-- `REJECTED` — решение сознательно не переносится в продукт.
-
-## 2. Определение продукта
-
-ForeverApp / «Вместе» — приложение для двух взрослых людей, которые уже состоят в отношениях и добровольно подключились к общей парной области.
-
-Продукт помогает паре:
-
-1. коротко отметить текущее состояние;
-2. получить осторожное и понятное общее резюме;
+1. отдельно отметить состояние текущей недели;
+2. увидеть осторожное privacy-safe резюме пары;
 3. выбрать один посильный следующий шаг;
-4. выполнить его и дать раздельную обратную связь;
-5. вернуться к следующему циклу с учётом предыдущего опыта.
+4. выполнить его и раздельно дать feedback;
+5. повторять цикл без оплаты или лимита числа циклов.
 
-Продукт не определяет, «хорошая» ли пара, не ставит диагнозов, не читает мысли партнёра и не заменяет психотерапию, экстренную помощь или медицинскую консультацию.
+Продукт не определяет, «хорошая» ли пара, не показывает процент совместимости, не диагностирует человека/отношения, не читает мысли партнёра и не заменяет терапию, медицину, кризисную или экстренную помощь.
 
-## 3. Главная продуктовая гипотеза
+## 2. Главная гипотеза
 
-Если оба партнёра регулярно проходят короткий, безопасный и объяснимый цикл `check-in → общее резюме → действие → feedback`, то им легче замечать текущее состояние отношений и совершать полезные небольшие действия без перегрузки.
-
-Единица ценности и удержания — **пара**, а не отдельный аккаунт.
-
-Основной цикл:
+Если оба участника регулярно проходят короткий цикл
 
 ```text
-два добровольно связанных аккаунта
-→ отдельный check-in каждого
-→ privacy-safe общее резюме
-→ одна подходящая активность
-→ раздельный feedback
-→ следующий цикл
+check-in → Pair Summary → одно действие → отдельный feedback → следующий цикл
 ```
 
-Первый value event — пара увидела первое понятное совместное резюме. Более сильный value event — хотя бы одна активность завершена и оценена.
+то им проще замечать текущий контекст и совершать небольшие полезные действия без перегрузки и раскрытия личных ответов.
 
-## 4. Для кого MVP
+Единица activation/retention — Pair. Первый value event — оба увидели первое допустимое общее резюме; полный value event — активность завершена с feedback и пара начала следующий цикл.
 
-MVP рассчитан на:
+## 3. Для кого MVP
 
-- уже существующую романтическую пару;
-- ровно двух совершеннолетних участников;
-- добровольное участие обоих;
-- использование через текущий канал Discord Embedded App;
-- короткое регулярное взаимодействие, а не длительную диагностику.
+- существующая романтическая пара;
+- ровно два добровольно подключившихся пользователя 18+;
+- Discord Embedded App и текущий русский интерфейс;
+- короткое регулярное взаимодействие, а не длинная диагностика.
 
-Возрастное ограничение MVP — 18+. Поддержка несовершеннолетних требует отдельной правовой, safety- и consent-модели.
+Другие рынки/языки, несовершеннолетние, dating/matching и регулируемые verticals требуют отдельных решений.
 
-Целевой рынок, языки кроме уже используемого русского, позиционирование и цена подписки остаются отдельными бизнес-решениями.
+## 4. Продуктовые принципы
 
-## 5. Продуктовые принципы
+### Бесплатное ядро
 
-### 5.1 Два человека и одна парная область
+Onboarding, invitation, weekly cycles, Pair Summary, recommendation, activity, feedback, history, profile/settings/help, pair end/reconnect и privacy operations доступны без entitlement. Нет trial, цены, checkout, subscription CTA или hard paywall. Billing-инфраструктура может существовать только как отключённый будущий контур.
 
-У каждого участника собственный аккаунт и собственные данные. `Pair` — отдельная доменная сущность с общим циклом, резюме, активностями и историей. Общая область не превращает личные ответы в общие автоматически.
+### Два человека и отдельный Pair subject
 
-### 5.2 Действие важнее отчёта
+У каждого есть личные данные; Pair имеет собственный контекст, evidence, snapshots, activities и history. Общая область не делает owner-private ответы общими. Порядок участников не задаёт продуктовую роль A/B.
 
-Результат check-in должен вести к одному понятному следующему шагу. Большая карта, множество чисел и длинная «диагностика» не являются первой ценностью.
+### Действие важнее рейтинга
 
-### 5.3 Состояние не равно устойчивой характеристике
+Pair Summary ведёт к одному понятному шагу. Большой паспорт, радар, множество чисел и «здоровье отношений» не являются продуктовой ценностью.
 
-Усталость этой недели, предпочтение, навык, ограничение и фактическая нагрузка — разные типы данных. Они не хранятся и не интерпретируются как одно число.
+### Семантика вместо шести осей
 
-### 5.4 Совместимость не равна сходству и не равна здоровью отношений
+Trait, state, skill, preference, need, role capability, constraint и outcome — разные сущности. Полюса не означают хорошо/плохо. Только skills могут получать развитие; constraint не усредняется. Domain — навигационная группировка, а не число пользователя.
 
-Разные характеристики сравниваются разными правилами. Полюса `−/+` имеют локальный смысл и не означают «плохо/хорошо». Один глобальный процент совместимости не рассчитывается и не показывается.
+### Недостаток данных — нормален
 
-### 5.5 Недостаток данных — нормальное состояние
+`MISSING`, `INVALID`, `UNKNOWN` и `INSUFFICIENT_DATA` не заменяются midpoint. Один ответ участника не превращается в вывод о паре.
 
-Система предпочитает `INSUFFICIENT_DATA` осторожному, но необоснованному выводу. В первые циклы показываются подтверждённые наблюдения, а не психологические паттерны.
+### Объяснимость и воспроизводимость
 
-### 5.6 Объяснимость обязательна
+Definitions, evidence, snapshots и recommendation provenance версионированы. Исторический результат не меняется молча. Пользователь видит нейтральное объяснение, но не внутренний score/confidence/evidence graph.
 
-Каждое общее резюме и каждая рекомендация должны иметь нейтральное объяснение: какие разрешённые сигналы учтены и почему действие подходит сейчас. Внутренние дробные оценки не выдаются за научную точность.
+### Приватность — часть модели
 
-### 5.7 Приватность — часть доменной модели
+Capture permission и derived disclosure разделены. Pair result не должен позволять восстановить ответ партнёра. A's observation не меняет B's personal profile. SafetyGate остаётся owner-private system-only veto.
 
-Для исходного ответа отдельно определяются владелец, разрешение на персональный расчёт, разрешение на парный расчёт и допустимость раскрытия результата. Производный вывод не должен позволять очевидно восстановить скрытый ответ партнёра.
+### Явное действие пользователя
 
-### 5.8 Персонализация без гендерных стереотипов
+PartnerSignal отправляется только после preview/explicit confirm. Skip/pause/end/delete требуют понятного отдельного действия. Система не отправляет партнёру выводы автоматически.
 
-Порядок блоков, тон и рекомендации адаптируются по явным предпочтениям, текущему состоянию и прошлому feedback. Мужской и женский default lens не используются.
+### Детерминированное ядро
 
-### 5.9 Контент сначала курируется
+MVP использует типизированные правила и reviewed content. AI не выставляет Factor/Safety/constraint, не диагностирует и не получает всю историю по умолчанию.
 
-Вопросы, объяснения и активности версионируются и проходят редакционную и safety-проверку. Количество не важнее покрытия ключевых сценариев.
+## 5. Основной путь
 
-### 5.10 AI не является основой MVP
+```text
+Discord auth
+→ personal onboarding
+→ one-time invite
+→ partner accepts, Pair created
+→ both submit/skip weekly independently
+→ privacy-safe Pair Summary
+→ offer / accept / replace once / skip
+→ activity start + separate feedback
+→ bounded history
+→ next free cycle
+```
 
-Первая версия использует детерминированные правила, типизированные данные и шаблоны. AI не определяет состояние пары, ограничения, безопасность или «истинные мотивы» участников.
+Путь выдерживает refresh, повтор запроса, A/B order, partial failure и concurrency; он не создаёт duplicate pair/cycle/evidence/snapshot/decision/activity.
 
 ## 6. Информационная архитектура
 
-Существующие маршруты можно сохранить, но их роль уточняется:
+- entry/onboarding/join/waiting;
+- `/main-menu` — текущий Pair/cycle hub;
+- weekly form и Pair Summary;
+- `/couple-activity` — current offer/activity/feedback/history states;
+- `/profile` — semantic owner profile и personal today;
+- settings/privacy/SafetyGate/help/end/reconnect/export/delete.
 
-- `/main-menu` — главный action-oriented hub «Сегодня»: состояние цикла, следующий шаг и навигация;
-- `/pair` — подробности общей области пары, текущего резюме и истории;
-- `/profile` — личный профиль, состояние, настройки приватности и аккаунта;
-- check-in и activity flows — отдельные сфокусированные сценарии.
+Legacy matching routes удалены из active runtime. Оставшийся `/api/pairs/create` — только guarded compatibility seam, который отвечает `PAIR_INVITE_REQUIRED`; Pair создаётся исключительно через принятие приглашения.
 
-Так сохраняется текущий навигационный хаб, но стартовый экран перестаёт быть только набором плиток.
+## 7. Входит в public-free MVP
 
-## 7. Границы MVP
+- Discord session/resource boundary and durable logout revocation;
+- resumable personal onboarding and consent;
+- hashed invite, cancel/reissue/expiry/accept;
+- weekly untouched/explicit input, skip/expiry and Pair Summary;
+- semantic Factor evidence/snapshots/evaluations;
+- deterministic recommendation, one replacement, neutral fallback;
+- PairActivity lifecycle and separate feedback;
+- bounded history and neutral member notifications;
+- owner semantic profile, settings and private help;
+- explicit PartnerSignal;
+- SafetyGate;
+- pause/resume/end/new-context reconnect;
+- bounded export, request/cancel/confirm deletion and session revocation;
+- versioned content/publication, audit/analytics and release migrations.
 
-`MVP_CORE` — защищённый закрытый пилот полного цикла от Discord auth и связывания пары до summary, activity, feedback и следующего cycle. Session/resource guards, item-level privacy и safety veto являются частью core, а не отложенной коммерческой полировкой.
+## 8. Не входит
 
-`MVP_RELEASE` добавляет обязательную эксплуатационную готовность: полный lifecycle пары и данных, проверенный sensitive content/help flow, безопасные уведомления и продуктовую аналитику. Billing требуется только для платного публичного запуска; первый cycle не блокируется, hard paywall возможен только перед cycle 2.
+- dating/candidate feed as a supported product and new matching algorithm;
+- numeric compatibility/relationship-health score or six-axis passport;
+- diagnosis, motive reading or automatic abuse detection;
+- AI therapist/chat/memory, voice/emotion analysis;
+- household/task manager, budget/calendar, marketplace/social network;
+- pregnancy/children/medicine/clinics;
+- production payment provider, subscription/paywall or pricing;
+- unreviewed sensitive/jurisdiction-specific advice.
 
-Scope и gates находятся в `docs/MVP_SPEC.md`; единственный подробный перечень acceptance criteria — в `docs/MVP_FLOWS.md`.
+## 9. После подтверждения MVP
 
-## 8. Что сознательно не входит в MVP
+Only with pilot evidence and a new scoped decision:
 
-- dating, лента кандидатов и новый matching;
-- общий процент совместимости;
-- полный «паспорт пары» по шести направлениям;
-- автоматическое распознавание психологических паттернов;
-- длинные тесты и свободный текст как основной scoring input;
-- динамический AI-подбор вопросов;
-- AI-чат, AI-терапевт, анализ голоса или эмоций;
-- household/task manager, бюджет, календарь, договорённости и программы;
-- беременность, дети, медицина и клиники;
-- социальная сеть, публичные профили и community;
-- marketplace, рестораны, спортзалы, подарки, поездки, жильё и финансы;
-- большая универсальная админ-панель.
+- trends and user-confirmed patterns;
+- broader factor/content registry and personal skill programs;
+- agreements/rituals/household modules;
+- opt-in matching using actual and desired profiles with hard constraints;
+- approved localized resource catalogs;
+- limited AI rephrasing/summarization behind purpose-specific consent.
 
-Уже существующий legacy matching не требуется удалять в рамках MVP. Его следует изолировать от основного пользовательского пути и не расширять до подтверждения pair loop.
+No later feature may reintroduce six-axis scoring, global compatibility, hidden partner inference or a core paywall by default.
 
-## 9. Этап после MVP (`NEXT`)
+## 10. Metrics
 
-Только после подтверждения завершения и повторения основного цикла рассматриваются:
+- pair activation and time to first safe summary;
+- full-loop completion and next-cycle starts;
+- accept/replace/skip and activity feedback completion;
+- retention by completed pair cycles;
+- retries/conflicts/duplicate canonical artifacts;
+- privacy/safety incidents;
+- critical route p95/error rate.
 
-- тренды после накопления нескольких циклов;
-- пользовательски подтверждаемые паттерны;
-- opt-in partner perception как контекстное наблюдение, а не истина о человеке;
-- расширенная Pair Map;
-- адаптивный выбор вопросов;
-- персонализация рекомендаций по наблюдаемому feedback;
-- развитие relationship skills без смешения с совместимостью;
-- явные partner signals и сценарий возврата к разговору;
-- agreements, rituals и многошаговые программы;
-- household/mental load и future topics;
-- расширенная история событий и milestones;
-- synchronous reveal только с взаимным согласием;
-- расширенный solo mode;
-- отдельное исследование dating/matching.
+Analytics contains only allowlisted technical events, never answers, notes, summary text or user/pair ids.
 
-Каждый модуль должен иметь собственную проверяемую гипотезу и не добавляться только потому, что он присутствовал в старом vision.
+## 11. External launch decisions
 
-## 10. Дальнее направление (`LATER`)
-
-Дальняя цель может развиться из couple product в Family OS, но это не определяет текущую схему и backlog.
-
-Возможности:
-
-- AI-assisted объяснения и суммаризация;
-- opt-in память решений и договорённостей;
-- AI-mediated conversation с отдельным согласием каждого;
-- voice input только как способ ввода, не диагностика по голосу;
-- preconception, pregnancy и parenting как отдельные регулируемые вертикали;
-- family graph и семейный архив;
-- локальные сервисы, travel, finance, housing и marketplace.
-
-Для AI действует последовательность:
-
-```text
-типизированные данные
-→ детерминированные вычисления
-→ privacy/safety policy
-→ ограниченный контекст для LLM
-→ пользовательский текст
-```
-
-LLM не получает всю историю «на всякий случай», не меняет source-of-truth данные и не принимает safety-critical решения. Медицинские, детские, финансовые и marketplace-направления требуют отдельных data boundaries, согласий и оценки регулирования.
-
-## 11. Метрики
-
-North-star — удержание пары по завершённым циклам, а не число открытий отдельных аккаунтов. Основная воронка задана в `docs/MVP_SPEC.md`, события — в `docs/MVP_FLOWS.md` §1.13.
-
-Дополнительно измеряются time to first pair value, full-loop completion, замены/пропуски рекомендаций, reported usefulness и privacy/safety incidents.
-
-`ActivityEffect before/after` — только самоотчёт об изменении, а не доказательство причинного эффекта активности.
-
-## 12. Решения, изменённые относительно исходных концептов
-
-- Generic email/phone auth не добавляется: MVP использует существующий Discord auth.
-- Отдельный экран выбора режима с единственным вариантом не нужен.
-- `main-menu` сохраняется как маршрут, но становится экраном текущего цикла.
-- Универсальный `VectorValue` заменяется типизированными атомарными измерениями.
-- Шесть осей считаются версионируемой контентной таксономией, а не вечными колонками БД.
-- `SIGNAL_ONLY` моделируется как отдельное подтверждённое сообщение, а не как магическая видимость исходного ответа.
-- Для существующей пары термин `hard conflict` заменяется нейтральным `critical divergence / requires discussion`; это не приговор отношениям.
-- Safety-сигналы не участвуют в compatibility score и не раскрываются партнёру.
-- Вместо 60–100 шаблонов стартовый ориентир — 12–24 хорошо проверенные активности.
-- Полная админ-панель, глубокие patterns и Pair Passport не являются launch blockers.
-- Gender-based lenses отклонены.
-
-## 13. Открытые продуктовые решения
-
-До публичного коммерческого запуска необходимо отдельно утвердить:
-
-- точную аудиторию, рынок и legal jurisdiction;
-- окончательную длину onboarding/check-in по результатам usability-тестов;
-- редакционную и экспертную проверку чувствительного контента;
-- модель плательщика, trial, grace period, возвраты и поведение подписки при завершении пары;
-- правила хранения, экспорта и удаления общих данных после разрыва связи;
-- локализованный safety/help flow;
-- критерии успешности пилота и пороги перехода к `NEXT`.
-
-Эти вопросы не должны скрываться за техническими значениями по умолчанию.
+Repository completion is not production deployment evidence. Public traffic still requires named owners for jurisdiction/terms/retention, expert review of sensitive Russian help/content, real Discord two-session verification, production secrets/topology/backup/restore/alerts/incident response and explicit deployment authorization.

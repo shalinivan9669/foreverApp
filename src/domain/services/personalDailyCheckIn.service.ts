@@ -197,7 +197,7 @@ export const personalDailyCheckInService = {
       },
       computed: {
         mode: focus.mode,
-        metrics,
+        metrics: metrics.values,
         focusTitle: focus.title,
         focusSubtitle: focus.subtitle,
         ruleIds: focus.ruleIds,

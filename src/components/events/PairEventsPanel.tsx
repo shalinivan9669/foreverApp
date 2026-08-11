@@ -10,17 +10,12 @@ type PairEventsPanelProps = {
   pairStatus: 'active' | 'paused' | 'ended';
 };
 
-const toneClass = (priority: string): string => {
-  if (priority === 'Важно сейчас') return 'bg-rose-100 text-rose-700';
-  if (priority === 'Полезный повод') return 'bg-amber-100 text-amber-700';
-  return 'bg-slate-100 text-slate-700';
-};
-
 export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelProps) {
   const {
     events,
     loading,
     error,
+    refetch,
     acceptEvent,
     declineEvent,
     snoozeEvent,
@@ -57,21 +52,37 @@ export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelP
         </div>
       )}
 
-      {loading && <div className="app-muted mt-4 text-sm">Загружаем события пары...</div>}
-      {!loading && error && <div className="app-alert app-alert-error mt-4 text-sm">{error}</div>}
+      {loading && (
+        <div className="app-muted mt-4 text-sm" role="status" aria-live="polite">
+          Загружаем события пары...
+        </div>
+      )}
+      {!loading && error && (
+        <div className="app-alert app-alert-error mt-4 text-sm" role="alert">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={mutationLoading}
+            className="app-btn-secondary mt-3 px-3 py-2 text-sm disabled:opacity-60"
+          >
+            Обновить
+          </button>
+        </div>
+      )}
 
       {!loading && !error && cards.length === 0 && (
         <div className="mt-4 rounded-lg border border-dashed border-slate-200 p-4 text-sm">
           <div className="font-medium">Пока нет актуальных событий пары.</div>
           <p className="app-muted mt-1">
-            Когда появится повод - дата, усталость недели или важный сигнал - мы предложим мягкий следующий шаг.
+            Когда появится повод — дата, перегрузка недели или безопасный общий сигнал — мы предложим мягкий следующий шаг.
           </p>
         </div>
       )}
 
       {!!lastAcceptedActivities.length && (
         <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
-          Событие принято. Мы предложили {lastAcceptedActivities.length} активности.
+          Событие принято. Совместная активность доступна.
           <Link href="/couple-activity" className="ml-2 font-semibold underline">
             Открыть активности
           </Link>
@@ -82,17 +93,9 @@ export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelP
         {cards.map((card) => (
           <article key={card.id} className="rounded-lg border border-slate-100 bg-white/75 p-4">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className={`rounded-full px-2 py-0.5 ${toneClass(card.priorityLabel)}`}>
-                {card.priorityLabel}
-              </span>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
                 {card.statusLabel}
               </span>
-              {card.severityLabel && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
-                  {card.severityLabel}
-                </span>
-              )}
             </div>
 
             <h3 className="mt-3 text-lg font-semibold">{card.title}</h3>
@@ -103,13 +106,7 @@ export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelP
             </div>
             <div className="app-muted mt-3 text-xs">{card.dateLabel}</div>
 
-            {card.hasGeneratedActivities && (
-              <div className="mt-3 text-sm">
-                Предложено активностей: <b>{card.generatedActivityCount}</b>
-              </div>
-            )}
-
-            {card.isAccepted && card.hasGeneratedActivities && (
+            {card.isAccepted && card.hasGeneratedActivity && (
               <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
                 <div className="font-medium">Событие принято</div>
                 <p className="mt-1">Активности уже подготовлены для пары.</p>
@@ -147,7 +144,7 @@ export default function PairEventsPanel({ pairId, pairStatus }: PairEventsPanelP
                   Не сейчас
                 </button>
               )}
-              {card.hasGeneratedActivities && (
+              {card.hasGeneratedActivity && (
                 <Link
                   href="/couple-activity"
                   className={card.isAccepted ? 'app-btn-primary px-3 py-2 text-sm' : 'app-btn-secondary px-3 py-2 text-sm'}

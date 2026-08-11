@@ -14,6 +14,7 @@ type QuestionnairesPageViewProps = {
   personalCards: QuestionnaireCardVM[];
   coupleCards: QuestionnaireCardVM[];
   loadingCards: boolean;
+  loadFailed: boolean;
   loadingByQuestionnaireId: Record<string, boolean>;
   onStartQuestionnaire: (questionnaire: QuestionnaireCardVM) => Promise<void> | void;
 };
@@ -31,6 +32,7 @@ export default function QuestionnairesPageView({
   personalCards,
   coupleCards,
   loadingCards,
+  loadFailed,
   loadingByQuestionnaireId,
   onStartQuestionnaire,
 }: QuestionnairesPageViewProps) {
@@ -39,12 +41,20 @@ export default function QuestionnairesPageView({
 
   return (
     <div className="app-page-stack">
-      <div className="app-panel-soft flex flex-wrap items-center gap-2 p-2">
-        <button type="button" className={tabClassName(activeTab === 'personal')} onClick={() => onChangeTab('personal')}>
+      <div className="app-panel-soft flex flex-wrap items-center gap-2 p-2" role="tablist" aria-label="Тип анкеты">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'personal'}
+          className={tabClassName(activeTab === 'personal')}
+          onClick={() => onChangeTab('personal')}
+        >
           Персональные
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'couple'}
           className={tabClassName(activeTab === 'couple', !canAccessCouple)}
           onClick={() => {
             if (!canAccessCouple) return;
@@ -81,7 +91,7 @@ export default function QuestionnairesPageView({
         })}
       </div>
 
-      {!loadingCards && cards.length === 0 && (
+      {!loadingCards && !loadFailed && cards.length === 0 && (
         <p className="app-muted text-sm">
           {activeTab === 'personal' ? 'Нет персональных анкет.' : 'Нет парных анкет.'}
         </p>

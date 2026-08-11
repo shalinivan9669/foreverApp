@@ -9,7 +9,7 @@ export default function EmptyStateView({ title, description }: EmptyStateViewPro
   const useAccentDescription = Boolean(description && description.length <= 42);
 
   return (
-    <div className="app-panel-soft app-reveal border-dashed p-4 text-sm text-slate-700">
+    <div className="app-panel-soft app-reveal border-dashed p-4 text-sm text-slate-700" role="status">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200/75 text-xs text-slate-700">
           i

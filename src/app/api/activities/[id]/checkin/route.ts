@@ -26,10 +26,11 @@ const bodySchema = z.object({
     )
     .min(1)
     .max(20),
+  allowPairModelUse: z.boolean().optional().default(false),
 });
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const body = await parseJson(req, bodySchema);
   if (!body.ok) return body.response;
-  const { answers } = body.data;
+  const { answers, allowPairModelUse } = body.data;
   const auditRequest = auditContextFromRequest(req, `/api/activities/${id}/checkin`);
 
   return withIdempotency({
@@ -57,12 +58,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     requestBody: {
       id,
       answers,
+      allowPairModelUse: allowPairModelUse === true,
     },
     execute: () =>
       activitiesService.checkinActivity({
         activityId: id,
         currentUserId,
         answers,
+        allowPairModelUse,
         auditRequest,
       }),
   });

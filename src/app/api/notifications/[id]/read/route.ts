@@ -12,7 +12,7 @@ type Context = { params: Promise<{ id: string }> };
 const paramsSchema = z.object({ id: z.string().regex(/^[a-f0-9]{24}$/i) }).strict();
 
 export async function POST(req: NextRequest, context: Context): Promise<Response> {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const params = parseParams(await context.params, paramsSchema);
   if (!params.ok) return params.response;

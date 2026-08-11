@@ -60,7 +60,7 @@ export function useQuestionnaires(options: UseQuestionnairesOptions = {}) {
 
   return {
     cards,
-    loading,
+    loading: loading || (enabled && cachedCards === null && error === null),
     error,
     refetch,
   };

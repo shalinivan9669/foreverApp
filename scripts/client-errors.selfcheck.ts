@@ -60,6 +60,32 @@ const run = () => {
   );
   assert.equal(server.kind, 'generic', '5xx should map to generic');
 
+  const legacyEntitlement = toUiErrorState(
+    new ApiClientError({
+      status: 402,
+      code: 'ENTITLEMENT_REQUIRED',
+      message: 'legacy entitlement boundary',
+    })
+  );
+  assert.equal(
+    legacyEntitlement.kind,
+    'generic',
+    'legacy entitlement errors must never render a purchase/paywall state'
+  );
+
+  const legacyQuota = toUiErrorState(
+    new ApiClientError({
+      status: 403,
+      code: 'QUOTA_EXCEEDED',
+      message: 'legacy quota boundary',
+    })
+  );
+  assert.equal(
+    legacyQuota.kind,
+    'generic',
+    'legacy quota errors must never render a purchase/paywall state'
+  );
+
   console.log('Client error mapping self-check passed.');
 };
 

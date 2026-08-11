@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 type JwtPayload = {
   sub: string;
+  sv: string;
   iat: number;
   exp: number;
 };
@@ -19,10 +20,20 @@ const fromBase64Url = (input: string) => {
   return Buffer.from(normalized + pad, 'base64');
 };
 
-export function signJwt(sub: string, secret: string, ttlSeconds: number): string {
+export function signJwt(
+  sub: string,
+  secret: string,
+  ttlSeconds: number,
+  sessionVersion: string
+): string {
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
-  const payload: JwtPayload = { sub, iat: now, exp: now + ttlSeconds };
+  const payload: JwtPayload = {
+    sub,
+    sv: sessionVersion,
+    iat: now,
+    exp: now + ttlSeconds,
+  };
 
   const head = toBase64Url(Buffer.from(JSON.stringify(header), 'utf8'));
   const body = toBase64Url(Buffer.from(JSON.stringify(payload), 'utf8'));
@@ -42,7 +53,7 @@ export function verifyJwt(token: string, secret: string): JwtPayload | null {
 
   try {
     const payload = JSON.parse(fromBase64Url(body).toString('utf8')) as JwtPayload;
-    if (!payload?.sub || !payload?.exp) return null;
+    if (!payload?.sub || !payload?.sv || !payload?.iat || !payload?.exp) return null;
     if (payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {

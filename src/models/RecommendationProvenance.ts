@@ -1,9 +1,9 @@
 import { Schema, Types } from 'mongoose';
 
 export const RECOMMENDATION_PROVENANCE_VERSION =
-  'recommendation-provenance-v1' as const;
-export const RECOMMENDATION_RULE_VERSION = 'recommendation-rule-v2' as const;
-export const ACTIVITY_CONTENT_VERSION = 'activity-content-v1' as const;
+  'recommendation-provenance-v2' as const;
+export const RECOMMENDATION_RULE_VERSION = 'recommendation-rule-v3' as const;
+export const ACTIVITY_CONTENT_VERSION = 'activity-content-v2' as const;
 
 export type RecommendationSummaryContext = {
   cycleId: Types.ObjectId;

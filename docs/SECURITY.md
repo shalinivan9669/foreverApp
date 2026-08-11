@@ -1,106 +1,111 @@
-# Security
+# Security and privacy
 
-## Auth subject
+Status: active security boundary after the 2026-08-11 cutover.
 
-- The authenticated subject comes from session cookie / `requireSession`.
-- Client-provided `userId`, `fromId`, and `actorId` are not authoritative.
-- By-id write endpoints must be self-only or admin-only.
-- Public endpoints must make their public scope explicit.
-- `GET /api/users/[id]` requires session auth and returns public DTO fields only; by-id `PUT` and onboarding `PATCH` must reject actor/target mismatches with `ACCESS_DENIED`.
-- `/api/exchange-code` must not trust client `redirect_uri`. It is accepted only when it exactly matches `DISCORD_REDIRECT_URI` or the existing `NEXT_PUBLIC_DISCORD_REDIRECT_URI` fallback.
-- `/api/exchange-code` may return the Discord `access_token` only for Discord SDK authentication. Browser code should use the backend-provided minimal Discord profile instead of making extra direct Discord API calls with that token. Token responses must be `no-store`.
-- `/api/exchange-code` must issue the session cookie as `Secure`/`SameSite=None` in production, even when a mobile/embedded proxy omits `x-forwarded-proto`.
-- `/api/exchange-code` may upsert only the basic profile fields from the verified Discord user (`username`, `avatar`) before issuing the session cookie; it must not trust client-provided user ids.
-- Embedded mobile clients may use the signed `/api/exchange-code` `session_token` as an `Authorization: Bearer` fallback when iframe cookies are unavailable. The browser client must keep this token in memory only, send it only to internal `/api` paths, and never persist or log it.
-- User profile write endpoints must not accept `vectors` or `embeddings`; vector writes must go through scoring code and snapshot persistence.
-- `/api/entitlements/grant` must require `ENTITLEMENTS_ADMIN_KEY` when configured. Unkeyed access is local-development only.
-- Closed-beta content endpoints that expose questionnaires, questions, or activity templates should require session auth; questionnaire/question DTOs contain product scoring metadata.
-- Security headers preserve the SDK-supported HTTPS Discord iframe origins. Do not add `X-Frame-Options`; document pages receive a per-request nonce CSP with nonce-only scripts and `frame-ancestors`. Dynamic rendering is required for nonce propagation. Inline styles remain allowed for the current React design system, but inline scripts do not.
-- Cookie-authenticated mutations enforce an allowlisted same-origin boundary. Signed bearer sessions remain supported for Discord embedded clients that cannot carry iframe cookies.
-- JSON mutations require a JSON media type and use a streaming 64 KiB upper bound before schema validation. The billing webhook has its own stricter 32 KiB raw-body bound.
-- Private API envelopes are emitted with `private, no-store` and `Vary: Cookie, Authorization`; health endpoints are public but reveal no configuration or database detail.
-- Forwarded client IP is ignored by default. `TRUSTED_PROXY_MODE=x-forwarded-for` may be enabled only behind an ingress that overwrites and validates `X-Forwarded-For`. Without a trusted address, audit context may record no IP and anonymous IP-keyed limits are skipped instead of coupling all clients to an `unknown` bucket; authenticated mutation limits use the session user.
+## Authentication and session revocation
 
-## Resource authorization
+- Identity comes from the signed session cookie or signed in-memory bearer fallback accepted by `requireSession`.
+- Discord OAuth code exchange validates the configured redirect, uses the verified Discord identity server-side and returns `no-store`.
+- Embedded bearer tokens stay in memory and are sent only to internal API paths; tokens/cookies are never persisted by the client or logged.
+- Every issued session carries a server-side `SessionSubject` version. Logout and account-deletion confirmation rotate it, so previously signed cookies/bearers fail even before JWT expiry.
+- Production cookies are `Secure`, `HttpOnly` and use the embedded-compatible SameSite policy.
 
-- Pair resources require pair membership.
-- Activity resources require activity/pair membership.
-- Like resources require like participant role.
-- Public user DTO must never expose private profile fields.
-- Use centralized guards in `src/lib/auth/resourceGuards.ts`.
-- P0 pair linking accepts no client actor/member id. The invite creator comes from session, and the accepter is the authenticated session subject.
-- A user cannot obtain a second active pair through the P0 invite flow: acceptance uses a MongoDB transaction plus a unique `PairMembershipClaim.userId` index. Legacy direct pair activation is disabled at both `/api/pairs/create` and `/api/match/confirm`.
-- Canonical and compatibility recommendation mutations authorize pair membership before rate limiting and pair-owned entitlement/quota lookup, use a generic unavailable response for outsiders, and require transport idempotency. This prevents subscription-state probing and parallel compatibility offers.
+## Request boundary
 
-## P0 invite and recovery secrets
+- Cookie-authenticated mutations pass centralized same-origin validation.
+- JSON mutations require a JSON media type and are bounded before parsing (shared 64 KiB; sandbox webhook 32 KiB).
+- Zod rejects extra/invalid fields on strict mutation bodies.
+- Private envelopes are `private, no-store` and vary on Cookie/Authorization.
+- Document CSP uses a per-request nonce and Discord-compatible `frame-ancestors`. API JSON is not rendered through document CSP.
+- `TRUSTED_PROXY_MODE=x-forwarded-for` is valid only behind an ingress that overwrites/validates the header. Otherwise anonymous IP identity is unavailable rather than shared globally.
 
-- Invite tokens use 32 random bytes encoded as base64url. Only SHA-256 hashes are stored.
-- Raw tokens are returned only on create/reissue in `no-store` responses and are carried by the browser URL fragment, never a query string.
-- Resolve/accept take the token in a JSON body, are rate-limited, and return generic unavailable states for expired, cancelled, used-by-another, self-pair, or conflicting-membership cases.
-- Idempotency storage may keep only a derived request hash for accept. Create/reissue do not store a replay envelope because it would duplicate the one-time token.
+## Authorization and subject integrity
 
-## PII boundaries
+- Client `userId`, `fromId`, `actorId`, Pair role and membership claims are never authoritative.
+- User-by-id writes are self-only; public user DTOs contain no private profile data.
+- Pair resources require active/paused membership appropriate to the operation. Activity, invite, notification, SafetyGate and deletion resources have item-level owner/member guards. Public legacy `/api/match/**` routes are absent.
+- Invite acceptance uses a transaction and unique membership claim to prevent a second active Pair.
+- Ended Pair ids cannot authorize new pair reads/writes. Reconnect creates a new context.
+- Membership is checked before optional infrastructure/state lookup, preventing resource and future-billing probing.
 
-Sensitive:
+## Factor/evidence integrity
 
-- personal profile;
-- onboarding;
-- relationship answers;
-- questionnaire answers;
-- location;
-- tokens/cookies/secrets.
+- The registry is version/hash pinned; published-version mutation or mismatched evidence/snapshot versions fail closed.
+- Evidence and Factor snapshots are immutable and have canonical unique identities/input hashes.
+- Missing/invalid/unknown/insufficient data never becomes a neutral numeric value.
+- A's observer report cannot update B's individual snapshots.
+- Invalid evidence is stored only as provenance-bearing `REJECTED` input with a rejection code and no normalized value; it is excluded from aggregation and confidence.
+- Raw profile/vector/passport fields cannot be written through user APIs; no direct snapshot mutation API exists.
 
-Private profile data may be returned only through explicitly scoped self endpoints and DTOs.
-Initiator/recipient like answers are relationship data. They may be stored for the Like contract but must not be logged in audit metadata.
+## Participant disclosure
 
-P0 projection rules:
+Central policy distinguishes owner, pair member, matching engine and public audiences. Pair-facing DTOs do not expose:
 
-- Owner onboarding/check-in endpoints may return that owner's exact values under `no-store`; pair endpoints may return only relative completion and qualitative signals.
-- One-sided weekly input publishes no pair signal. Pair DTOs contain no averages, divergence, reconstructable counts, passport, readiness/fatigue value, or global compatibility score.
-- Activity result DTOs contain only qualitative status/readiness-to-display facts; exact feedback, effects, and source evidence stay internal.
-- Participant-facing legacy match projections redact exact scores, including idempotency replay envelopes; the primary UI does not render compatibility percentages or vector-ranking diagnostics.
-- Cycle history comes only from immutable canonical snapshots. Missing legacy snapshots are omitted rather than recalculated.
-- The legacy pair diagnostics endpoint is retired for P0; direct navigation and API access cannot recover passport, A/B deltas, answer-derived signals, global score, readiness, or fatigue.
-- The owner-private safety flag stores no reason/free text and only vetoes activity eligibility. The partner receives neither the flag nor a safety-specific error/recommendation reason.
-- `GET /api/privacy/export` is owner-only and exports bounded owner data plus already-safe shared artifacts. It excludes the partner's raw answers/notes, hidden safety signals, exact scores, secrets, internal evidence, and audit payloads.
-- Account deletion is a reversible `PENDING_POLICY_REVIEW` request until shared-artifact retention and session-revocation policy are approved. The current boundary does not claim that data has been deleted and permits owner cancellation.
-- In-app notification text is an allowlisted neutral DTO. It contains no answers, topic names, recommendation evidence, pair id, or dedupe key.
+- peer raw answers, notes, journal or questionnaire rows;
+- exact peer/Pair values, deltas, averages or internal fit;
+- numeric confidence, coverage or evidence count/identities;
+- Factor hashes/provenance, raw activity feedback or `stateMeta`;
+- SafetyGate state, owner or reason;
+- overall compatibility, six-axis passport/radar or diagnosis.
 
-## Abuse, replay, and external boundaries
+One-sided weekly input produces no pair signal. Pair Summary is capped at four qualitative signals. History reads previously published immutable projections rather than recomputing private inputs. Notification copy is allowlisted and neutral. Removed diagnostics/insights routes cannot bypass the projection.
 
-- Auth exchange, invite, weekly, recommendation (including compatibility adapters), activity feedback, notification read, privacy, and billing webhook paths use Mongo-backed rate-limit policies; correctness does not depend on one application process. Anonymous OAuth/webhook IP policies become active only behind configured trusted ingress.
-- Retryable mutations use Mongo-backed idempotency records with leases, conditional completion, stale-lease takeover, and explicit failed state. Stored replay bodies remain subject to current privacy projection.
-- Sandbox billing accepts only bounded strict payloads signed with HMAC over timestamp, event id, and raw body. Timestamps outside the five-minute window, invalid signatures, missing/invalid signed event ordering, duplicate-id payload conflicts, and non-pair membership fail closed.
-- Billing event identity and current pair/provider subscription identity are unique. Monotonic `version`/`occurredAt` compare-and-set handling makes stale delivery a no-op, detects conflicting equal-order payloads, and prevents cancellation resurrection. Billing remains disabled unless explicitly configured; no route reports a successful real payment.
-- Like creation has intrinsic Mongo-backed idempotency in addition to transport replay: the owner/key identity is hashed and unique, the request hash detects changed-body reuse, and concurrent writers converge on one record.
-- Recommendation quota identities are SHA-256 claims over technical pair/cycle/action identity. Mongo atomically accepts each claim once, never stores a raw answer/evidence value, keeps accepted retries valid at a full quota, and does not increment for a denied claim.
-- Invite, weekly finalization, recommendation, activity, privacy request, notification, and webhook critical invariants are enforced in MongoDB through transactions, compare-and-set transitions, or unique indexes rather than process-local state.
-- Repeated notification-read calls preserve the first `readAt` value, and unexpected infrastructure exceptions are returned as a generic `500 INTERNAL` envelope without database/index text.
+Direct Partner Factor disclosure is summary-only for consented `NORMAL`/`PRIVATE` definitions and never contains `FactorValue`. `SENSITIVE` and `MATCHING_ONLY` definitions fail closed for the partner even when a generic partner-disclosure consent is present.
 
-## Logging
+Owner-only profile/export may expose the owner's own allowed information. Exported pair evaluations still pass summary-only disclosure and omit peer snapshot/value/provenance. Global negative-disclosure tests must cover all participant routes and replay envelopes.
 
-Never log:
+## SafetyGate and help
 
-- `access_token`
-- `refresh_token`
-- `authorization`
-- `cookie`
-- `password`
-- `secret`
-- raw body
-- free text answers
-- full check-in/questionnaire payloads
+SafetyGate stores only a pair-scoped owner boolean and retention metadata. It can only remove activity eligibility; it never changes Pair Summary/ranking or emits a partner notification/reason. Pair end revokes it.
 
-Audit/event metadata must be sanitized before persistence.
-OAuth auth failure events should record only compact reason/status metadata, never authorization codes, redirect URIs, tokens, or secrets.
-P0 activity/check-in audits use event-specific allowlists and do not persist exact answers, scores, averages, effect deltas, notes, or invite tokens. Safety audit stores only pair id, boolean state, and retention class.
+Private help access does not notify the partner. Its typed, versioned `help-ru-v1` catalog is runtime-validated and explains privacy/control boundaries plus crisis limitations. The app does not claim to detect violence, provide emergency response, therapy or medical advice. Jurisdiction-specific crisis content still requires expert/legal review before production publication.
 
-## Agent rule
+## PartnerSignal
 
-Any Codex task touching auth, users, pair, like, activity, answers, logs, or DTO must explicitly mention security impact in the final report.
+- A daily-check-in signal is a private draft until the user explicitly confirms send.
+- Receiver comes from active/paused Pair membership.
+- Unique `sourceCheckInId` makes same-content retry idempotent and changed-content reuse a conflict.
+- Transport idempotency fingerprints canonical trimmed text through a domain-separated digest; neither the raw signal nor length-only substitutes are stored in idempotency records. Owner-private daily strings use the same content-sensitive hashing boundary.
+- TTL removes signals after 30 days.
+- Audit contains only `EXPLICIT_CONFIRMED` and retention class; it never stores text.
+- The receiver sees the confirmed text only, not the source journal/body context or an inferred state.
 
-## References
+## Pair end, export and deletion
 
-- Detailed security history: `docs/07-security-privacy.md`.
-- Audit and retention: `docs/05-analytics-events.md`.
-- Backend security checklist: `docs/engineering/checklists/audit-rate-limit-entitlements-checklist.md`.
+Pair end transactionally releases membership and closes open cycles, activities, decisions/events, SafetyGate, PartnerSignals and notifications. Reconnect starts a new Pair and does not carry old pair-scoped private projections.
+
+Weekly cycle materialization, submission claims, skips and post-check-in synchronization write a `Pair.lifecycleRevision` fence in the same Mongo transaction as their cycle, snapshot, Factor and notification writes. An ended Pair can only reconcile an already-existing expired cycle through the internal historical path; that path cannot create an open cycle or participant notification.
+
+Lazy activity-recommendation Factor materialization acquires an `active|paused` Pair `lifecycleRevision` write fence in its own transaction before reading or writing pair-scoped evidence, snapshots or evaluations. The same Mongo session is propagated through the complete Factor operation. If Pair end wins the race, the fence fails closed and the ended context receives no new immutable Factor revisions.
+
+Deletion uses explicit two-step confirmation. Execution revokes sessions before destructive work, ends active Pair, deletes the account and owner/affected pair-scoped artifacts, including pairless owner/actor/observed-subject rows from `factor_evidence_events`, then retains only a pseudonymized request lifecycle record. A failure is recorded as `FAILED` for retry; it must not falsely report deletion. Export/deletion queries are owner-scoped and bounded.
+
+This deletion policy affects shared Pair artifacts. Production use therefore still requires approved jurisdiction/retention terms, verified backup/restore and clear user copy; the runtime behavior is nevertheless implemented and tested locally.
+
+## Abuse, replay and concurrency
+
+- Auth, invite, weekly, recommendation/activity, notifications, privacy and sandbox webhook boundaries use Mongo-backed rate limits appropriate to the route.
+- Retryable mutations use Mongo-backed idempotency leases/request hashes or intrinsic canonical identities.
+- Same key/body replays; changed-body reuse conflicts. A failed/expired lease can be taken over only under documented rules.
+- Transactions/CAS/unique indexes protect membership, cycle/snapshot, decision/activity, notification, signal and deletion identities.
+- Per-Pair recommendation single-flight is acquired only after membership authorization, preventing cross-member disclosure while reducing duplicate work.
+
+## Logging, audit and analytics
+
+Never log or persist in shared audit/analytics:
+
+- access/refresh/session tokens, cookies, authorization headers or secrets;
+- raw request bodies;
+- answers, notes, journals, PartnerSignal text or full questionnaire/check-in payloads;
+- exact Factor values/confidence/evidence/hash or SafetyGate reason;
+- raw duplicate keys containing user/pair identity.
+
+Audit metadata is event-specific and sanitized. Product analytics is a separate allowlisted low-cardinality envelope. Operational metrics contain route group/outcome/duration, not content or participant identifiers.
+
+## Isolated billing boundary
+
+Sandbox billing/webhook/admin grant code remains disabled by default and HMAC/admin protected when enabled. It is not imported into public core eligibility. Core API access cannot reveal or depend on subscription state and never returns payment-required errors.
+
+## Review rule
+
+Any change touching auth, Pair/user/activity resources, evidence/disclosure, export/deletion, PartnerSignal, logs or DTOs must report its security impact and run the relevant targeted checks in [TESTING.md](./TESTING.md).

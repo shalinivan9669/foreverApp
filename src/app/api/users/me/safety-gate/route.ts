@@ -17,7 +17,7 @@ const bodySchema = z
   .strict();
 
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const query = parseQuery(req, querySchema);
   if (!query.ok) return query.response;
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const rate = await enforceRateLimit({
     req,

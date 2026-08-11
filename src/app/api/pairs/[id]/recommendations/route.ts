@@ -16,7 +16,7 @@ interface Ctx {
 }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const params = parseParams(await ctx.params, recommendationParamsSchema);
   if (!params.ok) return params.response;
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const params = parseParams(await ctx.params, recommendationParamsSchema);
   if (!params.ok) return params.response;
@@ -74,8 +74,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     requestBody: body.data,
     execute: () =>
       executeRecommendationMutation({
-        req,
-        route,
         pairId: params.data.id,
         currentUserId: auth.data.userId,
         body: body.data,

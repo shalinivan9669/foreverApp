@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   recommendationsApi,
   type RecommendationDecisionDTO,
@@ -17,7 +17,7 @@ type Action = 'offer' | 'accept' | 'replace' | 'skip';
 const ACTION_ERROR =
   'Не удалось обновить рекомендацию. Обновите экран и попробуйте ещё раз.';
 const SUMMARY_NOT_READY_ERROR =
-  'Сначала завершите текущий цикл check-in. Рекомендация появится после общего итога или завершённого сценария с недостаточными данными.';
+  'Сначала завершите текущую еженедельную отметку. Рекомендация появится после общего итога или завершённого сценария с недостаточными данными.';
 
 const actionErrorMessage = (error: unknown): string =>
   error instanceof Error &&
@@ -48,6 +48,12 @@ function RecommendationDecisionPanelSession({
   const [action, setAction] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'replace' | 'skip' | null>(null);
+  const confirmationRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (confirmAction) confirmationRef.current?.focus();
+  }, [confirmAction]);
 
   const fetchOverview = useCallback(
     (signal?: AbortSignal) => recommendationsApi.getOverview(pairId, signal),
@@ -91,6 +97,7 @@ function RecommendationDecisionPanelSession({
     async (nextAction: Action) => {
       if (action) return;
       setAction(nextAction);
+      setConfirmAction(null);
       setError(null);
       setMessage(null);
       try {
@@ -144,7 +151,7 @@ function RecommendationDecisionPanelSession({
               <button
                 type="button"
                 className="app-btn-primary px-4 py-2 text-sm disabled:opacity-60"
-                disabled={Boolean(action)}
+                disabled={Boolean(action) || Boolean(confirmAction)}
                 onClick={() => void run('accept')}
               >
                 {action === 'accept' ? 'Принимаем…' : 'Принять'}
@@ -154,8 +161,8 @@ function RecommendationDecisionPanelSession({
               <button
                 type="button"
                 className="app-btn-secondary px-4 py-2 text-sm disabled:opacity-60"
-                disabled={Boolean(action)}
-                onClick={() => void run('replace')}
+                disabled={Boolean(action) || Boolean(confirmAction)}
+                onClick={() => setConfirmAction('replace')}
               >
                 {action === 'replace' ? 'Ищем альтернативу…' : 'Другая активность'}
               </button>
@@ -164,13 +171,58 @@ function RecommendationDecisionPanelSession({
               <button
                 type="button"
                 className="app-btn-secondary px-4 py-2 text-sm disabled:opacity-60"
-                disabled={Boolean(action)}
-                onClick={() => void run('skip')}
+                disabled={Boolean(action) || Boolean(confirmAction)}
+                onClick={() => setConfirmAction('skip')}
               >
                 {action === 'skip' ? 'Пропускаем…' : 'Пропустить без штрафа'}
               </button>
             )}
           </div>
+          {confirmAction && (
+            <div
+              ref={confirmationRef}
+              role="alertdialog"
+              aria-labelledby="recommendation-confirmation-title"
+              tabIndex={-1}
+              className="app-alert app-alert-rate mt-4 text-sm outline-none"
+            >
+              <p id="recommendation-confirmation-title" className="font-semibold">
+                {confirmAction === 'replace'
+                  ? 'Показать единственную альтернативу?'
+                  : 'Пропустить рекомендацию в этом цикле?'}
+              </p>
+              <p className="mt-1">
+                {confirmAction === 'replace'
+                  ? 'После замены вернуться к текущему варианту или заменить ещё раз не получится.'
+                  : 'Пропуск не несёт штрафа, но эта рекомендация закроется.'}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="app-btn-primary px-3 py-2 text-sm"
+                  onClick={() => void run(confirmAction)}
+                >
+                  {confirmAction === 'replace' ? 'Да, заменить' : 'Да, пропустить'}
+                </button>
+                <button
+                  type="button"
+                  className="app-btn-secondary px-3 py-2 text-sm"
+                  onClick={() => setConfirmAction(null)}
+                >
+                  Вернуться
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : error ? (
+        <div className="mt-2">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Не удалось проверить рекомендацию
+          </h2>
+          <p className="app-muted mt-1 text-sm">
+            Мы не создаём новый вариант, пока текущее состояние неизвестно.
+          </p>
         </div>
       ) : (
         <div className="mt-2">
@@ -193,10 +245,10 @@ function RecommendationDecisionPanelSession({
       {message && <p className="mt-3 text-sm text-emerald-800">{message}</p>}
       {error && (
         <div className="app-alert app-alert-error mt-3 text-sm">
-          {error}
+          <p>{error}</p>
           <button
             type="button"
-            className="ml-2 underline"
+            className="app-btn-secondary mt-3 px-3 py-2 text-sm"
             onClick={() => void load()}
           >
             Обновить

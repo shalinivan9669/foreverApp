@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { PairActivity } from '@/models/PairActivity';
 import { RecommendationDecision } from '@/models/RecommendationDecision';
 import { toPairActivityDTO, type PairActivityDTO } from '@/lib/dto';
-import { isPairSafetyVetoActive } from '@/domain/services/safetyGate.service';
+import { isOwnerSafetyGateActive } from '@/domain/services/safetyGate.service';
 import {
   isActivityAccessibleToRole,
   isOfferedActivityEligibleForRole,
@@ -51,6 +51,7 @@ const buildQuery = (pairId: Types.ObjectId, status?: string) => {
 export const pairActivityReadService = {
   async list(input: {
     pairId: Types.ObjectId;
+    currentUserId: string;
     role: PairMemberRole;
     status?: string;
   }): Promise<PairActivityDTO[]> {
@@ -60,7 +61,10 @@ export const pairActivityReadService = {
         .sort({ createdAt: -1 })
         .limit(Math.max(200, limit * 4))
         .lean(),
-      isPairSafetyVetoActive(String(input.pairId)),
+      isOwnerSafetyGateActive({
+        pairId: String(input.pairId),
+        ownerUserId: input.currentUserId,
+      }),
       RecommendationDecision.find({
         pairId: input.pairId,
         status: 'OFFERED',
@@ -80,7 +84,7 @@ export const pairActivityReadService = {
       ) {
         return false;
       }
-      if (safetyVeto) {
+      if (safetyVeto && activity.status === 'offered') {
         return isOfferedActivityEligibleForRole({
           activity,
           role: input.role,
@@ -96,7 +100,7 @@ export const pairActivityReadService = {
         isOfferedActivityEligibleForRole({
           activity,
           role: input.role,
-          safetyVeto,
+          safetyVeto: false,
         })
       );
     });

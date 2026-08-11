@@ -1,11 +1,10 @@
 import {
-  applyEffects,
   buildActivityResultSummary,
   effectiveActivityCheckIns,
   hasActivityFeedback,
   refineActivityResultSummary,
   replaceActivityAnswers,
-  shouldApplyActivityEffect,
+  shouldRecordActivityFactorEvidence,
   successScore,
 } from '@/utils/activities';
 import { requireActivityMember } from '@/lib/auth/resourceGuards';
@@ -13,9 +12,12 @@ import { DomainError } from '@/domain/errors';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import {
-  isPairSafetyVetoActive,
+  isOwnerSafetyGateActive,
 } from '@/domain/services/safetyGate.service';
-import type { ActivityCompletedStatus } from '@/models/PairActivity';
+import type {
+  ActivityCompletedStatus,
+  ActivityFactorEvidenceProvenance,
+} from '@/models/PairActivity';
 import { PairActivity } from '@/models/PairActivity';
 import { Pair } from '@/models/Pair';
 import mongoose, { type ClientSession } from 'mongoose';
@@ -30,12 +32,16 @@ import {
 import { recommendationDecisionService } from '@/domain/services/recommendationDecision.service';
 import {
   isActivityAccessibleToRole,
-  isActivityEligibleForSafetyState,
   isOfferedActivityEligibleForRole,
 } from '@/domain/services/activityEligibility.service';
 import { notificationService } from '@/domain/services/notification.service';
 import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
 import { recordOperationalEvent } from '@/lib/observability/operationalEvents';
+import {
+  ensureActivityFactorEngineReady,
+  recordActivityCheckInFactorEvidence,
+  recordActivityCompletionFactorEvidence,
+} from '@/domain/services/activityFactorRuntime.service';
 
 type GuardErrorPayload = {
   ok?: boolean;
@@ -66,6 +72,21 @@ const ensureActivityMember = async (activityId: string, currentUserId: string) =
   return guard.data;
 };
 
+export type ActivityReliabilityTestHooks = {
+  beforeTransactionalPairGuard?: () => Promise<void>;
+};
+
+const createOneShotHook = (
+  hook: (() => Promise<void>) | undefined
+): (() => Promise<void>) => {
+  let consumed = false;
+  return async () => {
+    if (consumed || !hook) return;
+    consumed = true;
+    await hook();
+  };
+};
+
 const unavailable = (): never => {
   throw new DomainError({
     code: 'ACTIVITY_UNAVAILABLE',
@@ -79,16 +100,6 @@ const assertActivityAccessible = (input: {
   role: 'A' | 'B';
 }): void => {
   if (!isActivityAccessibleToRole(input.activity, input.role)) unavailable();
-};
-
-const assertActivityAllowedBySafety = async (input: {
-  activity: Parameters<typeof isActivityEligibleForSafetyState>[0];
-  pairId: string;
-}): Promise<void> => {
-  const safetyVeto = await isPairSafetyVetoActive(input.pairId);
-  if (!isActivityEligibleForSafetyState(input.activity, safetyVeto)) {
-    unavailable();
-  }
 };
 
 const reloadActivityContext = async (input: {
@@ -115,6 +126,26 @@ const reloadActivityContext = async (input: {
   return { activity, pair, by };
 };
 
+const assertPairLifecycleForActivityMutation = async (input: {
+  pairId: string;
+  currentUserId: string;
+  statuses: readonly ('active' | 'paused')[];
+  session: ClientSession;
+}): Promise<void> => {
+  const pair = await Pair.findOneAndUpdate(
+    {
+      _id: input.pairId,
+      members: input.currentUserId,
+      status: { $in: input.statuses },
+    },
+    { $inc: { lifecycleRevision: 1 } },
+    { new: false, session: input.session, timestamps: false }
+  )
+    .select({ _id: 1 })
+    .lean();
+  if (!pair) return unavailable();
+};
+
 const COMPLETED_STATUSES: ActivityCompletedStatus[] = [
   'completed_success',
   'completed_partial',
@@ -126,13 +157,46 @@ const isCompletedStatus = (
 ): status is ActivityCompletedStatus =>
   COMPLETED_STATUSES.includes(status as ActivityCompletedStatus);
 
-const readStateMetaString = (
-  stateMeta: Record<string, unknown> | undefined,
-  key: string
-): string | undefined => {
-  const value = stateMeta?.[key];
-  return typeof value === 'string' && value.trim() ? value : undefined;
+const pairMemberIds = (
+  members: readonly string[]
+): readonly [string, string] => {
+  if (members.length !== 2 || !members[0] || !members[1]) return unavailable();
+  return [members[0], members[1]];
 };
+
+const mergeFactorEvidence = (
+  previous: ActivityFactorEvidenceProvenance | undefined,
+  next: ActivityFactorEvidenceProvenance
+): ActivityFactorEvidenceProvenance => ({
+  taskResultEventIds: [
+    ...new Set([
+      ...(previous?.taskResultEventIds ?? []),
+      ...next.taskResultEventIds,
+    ]),
+  ],
+  pairActivityEventIds: [
+    ...new Set([
+      ...(previous?.pairActivityEventIds ?? []),
+      ...next.pairActivityEventIds,
+    ]),
+  ],
+  individualSnapshotIds: [
+    ...new Set([
+      ...(previous?.individualSnapshotIds ?? []),
+      ...next.individualSnapshotIds,
+    ]),
+  ],
+  pairSnapshotIds: [
+    ...new Set([...(previous?.pairSnapshotIds ?? []), ...next.pairSnapshotIds]),
+  ],
+  pairEvaluationSnapshotIds: [
+    ...new Set([
+      ...(previous?.pairEvaluationSnapshotIds ?? []),
+      ...next.pairEvaluationSnapshotIds,
+    ]),
+  ],
+  recordedAt: next.recordedAt,
+});
 
 const validateFeedback = (
   checkIns: ReturnType<typeof effectiveActivityCheckIns>,
@@ -186,11 +250,14 @@ type ActivityCompletionResponse = {
 };
 
 export const activitiesService = {
-  async acceptActivity(input: {
-    activityId: string;
-    currentUserId: string;
-    auditRequest?: AuditRequestContext;
-  }): Promise<Record<string, never>> {
+  async acceptActivity(
+    input: {
+      activityId: string;
+      currentUserId: string;
+      auditRequest?: AuditRequestContext;
+    },
+    hooks: ActivityReliabilityTestHooks = {}
+  ): Promise<Record<string, never>> {
     const guarded = await ensureActivityMember(
       input.activityId,
       input.currentUserId
@@ -202,12 +269,22 @@ export const activitiesService = {
       activityId?: string;
       alreadyAccepted?: boolean;
     } = {};
+    const runBeforePairGuard = createOneShotHook(
+      hooks.beforeTransactionalPairGuard
+    );
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         outcome.pairId = undefined;
         outcome.activityId = undefined;
         outcome.alreadyAccepted = false;
+        await runBeforePairGuard();
+        await assertPairLifecycleForActivityMutation({
+          pairId: String(guarded.pair._id),
+          currentUserId: input.currentUserId,
+          statuses: ['active'],
+          session,
+        });
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
@@ -215,7 +292,11 @@ export const activitiesService = {
           session,
         });
         if (data.pair.status !== 'active') return unavailable();
-        const safetyVeto = await isPairSafetyVetoActive(String(data.pair._id));
+        const safetyVeto = await isOwnerSafetyGateActive({
+          pairId: String(data.pair._id),
+          ownerUserId: input.currentUserId,
+          session,
+        });
         if (!isOfferedActivityEligibleForRole({
           activity: data.activity,
           role: data.by,
@@ -240,11 +321,6 @@ export const activitiesService = {
           outcome.alreadyAccepted = true;
           return;
         }
-        await Pair.updateOne(
-          { _id: data.pair._id },
-          { $set: { updatedAt: new Date() } },
-          { session }
-        );
         await recommendationDecisionService.claimAcceptedForActivity(
           input.activityId,
           now,
@@ -292,31 +368,40 @@ export const activitiesService = {
     return {};
   },
 
-  async startActivity(input: {
-    activityId: string;
-    currentUserId: string;
-    auditRequest?: AuditRequestContext;
-  }): Promise<Record<string, never>> {
+  async startActivity(
+    input: {
+      activityId: string;
+      currentUserId: string;
+      auditRequest?: AuditRequestContext;
+    },
+    hooks: ActivityReliabilityTestHooks = {}
+  ): Promise<Record<string, never>> {
     const guarded = await ensureActivityMember(
       input.activityId,
       input.currentUserId
     );
     assertActivityAccessible({ activity: guarded.activity, role: guarded.by });
-    await assertActivityAllowedBySafety({
-      activity: guarded.activity,
-      pairId: String(guarded.pair._id),
-    });
     const outcome: {
       pairId?: string;
       activityId?: string;
       started?: boolean;
     } = {};
+    const runBeforePairGuard = createOneShotHook(
+      hooks.beforeTransactionalPairGuard
+    );
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         outcome.pairId = undefined;
         outcome.activityId = undefined;
         outcome.started = false;
+        await runBeforePairGuard();
+        await assertPairLifecycleForActivityMutation({
+          pairId: String(guarded.pair._id),
+          currentUserId: input.currentUserId,
+          statuses: ['active'],
+          session,
+        });
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
@@ -324,10 +409,6 @@ export const activitiesService = {
           session,
         });
         if (data.pair.status !== 'active') return unavailable();
-        await assertActivityAllowedBySafety({
-          activity: data.activity,
-          pairId: String(data.pair._id),
-        });
         const transition = activityTransition(
           {
             status: data.activity.status,
@@ -376,11 +457,14 @@ export const activitiesService = {
     return {};
   },
 
-  async cancelActivity(input: {
-    activityId: string;
-    currentUserId: string;
-    auditRequest?: AuditRequestContext;
-  }): Promise<Record<string, never>> {
+  async cancelActivity(
+    input: {
+      activityId: string;
+      currentUserId: string;
+      auditRequest?: AuditRequestContext;
+    },
+    hooks: ActivityReliabilityTestHooks = {}
+  ): Promise<Record<string, never>> {
     const guarded = await ensureActivityMember(
       input.activityId,
       input.currentUserId
@@ -388,11 +472,21 @@ export const activitiesService = {
     assertActivityAccessible({ activity: guarded.activity, role: guarded.by });
     const now = new Date();
     const outcome: { pairId?: string; activityId?: string } = {};
+    const runBeforePairGuard = createOneShotHook(
+      hooks.beforeTransactionalPairGuard
+    );
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         outcome.pairId = undefined;
         outcome.activityId = undefined;
+        await runBeforePairGuard();
+        await assertPairLifecycleForActivityMutation({
+          pairId: String(guarded.pair._id),
+          currentUserId: input.currentUserId,
+          statuses: ['active', 'paused'],
+          session,
+        });
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
@@ -447,21 +541,21 @@ export const activitiesService = {
     return {};
   },
 
-  async checkinActivity(input: {
-    activityId: string;
-    currentUserId: string;
-    answers: ActivityAnswerInput[];
-    auditRequest?: AuditRequestContext;
-  }): Promise<ActivityResultSummaryDTO> {
+  async checkinActivity(
+    input: {
+      activityId: string;
+      currentUserId: string;
+      answers: ActivityAnswerInput[];
+      allowPairModelUse?: boolean;
+      auditRequest?: AuditRequestContext;
+    },
+    hooks: ActivityReliabilityTestHooks = {}
+  ): Promise<ActivityResultSummaryDTO> {
     const guarded = await ensureActivityMember(
       input.activityId,
       input.currentUserId
     );
     assertActivityAccessible({ activity: guarded.activity, role: guarded.by });
-    await assertActivityAllowedBySafety({
-      activity: guarded.activity,
-      pairId: String(guarded.pair._id),
-    });
     const outcome: {
       result?: ActivityResultSummaryDTO;
       newFeedbackSubmission?: boolean;
@@ -473,24 +567,31 @@ export const activitiesService = {
           | 'awaiting_checkin'
           | ActivityCompletedStatus;
         dataStatus: 'ENOUGH' | 'PARTIAL';
-        resultVersion: 'activity-result-v1';
+        resultVersion: 'activity-result-v2';
       };
     } = {};
+    const runBeforePairGuard = createOneShotHook(
+      hooks.beforeTransactionalPairGuard
+    );
+    await ensureActivityFactorEngineReady();
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         outcome.result = undefined;
         outcome.audit = undefined;
         outcome.newFeedbackSubmission = undefined;
+        await runBeforePairGuard();
+        await assertPairLifecycleForActivityMutation({
+          pairId: String(guarded.pair._id),
+          currentUserId: input.currentUserId,
+          statuses: ['active', 'paused'],
+          session,
+        });
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
           currentUserId: input.currentUserId,
           session,
-        });
-        await assertActivityAllowedBySafety({
-          activity: data.activity,
-          pairId: String(data.pair._id),
         });
         if (data.pair.status === 'ended') {
           throw new DomainError({
@@ -523,11 +624,20 @@ export const activitiesService = {
         outcome.newFeedbackSubmission = !(data.activity.answers ?? []).some(
           (answer) => answer.by === data.by
         );
+        const feedbackRevision =
+          Math.max(
+            0,
+            ...(data.activity.answers ?? [])
+              .filter((answer) => answer.by === data.by)
+              .map((answer) => answer.feedbackRevision ?? 0)
+          ) + 1;
         const replacedAnswers = replaceActivityAnswers({
           existing: data.activity.answers ?? [],
           incoming: input.answers,
           role: data.by,
           at: now,
+          feedbackRevision,
+          allowPairModelUse: input.allowPairModelUse === true,
         });
         const updatesPreliminaryResult =
           data.activity.status === 'completed_partial' &&
@@ -568,6 +678,29 @@ export const activitiesService = {
             next: result,
           });
           data.activity.status = result.status;
+        }
+
+        const evidence = await recordActivityCheckInFactorEvidence({
+          pairId: String(data.pair._id),
+          activityId: String(data.activity._id),
+          actionDefinition: data.activity.actionDefinition,
+          targetFactorKeys: data.activity.targetFactorKeys,
+          memberIds: pairMemberIds(data.pair.members),
+          actorId: input.currentUserId,
+          role: data.by,
+          checkIns,
+          answers: data.activity.answers ?? [],
+          observedAt: now,
+          recordedAt: now,
+          session,
+        });
+        const mergedEvidence = mergeFactorEvidence(
+          data.activity.factorEvidence,
+          evidence
+        );
+        data.activity.factorEvidence = mergedEvidence;
+        result.factorEvidence = mergedEvidence;
+        if (updatesPreliminaryResult) {
           data.activity.resultSummary = result;
         }
 
@@ -644,20 +777,19 @@ export const activitiesService = {
     return outcome.result;
   },
 
-  async completeActivity(input: {
-    activityId: string;
-    currentUserId: string;
-    auditRequest?: AuditRequestContext;
-  }): Promise<ActivityCompletionResponse> {
+  async completeActivity(
+    input: {
+      activityId: string;
+      currentUserId: string;
+      auditRequest?: AuditRequestContext;
+    },
+    hooks: ActivityReliabilityTestHooks = {}
+  ): Promise<ActivityCompletionResponse> {
     const guarded = await ensureActivityMember(
       input.activityId,
       input.currentUserId
     );
     assertActivityAccessible({ activity: guarded.activity, role: guarded.by });
-    await assertActivityAllowedBySafety({
-      activity: guarded.activity,
-      pairId: String(guarded.pair._id),
-    });
     const outcome: {
       response?: ActivityCompletionResponse;
       audit?: {
@@ -665,24 +797,31 @@ export const activitiesService = {
         activityId: string;
         status: ActivityCompletedStatus;
         dataStatus: 'ENOUGH' | 'PARTIAL';
-        effectApplied: boolean;
-        resultVersion: 'activity-result-v1';
+        factorEvidenceRecorded: boolean;
+        resultVersion: 'activity-result-v2';
       };
     } = {};
+    const runBeforePairGuard = createOneShotHook(
+      hooks.beforeTransactionalPairGuard
+    );
+    await ensureActivityFactorEngineReady();
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         outcome.response = undefined;
         outcome.audit = undefined;
+        await runBeforePairGuard();
+        await assertPairLifecycleForActivityMutation({
+          pairId: String(guarded.pair._id),
+          currentUserId: input.currentUserId,
+          statuses: ['active', 'paused'],
+          session,
+        });
         const data = await reloadActivityContext({
           activityId: input.activityId,
           pairId: String(guarded.pair._id),
           currentUserId: input.currentUserId,
           session,
-        });
-        await assertActivityAllowedBySafety({
-          activity: data.activity,
-          pairId: String(data.pair._id),
         });
         if (data.pair.status === 'ended') {
           throw new DomainError({
@@ -706,22 +845,7 @@ export const activitiesService = {
             feedbackSchemaVersion: data.activity.feedbackSchemaVersion,
           });
 
-        if (alreadyCompleted && !data.activity.resultSummary) {
-          resultSummary = {
-            ...resultSummary,
-            status: existingCompletedStatus ?? resultSummary.status,
-            effectApplied: true,
-            effectExplanation: {
-              ru: 'Результат старой активности восстановлен без повторного применения эффекта.',
-              en: 'The legacy activity result was restored without applying its effect again.',
-            },
-          };
-          outcome.response = {
-            status: resultSummary.status,
-            resultSummary: toActivityResultSummaryDTO(resultSummary),
-          };
-          return;
-        }
+        if (alreadyCompleted && !data.activity.resultSummary) return unavailable();
 
         if (!hasActivityFeedback(resultSummary)) {
           throw new DomainError({
@@ -731,7 +855,7 @@ export const activitiesService = {
           });
         }
 
-        if (alreadyCompleted && resultSummary.effectApplied) {
+        if (alreadyCompleted && resultSummary.factorEvidenceRecorded) {
           outcome.response = {
             status: resultSummary.status,
             resultSummary: toActivityResultSummaryDTO(resultSummary),
@@ -763,27 +887,35 @@ export const activitiesService = {
           data.activity.successScore = transition.next.successScore;
         }
 
-        if (shouldApplyActivityEffect(resultSummary)) {
-          const effect = await applyEffects({
-            pairDoc: data.pair,
-            members: data.activity.members,
-            effect: data.activity.effect ?? [],
-            result: resultSummary,
-            fatigueDelta: data.activity.fatigueDeltaOnComplete ?? 0,
-            readinessDelta: data.activity.readinessDeltaOnComplete ?? 0,
+        if (shouldRecordActivityFactorEvidence(resultSummary)) {
+          const evidence = await recordActivityCompletionFactorEvidence({
+            pairId: String(data.pair._id),
             activityId: String(data.activity._id),
-            templateId: readStateMetaString(data.activity.stateMeta, 'templateId'),
-            primaryReason: readStateMetaString(
-              data.activity.stateMeta,
-              'primaryReason'
+            actionDefinition: data.activity.actionDefinition,
+            targetFactorKeys: data.activity.targetFactorKeys,
+            memberIds: pairMemberIds(data.pair.members),
+            actorId: input.currentUserId,
+            checkIns: effectiveActivityCheckIns(
+              data.activity.checkIns,
+              data.activity.feedbackSchemaVersion
             ),
+            answers: data.activity.answers ?? [],
+            result: resultSummary,
+            observedAt: now,
+            recordedAt: now,
             session,
           });
+          const factorEvidence = mergeFactorEvidence(
+            data.activity.factorEvidence,
+            evidence
+          );
           resultSummary = {
             ...resultSummary,
-            effectApplied: true,
-            effect,
+            completedAt: resultSummary.completedAt ?? now,
+            factorEvidenceRecorded: true,
+            factorEvidence,
           };
+          data.activity.factorEvidence = factorEvidence;
         }
 
         data.activity.resultSummary = resultSummary;
@@ -797,7 +929,7 @@ export const activitiesService = {
           activityId: String(data.activity._id),
           status: resultSummary.status,
           dataStatus: resultSummary.bothSubmitted ? 'ENOUGH' : 'PARTIAL',
-          effectApplied: resultSummary.effectApplied,
+          factorEvidenceRecorded: resultSummary.factorEvidenceRecorded,
           resultVersion: resultSummary.resultVersion,
         };
       });
@@ -834,7 +966,7 @@ export const activitiesService = {
           pairId: outcome.audit.pairId,
           status: outcome.audit.status,
           dataStatus: outcome.audit.dataStatus,
-          effectApplied: outcome.audit.effectApplied,
+          factorEvidenceRecorded: outcome.audit.factorEvidenceRecorded,
           resultVersion: outcome.audit.resultVersion,
         },
       });

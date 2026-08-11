@@ -67,6 +67,7 @@ const rootLayout = source('src/app/layout.tsx');
 const mongodb = source('src/lib/mongodb.ts');
 const preflight = source('scripts/release-preflight.ts');
 const weeklyMigration = source('scripts/migrate-weekly-checkins-pair-scope.ts');
+const pairContextMigration = source('scripts/migrate-pair-context-index.ts');
 const operationalEvents = source('src/lib/observability/operationalEvents.ts');
 assert.ok(liveRoute.includes("status: 'live'"));
 assert.ok(readyRoute.includes("status: 'ready'"));
@@ -93,18 +94,44 @@ assert.ok(mongodb.includes('autoIndex: false'));
 const legacyWeeklyBlocker = preflight.indexOf(
   "key: 'legacy-weekly-user-week-unique-index'"
 );
+const legacyPairBlocker = preflight.indexOf(
+  "key: 'legacy-pair-key-unique-index'"
+);
 const blockerEvaluation = preflight.indexOf('const blockers = findings.filter');
 const additiveIndexApply = preflight.indexOf('if (applyIndexes)');
 assert.ok(legacyWeeklyBlocker >= 0);
+assert.ok(legacyPairBlocker >= 0);
 assert.ok(preflight.includes('count: legacyWeeklyUniqueIndexes.length'));
+assert.ok(preflight.includes('count: legacyPairUniqueIndexes.length'));
+assert.ok(preflight.includes("key: 'stale-materialized-factor-markers'"));
+assert.ok(preflight.includes('runFactorEngineMigration'));
 assert.match(
   preflight,
   /key: 'legacy-weekly-user-week-unique-index',[\s\S]*?blocking: true,/
 );
 assert.ok(legacyWeeklyBlocker < blockerEvaluation);
+assert.ok(legacyPairBlocker < blockerEvaluation);
 assert.ok(blockerEvaluation < additiveIndexApply);
+assert.match(
+  preflight,
+  /if \(extraIndexCount > 0\) \{[\s\S]*?Undeclared indexes are present; release is blocked/
+);
+assert.ok(
+  preflight.indexOf('if (extraIndexCount > 0)') < additiveIndexApply,
+  'undeclared indexes must block before additive index application'
+);
 assert.ok(!preflight.includes('accepted temporarily'));
 assert.ok(!preflight.includes('toleratesLegacyWeeklyUnique'));
+assert.ok(
+  pairContextMigration.includes(
+    '--drop-legacy-unique requires --apply-additive-indexes; no indexes were changed'
+  )
+);
+assert.ok(
+  pairContextMigration.includes(
+    'legacy unique index removed; reconnect index is ready'
+  )
+);
 assert.ok(
   weeklyMigration.includes(
     'no legacy unique index was present; non-unique user/week lookup is ready'

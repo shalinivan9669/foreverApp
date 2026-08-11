@@ -1,293 +1,155 @@
-# ForeverApp / «Вместе»: целевая доменная модель
+# ForeverApp / «Вместе»: semantic Factor domain model
 
-Статус: техническое направление будущих изменений. Дата решения: 2026-08-07.
+Status: active, implemented contract. Updated 2026-08-11.
 
-Документ определяет сущности и вычислительные границы. Privacy, safety, versioning, API/storage invariants, scaling и AI boundary вынесены в `docs/TARGET_DOMAIN_OPERATIONS.md`.
+Privacy, safety, versioning, storage and scaling rules continue in [TARGET_DOMAIN_OPERATIONS.md](./TARGET_DOMAIN_OPERATIONS.md).
 
-Это не применённая Mongoose-схема и не новый публичный API. Любая реализация или миграция выполняется отдельной задачей после targeted as-is audit.
-
-## 1. Архитектурная формула
+## 1. Canonical pipeline
 
 ```text
-versioned definitions + user evidence
-→ typed personal assessments
-→ pair-safe evaluations
-→ PairStateSnapshot
-→ deterministic RecommendationDecision
-→ PairActivity + separate feedback
-→ new evidence and snapshot
+DOMAIN → DIMENSION → FACTOR → MEASUREMENT
+                              ↓
+source record → immutable EVIDENCE
+                              ↓
+                 immutable FACTOR SNAPSHOT
+                              ↓
+       personal / pair / matching projection
+                              ↓
+        pair evaluation → recommendation → action result
 ```
 
-Слои не смешиваются:
+The system does not model a person as six numbers. `DomainDefinition` is only an extensible grouping; calculation semantics live on `FactorDefinition`. Adding a domain/factor does not require a central scoring switch.
 
-1. **Definition** — что измеряется и как разрешено интерпретировать.
-2. **Evidence** — конкретный ответ, check-in, action или feedback.
-3. **Assessment** — типизированная производная оценка одного человека.
-4. **Pair evaluation** — сравнение одной характеристики участников.
-5. **Pair state** — состояние конкретного cycle.
-6. **Display projection** — то, что безопасно и понятно показывать.
+## 2. Published registry
 
-Evidence — первичный источник. Assessment/snapshot — пересчитываемая проекция. UI DTO — отдельное privacy-safe представление.
+`src/domain/model/definitions/**` is the single definition source. A `FactorRegistryRelease` contains:
 
-## 2. Основные сущности
+- domains and dimensions;
+- factors and their semantic rules;
+- measurements and instruments;
+- action definitions;
+- registry, algorithm, snapshot and display versions;
+- lifecycle status, deterministic canonical representation and SHA-256 hash.
 
-### `User`
+The current published MVP registry is `foreverApp.factorEngine.mvp`, version 3. It contains 4 domains, 6 dimensions, 8 factors, 15 measurements, 3 instruments and 3 actions. Those counts describe current content, not engine limits. A seed with the same key/version must have the same canonical hash; a published-version mismatch fails closed.
 
-Технический Discord account, lifecycle state и личные настройки. Отдельный `Person` aggregate MVP не нужен: relationship profile является логической проекцией данных пользователя.
+Current domains are `communication`, `wellbeing`, `sharedLife` and `lifePlans`. Domain keys are data, not a hardcoded engine union.
 
-### `PairInvite`
+## 3. Factor definitions and types
 
-Одноразовое приглашение до образования пары: creator, token hash, expiry, status/revocation, accepted user/time и idempotency metadata.
+Every `FactorDefinition` declares key, domain/dimension, display semantics, type, value schema, aggregation, development policy, pair strategies, privacy class, allowed relationship contexts and definition version.
 
-### `Pair`
-
-Область ровно двух активных участников MVP:
-
-- unordered member ids без семантики `A/B`;
-- status и lifecycle timestamps;
-- контекст конкретных отношений, включая relationship stage;
-- ссылки на current cycle/snapshot только как read optimization;
-- одна каноническая сторона связи с entitlement.
-
-Будущая семья создаётся отдельным агрегатом, а не расширением `Pair` неограниченным числом участников.
-
-### Контент и evidence
-
-- `QuestionnaireVersion`, `QuestionDefinition`, `AnswerEvidence`;
-- `ActivityTemplateVersion`;
-- точная locale/content revision, sensitivity и capture policy;
-- owner, pair/cycle context, capture time и source revision.
-
-Опубликованная версия immutable. Изменение текста, шкалы или mapping создаёт новую версию.
-
-### Assessments и snapshots
-
-- `DimensionDefinition`;
-- `PersonDimensionAssessment`;
-- `PairEvaluationSnapshot`;
-- `PairStateSnapshot`.
-
-Snapshot хранит версии входов/алгоритма и не содержит raw private text.
-
-### Cycle и action loop
-
-- `WeeklyCycle` и отдельный `WeeklyCheckIn` каждого `memberId`;
-- `RecommendationDecision` со статусами offer/accept/skip/replace/expire;
-- `PairActivity` как runtime instance;
-- независимый `ActivityFeedback` каждого участника.
-
-### Отмеченные расширения
-
-- `PartnerSignal` — `NEXT`; существующий экспериментальный flow можно сохранить изолированно, но не расширять в `P0`;
-- `PartnerObservation` — `NEXT`; контекстное восприятие observer о subject внутри конкретной Pair, не истина о человеке и не переносимый профиль;
-- `SafetyGate` — `P0`; system-only veto eligibility без partner disclosure;
-- `Subscription/Entitlement`, `AuditEvent` — по соответствующему release gate.
-
-## 3. Не один универсальный `VectorValue`
-
-`{ key, value: 0..1 }` теряет семантику. Объект с optional `polarity`, `intensity`, `skillScore` и `stateScore` также неверен: он допускает бессмысленные комбинации.
-
-Канон:
-
-- dimension — одна атомарная характеристика;
-- domain profile — набор dimensions одного контекста;
-- допустимые поля определяет discriminant `kind`;
-- отсутствие данных не равно нулю или нейтральной позиции;
-- UI label выводится из versioned definition, а не хранится второй истиной.
-
-`household.cleaning` раскладывается, например, на:
+Supported semantic types:
 
 ```text
-cleanliness_standard          PREFERENCE_AXIS
-cleaning_willingness         PREFERENCE_AXIS
-cleaning_skill               SKILL
-initiative_willingness       ROLE_PREFERENCE
-planning_willingness         ROLE_PREFERENCE
-execution_willingness        ROLE_PREFERENCE
-current_ownership            ROLE_ASSIGNMENT
-reported_load                OUTCOME
-reported_fairness            OUTCOME
+TRAIT | STATE | SKILL | PREFERENCE_AXIS | VALUE | NEED | EXPECTATION
+ROLE_PREFERENCE | ROLE_CAPABILITY | CONSTRAINT | OUTCOME
 ```
 
-«Умеет», «хочет» и «фактически отвечает» — разные значения.
+The published MVP uses a subset: `STATE`, `SKILL`, `PREFERENCE_AXIS`, `ROLE_CAPABILITY` and `CONSTRAINT`. This preserves the rules that preference/need/trait are not weaknesses, only trainable skills receive growth semantics, state becomes stale, and constraints are not averaged.
 
-## 4. Типизированные dimensions
+## 4. Typed values and unavailable states
 
-Концептуально:
-
-```ts
-type PersonDimensionValue =
-  | { kind: "STATE"; level: number }
-  | { kind: "TRAIT"; level: number }
-  | { kind: "SKILL"; skillScore: number }
-  | {
-      kind: "PREFERENCE_AXIS";
-      position: number; // -1..1, оба полюса подписаны
-      salience?: number;
-    }
-  | { kind: "ROLE_PREFERENCE"; willingness: number }
-  | {
-      kind: "ROLE_ASSIGNMENT";
-      ownership: "NONE" | "SHARED" | "PRIMARY";
-    }
-  | {
-      kind: "CONSTRAINT";
-      choiceKey: string;
-      nonNegotiable: boolean;
-    }
-  | { kind: "OUTCOME"; level: number };
-```
-
-При реализации payload строго типизируется по definition/schema без произвольного `any` или `unknown`.
-
-Metadata assessment:
+Available values are a discriminated union:
 
 ```text
-dimensionKey + definitionVersion
-subjectUserId + pairId/contextKey при необходимости
-typed value
-assessmentConfidence + dataStatus
-sourceEvidenceIds + sourceRevision
-algorithmVersion + effective interval + createdAt
+SCALAR | BOOLEAN | CATEGORY | RANGE | MASTERY | SET | TEXT
 ```
 
-`assessmentConfidence` — надёжность оценки по evidence, не устойчивость позиции и не вероятность истинности. Устойчивость/жёсткость хранится отдельно только при явном ответе пользователя.
+`CATEGORY` represents closed categorical/ordinal choices when defined by an allowlist; `SET` represents bounded multi-select; a semantic constraint is a `CONSTRAINT` factor with a typed closed value. No Factor persistence uses an arbitrary untyped value bag.
 
-Для MVP generic `intensity` не вводится: на bipolar axis оно часто дублирует `abs(position)`. Способность роли моделируется `SKILL`, желание — `ROLE_PREFERENCE`, распределение — `ROLE_ASSIGNMENT`.
-
-## 5. `DimensionDefinition`
-
-Концептуально:
-
-```ts
-interface DimensionDefinition {
-  key: string;
-  version: string;
-  domain: string;
-  kind: PersonDimensionValue["kind"];
-  scale: ScaleDefinition;
-  poleLabels?: { negative: string; positive: string };
-  evaluationStrategy?: EvaluationStrategy;
-  evaluationParams?: EvaluationParams;
-  guards?: EvaluationGuard[];
-  aggregationGroup?: string;
-  sensitivity: "STANDARD" | "SENSITIVE" | "HIGHLY_SENSITIVE";
-  defaultCapturePolicy: CapturePolicy;
-  explanationKeys: string[];
-}
-```
-
-Правила:
-
-- key namespaced и version обязательна;
-- bipolar axis подписывает оба полюса; `−/+` не означает «плохо/хорошо»;
-- `SKILL` хранит score, а `BASIC/INTERMEDIATE/ADVANCED` — display mapping из versioned thresholds;
-- вместо уникального кода на каждый key используются немногочисленные стратегии с параметрами;
-- correlated dimensions объединяются `aggregationGroup`, чтобы не считаться независимыми доказательствами.
-
-Исторические направления `communication/domestic/personalViews/finance/sexuality/psyche` допустимы как версия контентной таксономии, но не как вечные колонки БД. `Psyche` и «диагностика» не используются в UI без валидированной методологии.
-
-## 6. Pair evaluation
-
-MVP реализует только стратегии, которые реально использует первый контент:
-
-- `SIMILARITY` — близость подтверждённых позиций;
-- `TARGET_RANGE` — оба значения в допустимом диапазоне;
-- `COMPLEMENT` — разные предпочтения покрывают функцию;
-- `BOUNDED_GAP` — умеренная разница допустима, большая требует внимания;
-- `ROLE_COVERAGE` — покрытие ролей составного процесса.
-
-Guards отделены от стратегии:
-
-- `INDIVIDUAL_MINIMUM` не компенсируется навыком партнёра;
-- `EXPLICIT_CONSTRAINT` использует подтверждённые choice + `nonNegotiable`, а не шумную inference;
-- `SafetyGate` только veto eligibility и не участвует в compatibility.
-
-В matching будущего explicit constraint может блокировать кандидата. Для существующей пары тот же факт называется `CRITICAL_DIVERGENCE / REQUIRES_DISCUSSION`, а не приговором отношениям.
-
-```ts
-interface PairDimensionEvaluation {
-  dimensionKey: string;
-  definitionVersion: string;
-  relation:
-    | "MATCH"
-    | "COMPLEMENT"
-    | "WORKABLE"
-    | "GAP"
-    | "DEFICIT"
-    | "CONFLICT"
-    | "CRITICAL_DIVERGENCE"
-    | "INSUFFICIENT_DATA";
-  severity: "INFO" | "ATTENTION" | "HIGH";
-  blocking: boolean;
-  dataStatus: "ENOUGH" | "PARTIAL" | "INSUFFICIENT";
-  assessmentConfidence: number;
-  reasonCodes: string[];
-  inputRevisions: string[];
-}
-```
-
-`blocking` запрещает только dependent calculation/recommendation, не оценивает существование пары. Внутренний numeric rank допустим, но не показывается как процент и не перекрывает constraint/safety бонусами.
-
-Инварианты:
-
-- сравниваются compatible versions/contexts;
-- перестановка участников не меняет relation, только role assignment;
-- skill progress не меняет preference/constraint;
-- низкая надёжность даёт `INSUFFICIENT_DATA`;
-- local complement проверяется вместе с общей reported load/fairness;
-- expected activity delta — гипотеза, не доказанный прогресс.
-
-## 7. Pair state и recommendation
+Unavailable values are equally explicit:
 
 ```text
-PairDimensionEvaluation = соотношение конкретных значений
-SkillProgress           = изменение способности человека
-PairStateSnapshot       = состояние пары в текущем cycle
-SafetyGate              = разрешён ли сценарий вообще
+MISSING | INVALID | UNKNOWN | INSUFFICIENT_DATA
 ```
 
-Они не превращаются в один «здоровье пары score».
+They carry reason codes and are never converted to `0`, `0.5`, a midpoint or neutral evidence. Value, confidence, coverage, freshness and consistency remain separate fields.
 
-`PairStateSnapshot` immutable для конкретной revision. Display projection показывает максимум четыре нейтральных сигнала: тепло/контакт, напряжение, восстановление, ритм/ресурс. Privacy filter применяется к derived output, а не только raw answers.
+## 5. Evidence
 
-Один `PairMode` enum не используется для взаимоисключающих признаков. Decision context содержит совместимые reason-coded flags. Глубокие patterns не генерируются в MVP; позже они остаются подтверждаемыми гипотезами с evidence window.
+`EvidenceEvent` is immutable and records:
 
-Recommendation pipeline:
+- actor, individual/pair subject and observation scope;
+- factor/measurement/instrument and source type/reference/revision/hash;
+- submitted typed value and, only for `ACCEPTED`, a normalized typed value;
+- reliability and timestamps;
+- relationship context and purpose;
+- privacy class, capture mode, consent/policy version and retention class;
+- registry/definition/measurement/instrument/algorithm versions;
+- deterministic input hash and accepted/rejected status.
+
+Supported sources are `QUESTIONNAIRE`, `CHECK_IN`, `TASK`, `TASK_RESULT`, `REFLECTION`, `EXPLICIT_PROFILE`, `PAIR_ACTIVITY`, `FEEDBACK` and `OBSERVED_OUTCOME`.
+
+Invalid evidence can be persisted as `REJECTED` for provenance with a rejection code, but never with `normalizedValue`. It is excluded from aggregation, does not raise confidence and cannot create an available snapshot. Private notes remain in their owner source record and are not copied to generic evidence.
+
+Observation scope is an architectural boundary: an observation by A about B is observer/pair evidence. It never mutates B's personal profile.
+
+## 6. Aggregation and snapshots
+
+Definitions choose `LATEST`, `WEIGHTED_MEAN`, `RECENCY_WEIGHTED`, `MAJORITY` or `NON_AGGREGATING`. Aggregation yields a status/value plus independent confidence, coverage, freshness and consistency.
+
+Three immutable snapshot types are persisted:
+
+- `IndividualFactorSnapshot` — one subject and optional Pair context;
+- `PairFactorSnapshot` — evidence whose subject is the dyad;
+- `PairFactorEvaluationSnapshot` — structured A/B/pair evaluation.
+
+Snapshots include revisions, evidence identities, definition/registry/algorithm/snapshot versions, input/output hashes and calculation time. New evidence produces a new revision; existing snapshots are not updated in place. Replaying identical version-pinned inputs must reproduce the output hash. Version or subject mismatch raises a typed fail-closed error.
+
+## 7. Pair strategies
+
+The engine implements all ten deterministic strategies:
 
 ```text
-safety/privacy exclusions
-→ data sufficiency + current cycle
-→ topic/format eligibility + consent
-→ cooldown/repetition/recent feedback
-→ deterministic rank
-→ assigned roles + explanation keys
-→ persisted RecommendationDecision
+SIMILARITY | BOUNDED_GAP | TARGET_RANGE | COMPLEMENT
+BOUNDED_COMPLEMENT | MINIMUM_BOTH | ROLE_COVERAGE
+DIRECTIONAL_EXPECTATION | CUSTOM_MATRIX | HARD_CONSTRAINT
 ```
 
-Абстрактный `safeDepth 0..5` не доказывает безопасность. Используются sensitivity темы, mutual consent, hard exclusions, ограничения и system-only veto.
+Each strategy has a typed config, validation, relationship context, minimum confidence, reason codes, actionability and explicit insufficient-data behavior. Symmetric calculations canonicalize member order; directional expectation retains both directions.
 
-Recommendation lifecycle:
+`ROLE_COVERAGE` evaluates coverage, preference satisfaction and load imbalance so «one person does everything» cannot be labeled a good complement. `HARD_CONSTRAINT` returns `CONSTRAINT_CONFLICT` with decision/discussion actionability; for an existing pair this blocks an unsuitable action, not the relationship itself.
+
+Pair evaluation statuses are:
 
 ```text
-OFFERED → ACCEPTED | SKIPPED | REPLACED | EXPIRED
-REPLACED → новое OFFERED с reason code + previousDecisionId
-ACCEPTED → один идемпотентно связанный PairActivity
+ALIGNED | COMPLEMENTARY | WORKABLE_DIFFERENCE | TENSION
+CONSTRAINT_CONFLICT | INSUFFICIENT_DATA
 ```
 
-Роли шаблона задаются как `roles[]`; instance фиксирует `roleKey → participantId`. Назначение зависит от данных/правил, а не пола или позиции в массиве.
+An internal fit may rank actions/candidates but is never a participant compatibility percentage.
 
-## 8. Эволюция текущей модели
+## 8. Personal model, Pair model and projections
 
-Существующие `User.vectors`, six-axis levels, `VectorSnapshot`, scoring services, pair diagnostics, weekly check-in и activity decision engine — база targeted gap analysis, не повод переписать всё.
+The personal model is the latest allowed projection over individual snapshots grouped by semantic factors. It is not a mutable `VectorProfile`. Owner profile DTOs show semantic cards and qualitative confidence/freshness bands; they do not expose raw graph provenance or numeric compatibility.
 
-Переход:
+The Pair is an independent subject. Its situation model can use:
 
-1. инвентаризировать реально используемые keys/sources;
-2. определить versions только для MVP-контента;
-3. добавить typed projections рядом с legacy reads;
-4. сравнить вычисления и DTO disclosure;
-5. переключать consumers через feature flag;
-6. миграцию/удаление legacy данных обсуждать после подтверждения эквивалентности.
+- personal snapshots for A and B;
+- pair evidence/snapshots;
+- current relationship context;
+- activity outcomes and current states.
 
-До отдельного `MODEL_SCHEMA_CHANGE` приведённые интерфейсы остаются концептуальными. Операционные правила продолжены в `docs/TARGET_DOMAIN_OPERATIONS.md`.
+It is never computed by averaging users. Pair Summary shows at most four qualitative signals and one next step. It contains no raw answer, note, exact value/delta, confidence number, evidence count, overall score, diagnosis or SafetyGate reason. One-sided input remains insufficient.
+
+## 9. Recommendation and activity loop
+
+`ActionDefinition` declares target factors, contexts, minimum skill when applicable, expected outcomes, contraindications, difficulty, duration, cooldown, feedback schema and publication/action versions.
+
+The pure recommendation layer combines available Factor snapshots, pair evaluations, context and blocked actions. Stateful services additionally enforce current cycle, history/cooldown, one active decision, one replacement, SafetyGate and idempotency. The persisted decision/provenance pins input versions and hashes.
+
+Activity feedback is separate for each member. It creates `TASK_RESULT`/`PAIR_ACTIVITY` evidence and new immutable snapshots. Reported change is evidence, not proof that the activity caused an outcome.
+
+## 10. NEW_ONLY migration policy
+
+The production runtime has no feature flag, dual-read or fallback to six-axis artifacts. The guarded migration:
+
+1. validates/seeds the published registry;
+2. validates Factor indexes and rejects duplicate canonical identities;
+3. replays only valid raw onboarding and weekly source records;
+4. records unreplayable reason counts instead of inventing values;
+5. never maps aggregate axis/vector scores into atomic factors;
+6. is dry-run by default and idempotent when applied in `NEW_ONLY` mode.
+
+PairEvent has its own NEW_ONLY migration: safe semantic events receive registry/action target binding; diagnostic, raw-weekly or invalid legacy events are scrubbed or retired, never converted into Factor evidence.

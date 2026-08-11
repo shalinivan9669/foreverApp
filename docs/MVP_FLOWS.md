@@ -1,399 +1,204 @@
-# ForeverApp / «Вместе»: подробные требования MVP
+# ForeverApp / «Вместе»: detailed MVP flows
 
-Статус: подробное приложение к `docs/MVP_SPEC.md`. Дата решения: 2026-08-07.
+Статус: active acceptance contract for [MVP_SPEC.md](./MVP_SPEC.md). Обновлено 2026-08-11.
 
-Здесь находятся функциональные acceptance criteria, release gates и порядок реализации. Границы `P0/P1/P2` и основной flow определяются только в `docs/MVP_SPEC.md`. Перечисленное поведение не считается реализованным без targeted проверки текущего кода.
+## 1. Auth and session
 
-## 1. Функциональные требования
-
-### 1.1 Auth и вход
-
-Требования:
-
-- использовать существующую Discord Embedded App аутентификацию;
-- не добавлять email/password, phone auth и отдельный password recovery в MVP;
-- повторный Discord auth является способом восстановления сессии;
-- после входа сервер определяет lifecycle state пользователя и возвращает следующий допустимый шаг;
-- клиент не передаёт `userId` как доверенный субъект доступа.
-
-Acceptance criteria:
-
-- неаутентифицированный пользователь не читает и не меняет личные/парные данные;
-- повторный вход восстанавливает тот же аккаунт;
-- ошибку auth можно повторить без дублирования профиля;
-- cookies, Discord tokens и authorization data не попадают в логи, persistent browser storage или domain/profile DTO;
-- минимальный `no-store` OAuth exchange response может вернуть минимальную identity и токены, необходимые текущему embedded flow; его redesign выполняется отдельной `SECURITY_FIX`/`API_CONTRACT_CHANGE` задачей.
-
-### 1.2 Onboarding
-
-Цель — собрать минимум данных для первого цикла, а не построить полный психологический профиль.
-
-Состав:
-
-- отображаемое имя и обязательные технические настройки;
-- подтверждение совершеннолетия и добровольного участия;
-- до связывания — только личный onboarding; stage и другой контекст конкретных отношений собираются или подтверждаются после создания Pair и принадлежат Pair;
-- короткий набор закрытых вопросов по состоянию, предпочтениям и базовым навыкам;
-- понятное объяснение приватности;
-- выбор разрешений для чувствительных ответов;
-- приглашение партнёра или переход в waiting state.
-
-Ориентир — 12–20 вопросов и не более 5 минут, но окончательный объём определяется completion rate и usability-тестами.
-
-Acceptance criteria:
-
-- onboarding можно безопасно продолжить после прерывания;
-- необязательный чувствительный вопрос можно пропустить;
-- ни один ответ не раскрывается партнёру без явно указанной политики;
-- изменение формулировки создаёт новую версию контента, а не меняет историю;
-- завершение не требует свободного текста.
-
-### 1.3 Приглашение и создание пары
-
-Целевое поведение:
-
-- первый участник создаёт одноразовое приглашение;
-- приглашение имеет TTL, может быть отменено и не содержит открытый идентификатор владельца;
-- токен хранится в хешированном виде;
-- Pair создаётся или активируется атомарно только после принятия приглашения вторым участником;
-- в активной MVP-паре ровно два разных аккаунта;
-- у пользователя не может быть две активные романтические пары;
-- порядок участников не несёт смысловой роли `A/B`.
-
-Состояния приглашения:
+Flow:
 
 ```text
-ACTIVE → ACCEPTED
-ACTIVE → CANCELLED
-ACTIVE → EXPIRED
+Discord SDK code → server exchange/verified identity → versioned session
+→ lifecycle redirect → refresh/re-entry restore
 ```
 
-Acceptance criteria:
+Acceptance:
 
-- повторное принятие не создаёт вторую пару;
-- пользователь не может принять собственное приглашение;
-- истёкший/отменённый токен отклоняется;
-- текущие отношения другого пользователя не раскрываются через ошибку;
-- waiting screen показывает безопасный статус и позволяет отменить/перевыпустить ссылку;
-- legacy matching не является входом в основной MVP-flow.
+- unauthenticated requests cannot read personal/pair data;
+- redirect mismatch and auth failure are generic/retryable and create no duplicate account;
+- client identifiers never override session subject;
+- cookies/tokens are absent from storage/log/DTO;
+- logout rotates server-side session version and clears cookie;
+- an old cookie/bearer fails after logout or deletion.
 
-### 1.4 Weekly cycle
+## 2. Onboarding and semantic input
 
-`WeeklyCycle` — контейнер одного регулярного цикла пары. Состояния каждого участника хранятся отдельно; статусы не называются `WAITING_A/WAITING_B`, потому что порядок участников произволен.
+- 18+, voluntary participation and privacy acknowledgement are explicit.
+- Closed typed answers start unset and can resume by owner revision.
+- Optional sensitive input may be declined/unknown; it is not a neutral value.
+- Reviewed measurement bindings create Factor evidence/snapshots with exact versions.
+- Unmapped questionnaire content stays `UNMAPPED` and creates no invented Factor.
+- Private input is not returned to the partner.
 
-Минимальные статусы участника:
+## 3. Invite and Pair creation
 
 ```text
-PENDING | SUBMITTED | SKIPPED | EXPIRED
+[none] → ACTIVE invite → ACCEPTED | CANCELLED | EXPIRED
+                         ↘ reissue: old cancelled + new ACTIVE
 ```
 
-Состояние общего результата:
+Acceptance:
+
+- raw token is returned once, stored only as hash and carried outside query/server logs;
+- self-accept, expired/cancelled/reused-by-other and membership conflicts return generic results;
+- same accepter retry returns the same Pair;
+- concurrent accepts create one active Pair/two claims;
+- direct `/pairs/create` and match confirmation cannot form a Pair;
+- member order has no semantic A/B meaning.
+
+## 4. Weekly cycle
+
+UI starts `closeness`, `fatigue`, `irritation`, `readiness` and the mandatory closed topic choice as untouched/null. Submit stays disabled until each mandatory answer is explicitly selected; a middle/neutral choice is valid only after user action. Note is optional owner-private text. Skip has its own confirmation and sends no reason.
+
+Server acceptance:
+
+- all numeric values are finite/in range and the closed choice is boolean;
+- pair/session/member/cycle identity is server-derived;
+- identity is one user + Pair + week; exact retries/concurrency converge;
+- Factor evidence/snapshots are canonical and repairable after partial failure;
+- future/not-started and expired cycles reject mutation;
+- no entitlement/cycle count is consulted.
+
+Pair result:
+
+- no submit: `NOT_READY`;
+- one valid submit: partial/`INSUFFICIENT_DATA`, no pair signals;
+- two valid submits: one immutable Factor/evaluation-backed summary;
+- symmetric signals are invariant to member order;
+- expiry preserves an already-published safe result but incomplete expiry remains insufficient;
+- retries or changing own client draft cannot reveal peer values.
+
+## 5. Pair Summary
+
+At most four qualitative signals cover current contact, tension, recovery and resource. They are a display projection, not stored user axes.
+
+Allowed: neutral status, safe explanation, data status and one next step. Forbidden: raw/quoted answer, note, exact value/delta/average, numeric confidence/evidence count, compatibility/health score, diagnosis, motive inference or SafetyGate reason.
+
+## 6. Recommendation decision
 
 ```text
-NOT_READY | READY | INSUFFICIENT_DATA | SUPERSEDED
+current Factor snapshots/evaluations + context/current state
++ history/cooldown + contraindications + SafetyGate
+→ one current action
 ```
 
-Требования:
+Acceptance:
 
-- default cadence — семь дней, но длительность цикла и время напоминаний задаются серверной конфигурацией, а не зашиваются в UI или схему;
-- check-in занимает примерно 2–5 минут;
-- в MVP используется небольшой фиксированный набор закрытых вопросов;
-- отправка идемпотентна для пользователя, пары и цикла;
-- ответы двух участников могут прийти в любом порядке и одновременно;
-- повторная отправка следует явно выбранной политике revision/replace;
-- timezone и границы цикла определяются сервером;
-- один участник не видит, как именно ответил второй;
-- отсутствие второго ответа не блокирует личный экран и напоминание.
+- a publishable current semantic result or a neutral fail-closed fallback is required;
+- offer concurrency (including compatibility aliases) converges on canonical work;
+- member can accept, skip or replace exactly once;
+- expiry and interrupted replacement/accept recover on retry;
+- acceptance links one activity and no duplicate effect;
+- recommendation provenance pins registry/action/input versions/hashes;
+- participant reason is neutral and hides internal rank, exact Factor and safety state;
+- all decisions are free.
 
-Acceptance criteria:
+## 7. PairEvent
 
-- конкурентные submit не создают два результата;
-- результат строится из точных версий вопросов и алгоритма;
-- поздний ответ создаёт новую ревизию результата, не переписывая старую историю;
-- expired/partial cycle имеет понятный fallback;
-- push/notification не содержит чувствительный ответ.
+- Runtime candidates use pair lifecycle, calendar, bounded activity history or qualitative current weekly pair state.
+- Each visible event is bound to current Factor registry version and allowed action targets.
+- Diagnostics/raw weekly fields are not inputs or DTO output.
+- Accept/decline/snooze are member/state/idempotency guarded.
+- Accept creates only bounded Factor-bound activity offers, never reads either member's private SafetyGate, and reuses an existing source-bound offer on retry.
+- Migration retires unsafe/invalid legacy events and refuses future-version conflicts.
 
-### 1.5 Pair Summary / Pair Map Light
-
-MVP показывает до четырёх пользовательских сигналов:
-
-- тепло/контакт;
-- напряжение;
-- восстановление;
-- ритм/ресурс.
-
-Это display layer, а не вечные поля БД и не клинические показатели.
-
-Каждый вывод содержит:
-
-- нейтральный статус;
-- краткое объяснение;
-- `dataStatus`;
-- reason codes для внутренней трассировки;
-- безопасный следующий шаг.
-
-Требования к языку:
-
-- «оба отметили…», «в этом цикле…», «данных пока недостаточно…»;
-- не «ваша пара токсична», не «партнёр избегает близости», не «отношения на 73% совместимы»;
-- inference о мотивах партнёра запрещён.
-
-Acceptance criteria:
-
-- скрытый ответ нельзя восстановить из точного значения, цитаты или слишком специфичного вывода;
-- при недостатке данных система показывает ограниченный факт или `INSUFFICIENT_DATA`;
-- ни один сильный вывод не строится из одного косвенного ответа;
-- safety-сигнал не показывается в общей карте;
-- результат воспроизводим по версиям входов и правил.
-
-### 1.6 Рекомендация активности
-
-MVP содержит 12–24 вручную проверенных шаблона, покрывающих несколько низкорисковых сценариев. Полный каталог 60–100 активностей не является launch blocker.
-
-Пайплайн:
+## 8. Activity and feedback
 
 ```text
-safety exclusions
-→ доступность данных
-→ состояние и ограничения текущего цикла
-→ eligibility шаблона
-→ cooldown / recent history
-→ детерминированное ранжирование
-→ одна рекомендация + объяснение
+offered → accepted → in_progress → awaiting_feedback
+→ completed_partial → completed_success/failed
 ```
 
-Пользователь может:
+- One participant's closed feedback yields a safe preliminary result.
+- Peer sees only aggregate readiness/status, not exact answers.
+- Late second feedback refines once; final replay creates no duplicate evidence/effect.
+- Activity result creates semantic task/pair evidence and immutable snapshots.
+- Reported subjective change is not presented as causal proof.
+- Paused/ended state follows the documented resource policy; ended Pair cannot mutate.
 
-- принять;
-- заменить один раз на безопасную альтернативу;
-- пропустить с необязательной причиной.
+## 9. History and notifications
 
-Для асимметричной активности роли описываются в шаблоне и назначаются конкретным `memberId` в instance. Поля `participantA/participantB` не используются как семантические роли.
+- Pair history is cursor-paginated/hard bounded and contains only published derived cycle summaries, activity status and feedback-presence facts.
+- Old results are not recomputed from raw data with new rules.
+- Notifications are owner-scoped, deduplicated, cursor-paginated and neutral for invite/join/waiting/summary/action/feedback/cycle/end transitions.
+- Neither feed contains raw answers/notes, exact Factor, topic, SafetyGate or internal ids/hashes.
 
-Skip/replace относятся к `RecommendationDecision`, а не к уже начатой активности:
+## 10. Owner profile, settings and help
+
+- Profile shows semantic cards grouped by domain/dimension, explicit missing/unknown/insufficient states and qualitative confidence/freshness bands; no six-axis radar, percentage, passport or generic growth label for non-skills.
+- Settings exposes privacy/export, deletion request/cancel/confirm, SafetyGate, Pair pause/end and logout with confirmations.
+- Help renders the versioned `help-ru-v1` catalog for weekly privacy, PartnerSignal, pair lifecycle, SafetyGate and crisis limitations without diagnosis or partner notification.
+- Jurisdiction-specific resource copy remains behind expert/legal publication review.
+
+## 11. PartnerSignal
 
 ```text
-OFFERED → ACCEPTED | SKIPPED | REPLACED | EXPIRED
-REPLACED → новое OFFERED решение с reason code и ссылкой на предыдущее
+private daily draft → edit/preview → explicit confirm/send
+→ one source-bound signal → receiver sees exact confirmed text → TTL expiry
 ```
 
-`ACCEPTED` создаёт или связывает один `PairActivity` идемпотентно.
+No automatic inference/send. Retry with same text is idempotent; different text for an already-sent source conflicts. Audit contains no message text. Pair end removes pair-scoped signals.
 
-Acceptance criteria:
+## 12. SafetyGate
 
-- одна и та же мутация не создаёт дубликаты activity;
-- исключённая по safety/privacy активность не попадает в fallback;
-- пользователю объяснено, почему предложен этот формат;
-- активность не обещает терапевтический эффект;
-- замена и пропуск учитываются в будущих рекомендациях без наказания пользователя.
+- owner-only boolean, no reason/free text;
+- pair-scoped and revoked on end;
+- only narrows the owner's offered-action visibility and acceptance eligibility;
+- no Pair Summary/rank/compatibility effect;
+- no PairEvent, current activity, history or other shared-state effect;
+- no partner notification, error reason or binary inference;
+- owner-local neutral fallback when active.
 
-### 1.7 Activity lifecycle и feedback
+## 13. Pair end and reconnect
 
-Минимальный activity lifecycle:
+End requires explicit confirmation and is terminal:
 
-```text
-ACCEPTED → IN_PROGRESS → AWAITING_FEEDBACK
-ACCEPTED/IN_PROGRESS/AWAITING_FEEDBACK → CANCELLED
-AWAITING_FEEDBACK → COMPLETED_PARTIAL
-AWAITING_FEEDBACK → COMPLETED
-COMPLETED_PARTIAL → COMPLETED
-```
+- Pair becomes `ended`;
+- membership claims release;
+- open cycles expire, activities cancel, decisions/events expire;
+- SafetyGate is revoked; pair-scoped signals/notifications are removed;
+- old id denies future reads/writes;
+- repeated/racing mutations cannot reopen it.
 
-Feedback каждого участника:
+Reconnect starts through a new invite and creates a new Pair id/context. Old private pair projections are not copied.
 
-- участвовал ли он;
-- субъективная полезность;
-- субъективное изменение состояния: легче / без изменений / тяжелее;
-- сложность;
-- готовность повторить.
+## 14. Export and account deletion
 
-Требования:
+- Export is owner-only and bounded; owner Factor/source data and allowed shared summaries are included, peer raw data is excluded.
+- Create deletion request is idempotent and reversible until confirmation.
+- Explicit `DELETE_ACCOUNT` confirmation revokes sessions, ends active Pair, executes cleanup transaction and clears cookie.
+- Failure records `FAILED` and supports retry; success records a pseudonymous lifecycle marker.
+- Export versus deletion and session replay races must fail safely.
 
-- один feedback создаёт `COMPLETED_PARTIAL`, а не блокирует участника;
-- поздний feedback второго уточняет общий результат идемпотентно;
-- reported change не называется доказанным эффектом активности;
-- feedback одного участника не раскрывается другому дословно по умолчанию.
+## 15. Free-core and analytics
 
-### 1.8 История
+First, second, third and later cycles follow the same access policy. No checkout/provider/subscription is required and no price/trial/purchase CTA or payment error appears in core UI/API.
 
-MVP показывает:
+Analytics uses an exact allowlist of technical flow events and never includes user/pair id, input, note, PartnerSignal text, Factor/summary content or safety state.
 
-- дату и статус прошлых циклов;
-- короткое ранее раскрытое парное резюме;
-- выполненные/пропущенные активности;
-- факт наличия feedback.
+## 16. Non-functional acceptance
 
-Не требуются сложные графики, сравнение партнёров и автоматические долгосрочные выводы.
+- refresh/retry/back preserve recoverable state;
+- all retryable writes are idempotent and multi-document transitions atomic/reconcilable;
+- list reads are bounded and indexed;
+- startup and core flow work without legacy vector/diagnostic collections;
+- browser UI works at 320/360/390/430 px with no horizontal overflow and usable keyboard/focus/touch/safe area;
+- no placeholder/mock/TODO/dead action/mojibake in active flow;
+- full verification and independent review gates are recorded for the same tree.
 
-### 1.9 Личный экран и privacy
+## 17. Required acceptance scenarios
 
-Личный экран содержит:
-
-- lifecycle state аккаунта и пары;
-- статус текущего цикла;
-- личные текущие значения, если они были собраны;
-- настройки использования и раскрытия данных;
-- account, export/delete и pair controls.
-
-Для raw input применяются три режима:
-
-- `PRIVATE` — доступен владельцу, не используется для общего результата;
-- `PAIR_MODEL_ONLY` — может использоваться в общем расчёте, но raw answer не раскрывается;
-- `SHARED` — может быть показан обоим в явно предусмотренном UI.
-
-`SIGNAL_ONLY` не является режимом raw answer. В `P2` — либо в сохранённом существующем экспериментальном flow — Partner signal является отдельным артефактом, который пользователь предварительно видит и явно отправляет; это не acceptance criterion `P0`.
-
-Приватный safety override создаёт отдельный `SYSTEM_ONLY_SAFETY_GATE`, а не меняет raw visibility. Этот scope может только запретить eligibility совместной активности; он не участвует в score, Pair Summary или partner disclosure. До запуска отдельно задаются его retention, owner controls и строго ограниченный operator access.
-
-Acceptance criteria:
-
-- privacy policy фиксируется на конкретном ответе/ревизии;
-- новое разрешение не раскрывает старые данные задним числом без явного решения;
-- парный вывод проходит отдельную derived-disclosure policy;
-- операторский доступ минимален, ролевой и аудируемый;
-- raw answers, notes и чувствительные projections не логируются.
-
-### 1.10 Safety
-
-MVP не пытается надёжно диагностировать насилие, coercion или контроль по поведенческим данным и свободному тексту.
-
-Минимальная политика:
-
-- явный приватный safety override пользователя;
-- system-only gate может только veto activity eligibility и не влияет на ranking, scoring или пользовательское объяснение;
-- hard exclusions для уязвимых совместных упражнений;
-- нейтральный выход из парного flow;
-- локализованный приватный help flow после экспертной/правовой проверки;
-- safety-ответ, flag и обращение за помощью никогда автоматически не отправляются партнёру;
-- safety не участвует в compatibility score.
-
-Публичный запуск блокируется, пока sensitive questions, activities и help flow не прошли профильную проверку.
-
-### 1.11 Уведомления
-
-Разрешённые MVP-события:
-
-- приглашение принято;
-- доступен новый check-in;
-- общий результат готов;
-- ждёт выбранная активность или feedback;
-- служебное изменение подписки.
-
-Текст на lock screen не раскрывает состояние, тему ответа, safety flag или интимную информацию.
-
-### 1.12 Подписка
-
-Если запуск платный:
-
-- entitlement принадлежит Pair;
-- один участник может быть billing owner, но доступ к продукту получают оба;
-- после первого Pair Summary можно показать только неблокирующее предложение trial/subscription;
-- первый cycle остаётся доступен целиком, а hard paywall ставится перед открытием cycle 2;
-- потеря entitlement не удаляет данные;
-- cancel, grace period, restore и завершение пары имеют явное поведение;
-- цена и store/billing provider не фиксируются этим документом.
-
-Billing не должен задерживать закрытый пилот `P0`, но обязателен для платного публичного запуска.
-
-### 1.13 Аналитика
-
-Минимальные события:
-
-```text
-auth_completed
-onboarding_completed
-pair_invite_created
-pair_joined
-cycle_started
-checkin_submitted
-pair_summary_viewed
-activity_offered
-activity_accepted
-activity_replaced
-activity_skipped
-activity_completed
-feedback_submitted
-next_cycle_started
-subscription_started
-subscription_cancelled
-```
-
-События содержат идентификатор события, технический scope, версию flow и timestamps. Они не содержат ответы, notes, тексты сигналов, интимные параметры или полное парное резюме.
-
-## 2. Экранная карта MVP
-
-Каноническая компактная карта находится в `docs/MVP_SPEC.md` §5. Функциональные требования выше не требуют отдельного экрана на каждую доменную сущность.
-
-## 3. Нефункциональные требования
-
-- Embedded/mobile-first UI и корректная работа в Discord iframe.
-- Сервер является источником истины для identity, membership, state transitions и scoring.
-- Все мутации валидируются Zod и защищаются resource guards.
-- Route handlers остаются тонкими; вычисления находятся в domain services/state machines.
-- API возвращает DTO, а не Mongoose documents.
-- Запись и пересчёт идемпотентны.
-- Контент, определения и алгоритмы версионируются.
-- Отсутствие значения отличается от нуля/нейтрального ответа.
-- Исторические результаты не меняются молча после обновления алгоритма.
-- Никаких новых production dependencies, очередей или Redis без измеренной потребности.
-- Логи и ошибки не содержат cookies, tokens, raw answers и чувствительные projections.
-
-## 4. Definition of Done
-
-### Functional gate
-
-- новый пользователь проходит весь flow без ручного вмешательства;
-- оба порядка submit и поздний feedback работают;
-- waiting, partial, expired, skip, replace и insufficient-data состояния покрыты;
-- повторные запросы не создают дубликаты;
-- основной flow работает после повторного входа.
-
-### Privacy/security gate
-
-- все pair resources проверяют session membership;
-- raw и derived disclosure протестированы отдельно;
-- приглашения одноразовые, ограничены TTL/rate limit и не хранятся открыто;
-- audit/analytics payload проверены на отсутствие sensitive content;
-- breakup/delete/export policy реализована и проверена.
-
-### Content/safety gate
-
-- используемые вопросы, объяснения и активности имеют версии;
-- sensitive content и safety flow прошли профильную проверку;
-- нет диагнозов, чтения мотивов, обещаний результата и гендерных стереотипов;
-- каждый шаблон имеет exclusions, duration, target, cooldown и feedback schema.
-
-### Paid public-launch gate
-
-- определены trial, billing owner, grace/cancel/restore;
-- paywall не появляется раньше первого value event;
-- поддержка может диагностировать техническую проблему без доступа к raw answers;
-- activation, full loop и pair retention измеряются.
-
-## 5. Порядок реализации
-
-Каждый этап начинается с targeted as-is audit, поэтому существующий функционал не переписывается автоматически.
-
-1. **Baseline matrix** — сопоставить `MVP_SPEC` с текущим кодом: `verified`, `partial`, `missing`, `legacy/out-of-scope`.
-2. **Entry and linking** — auth lifecycle, invite, waiting, acceptance и pair invariants.
-3. **Consent and inputs** — onboarding, versioned content, typed answers, privacy policy.
-4. **Cycle projection** — member completion, pair summary, insufficient-data и recomputation.
-5. **Action loop** — deterministic selection, activity states, feedback и history.
-6. **Primary UI** — превратить `/main-menu` в текущий cycle hub и связать `/pair`/`profile`.
-7. **Release safety** — content review, disclosure tests, lifecycle/delete/export, notifications.
-8. **Commercialization** — analytics, entitlement, trial/billing и pilot gates.
-
-После каждого этапа обновляются соответствующие active docs и `docs/CHANGELOG.md`. Любое изменение публичного API, auth/security model или схемы БД выполняется отдельной задачей в соответствующем operating mode.
-
-## 6. Критерий перехода к `NEXT`
-
-Команда не начинает глубокие patterns, AI, household или dating только по факту завершения разработки. Нужны данные пилота:
-
-- пары доходят до первого результата;
-- значимая доля завершает activity + feedback;
-- часть пар начинает второй и четвёртый цикл;
-- пропуски и замены объяснимы и не вызваны небезопасным контентом;
-- нет нерешённых privacy/safety incidents;
-- есть качественные свидетельства, что summary и action понятны и полезны.
-
-Числовые пороги утверждаются отдельным продуктовым решением до пилота.
+1. Invalid/missing answer never becomes `0.5`.
+2. Untouched field is not an answer; explicit neutral is.
+3. One submit is insufficient; two create one summary.
+4. A/B reorder does not change symmetric evaluation.
+5. A observation never mutates B profile.
+6. Private note/SafetyGate/peer confidence/evidence cannot be inferred.
+7. Registry/version mismatch fails closed; replay is deterministic.
+8. Concurrent evidence creates no duplicate snapshot.
+9. Legacy-only/invalid data creates no fabricated Factor; startup needs no legacy collection.
+10. Recommendation/activity use Factor bindings only.
+11. A pair without entitlement completes at least three full cycles.
+12. End makes old Pair id useless; reconnect creates a new context.
+13. History/notifications/export satisfy disclosure boundaries.
+14. Deletion revokes old sessions and cleans required data.
+15. Required automated, database, load, browser and review gates pass or remain explicitly external.

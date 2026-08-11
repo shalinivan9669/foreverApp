@@ -21,7 +21,12 @@ export default function QuestionnairesPage() {
   const [activeTab, setActiveTab] = useState<QuestionnaireScopeVM>('personal');
   const [loadingByQuestionnaireId, setLoadingByQuestionnaireId] = useState<Record<string, boolean>>({});
 
-  const { cards, loading: loadingCards, refetch } = useQuestionnaires();
+  const {
+    cards,
+    loading: loadingCards,
+    error: cardsError,
+    refetch,
+  } = useQuestionnaires();
   const { pairId, status } = usePair();
   const { error, clearError, setErrorFromException } = useApi('questionnaire-start');
 
@@ -89,10 +94,15 @@ export default function QuestionnairesPage() {
       </div>
 
       <ErrorView
-        error={error}
-        onRetry={() => {
-          void refetch();
+        error={cardsError}
+        onRetry={() => void refetch()}
+        onAuthRequired={() => {
+          router.push('/');
         }}
+      />
+
+      <ErrorView
+        error={error}
         onAuthRequired={() => {
           router.push('/');
         }}
@@ -105,6 +115,7 @@ export default function QuestionnairesPage() {
         personalCards={personalCards}
         coupleCards={coupleCards}
         loadingCards={loadingCards}
+        loadFailed={Boolean(cardsError) && cards.length === 0}
         loadingByQuestionnaireId={loadingByQuestionnaireId}
         onStartQuestionnaire={startQuestionnaire}
       />

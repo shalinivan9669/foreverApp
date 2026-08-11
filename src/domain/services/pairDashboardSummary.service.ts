@@ -10,7 +10,6 @@ import {
   weeklyCycleService,
   type CurrentWeeklyCycleDTO,
 } from '@/domain/services/weeklyCycle.service';
-import { isPairSafetyVetoActive } from '@/domain/services/safetyGate.service';
 import {
   isActivityAccessibleToRole,
   isOfferedActivityEligibleForRole,
@@ -25,149 +24,21 @@ type PublicPairMemberDTO = {
   avatarUrl?: string | null;
 };
 
-type PairDiagnosticsOverallDTO = {
-  score: number;
-  confidence: number;
-  status: 'strong' | 'neutral' | 'risk' | 'insufficient_data';
-};
-
-type PairCompactDiagnosticsDTO = {
-  overall?: PairDiagnosticsOverallDTO;
-  strongSides: { axis: string; facets: string[] }[];
-  riskZones: { axis: string; facets: string[]; severity: 1 | 2 | 3 }[];
-  complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
-  levelDelta: { axis: string; delta: number }[];
-  lastDiagnosticsAt?: string;
-};
-
 type PairNextStepDTO = {
   kind:
     | 'complete_weekly_checkin'
     | 'wait_or_invite_peer_checkin'
     | 'review_weekly_divergence'
     | 'complete_current_activity'
-    | 'run_pair_diagnostics'
-    | 'review_risk_zone'
     | 'suggest_activity'
     | 'none';
   title: string;
   description: string;
   href?: string;
   ctaLabel?: string;
-  axis?: string;
-  severity?: 1 | 2 | 3;
 };
 
 type PublicUserSource = Pick<UserType, 'id' | 'username' | 'avatar'>;
-type PairPassportWithOverall = NonNullable<PairType['passport']> & {
-  overall?: PairDiagnosticsOverallDTO;
-};
-
-const toIso = (value: Date | string | undefined | null): string | undefined => {
-  if (!value) return undefined;
-  if (typeof value === 'string') return value;
-  return value.toISOString();
-};
-
-const clamp01 = (value: number): number =>
-  Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
-
-const normalizeSeverity = (value: number | undefined): 1 | 2 | 3 => {
-  if (value === 3) return 3;
-  if (value === 2) return 2;
-  return 1;
-};
-
-const normalizeOverall = (
-  overall?: PairDiagnosticsOverallDTO
-): PairDiagnosticsOverallDTO | undefined => {
-  if (!overall) return undefined;
-
-  return {
-    score: clamp01(overall.score),
-    confidence: clamp01(overall.confidence),
-    status: overall.status,
-  };
-};
-
-const hasDiagnosticsSignal = (diagnostics: PairCompactDiagnosticsDTO): boolean =>
-  Boolean(
-    diagnostics.lastDiagnosticsAt ||
-      diagnostics.strongSides.length ||
-      diagnostics.riskZones.length ||
-      diagnostics.complementMap.length ||
-      diagnostics.levelDelta.length
-  );
-
-const inferOverallFromPassport = (
-  diagnostics: Omit<PairCompactDiagnosticsDTO, 'overall'>
-): PairDiagnosticsOverallDTO => {
-  const topSeverity = diagnostics.riskZones.reduce(
-    (max, risk) => Math.max(max, risk.severity),
-    0
-  );
-
-  if (!hasDiagnosticsSignal({ ...diagnostics, overall: undefined })) {
-    return { score: 0, confidence: 0, status: 'insufficient_data' };
-  }
-
-  if (topSeverity >= 2) {
-    return {
-      score: topSeverity === 3 ? 0.38 : 0.52,
-      confidence: 0.55,
-      status: 'risk',
-    };
-  }
-
-  if (diagnostics.strongSides.length >= 2 && diagnostics.riskZones.length === 0) {
-    return { score: 0.78, confidence: 0.55, status: 'strong' };
-  }
-
-  return { score: 0.62, confidence: 0.5, status: 'neutral' };
-};
-
-const toCompactDiagnostics = (
-  passport?: PairType['passport']
-): PairCompactDiagnosticsDTO => {
-  const passportWithOverall = passport as PairPassportWithOverall | undefined;
-  const compactWithoutOverall: Omit<PairCompactDiagnosticsDTO, 'overall'> = {
-    strongSides:
-      passport?.strongSides?.map((item) => ({
-        axis: item.axis,
-        facets: item.facets ?? [],
-      })) ?? [],
-    riskZones:
-      passport?.riskZones?.map((item) => ({
-        axis: item.axis,
-        facets: item.facets ?? [],
-        severity: normalizeSeverity(item.severity),
-      })) ?? [],
-    complementMap:
-      passport?.complementMap?.map((item) => ({
-        axis: item.axis,
-        A_covers_B: item.A_covers_B ?? [],
-        B_covers_A: item.B_covers_A ?? [],
-      })) ?? [],
-    levelDelta:
-      passport?.levelDelta?.map((item) => ({
-        axis: item.axis,
-        delta: Number.isFinite(item.delta) ? item.delta : 0,
-      })) ?? [],
-    lastDiagnosticsAt: toIso(passport?.lastDiagnosticsAt),
-  };
-  const normalizedOverall = normalizeOverall(passportWithOverall?.overall);
-  const inferredOverall = hasDiagnosticsSignal({
-    ...compactWithoutOverall,
-    overall: undefined,
-  })
-    ? inferOverallFromPassport(compactWithoutOverall)
-    : undefined;
-
-  return {
-    ...compactWithoutOverall,
-    overall: normalizedOverall ?? inferredOverall,
-  };
-};
 
 const withAvatarUrl = (member: PublicPairMemberDTO): PublicPairMemberDTO => ({
   ...member,
@@ -294,7 +165,7 @@ const buildNextStep = (input: {
   };
 };
 
-export const buildPairDashboardSummary = async (input: {
+const buildPairDashboardSummaryUncoalesced = async (input: {
   pair: PairDoc;
   currentUserId: string;
 }) => {
@@ -308,7 +179,6 @@ export const buildPairDashboardSummary = async (input: {
     offeredDecisions,
     memberDocs,
     currentCycle,
-    safetyVeto,
   ] =
     await Promise.all([
       PairActivity.find({
@@ -339,20 +209,12 @@ export const buildPairDashboardSummary = async (input: {
         pair: input.pair,
         currentUserId: input.currentUserId,
       }),
-      isPairSafetyVetoActive(String(pairId)),
     ]);
 
   const role: 'A' | 'B' =
     pair.members[0] === input.currentUserId ? 'A' : 'B';
   const current = currentCandidates.find(
-    (activity) =>
-      isActivityAccessibleToRole(activity, role) &&
-      (!safetyVeto ||
-        isOfferedActivityEligibleForRole({
-          activity,
-          role,
-          safetyVeto,
-        }))
+    (activity) => isActivityAccessibleToRole(activity, role)
   );
   const canonicalOfferedIds = new Set(
     offeredDecisions.map((decision) => String(decision.activityId))
@@ -362,7 +224,11 @@ export const buildPairDashboardSummary = async (input: {
     offeredCandidates.filter(
       (activity) =>
         canonicalOfferedIds.has(String(activity._id)) &&
-        isOfferedActivityEligibleForRole({ activity, role, safetyVeto })
+        isOfferedActivityEligibleForRole({
+          activity,
+          role,
+          safetyVeto: false,
+        })
     ).length
   );
 
@@ -375,9 +241,6 @@ export const buildPairDashboardSummary = async (input: {
   const members = pair.members.map((memberId) => memberById.get(memberId) ?? fallbackMember(memberId));
   const peerId = pair.members.find((memberId) => memberId !== input.currentUserId) ?? null;
   const peer = peerId ? memberById.get(peerId) ?? fallbackMember(peerId) : null;
-  // Legacy questionnaire diagnostics can reveal exact pair-derived values. The
-  // current pair surface uses only the privacy-filtered weekly projection.
-  const diagnostics = toCompactDiagnostics(undefined);
   const nextStep = buildNextStep({
     pairStatus: pair.status,
     weekly: currentCycle,
@@ -385,15 +248,41 @@ export const buildPairDashboardSummary = async (input: {
   });
 
   return {
-    pair: toPairDTO(pair, { includePassport: false, includeMetrics: false }),
+    pair: toPairDTO(pair),
     members,
     peer,
     currentActivity: current ? toPairActivityDTO(current, { includeAnswers: false }) : null,
     suggestedCount,
-    lastLike: null,
-    diagnostics,
     hasCurrentWeeklyCheckIn:
       currentCycle.currentUser.completionStatus === 'SUBMITTED',
     nextStep,
   };
+};
+
+type PairDashboardSummary = Awaited<
+  ReturnType<typeof buildPairDashboardSummaryUncoalesced>
+>;
+
+const dashboardSummaryFlights = new Map<
+  string,
+  Promise<PairDashboardSummary>
+>();
+
+export const buildPairDashboardSummary = (input: {
+  pair: PairDoc;
+  currentUserId: string;
+}): Promise<PairDashboardSummary> => {
+  const flightKey = `${String(input.pair._id)}:${input.currentUserId}`;
+  const existingFlight = dashboardSummaryFlights.get(flightKey);
+  if (existingFlight) return existingFlight;
+
+  const flight = buildPairDashboardSummaryUncoalesced(input);
+  dashboardSummaryFlights.set(flightKey, flight);
+  const clearFlight = () => {
+    if (dashboardSummaryFlights.get(flightKey) === flight) {
+      dashboardSummaryFlights.delete(flightKey);
+    }
+  };
+  void flight.then(clearFlight, clearFlight);
+  return flight;
 };

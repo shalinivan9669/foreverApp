@@ -60,7 +60,7 @@ const mutationSchema = z.discriminatedUnion('action', [
 ]);
 
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   try {
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 

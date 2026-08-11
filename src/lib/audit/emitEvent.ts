@@ -17,11 +17,11 @@ type MetadataValue = MetadataScalar | MetadataScalar[] | Record<string, Metadata
 type EventMetadata = Record<string, MetadataValue>;
 
 const SENSITIVE_METADATA_KEYS = new Set([
-  'access_token',
-  'refresh_token',
+  'accesstoken',
+  'refreshtoken',
   'token',
   'code',
-  'redirect_uri',
+  'redirecturi',
   'authorization',
   'cookie',
   'password',
@@ -33,9 +33,27 @@ const SENSITIVE_METADATA_KEYS = new Set([
   'raw',
   'body',
   'answers',
+  'peeranswers',
+  'rawanswers',
+  'note',
+  'notes',
+  'rawnotes',
+  'privatejournal',
   'checkins',
+  'ui',
+  'value',
+  'exactvalue',
+  'exactvalues',
   'confidence',
+  'exactconfidence',
+  'internalfit',
+  'internalscore',
+  'successscore',
+  'directionalfit',
+  'rolemetrics',
   'sumweightstotal',
+  'delta',
+  'exactdelta',
   'deltamagnitude',
   'appliedstepbyaxis',
   'clampedaxes',
@@ -43,6 +61,23 @@ const SENSITIVE_METADATA_KEYS = new Set([
   'deltas',
   'axissteps',
   'matchscore',
+  'evidencecount',
+  'factorevidencecount',
+  'evidenceids',
+  'evidenceeventids',
+  'individualsnapshotids',
+  'individualfactorsnapshotids',
+  'pairsnapshotids',
+  'pairevaluationsnapshotids',
+  'sourcehash',
+  'inputhash',
+  'outputhash',
+  'safetygate',
+  'safetygatestate',
+  'safetyveto',
+  'safetyenabled',
+  'sensitivereason',
+  'rawreason',
 ]);
 
 const sanitizeString = (value: string): string => value.slice(0, 512);
@@ -50,7 +85,10 @@ const sanitizeString = (value: string): string => value.slice(0, 512);
 const isPlainObject = (value: JsonValue): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const sanitizeMetadataValue = (value: JsonValue, depth = 0): JsonValue => {
+const normalizeMetadataKey = (key: string): string =>
+  key.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+export const sanitizeAuditMetadata = (value: JsonValue, depth = 0): JsonValue => {
   if (depth >= 6) {
     return '[TRUNCATED]';
   }
@@ -64,17 +102,17 @@ const sanitizeMetadataValue = (value: JsonValue, depth = 0): JsonValue => {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeMetadataValue(item, depth + 1));
+    return value.map((item) => sanitizeAuditMetadata(item, depth + 1));
   }
 
   const sanitized: JsonObject = {};
   for (const [key, raw] of Object.entries(value)) {
-    const normalized = key.toLowerCase();
+    const normalized = normalizeMetadataKey(key);
     if (SENSITIVE_METADATA_KEYS.has(normalized)) {
       continue;
     }
 
-    sanitized[key] = sanitizeMetadataValue(raw, depth + 1);
+    sanitized[key] = sanitizeAuditMetadata(raw, depth + 1);
   }
 
   return sanitized;
@@ -197,7 +235,7 @@ export async function emitEvent<E extends AuditEventName>(
       context: input.context,
       target: input.target,
       request: input.request,
-      metadata: toStoredMetadata(sanitizeMetadataValue(input.metadata as JsonValue)),
+      metadata: toStoredMetadata(sanitizeAuditMetadata(input.metadata as JsonValue)),
       retentionTier,
       expiresAt,
     });
@@ -209,10 +247,10 @@ export async function emitEvent<E extends AuditEventName>(
       retentionTier,
       expiresAt,
     };
-  } catch (error: unknown) {
+  } catch {
     console.error('emitEvent failed', {
       event: input.event,
-      error: error instanceof Error ? error.message : String(error),
+      outcome: 'failed',
     });
     return null;
   }

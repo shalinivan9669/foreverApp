@@ -12,8 +12,8 @@ type ActivityContentSource = Pick<
   PairActivityType,
   | 'intent'
   | 'archetype'
-  | 'axis'
-  | 'facetsTarget'
+  | 'actionDefinition'
+  | 'targetFactorKeys'
   | 'title'
   | 'description'
   | 'why'
@@ -27,7 +27,6 @@ type ActivityContentSource = Pick<
   | 'materials'
   | 'requiresConsent'
   | 'checkIns'
-  | 'effect'
 >;
 
 const localized = (value?: { ru?: string; en?: string }) => ({
@@ -41,8 +40,8 @@ export const buildActivityContentHash = (
   const canonicalContent = {
     intent: activity.intent,
     archetype: activity.archetype,
-    axis: activity.axis,
-    facetsTarget: activity.facetsTarget ?? [],
+    actionDefinition: activity.actionDefinition,
+    targetFactorKeys: [...activity.targetFactorKeys].sort(),
     title: localized(activity.title),
     description: localized(activity.description),
     why: localized(activity.why),
@@ -62,14 +61,6 @@ export const buildActivityContentHash = (
       text: localized(checkIn.text),
       successThreshold: checkIn.successThreshold ?? null,
       weight: checkIn.weight ?? null,
-    })),
-    effect: (activity.effect ?? []).map((effect) => ({
-      axis: effect.axis,
-      baseDelta: effect.baseDelta,
-      facetsAdd: effect.facetsAdd ?? [],
-      facetsRemove: effect.facetsRemove ?? [],
-      riskFacetsGuard: effect.riskFacetsGuard ?? [],
-      target: effect.target ?? 'both',
     })),
   };
 

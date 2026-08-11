@@ -22,18 +22,22 @@ export const AUDIT_EVENT_NAMES = [
   'PAIR_CREATED',
   'PAIR_PAUSED',
   'PAIR_RESUMED',
+  'PAIR_ENDED',
   'LOG_VISIT_RECORDED',
   'SECURITY_AUTH_FAILED',
+  'SESSION_REVOKED',
   'ABUSE_RATE_LIMIT_HIT',
   'ENTITLEMENT_DENIED',
   'ENTITLEMENT_GRANTED',
   'LEGACY_RELATIONSHIP_ACTIVITY_VIEWED',
   'SUGGESTIONS_GENERATED',
   'WEEKLY_CHECKIN_SUBMITTED',
+  'PARTNER_SIGNAL_SENT',
   'SAFETY_GATE_UPDATED',
   'PRIVACY_EXPORT_CREATED',
   'PRIVACY_DELETION_REQUESTED',
   'PRIVACY_DELETION_CANCELLED',
+  'PRIVACY_DELETION_EXECUTED',
 ] as const;
 
 export type AuditEventName = (typeof AUDIT_EVENT_NAMES)[number];
@@ -109,15 +113,15 @@ export type AuditEventMetadataMap = {
       | 'failed'
     >;
     dataStatus: 'PARTIAL' | 'ENOUGH';
-    resultVersion: 'activity-result-v1';
+    resultVersion: 'activity-result-v2';
   };
   ACTIVITY_COMPLETED: {
     activityId: string;
     pairId: string;
     status: Extract<PairActivityType['status'], 'completed_success' | 'completed_partial' | 'failed'>;
     dataStatus: 'PARTIAL' | 'ENOUGH';
-    effectApplied: boolean;
-    resultVersion: 'activity-result-v1';
+    factorEvidenceRecorded: boolean;
+    resultVersion: 'activity-result-v2';
   };
   QUESTIONNAIRE_STARTED: {
     pairId: string;
@@ -130,21 +134,16 @@ export type AuditEventMetadataMap = {
     sessionId: string;
     questionId: string;
     insertedNewAnswer: boolean;
-    traitMutationApplied: boolean;
-    pairDiagnosticsRefreshed: boolean;
-    answeredCount: number;
-    matchedCount: number;
+    exactPartnerAnswerDisclosed: false;
+    pairSummaryStatus: 'PENDING' | 'INSUFFICIENT_DATA';
   };
   ANSWERS_BULK_SUBMITTED: {
     answersCount: number;
-    answeredCount: number;
-    matchedCount: number;
-    audience: 'personal' | 'couple';
-    questionnaireId?: string;
-    applied: boolean;
-    reason: 'APPLIED' | 'COOLDOWN';
-    cooldownDays?: number;
-    scoringVersion: 'v2';
+    audience: 'personal';
+    questionnaireId: string;
+    questionnaireVersion: number;
+    captureMode: 'PRIVATE';
+    semanticStatus: 'UNMAPPED';
   };
   USER_ONBOARDING_UPDATED: {
     updatedKeys: string[];
@@ -170,12 +169,19 @@ export type AuditEventMetadataMap = {
   PAIR_RESUMED: {
     pairId: string;
   };
+  PAIR_ENDED: {
+    pairId: string;
+    reason: 'MEMBER_REQUEST' | 'ACCOUNT_DELETION';
+  };
   LOG_VISIT_RECORDED: {
     source: 'discord_activity';
   };
   SECURITY_AUTH_FAILED: {
     reason: string;
     status?: number;
+  };
+  SESSION_REVOKED: {
+    scope: 'ALL';
   };
   ABUSE_RATE_LIMIT_HIT: {
     route: string;
@@ -212,30 +218,34 @@ export type AuditEventMetadataMap = {
     source: 'pairs.suggest' | 'pairs.activities.suggest' | 'activities.next';
   };
   WEEKLY_CHECKIN_SUBMITTED: {
-    pairId?: string;
+    pairId: string;
     weekKey: string;
-    snapshotCount: number;
-    generatedInsightCount: number;
-    traitMutationApplied: boolean;
-    submittedCount?: number;
-    bothSubmitted?: boolean;
+    factorEngineStatus: 'MATERIALIZED';
     pairStateUpdated: boolean;
+  };
+  PARTNER_SIGNAL_SENT: {
+    delivery: 'EXPLICIT_CONFIRMED';
+    retentionClass: 'THIRTY_DAYS';
   };
   SAFETY_GATE_UPDATED: {
     pairId: string;
-    enabled: boolean;
     retentionClass: 'UNTIL_REVOKED_OR_PAIR_END';
   };
   PRIVACY_EXPORT_CREATED: {
     exportVersion: 'owner-export-v1';
   };
   PRIVACY_DELETION_REQUESTED: {
-    status: 'PENDING_POLICY_REVIEW';
-    requestVersion: 'privacy-request-v1';
+    status: 'PENDING_CONFIRMATION';
+    requestVersion: 'privacy-request-v2';
   };
   PRIVACY_DELETION_CANCELLED: {
     status: 'CANCELLED';
-    requestVersion: 'privacy-request-v1';
+    requestVersion: 'privacy-request-v2';
+  };
+  PRIVACY_DELETION_EXECUTED: {
+    status: 'EXECUTED';
+    requestVersion: 'privacy-request-v2';
+    deletionPolicy: 'PRIVACY_MINIMAL';
   };
 };
 
@@ -283,18 +293,22 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   PAIR_CREATED: 'long',
   PAIR_PAUSED: 'long',
   PAIR_RESUMED: 'long',
+  PAIR_ENDED: 'long',
   LOG_VISIT_RECORDED: 'short',
   SECURITY_AUTH_FAILED: 'long',
+  SESSION_REVOKED: 'long',
   ABUSE_RATE_LIMIT_HIT: 'abuse',
   ENTITLEMENT_DENIED: 'long',
   ENTITLEMENT_GRANTED: 'long',
   LEGACY_RELATIONSHIP_ACTIVITY_VIEWED: 'short',
   SUGGESTIONS_GENERATED: 'short',
   WEEKLY_CHECKIN_SUBMITTED: 'long',
+  PARTNER_SIGNAL_SENT: 'long',
   SAFETY_GATE_UPDATED: 'long',
   PRIVACY_EXPORT_CREATED: 'long',
   PRIVACY_DELETION_REQUESTED: 'long',
   PRIVACY_DELETION_CANCELLED: 'long',
+  PRIVACY_DELETION_EXECUTED: 'long',
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

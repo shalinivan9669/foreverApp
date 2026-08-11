@@ -13,7 +13,7 @@ import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 const bodySchema = z.object({}).passthrough();
 
 export async function PATCH(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 

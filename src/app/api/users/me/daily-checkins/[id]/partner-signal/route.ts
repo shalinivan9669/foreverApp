@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { requireSession } from '@/lib/auth/guards';
 import { parseJson, parseParams } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { hashIdempotencySensitiveValue } from '@/lib/idempotency/key';
 import { partnerSignalService } from '@/domain/services/partnerSignal.service';
+import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -23,7 +25,7 @@ const bodySchema = z
   .strict();
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 
@@ -39,13 +41,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     userId: currentUserId,
     requestBody: {
       checkInId: params.data.id,
-      textLength: body.data.text.length,
+      textDigest: hashIdempotencySensitiveValue([
+        'partner-signal-text-v1',
+        body.data.text,
+      ]),
     },
     execute: () =>
       partnerSignalService.send({
         currentUserId,
         checkInId: params.data.id,
         text: body.data.text,
+        auditRequest: auditContextFromRequest(
+          req,
+          '/api/users/me/daily-checkins/[id]/partner-signal'
+        ),
       }),
   });
 }

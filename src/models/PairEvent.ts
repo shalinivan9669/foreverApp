@@ -1,11 +1,9 @@
 import mongoose, { Schema, Types } from 'mongoose';
-import type { Axis } from './ActivityTemplate';
 
 export type PairEventCategory =
   | 'relationship_milestone'
   | 'calendar_event'
-  | 'behavioral_event'
-  | 'system_signal';
+  | 'behavioral_event';
 
 export type PairEventType =
   | 'first_month'
@@ -18,10 +16,9 @@ export type PairEventType =
   | 'partner_birthday'
   | 'inactive_pair'
   | 'failed_activity_recovery'
-  | 'high_fatigue_recovery'
-  | 'weekly_divergence_repair'
-  | 'weekly_success_celebration'
-  | 'diagnostics_risk_focus';
+  | 'weekly_overload_recovery'
+  | 'weekly_tension_support'
+  | 'weekly_success_celebration';
 
 export type PairEventStatus =
   | 'upcoming'
@@ -33,12 +30,10 @@ export type PairEventStatus =
   | 'completed';
 
 export type PairEventSourceKind =
-  | 'pair_created_at'
+  | 'pair_lifecycle'
   | 'calendar_rule'
-  | 'weekly_checkin'
-  | 'activity_history'
-  | 'diagnostics'
-  | 'manual';
+  | 'weekly_pair_state'
+  | 'activity_history';
 
 export interface PairEventTypeModel {
   pairId: Types.ObjectId;
@@ -54,11 +49,12 @@ export interface PairEventTypeModel {
   status: PairEventStatus;
   priority: 1 | 2 | 3;
   severity?: 1 | 2 | 3;
-  axis?: Axis[];
+  factorRegistryVersion: number;
+  targetFactorKeys: string[];
   source: {
     kind: PairEventSourceKind;
     refId?: string;
-    weekKey?: string;
+    cycleKey?: string;
     date?: Date;
   };
   actionPolicy: {
@@ -91,7 +87,7 @@ const PairEventSchema = new Schema<PairEventTypeModel>(
     key: { type: String, required: true },
     category: {
       type: String,
-      enum: ['relationship_milestone', 'calendar_event', 'behavioral_event', 'system_signal'],
+      enum: ['relationship_milestone', 'calendar_event', 'behavioral_event'],
       required: true,
     },
     type: {
@@ -107,10 +103,9 @@ const PairEventSchema = new Schema<PairEventTypeModel>(
         'partner_birthday',
         'inactive_pair',
         'failed_activity_recovery',
-        'high_fatigue_recovery',
-        'weekly_divergence_repair',
+        'weekly_overload_recovery',
+        'weekly_tension_support',
         'weekly_success_celebration',
-        'diagnostics_risk_focus',
       ],
       required: true,
     },
@@ -127,19 +122,36 @@ const PairEventSchema = new Schema<PairEventTypeModel>(
     },
     priority: { type: Number, enum: [1, 2, 3], required: true },
     severity: { type: Number, enum: [1, 2, 3] },
-    axis: {
+    factorRegistryVersion: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    targetFactorKeys: {
       type: [String],
-      enum: ['communication', 'domestic', 'personalViews', 'finance', 'sexuality', 'psyche'],
-      default: [],
+      required: true,
+      validate: {
+        validator: (keys: string[]) =>
+          keys.length > 0 &&
+          keys.length <= 4 &&
+          new Set(keys).size === keys.length &&
+          keys.every((key) => key.trim().length > 0),
+        message: 'Pair event must reference one to four unique factor keys',
+      },
     },
     source: {
       kind: {
         type: String,
-        enum: ['pair_created_at', 'calendar_rule', 'weekly_checkin', 'activity_history', 'diagnostics', 'manual'],
+        enum: [
+          'pair_lifecycle',
+          'calendar_rule',
+          'weekly_pair_state',
+          'activity_history',
+        ],
         required: true,
       },
       refId: { type: String },
-      weekKey: { type: String },
+      cycleKey: { type: String },
       date: { type: Date },
     },
     actionPolicy: {

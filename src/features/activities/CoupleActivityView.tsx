@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import ActivityCard from '@/components/activities/ActivityCard';
 import CheckInModal from '@/components/activities/CheckInModal';
 import BackBar from '@/components/ui/BackBar';
@@ -21,6 +22,7 @@ type CoupleActivityViewProps = {
   history: ActivityCardVM[];
   hasPair: boolean;
   onRetry: () => void;
+  onAuthRequired: () => void;
   onSetTab: (tab: Tab) => void;
   onCancel: (id: string) => void;
   onStart: (id: string) => void;
@@ -34,7 +36,11 @@ type CoupleActivityViewProps = {
   activityFlowMessage: string | null;
   recommendationPanel?: ReactNode;
   onRetryComplete: (activityId: string) => void;
-  onSubmitCheckIn: (activityId: string, answers: Array<{ checkInId: string; ui: number }>) => void;
+  onSubmitCheckIn: (
+    activityId: string,
+    answers: Array<{ checkInId: string; ui: number }>,
+    allowPairModelUse: boolean
+  ) => void;
 };
 
 const tabButtonClass = (isActive: boolean): string =>
@@ -52,6 +58,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     history,
     hasPair,
     onRetry,
+    onAuthRequired,
     onSetTab,
     onCancel,
     onStart,
@@ -68,6 +75,19 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     onSubmitCheckIn,
   } = props;
 
+  if (!hasPair && (loading || error)) {
+    return (
+      <main className="app-shell-dashboard app-page-stack pb-4 pt-3 sm:pb-6 sm:pt-5 lg:pt-7">
+        <BackBar title="Активности пары" fallbackHref="/main-menu" />
+        {loading ? (
+          <LoadingView compact label="Проверяем состояние пары..." />
+        ) : (
+          <ErrorView error={error} onRetry={onRetry} onAuthRequired={onAuthRequired} />
+        )}
+      </main>
+    );
+  }
+
   if (!hasPair) {
     return (
       <main className="app-shell-dashboard app-page-stack pb-4 pt-3 sm:pb-6 sm:pt-5 lg:pt-7">
@@ -76,6 +96,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
           title="Пара не найдена"
           description="Сначала создайте пару, затем вернитесь к активностям."
         />
+        <Link href="/invite" className="app-btn-primary inline-flex w-full justify-center px-4 py-3 text-sm sm:w-auto">
+          Создать приглашение
+        </Link>
       </main>
     );
   }
@@ -86,29 +109,52 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
       <h1 className="app-page-title font-bold text-slate-900">Активности пары</h1>
       {recommendationPanel}
 
-      <div className="app-panel-soft flex flex-wrap gap-2 p-1.5">
-        <button onClick={() => onSetTab('active')} className={tabButtonClass(tab === 'active')}>
+      <div className="app-panel-soft flex flex-wrap gap-2 p-1.5" role="tablist" aria-label="Разделы активностей">
+        <button
+          type="button"
+          role="tab"
+          id="activities-tab-active"
+          aria-selected={tab === 'active'}
+          aria-controls="activities-panel-active"
+          onClick={() => onSetTab('active')}
+          className={tabButtonClass(tab === 'active')}
+        >
           Активная
         </button>
-        <button onClick={() => onSetTab('history')} className={tabButtonClass(tab === 'history')}>
+        <button
+          type="button"
+          role="tab"
+          id="activities-tab-history"
+          aria-selected={tab === 'history'}
+          aria-controls="activities-panel-history"
+          onClick={() => onSetTab('history')}
+          className={tabButtonClass(tab === 'history')}
+        >
           История
         </button>
       </div>
 
       {loading && <LoadingView compact label="Загрузка активностей..." />}
-      {error && <ErrorView error={error} onRetry={onRetry} />}
+      {error && (
+        <ErrorView error={error} onRetry={onRetry} onAuthRequired={onAuthRequired} />
+      )}
       {activityFlowMessage && (
-        <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900" role="status" aria-live="polite">
           {activityFlowMessage}
         </div>
       )}
 
       {!loading && tab === 'active' && (
-        <div className="activity-workspace">
+        <div
+          id="activities-panel-active"
+          role="tabpanel"
+          aria-labelledby="activities-tab-active"
+          className="activity-workspace"
+        >
           {active ? (
             <div className="app-grid-wide space-y-3">
               {pendingCompleteActivityId === active._id && pendingCompleteMessage && (
-                <div className="app-reveal rounded border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                <div className="app-reveal rounded border border-amber-300 bg-amber-50 p-3 text-amber-900" role="alert">
                   <p className="text-sm">{pendingCompleteMessage}</p>
                   <button
                     type="button"
@@ -116,7 +162,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
                     disabled={pendingCompleteInFlight}
                     className="app-btn-secondary mt-2 px-3 py-1.5 text-sm text-slate-900 disabled:opacity-60"
                   >
-                    {pendingCompleteInFlight ? 'Завершаем...' : 'Завершить еще раз'}
+                    {pendingCompleteInFlight ? 'Завершаем...' : 'Завершить ещё раз'}
                   </button>
                 </div>
               )}
@@ -129,7 +175,6 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
                 onStart={() => onStart(active._id)}
                 onCancel={() => onCancel(active._id)}
                 onComplete={() => onOpenCheckIn(active)}
-                onSuggestNext={() => undefined}
               />
             </div>
           ) : (
@@ -162,7 +207,12 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
       )}
 
       {!loading && tab === 'history' && (
-        <div className="app-collection-grid">
+        <div
+          id="activities-panel-history"
+          role="tabpanel"
+          aria-labelledby="activities-tab-history"
+          className="app-collection-grid"
+        >
           {history.length === 0 && <EmptyStateView title="История пока пуста" />}
           {history.map((item) => (
             <ActivityCard
@@ -174,7 +224,6 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
               onStart={() => undefined}
               onCancel={() => undefined}
               onComplete={() => onOpenCheckIn(item)}
-              onSuggestNext={() => undefined}
             />
           ))}
         </div>
@@ -192,7 +241,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
           }
           retryCompleteLoading={pendingCompleteInFlight}
           onClose={onCloseCheckIn}
-          onSubmit={(answers) => onSubmitCheckIn(checkInFor._id, answers)}
+          onSubmit={(answers, allowPairModelUse) =>
+            onSubmitCheckIn(checkInFor._id, answers, allowPairModelUse)
+          }
         />
       )}
     </main>

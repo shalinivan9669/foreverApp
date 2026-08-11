@@ -92,7 +92,11 @@ export function usePair(options: UsePairOptions = {}) {
   }, [enabled, refetch]);
 
   const error = statusError ?? pairError;
-  const loading = statusLoading || pairLoading;
+  const awaitingInitialResponse =
+    enabled &&
+    ((status === null && statusError === null) ||
+      (pairMe === null && pairError === null));
+  const loading = statusLoading || pairLoading || awaitingInitialResponse;
   const pairId = useMemo(
     () => pairMe?.pair?.id ?? (status?.hasActive ? status.pairId : null),
     [pairMe, status]

@@ -6,12 +6,7 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonError } from '@/lib/api/response';
 import { parseJson, parseParams } from '@/lib/api/validate';
 import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
-import { recommendationDecisionService } from '@/domain/services/recommendationDecision.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
-import {
-  assertRecommendationOfferAccess,
-  buildRecommendationQuotaClaimKey,
-} from '@/lib/entitlements';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 
@@ -30,7 +25,7 @@ const bodySchema = z
   .strict();
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const params = parseParams(await ctx.params, paramsSchema);
@@ -60,35 +55,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     route,
     userId: auth.data.userId,
     requestBody: body.data,
-    execute: async () => {
-      const current = await recommendationDecisionService.getCurrent({
-        pairId: params.data.id,
-        currentUserId: auth.data.userId,
-      });
-      if (!current) {
-        const context =
-          await recommendationDecisionService.requireCurrentPublishableSummary({
-            pairId: params.data.id,
-            currentUserId: auth.data.userId,
-          });
-        await assertRecommendationOfferAccess({
-          req,
-          route,
-          pairId: params.data.id,
-          currentUserId: auth.data.userId,
-          quotaClaimKey: buildRecommendationQuotaClaimKey({
-            pairId: params.data.id,
-            cycleKey: context.cycleKey,
-            kind: 'primary',
-          }),
-        });
-      }
-      return recommendationWorkflowService.fromTemplateCompatibility({
+    execute: async () =>
+      recommendationWorkflowService.fromTemplateCompatibility({
         pairId: params.data.id,
         templateId: body.data.templateId,
         currentUserId: auth.data.userId,
         auditRequest: auditContextFromRequest(req, route),
-      });
-    },
+      }),
   });
 }

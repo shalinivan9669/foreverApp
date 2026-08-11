@@ -16,7 +16,8 @@ export type PairSnapshot = {
 export type PairAction =
   | { type: 'CREATE' }
   | { type: 'PAUSE' }
-  | { type: 'RESUME' };
+  | { type: 'RESUME' }
+  | { type: 'END' };
 
 export type PairTransitionEvent = {
   type: string;
@@ -101,6 +102,17 @@ export function pairTransition(
       return {
         next: { status: 'active' },
         events: [{ type: 'pair.resumed' }],
+      };
+    }
+
+    case 'END': {
+      const current = pair;
+      if (!current || current.status === 'ended') {
+        return stateConflict(current, action, context);
+      }
+      return {
+        next: { status: 'ended' },
+        events: [{ type: 'pair.ended' }],
       };
     }
 

@@ -10,7 +10,7 @@ import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 // DTO rule: return only DTO/view model (never raw DB model shape).
 
 export async function POST(request: Request) {
-  const auth = requireSession(request);
+  const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 

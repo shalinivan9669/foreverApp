@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 import type {
   CurrentUserDTO,
-  MatchFeedCandidateDTO,
-  MatchInboxRowDTO,
-  MatchLikeDTO,
   PairActivityDTO,
   PairDTO,
   PairMeDTO,
@@ -26,11 +23,8 @@ type EntitiesState = {
   usersById: Record<string, PublicUserDTO>;
   pairsById: Record<string, PairDTO>;
   activitiesById: Record<string, PairActivityDTO>;
-  likesById: Record<string, MatchLikeDTO>;
   questionnairesById: Record<string, QuestionnaireCardDTO>;
 
-  matchFeedByKey: Record<string, CachedList<MatchFeedCandidateDTO>>;
-  inboxByKey: Record<string, CachedList<MatchInboxRowDTO>>;
   activitiesByKey: Record<string, CachedList<PairActivityDTO>>;
   questionnairesByKey: Record<string, CachedList<QuestionnaireCardDTO>>;
   pairStatusByKey: Record<string, CachedValue<PairStatusDTO>>;
@@ -40,19 +34,14 @@ type EntitiesState = {
   setUsers: (users: PublicUserDTO[]) => void;
   setPairs: (pairs: PairDTO[]) => void;
   setActivities: (activities: PairActivityDTO[]) => void;
-  setLikes: (likes: MatchLikeDTO[]) => void;
   setQuestionnaires: (questionnaires: QuestionnaireCardDTO[]) => void;
 
-  setMatchFeed: (key: string, rows: MatchFeedCandidateDTO[]) => void;
-  setInbox: (key: string, rows: MatchInboxRowDTO[]) => void;
   setActivitiesList: (key: string, rows: PairActivityDTO[]) => void;
   setQuestionnaireCards: (key: string, rows: QuestionnaireCardDTO[]) => void;
   setPairStatus: (key: string, status: PairStatusDTO) => void;
   setPairMe: (key: string, pair: PairMeDTO) => void;
   setCurrentUser: (key: string, user: CurrentUserDTO) => void;
 
-  getMatchFeed: (key: string) => MatchFeedCandidateDTO[] | null;
-  getInbox: (key: string) => MatchInboxRowDTO[] | null;
   getActivitiesList: (key: string) => PairActivityDTO[] | null;
   getQuestionnaireCards: (key: string) => QuestionnaireCardDTO[] | null;
   getPairStatus: (key: string) => PairStatusDTO | null;
@@ -75,11 +64,8 @@ export const useEntitiesStore = create<EntitiesState>((set, get) => ({
   usersById: {},
   pairsById: {},
   activitiesById: {},
-  likesById: {},
   questionnairesById: {},
 
-  matchFeedByKey: {},
-  inboxByKey: {},
   activitiesByKey: {},
   questionnairesByKey: {},
   pairStatusByKey: {},
@@ -106,48 +92,9 @@ export const useEntitiesStore = create<EntitiesState>((set, get) => ({
       return { activitiesById: next };
     }),
 
-  setLikes: (likes) =>
-    set((state) => ({
-      likesById: setById(state.likesById, likes),
-    })),
-
   setQuestionnaires: (questionnaires) =>
     set((state) => ({
       questionnairesById: setById(state.questionnairesById, questionnaires),
-    })),
-
-  setMatchFeed: (key, rows) =>
-    set((state) => ({
-      usersById: setById(
-        state.usersById,
-        rows.map((row) => ({
-          id: row.id,
-          username: row.username,
-          avatar: row.avatar,
-        }))
-      ),
-      matchFeedByKey: {
-        ...state.matchFeedByKey,
-        [key]: {
-          data: rows,
-          updatedAt: Date.now(),
-        },
-      },
-    })),
-
-  setInbox: (key, rows) =>
-    set((state) => ({
-      usersById: setById(
-        state.usersById,
-        rows.map((row) => row.peer)
-      ),
-      inboxByKey: {
-        ...state.inboxByKey,
-        [key]: {
-          data: rows,
-          updatedAt: Date.now(),
-        },
-      },
     })),
 
   setActivitiesList: (key, rows) =>
@@ -235,8 +182,6 @@ export const useEntitiesStore = create<EntitiesState>((set, get) => ({
       },
     })),
 
-  getMatchFeed: (key) => get().matchFeedByKey[key]?.data ?? null,
-  getInbox: (key) => get().inboxByKey[key]?.data ?? null,
   getActivitiesList: (key) => get().activitiesByKey[key]?.data ?? null,
   getQuestionnaireCards: (key) => get().questionnairesByKey[key]?.data ?? null,
   getPairStatus: (key) => get().pairStatusByKey[key]?.data ?? null,

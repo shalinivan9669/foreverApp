@@ -17,6 +17,7 @@ export type PartnerSignalType = {
   text: string;
   tone: PartnerSignalTone;
   status: 'sent' | 'read' | 'hidden_by_sender' | 'dismissed_by_receiver';
+  expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
   readAt?: Date;
@@ -26,10 +27,15 @@ const dateKeyRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 const partnerSignalSchema = new Schema<PartnerSignalType>(
   {
-    pairId: { type: Schema.Types.Mixed, required: true },
+    pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },
     fromUserId: { type: String, required: true },
     toUserId: { type: String, required: true },
-    sourceCheckInId: { type: Schema.Types.Mixed, required: true },
+    sourceCheckInId: {
+      type: Schema.Types.ObjectId,
+      ref: 'PersonalDailyCheckIn',
+      required: true,
+      immutable: true,
+    },
     dateKey: {
       type: String,
       required: true,
@@ -49,13 +55,18 @@ const partnerSignalSchema = new Schema<PartnerSignalType>(
       default: 'sent',
     },
     readAt: { type: Date },
+    expiresAt: { type: Date, required: true },
   },
   { collection: 'partner_signals', timestamps: true }
 );
 
 partnerSignalSchema.index({ toUserId: 1, createdAt: -1 });
 partnerSignalSchema.index({ pairId: 1, dateKey: 1 });
-partnerSignalSchema.index({ sourceCheckInId: 1 });
+partnerSignalSchema.index(
+  { sourceCheckInId: 1 },
+  { unique: true, name: 'one_partner_signal_per_daily_checkin' }
+);
+partnerSignalSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const PartnerSignal =
   (mongoose.models.PartnerSignal as mongoose.Model<PartnerSignalType>) ||

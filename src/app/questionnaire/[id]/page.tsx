@@ -1,22 +1,20 @@
 ﻿'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
 import QuestionCard from '@/components/QuestionCard';
 import { questionnairesApi } from '@/client/api/questionnaires.api';
-import { usersApi } from '@/client/api/users.api';
 import type { QuestionnaireDTO } from '@/client/api/types';
 import { useApi } from '@/client/hooks/useApi';
-import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 
 type RenderableQuestion = {
-  id?: string;
-  _id?: string;
+  id: string;
   text: Record<string, string>;
   scale: 'likert5' | 'bool';
+  optionCount: number;
 };
 
 export default function PersonalQuestionnaireRunner() {
@@ -31,7 +29,9 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireDTO | null>(null);
   const [index, setIndex] = useState(0);
   const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, number>>({});
-  const { refetch: refetchCurrentUser } = useCurrentUser({ enabled: false });
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [loadSettled, setLoadSettled] = useState(false);
+  const questionRegionRef = useRef<HTMLDivElement | null>(null);
 
   const {
     runSafe: runLoadSafe,
@@ -52,18 +52,22 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
     let active = true;
     const controller = new AbortController();
 
-    runLoadSafe(() => questionnairesApi.startPersonalQuestionnaire(id, controller.signal), {
+    void runLoadSafe(() => questionnairesApi.startPersonalQuestionnaire(id, controller.signal), {
       loadingKey: 'questionnaire-personal-load',
-    }).then((data) => {
-      if (!active || !data) return;
-      setQuestionnaire(data);
-    });
+    })
+      .then((data) => {
+        if (!active || !data) return;
+        setQuestionnaire(data);
+      })
+      .finally(() => {
+        if (active) setLoadSettled(true);
+      });
 
     return () => {
       active = false;
       controller.abort();
     };
-  }, [id, runLoadSafe]);
+  }, [id, loadAttempt, runLoadSafe]);
 
   const questions = useMemo<RenderableQuestion[]>(() => {
     if (!questionnaire || !Array.isArray(questionnaire.questions)) return [];
@@ -73,11 +77,14 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
   const currentQuestion = questions[index];
   const title = questionnaire?.title?.ru ?? questionnaire?.title?.en ?? 'Анкета';
 
+  useEffect(() => {
+    if (currentQuestion) questionRegionRef.current?.focus();
+  }, [currentQuestion, index]);
+
   const onAnswer = async (questionId: string, ui: number) => {
     if (!id || !currentQuestion || submitting) return;
 
-    const normalizedQuestionId = currentQuestion.id ?? currentQuestion._id ?? questionId;
-    if (!normalizedQuestionId) return;
+    const normalizedQuestionId = currentQuestion.id || questionId;
     const nextAnswersByQuestionId = {
       ...answersByQuestionId,
       [normalizedQuestionId]: ui,
@@ -103,12 +110,10 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
 
     if (!saved) return;
 
-    await refetchCurrentUser();
-    await usersApi.getProfileSummary().catch(() => null);
     router.push('/questionnaires');
   };
 
-  if (loadingQuestionnaire && !questionnaire) {
+  if ((loadingQuestionnaire || !loadSettled) && !questionnaire) {
     return (
       <div className="app-shell-compact app-page-stack py-3 sm:py-5">
         <BackBar title="Анкета" fallbackHref="/questionnaires" />
@@ -124,7 +129,9 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
         <ErrorView
           error={loadError}
           onRetry={() => {
-            router.refresh();
+            setQuestionnaire(null);
+            setLoadSettled(false);
+            setLoadAttempt((attempt) => attempt + 1);
           }}
           onAuthRequired={() => {
             router.push('/');
@@ -172,11 +179,21 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
         </div>
       </div>
 
-      <QuestionCard q={currentQuestion} onAnswer={onAnswer} />
+      <div ref={questionRegionRef} tabIndex={-1} className="outline-none">
+        <QuestionCard
+          q={currentQuestion}
+          selected={answersByQuestionId[currentQuestion.id]}
+          onAnswer={onAnswer}
+        />
+      </div>
 
       {submitting && <LoadingView compact label="Сохраняем ответ..." />}
       <ErrorView
         error={submitError}
+        onRetry={() => {
+          const selected = answersByQuestionId[currentQuestion.id];
+          if (typeof selected === 'number') void onAnswer(currentQuestion.id, selected);
+        }}
         onAuthRequired={() => {
           router.push('/');
         }}

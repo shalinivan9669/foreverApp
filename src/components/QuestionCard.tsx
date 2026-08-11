@@ -1,10 +1,12 @@
 ﻿'use client';
 
+import { useId } from 'react';
+
 type QuestionItem = {
-  _id?: string;
-  id?: string;
+  id: string;
   text: Record<string, string>;
   scale: 'likert5' | 'bool';
+  optionCount: number;
 };
 
 type Props = {
@@ -14,18 +16,21 @@ type Props = {
 };
 
 export default function QuestionCard({ q, selected, onAnswer }: Props) {
-  const qid = (q.id ?? q._id) ?? '';
-  if (!qid) return null;
+  const qid = q.id;
+  const questionId = useId();
+  const scaleHelpId = useId();
 
   const label = q.text?.ru ?? q.text?.en ?? '';
 
   return (
-    <div className="app-panel p-5 sm:p-7">
-      <p className="font-display text-xl font-medium leading-snug text-slate-900 sm:text-2xl">{label}</p>
+    <section className="app-panel p-5 sm:p-7" aria-labelledby={questionId}>
+      <h2 id={questionId} className="font-display text-xl font-medium leading-snug text-slate-900 sm:text-2xl">{label}</h2>
 
       {q.scale === 'likert5' && (
-        <div className="mt-6 grid grid-cols-5 gap-2 sm:gap-3">
-          {[1, 2, 3, 4, 5].map((i) => {
+        <fieldset className="mt-6" aria-describedby={scaleHelpId}>
+          <legend className="sr-only">Выберите один вариант</legend>
+          <div className="grid grid-cols-5 gap-2 sm:gap-3">
+          {Array.from({ length: q.optionCount }, (_, index) => index + 1).map((i) => {
             const isSel = selected === i;
             return (
               <button
@@ -46,11 +51,17 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
               </button>
             );
           })}
-        </div>
+          </div>
+          <p id={scaleHelpId} className="app-muted mt-3 text-xs">
+            1 — совсем нет, средний вариант — нейтрально, {q.optionCount} — полностью да.
+          </p>
+        </fieldset>
       )}
 
       {q.scale === 'bool' && (
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <fieldset className="mt-6">
+          <legend className="sr-only">Выберите да или нет</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
           {[
             { val: 1 as const, label: 'Нет' },
             { val: 2 as const, label: 'Да' },
@@ -74,8 +85,9 @@ export default function QuestionCard({ q, selected, onAnswer }: Props) {
               </button>
             );
           })}
-        </div>
+          </div>
+        </fieldset>
       )}
-    </div>
+    </section>
   );
 }

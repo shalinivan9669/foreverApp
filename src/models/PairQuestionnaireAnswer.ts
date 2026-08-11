@@ -25,6 +25,10 @@ const PairQuestionnaireAnswerSchema = new Schema<PairQuestionnaireAnswerType>(
   { collection: 'pair_qn_answers', timestamps: true }
 );
 
+PairQuestionnaireAnswerSchema.index(
+  { sessionId: 1, questionId: 1, by: 1 },
+  { unique: true, name: 'one_pair_questionnaire_answer_per_member' }
+);
 PairQuestionnaireAnswerSchema.index({ sessionId: 1 });
 PairQuestionnaireAnswerSchema.index({ pairId: 1, questionnaireId: 1, questionId: 1 });
 

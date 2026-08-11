@@ -1,89 +1,85 @@
-# foreverApp
+# foreverApp / «Вместе»
 
-## What this is
+## Что это
 
-foreverApp is a Discord Embedded App for an existing adult couple. The MVP links two consenting users, turns separate weekly check-ins into a privacy-safe pair summary, recommends one shared activity, collects separate feedback, and records a bounded shared history. Legacy matching surfaces remain compatibility-only and are not the primary product loop.
+ForeverApp — Discord Embedded App для двух совершеннолетних людей, уже состоящих в отношениях. Публичное ядро бесплатно: оба участника проходят отдельный weekly check-in, получают privacy-safe Pair Summary, выбирают одно совместное действие, отправляют раздельный feedback и начинают следующий цикл без entitlement или оплаты.
 
-## Tech stack
+Вычислительное ядро работает в режиме `NEW_ONLY` на versioned semantic Factor Engine:
 
-- Next.js
-- React
-- TypeScript
-- MongoDB/Mongoose
-- Discord Embedded App SDK
-- Zod
-- custom session cookie auth
+```text
+definitions → evidence → immutable snapshots → pair evaluations → recommendation
+```
 
-## Quick start
+Шесть legacy-осей, numeric compatibility, Pair Passport и paywall не участвуют в основном runtime. Сохранённая billing-инфраструктура изолирована как необязательный будущий контур и не определяет доступ к core flow.
 
-Node.js 20.9 or newer is required (the release checks currently run on Node 24).
+## Стек
+
+- Next.js App Router, React, TypeScript;
+- MongoDB/Mongoose с transaction-capable replica set;
+- Discord Embedded App SDK;
+- Zod;
+- signed session cookie и in-memory bearer fallback для embedded-клиента.
+
+## Быстрый старт
+
+Требуется Node.js 20.9+ и MongoDB с поддержкой транзакций.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. MongoDB must support transactions; local release verification uses a replica set.
+Откройте `http://localhost:3000`. Для database integrations используйте только отдельную локальную БД с суффиксом `_test`; точные команды находятся в [release runbook](./docs/RELEASE_RUNBOOK.md).
 
-## Environment variables
+## Переменные окружения
 
-| Variable | Required | Purpose |
+| Переменная | Обязательность | Назначение |
 | --- | --- | --- |
-| `MONGODB_URI` | yes | MongoDB connection |
-| `NEXT_PUBLIC_DISCORD_CLIENT_ID` | yes | Discord client ID |
-| `DISCORD_CLIENT_SECRET` | yes | Discord OAuth secret |
-| `DISCORD_REDIRECT_URI` | conditionally | Preferred server-side Discord OAuth redirect allowlist value; one redirect variable is required |
-| `NEXT_PUBLIC_DISCORD_REDIRECT_URI` | conditionally | Discord SDK redirect and server fallback when `DISCORD_REDIRECT_URI` is absent |
-| `JWT_SECRET` | yes | App session signing; minimum 32 characters |
-| `ENTITLEMENTS_ADMIN_KEY` | no | Legacy entitlement-grant admin key; minimum 32 characters when set |
-| `BILLING_MODE` | no | `disabled` (default) or locally verifiable `sandbox` |
-| `BILLING_WEBHOOK_SECRET` | with sandbox | HMAC secret for sandbox billing webhook; minimum 32 characters |
-| `TRUSTED_PROXY_MODE` | no | `disabled` (default) or `x-forwarded-for` only behind ingress that overwrites and validates the header |
+| `MONGODB_URI` | да | MongoDB connection string |
+| `NEXT_PUBLIC_DISCORD_CLIENT_ID` | да | Discord application id |
+| `DISCORD_CLIENT_SECRET` | да | Discord OAuth secret |
+| `DISCORD_REDIRECT_URI` | условно | Предпочтительный server-side redirect allowlist; нужен один redirect URI |
+| `NEXT_PUBLIC_DISCORD_REDIRECT_URI` | условно | Discord SDK redirect и server fallback |
+| `JWT_SECRET` | да | Подпись сессии, минимум 32 символа |
+| `TRUSTED_PROXY_MODE` | нет | `disabled` или `x-forwarded-for` за доверенным ingress |
+| `BILLING_MODE` | нет | `disabled` по умолчанию; `sandbox` относится только к изолированному будущему billing-контуру |
+| `BILLING_WEBHOOK_SECRET` | с `sandbox` | HMAC secret sandbox webhook, минимум 32 символа |
+| `ENTITLEMENTS_ADMIN_KEY` | нет | Защита legacy/admin grant endpoint, минимум 32 символа |
 
-Runtime startup validates this contract. Production billing is intentionally not enabled by this repository-only release candidate.
+Startup валидирует контракт. Не включайте `x-forwarded-for` без ingress, который перезаписывает и проверяет этот header. Значения secrets нельзя печатать в логах или release evidence.
 
-With `TRUSTED_PROXY_MODE=disabled`, forwarded headers are ignored and anonymous IP-keyed limits are skipped instead of sharing one global fallback bucket. Authenticated mutation limits remain isolated by session user. Production OAuth/webhook IP limits require a trusted ingress and `x-forwarded-for` mode.
+## Основные команды
 
-## Main commands
-
-| Command | Purpose |
+| Команда | Назначение |
 | --- | --- |
-| `npm run dev` | Start local Next dev server |
-| `npm run build` | Build production app |
-| `npm run start` | Start production server after build |
-| `npm run lint` | Run existing lint command |
-| `npm run check:lint` | Agent alias for lint |
-| `npm run check:types` | Run TypeScript no-emit check |
-| `npm run check:build` | Agent alias for production build |
-| `npm run check:self` | Run fast selfchecks |
-| `npm run check:agents` | Run compact agent diagnostics |
-| `npm run check:agents:json` | Run machine-readable agent diagnostics |
-| `npm run check:agents:changed` | Run agent diagnostics on changed files |
-| `npm run check:quick` | Run types, fast selfchecks, and agent diagnostics |
-| `npm run selfcheck:activity-flow` | Check activity flow invariants |
-| `npm run selfcheck:client-errors` | Check client error mapping |
-| `npm run selfcheck:security-critical` | Check auth, request safety, privacy DTO, and audit invariants |
-| `npm run selfcheck:notifications` | Check notification sources and privacy-safe copy |
-| `npm run selfcheck:entitlement-webhook` | Check cycle-two entitlement and signed webhook policy |
-| `npm run selfcheck:content-publication` | Check draft/review/publish/retire gates and participant query filters |
-| `npm run selfcheck:product-analytics` | Check the privacy-safe MVP analytics envelope and exact event catalog |
-| `npm run integration:two-user-mvp` | Run the synthetic two-user first-cycle flow against a local test replica set |
-| `npm run integration:privacy-lifecycle` | Verify owner export and reversible deletion-request lifecycle |
-| `npm run integration:release-database` | Verify DB races, notification ownership, and sandbox entitlement |
-| `npm run integration:billing-ordering` | Verify stale/equivalent/conflicting webhook ordering and current subscription identity |
-| `npm run integration:like-idempotency` | Verify intrinsic like replay/conflict/concurrency behavior |
-| `npm run release:preflight` | Dry-run release data/index invariants |
-| `npm run release:preflight:indexes` | Apply declared additive indexes after review |
-| `npm run release:migrate-weekly-checkins` | Dry-run the weekly index migration; legacy upgrades require the separately approved drop command in the runbook |
-| `npm run release:load-smoke` | Run guarded synthetic load/query smoke against a `_test` database |
-| `npm run seed:questions` | Seed questionnaire data |
+| `npm run dev` | Development server |
+| `npm run build` / `npm run start` | Production build и server |
+| `npm run lint` | ESLint |
+| `npm run check:types` | TypeScript no-emit check |
+| `npm run check:self` | Быстрые database-free selfchecks, включая Factor/legacy-cutover/privacy contracts |
+| `npm run check:agents` | Архитектурные и repository diagnostics |
+| `npm run integration:factor-engine-runtime` | Persistence/replay/concurrency Factor Engine на `_test` DB |
+| `npm run integration:factor-engine-cutover` | NEW_ONLY migration/cutover scenarios |
+| `npm run integration:onboarding-factor-engine` | Onboarding → Factor evidence/snapshots |
+| `npm run integration:questionnaire-new-only` | Semantic questionnaire owner-private flow |
+| `npm run integration:pair-context-lifecycle` | End/reconnect и изоляция Pair context |
+| `npm run integration:partner-signal` | Explicit PartnerSignal, idempotency и expiry |
+| `npm run integration:privacy-deletion-execution` | Подтверждённое удаление и session revocation |
+| `npm run integration:privacy-factor-export` | Owner export и Factor disclosure boundary |
+| `npm run integration:two-user-mvp` | Три полных бесплатных цикла двух пользователей |
+| `npm run release:load-smoke` | Guarded synthetic load/query-plan smoke на `_test` DB |
+| `npm run release:preflight` | Read-only release/index/data invariants |
+| `npm run release:migrate-factor-engine` | Dry-run Factor NEW_ONLY migration |
+| `npm run release:migrate-pair-events-new-only` | Dry-run PairEvent semantic cutover |
 
-See `docs/RELEASE_RUNBOOK.md` for the ordered preflight, migration, verification, rollback, and first-production checklists.
+Полный список команд и порядок применения миграций: [TESTING.md](./docs/TESTING.md) и [RELEASE_RUNBOOK.md](./docs/RELEASE_RUNBOOK.md).
 
-## Project map
+## Карта проекта
 
-See `docs/PROJECT_MAP.md`.
+- [Документация](./docs/INDEX.md)
+- [Архитектура](./docs/ARCHITECTURE.md)
+- [Factor domain model](./docs/TARGET_DOMAIN_MODEL.md)
+- [API contracts](./docs/API_CONTRACTS.md)
+- [Project map](./docs/PROJECT_MAP.md)
 
-## Working with Codex / agents
-
-Start with `AGENTS.md` and `docs/INDEX.md`.
+Для работы Codex начните с `AGENTS.md` и [docs/INDEX.md](./docs/INDEX.md).

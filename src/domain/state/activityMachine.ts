@@ -153,7 +153,8 @@ export function activityTransition(
 
     case 'CHECKIN': {
       const isLegacyLifecycle =
-        activity.lifecycleVersion !== 'activity-lifecycle-v2';
+        !activity.lifecycleVersion ||
+        activity.lifecycleVersion === 'activity-lifecycle-v1';
       if (
         !(isLegacyLifecycle && activity.status === 'accepted') &&
         activity.status !== 'in_progress' &&
@@ -170,6 +171,10 @@ export function activityTransition(
           by: context.role,
           ui: answer.ui,
           at: action.at,
+          feedbackRevision: 1,
+          captureMode: 'PRIVATE' as const,
+          policyVersion: 'activity-feedback-legacy-v1',
+          consentRevision: 'not-granted',
         })),
       ];
 
@@ -186,7 +191,8 @@ export function activityTransition(
 
     case 'COMPLETE': {
       const isLegacyLifecycle =
-        activity.lifecycleVersion !== 'activity-lifecycle-v2';
+        !activity.lifecycleVersion ||
+        activity.lifecycleVersion === 'activity-lifecycle-v1';
       if (
         !(isLegacyLifecycle && activity.status === 'accepted') &&
         !(isLegacyLifecycle && activity.status === 'in_progress') &&

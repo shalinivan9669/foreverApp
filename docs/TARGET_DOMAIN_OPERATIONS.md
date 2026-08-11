@@ -1,178 +1,104 @@
-# ForeverApp / «Вместе»: операционные границы домена
+# ForeverApp / «Вместе»: Factor operations and privacy boundaries
 
-Статус: приложение к `docs/TARGET_DOMAIN_MODEL.md`. Дата решения: 2026-08-07.
+Status: active operational contract. Updated 2026-08-11.
 
-Документ фиксирует privacy/consent, safety, versioning, API/storage invariants, scaling и дальний AI boundary. Это требования к будущим задачам, а не уже применённые contracts или schema.
+## 1. Capture and purpose
 
-## 1. Privacy и consent
+Every evidence event carries one capture mode:
 
-### 1.1 Capture policy
+- `PRIVATE` — owner computation/read only; excluded from pair calculation;
+- `PAIR_MODEL_ONLY` — may influence a coarse derived pair result; raw value is not partner-visible;
+- `SHARED` — disclosure is allowed only in an explicit product surface/action;
+- `SYSTEM_ONLY` — internal eligibility/safety use only.
 
-Для каждого raw evidence отдельно фиксируются:
+Capture mode, privacy class, purpose, relationship context, policy version, consent revision and retention class must agree. Invalid combinations are rejected. A new consent revision does not retroactively broaden an older source.
 
-- владелец и допустимый owner read;
-- personal computation permission;
-- pair computation permission;
-- raw partner disclosure permission;
-- retention class;
-- consent/version timestamp.
+## 2. Central disclosure
 
-Пользовательские режимы MVP:
+`src/domain/model/privacy/disclosure.ts` is the Factor disclosure policy. It distinguishes self, pair-member, matching-engine and public audiences. Pair evaluation output is summary-only; public output is withheld.
 
-- `PRIVATE` — доступ владельцу, не участвует в Pair Summary;
-- `PAIR_MODEL_ONLY` — может участвовать в pair computation, raw answer скрыт;
-- `SHARED` — raw answer можно показать в явно предусмотренном UI.
+Participant surfaces — weekly, dashboard, profile, recommendation, activities, history, notifications, PartnerSignal, help, errors and audit/analytics — must not disclose a peer's:
 
-Новая policy не раскрывает старые данные задним числом без explicit consent.
+- raw answer or note;
+- exact value, delta or internal fit;
+- numeric confidence, coverage or evidence count/identities;
+- SafetyGate state/reason;
+- sensitive topic/reason that permits reconstruction.
 
-### 1.2 Derived disclosure
+One-sided pair input emits no pair signal. Repeated edits/retries cannot be used as a binary-search oracle: canonical source identity, immutable snapshots, coarse qualitative projection and disclosure guards keep peer input non-reconstructable.
 
-Производный результат имеет отдельный scope:
+Owner profile/export may include the owner's own permitted records. Pair evaluation entries in export still pass the central summary-only disclosure and omit peer snapshots/values/links/hashes.
 
-- `OWNER_ONLY`;
-- `PAIR_SUMMARY`;
-- `SYSTEM_ONLY`.
+## 3. Safety and help
 
-В паре из двух человек агрегат может раскрыть скрытый ответ. Перед DTO проверяется reverse-disclosure risk; точные значения, цитаты и слишком специфичные причины не выдаются.
+`SafetyGate` is owner-private and pair-scoped. It only narrows activity eligibility to neutral low-load fallbacks. It never changes Pair Summary, ranking weight, diagnosis or partner-visible explanation. Ending the Pair revokes it.
 
-### 1.3 Partner signal (`NEXT`)
+The private help page renders the typed, versioned `HELP_RESOURCE_CATALOG` (`help-ru-v1`): weekly privacy, PartnerSignal, lifecycle, SafetyGate and crisis limitations. Catalog validation rejects malformed version/ids/copy. Opening help never messages the partner or claims automatic diagnosis. The current Russian guidance remains generic; jurisdiction-specific resources require expert/legal review before production publication and must not be presented as an emergency service.
 
-`SIGNAL_ONLY` не является raw visibility. Signal — новый объект:
+## 4. PartnerSignal
 
-1. пользователь выбирает intent;
-2. видит точный текст;
-3. явно подтверждает отправку;
-4. сохраняется минимальная provenance;
-5. партнёр получает нейтральное уведомление.
+PartnerSignal is an explicit message, not inferred evidence or automatic disclosure:
 
-Автоматическая отправка запрещена. Existing experimental flow может сохраняться изолированно, но не является `P0` acceptance criterion.
+1. the user edits a private daily-check-in draft;
+2. the exact text is previewed in the UI;
+3. an explicit send action confirms it;
+4. one source check-in can create one canonical signal;
+5. same-content retries replay; changed-content reuse conflicts;
+6. the signal expires after 30 days;
+7. audit stores delivery/retention metadata, not message text.
 
-### 1.4 System-only safety gate
+Receiver identity comes from active/paused Pair membership. The partner sees only the confirmed message, never the sender's daily body/journal or inferred state.
 
-`SYSTEM_ONLY_SAFETY_GATE` — отдельное explicit permission, не четвёртая raw visibility. Оно позволяет только veto eligibility совместной активности.
+## 5. Pair lifecycle and context isolation
 
-Gate:
+- Pair creation is invitation-only; a user has at most one active/paused membership claim.
+- Pause is reversible and does not change historical evidence.
+- End is terminal and transactional: membership claims are released, open cycles expire, active activities cancel, recommendations/events expire, SafetyGate is revoked, and pair-scoped PartnerSignals/notifications are removed.
+- Ended Pair ids fail membership/resource guards for new reads and writes.
+- Reconnect uses a new invite and a new Pair id/context. Old pair-scoped private evidence/projections are not copied into it.
 
-- не участвует в score/ranking;
-- не попадает в Pair Summary, partner DTO или explanation;
-- не сообщает raw reason больше необходимого exclusion key;
-- имеет owner controls, retention class и строго ограниченный operator access;
-- удаляется/отзывается по утверждённой policy.
+## 6. Export, deletion and session revocation
 
-### 1.5 Завершение Pair
+Owner export is bounded by section and includes owner data plus already-authorized shared summaries. It excludes partner raw records, peer individual snapshots, private peer notes, safety reasons, secrets and internal pair hashes.
 
-До публичного запуска утверждаются:
-
-- что остаётся каждому из личного;
-- судьба общей истории;
-- export/delete/unlink flow;
-- отзыв invites/access;
-- создание новой Pair;
-- запрет переноса старых private projections в новые отношения.
-
-Intimate, health, safety и partner-observation data не переиспользуются для dating без нового purpose-specific consent и отдельной data boundary.
-
-## 2. Safety boundary
-
-Safety отделено от compatibility, ranking и display. Recommendation engine читает только итоговый system-only veto, не raw safety evidence.
-
-- партнёр не уведомляется о safety answer/flag;
-- система не объясняет мотивы потенциально опасного поведения;
-- mutual-vulnerability/repair activity исключается при veto;
-- operator access минимален и аудируется;
-- автоматическая inference не считается надёжным обнаружением насилия;
-- help resources добавляются после локальной экспертной/правовой проверки;
-- private notes, intimate answers и свободный текст скрыто не анализируются в MVP.
-
-Safety gate может только уменьшить eligibility. Он не увеличивает риск-score, не меняет Pair Summary и не создаёт partner-visible reason.
-
-## 3. Versioning и recomputation
-
-Versioned entities:
-
-- questionnaire/question definitions;
-- dimension/evaluation policies;
-- activity templates;
-- display copy;
-- scoring/recommendation algorithms.
-
-Каждый snapshot хранит content/definition versions, input revisions, algorithm version, generatedAt, data status и reason codes.
-
-Новая версия:
-
-- не переписывает старый snapshot;
-- создаёт новую projection при необходимости;
-- инвалидирует кэш по versioned input hash;
-- сохраняет связь с evidence;
-- не использует старую inference как новый независимый evidence, чтобы не создавать self-reinforcement loop.
-
-## 4. Storage и API invariants
-
-- Одна active MVP Pair на пользователя.
-- Ровно два разных active member id.
-- Invite token одноразовый, хешированный и ограниченный TTL/rate limit.
-- Один check-in revision на `pairId + cycleId + memberId`.
-- Один canonical result на input revisions + algorithm version.
-- Recommendation/activity mutations идемпотентны и защищены state machines.
-- Клиент отправляет answers, но не назначает score/confidence.
-- Pair evaluation вычисляется сервером.
-- DTO discriminated по kind и disclosure scope; owner/pair DTO различаются.
-- Exact partner values не выдаются без `SHARED` policy.
-- API не возвращает raw Mongoose documents.
-- Индексы покрывают active Pair, invite expiry, current cycle, activity feed и snapshot lookup.
-
-Raw answers, notes, cookies, tokens, authorization headers и sensitive projections не попадают в logs/audit/analytics payload.
-
-Изменение auth, public API, security model или DB schema требует отдельного operating mode и соответствующих docs/tests/migration reasoning.
-
-## 5. Масштабирование без преждевременной сложности
-
-MVP:
-
-- pure deterministic domain functions;
-- синхронный ограниченный recomputation;
-- materialized snapshots для чтения;
-- typed versioned config/seed для контента;
-- feature flags для legacy/new projections;
-- observability по duration/outcome/reason code без content payload.
-
-После измеренной нагрузки:
-
-- outbox/background worker;
-- идемпотентные jobs;
-- cache по input hash;
-- отдельные read models;
-- publish workflow и минимальный RBAC для операторов.
-
-Redis, event bus, vector database, микросервисы и LLM memory не вводятся заранее.
-
-## 6. Дальний AI boundary
-
-AI допускается после стабильной типизированной основы для:
-
-- перефразирования уже вычисленного объяснения;
-- суммаризации разрешённой истории;
-- предложения вариантов PartnerSignal с user preview;
-- поиска кандидатов контента до deterministic filters;
-- opt-in mediated conversation.
-
-AI не:
-
-- выставляет constraints/safety flags как истину;
-- диагностирует личность или отношения;
-- меняет assessment без evidence;
-- читает всю relationship history по умолчанию;
-- использует private data для другой цели;
-- самостоятельно отправляет вывод партнёру.
-
-Пайплайн:
+Deletion is a two-step confirmation lifecycle:
 
 ```text
-typed structured data
-→ deterministic computation
-→ privacy/safety policy
-→ минимальный redacted LLM context
-→ user-previewed text
+PENDING_CONFIRMATION → EXECUTING → EXECUTED
+                    ↘ CANCELLED
+EXECUTING → FAILED → retry
 ```
 
-Для AI-flow обязательны purpose-specific consent, context minimization, redaction, evaluation set, audit metadata, user preview и deterministic safety gate.
+Execution first revokes all existing session versions, ends any active Pair, then transactionally deletes the account, owner-private records and affected pair-scoped artifacts under the current `PRIVACY_MINIMAL_IMMEDIATE_DELETION` policy. The retained PrivacyRequest is pseudonymized to a one-way subject hash and contains only lifecycle evidence. A deleted cookie/session cannot be replayed.
+
+This is destructive. Production rollout still requires a verified backup/restore process and jurisdiction-specific retention/legal approval; code behavior must not be weakened ad hoc.
+
+## 7. Versioning and replay
+
+Registry, definition, measurement, instrument, algorithm, snapshot and display versions are pinned where applicable. Published definitions and historical snapshots are immutable.
+
+- Same key/version with different canonical registry/hash fails closed.
+- A snapshot uses only compatible evidence/versions.
+- Same inputs and versions reproduce the same input/output hash.
+- A definition update creates a new registry release and later projection; it never silently rewrites history.
+- Inference output is not fed back as independent evidence.
+
+## 8. Persistence and concurrency
+
+- Mongoose runtime uses `autoIndex: false`; release scripts own production index application.
+- Canonical identities use unique indexes for registry releases, evidence source/idempotency, snapshot inputs/revisions, cycles, decisions, activities, notifications and membership claims.
+- Evidence persistence validates a complete immutable document before its atomic insert-only upsert. `REJECTED` evidence stores provenance, the submitted value and rejection code without a normalized value; exact retries replay and changed reuse conflicts.
+- Multi-document lifecycle changes use Mongo transactions where atomicity is required.
+- Retryable mutations use transport idempotency or intrinsic deterministic identity plus request hashes.
+- Queries are projected, lean and bounded; list APIs use cursor pagination and hard limits.
+- Reconciliation repairs interrupted derived effects without creating a second canonical artifact.
+
+## 9. Logging, audit and observability
+
+Never log tokens, cookies, authorization headers, raw request bodies, answers, notes, PartnerSignal text, full snapshots or deletion identifiers. Audit and product analytics are separate allowlisted envelopes. Metrics use route group, duration, outcome and low-cardinality reason codes; labels never contain user/pair ids or content.
+
+## 10. Scale and AI boundary
+
+The public MVP remains a deterministic modular monolith. Add indexes, query bounds, single-flight, CAS and reconciliation before adding infrastructure. Redis, queues, microservices, vector databases and LLMs are not required by the measured local profile.
+
+Future AI may rephrase an already-approved explanation or summarize explicitly consented/redacted owner data. It may not infer SafetyGate/constraints as truth, mutate a profile without evidence, consume an entire relationship history by default, diagnose people, or send text to a partner without preview/confirmation.

@@ -1,4 +1,6 @@
 ﻿**Current State (Overview)**
+> Status: historical event inventory. Use `docs/SECURITY.md` and `docs/API_CONTRACTS.md` for current audit/analytics payload rules.
+
 1. Analytics/audit events are persisted in `event_logs` via `EventLog`. Evidence: `src/models/EventLog.ts`.
 2. `/api/logs` records visits through `logsService.recordVisit(...)`, which emits `LOG_VISIT_RECORDED` using the unified audit runtime. Evidence: `src/app/api/logs/route.ts`, `src/domain/services/logs.service.ts`, `src/lib/audit/emitEvent.ts`.
 3. Client still sends fire-and-forget visit call on entry to main menu flow. Evidence: `src/app/page.tsx`.

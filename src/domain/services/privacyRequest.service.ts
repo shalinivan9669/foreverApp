@@ -3,6 +3,7 @@ import { DomainError } from '@/domain/errors';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { connectToDatabase } from '@/lib/mongodb';
+import { privacySubjectHash } from '@/lib/privacy/subjectHash';
 import {
   PrivacyRequest,
   type PrivacyRequestStatus,
@@ -12,48 +13,85 @@ export type OwnerDeletionRequestDTO = {
   id: string;
   kind: 'ACCOUNT_DELETION';
   status: PrivacyRequestStatus;
-  requestVersion: 'privacy-request-v1';
-  policyReasonCode: 'SHARED_ARTIFACT_RETENTION_REQUIRED';
-  executionState: 'NOT_STARTED';
-  accountAndSessions: 'UNCHANGED';
+  requestVersion: 'privacy-request-v2';
+  policyReasonCode: 'PRIVACY_MINIMAL_IMMEDIATE_DELETION';
+  executionState: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  accountAndSessions: 'UNCHANGED' | 'DELETED_AND_REVOKED';
   requestedAt: string;
+  confirmedAt?: string;
+  executedAt?: string;
   cancelledAt?: string;
-  nextStep: 'RETENTION_POLICY_REVIEW' | 'NO_ACTION_REQUIRED';
+  nextStep:
+    | 'CONFIRM_DELETION'
+    | 'EXECUTION_IN_PROGRESS'
+    | 'RETRY_EXECUTION'
+    | 'NO_ACTION_REQUIRED';
 };
 
-type PrivacyRequestProjection = {
+export type PrivacyRequestProjection = {
   _id: { toString(): string };
   kind: 'ACCOUNT_DELETION';
   status: PrivacyRequestStatus;
-  requestVersion: 'privacy-request-v1';
-  policyReasonCode: 'SHARED_ARTIFACT_RETENTION_REQUIRED';
+  requestVersion: 'privacy-request-v2';
+  policyReasonCode: 'PRIVACY_MINIMAL_IMMEDIATE_DELETION';
+  ownerSubjectHash: string;
   requestedAt: Date;
+  confirmedAt?: Date;
+  executedAt?: Date;
   cancelledAt?: Date;
 };
 
-const toDto = (request: PrivacyRequestProjection): OwnerDeletionRequestDTO => ({
+const executionState = (
+  status: PrivacyRequestStatus
+): OwnerDeletionRequestDTO['executionState'] => {
+  if (status === 'EXECUTING') return 'IN_PROGRESS';
+  if (status === 'EXECUTED') return 'COMPLETED';
+  if (status === 'FAILED') return 'FAILED';
+  return 'NOT_STARTED';
+};
+
+const nextStep = (
+  status: PrivacyRequestStatus
+): OwnerDeletionRequestDTO['nextStep'] => {
+  if (status === 'PENDING_CONFIRMATION') return 'CONFIRM_DELETION';
+  if (status === 'EXECUTING') return 'EXECUTION_IN_PROGRESS';
+  if (status === 'FAILED') return 'RETRY_EXECUTION';
+  return 'NO_ACTION_REQUIRED';
+};
+
+export const toOwnerDeletionRequestDTO = (
+  request: PrivacyRequestProjection
+): OwnerDeletionRequestDTO => ({
   id: request._id.toString(),
   kind: request.kind,
   status: request.status,
   requestVersion: request.requestVersion,
   policyReasonCode: request.policyReasonCode,
-  executionState: 'NOT_STARTED',
-  accountAndSessions: 'UNCHANGED',
+  executionState: executionState(request.status),
+  accountAndSessions:
+    request.status === 'EXECUTED' ? 'DELETED_AND_REVOKED' : 'UNCHANGED',
   requestedAt: request.requestedAt.toISOString(),
+  ...(request.confirmedAt
+    ? { confirmedAt: request.confirmedAt.toISOString() }
+    : {}),
+  ...(request.executedAt ? { executedAt: request.executedAt.toISOString() } : {}),
   ...(request.cancelledAt
     ? { cancelledAt: request.cancelledAt.toISOString() }
     : {}),
-  nextStep:
-    request.status === 'PENDING_POLICY_REVIEW'
-      ? 'RETENTION_POLICY_REVIEW'
-      : 'NO_ACTION_REQUIRED',
+  nextStep: nextStep(request.status),
 });
 
-const pendingFilter = (ownerUserId: string) => ({
-  ownerUserId,
-  kind: 'ACCOUNT_DELETION' as const,
-  status: 'PENDING_POLICY_REVIEW' as const,
-});
+const projection = {
+  kind: 1,
+  status: 1,
+  requestVersion: 1,
+  policyReasonCode: 1,
+  ownerSubjectHash: 1,
+  requestedAt: 1,
+  confirmedAt: 1,
+  executedAt: 1,
+  cancelledAt: 1,
+} as const;
 
 const assertOwnerUserId = (ownerUserId: string): string => {
   const normalized = ownerUserId.trim();
@@ -67,25 +105,25 @@ const assertOwnerUserId = (ownerUserId: string): string => {
   return normalized;
 };
 
-const findPending = async (
+const currentFilter = (ownerUserId: string) => ({
+  ownerUserId,
+  kind: 'ACCOUNT_DELETION' as const,
+  status: { $in: ['PENDING_CONFIRMATION', 'EXECUTING', 'FAILED'] },
+});
+
+const findCurrent = async (
   ownerUserId: string
 ): Promise<PrivacyRequestProjection | null> =>
-  PrivacyRequest.findOne(pendingFilter(ownerUserId))
-    .select({
-      kind: 1,
-      status: 1,
-      requestVersion: 1,
-      policyReasonCode: 1,
-      requestedAt: 1,
-      cancelledAt: 1,
-    })
+  PrivacyRequest.findOne(currentFilter(ownerUserId))
+    .sort({ createdAt: -1 })
+    .select(projection)
     .lean<PrivacyRequestProjection | null>();
 
 export const privacyRequestService = {
   async getCurrent(ownerUserId: string): Promise<OwnerDeletionRequestDTO | null> {
     await connectToDatabase();
-    const request = await findPending(assertOwnerUserId(ownerUserId));
-    return request ? toDto(request) : null;
+    const request = await findCurrent(assertOwnerUserId(ownerUserId));
+    return request ? toOwnerDeletionRequestDTO(request) : null;
   },
 
   async requestDeletion(params: {
@@ -94,19 +132,26 @@ export const privacyRequestService = {
   }): Promise<OwnerDeletionRequestDTO> {
     await connectToDatabase();
     const ownerUserId = assertOwnerUserId(params.ownerUserId);
+    const existing = await findCurrent(ownerUserId);
+    if (existing) return toOwnerDeletionRequestDTO(existing);
+
     const now = new Date();
     let request: PrivacyRequestProjection | null;
-
     try {
       request = await PrivacyRequest.findOneAndUpdate(
-        pendingFilter(ownerUserId),
+        {
+          ownerUserId,
+          kind: 'ACCOUNT_DELETION',
+          status: 'PENDING_CONFIRMATION',
+        },
         {
           $setOnInsert: {
             ownerUserId,
+            ownerSubjectHash: privacySubjectHash(ownerUserId),
             kind: 'ACCOUNT_DELETION',
-            status: 'PENDING_POLICY_REVIEW',
-            requestVersion: 'privacy-request-v1',
-            policyReasonCode: 'SHARED_ARTIFACT_RETENTION_REQUIRED',
+            status: 'PENDING_CONFIRMATION',
+            requestVersion: 'privacy-request-v2',
+            policyReasonCode: 'PRIVACY_MINIMAL_IMMEDIATE_DELETION',
             requestedAt: now,
           },
         },
@@ -114,14 +159,7 @@ export const privacyRequestService = {
           upsert: true,
           new: true,
           setDefaultsOnInsert: true,
-          projection: {
-            kind: 1,
-            status: 1,
-            requestVersion: 1,
-            policyReasonCode: 1,
-            requestedAt: 1,
-            cancelledAt: 1,
-          },
+          projection,
         }
       ).lean<PrivacyRequestProjection | null>();
     } catch (error) {
@@ -131,7 +169,7 @@ export const privacyRequestService = {
       ) {
         throw error;
       }
-      request = await findPending(ownerUserId);
+      request = await findCurrent(ownerUserId);
     }
 
     if (!request) {
@@ -149,13 +187,13 @@ export const privacyRequestService = {
         request: params.auditRequest,
         target: { type: 'user', id: ownerUserId },
         metadata: {
-          status: 'PENDING_POLICY_REVIEW',
-          requestVersion: 'privacy-request-v1',
+          status: 'PENDING_CONFIRMATION',
+          requestVersion: 'privacy-request-v2',
         },
       });
     }
 
-    return toDto(request);
+    return toOwnerDeletionRequestDTO(request);
   },
 
   async cancelDeletion(params: {
@@ -165,24 +203,13 @@ export const privacyRequestService = {
     await connectToDatabase();
     const ownerUserId = assertOwnerUserId(params.ownerUserId);
     const request = await PrivacyRequest.findOneAndUpdate(
-      pendingFilter(ownerUserId),
       {
-        $set: {
-          status: 'CANCELLED',
-          cancelledAt: new Date(),
-        },
+        ownerUserId,
+        kind: 'ACCOUNT_DELETION',
+        status: 'PENDING_CONFIRMATION',
       },
-      {
-        new: true,
-        projection: {
-          kind: 1,
-          status: 1,
-          requestVersion: 1,
-          policyReasonCode: 1,
-          requestedAt: 1,
-          cancelledAt: 1,
-        },
-      }
+      { $set: { status: 'CANCELLED', cancelledAt: new Date() } },
+      { new: true, projection }
     ).lean<PrivacyRequestProjection | null>();
 
     if (request && params.auditRequest) {
@@ -193,11 +220,11 @@ export const privacyRequestService = {
         target: { type: 'user', id: ownerUserId },
         metadata: {
           status: 'CANCELLED',
-          requestVersion: 'privacy-request-v1',
+          requestVersion: 'privacy-request-v2',
         },
       });
     }
 
-    return request ? toDto(request) : null;
+    return request ? toOwnerDeletionRequestDTO(request) : null;
   },
 };

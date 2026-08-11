@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   pairHistoryApi,
@@ -8,6 +9,7 @@ import {
   type PairHistorySignalDTO,
 } from '@/client/api/pairHistory.api';
 import { usePair } from '@/client/hooks/usePair';
+import ErrorView from '@/components/ui/ErrorView';
 
 const HISTORY_LIMIT = 12;
 
@@ -56,12 +58,19 @@ const formatDate = (value: string): string => {
 };
 
 export default function ProfileHistoryTab() {
-  const { pairId, loading: pairLoading } = usePair();
+  const router = useRouter();
+  const {
+    pairId,
+    loading: pairLoading,
+    error: pairError,
+    refetch: refetchPair,
+  } = usePair();
   const [items, setItems] = useState<PairHistoryItemDTO[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const hasCurrentHistory = pairId !== null && loadedPairId === pairId;
   const visibleItems = hasCurrentHistory ? items : [];
@@ -91,7 +100,7 @@ export default function ProfileHistoryTab() {
       });
 
     return () => controller.abort();
-  }, [pairId]);
+  }, [loadAttempt, pairId]);
 
   const loadMore = async () => {
     if (!pairId || !nextCursor || loadingMore) return;
@@ -137,7 +146,15 @@ export default function ProfileHistoryTab() {
         </div>
       )}
 
-      {!pairLoading && !pairId && (
+      {!pairLoading && pairError && (
+        <ErrorView
+          error={pairError}
+          onRetry={() => void refetchPair()}
+          onAuthRequired={() => router.push('/')}
+        />
+      )}
+
+      {!pairLoading && !pairError && !pairId && (
         <div className="app-panel app-panel-solid space-y-3 p-4">
           <h2 className="font-semibold">История появится после создания пары</h2>
           <p className="app-muted text-sm">
@@ -152,6 +169,16 @@ export default function ProfileHistoryTab() {
       {visibleError && (
         <div className="app-panel app-panel-solid border border-rose-300/40 p-4" role="alert">
           <p className="text-sm">{visibleError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoadedPairId(null);
+              setLoadAttempt((attempt) => attempt + 1);
+            }}
+            className="app-btn-secondary mt-3 px-3 py-2 text-sm"
+          >
+            Повторить
+          </button>
         </div>
       )}
 
@@ -173,7 +200,7 @@ export default function ProfileHistoryTab() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="app-muted text-xs">{formatDate(item.date)}</p>
-                      <h2 className="font-semibold">Недельный цикл {item.cycleKey}</h2>
+                      <h2 className="font-semibold">Недельный цикл</h2>
                     </div>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
                       {CYCLE_STATUS_LABELS[item.status]}

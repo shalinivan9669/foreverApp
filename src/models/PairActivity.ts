@@ -1,15 +1,25 @@
 import mongoose, { Schema, Types } from 'mongoose';
-import { Axis, CheckInTpl as CheckIn, EffectTpl as Effect, CheckInSchema, EffectSchema } from './ActivityTemplate';
+import {
+  ActionDefinitionRefSchema,
+  CheckInSchema,
+  type ActionDefinitionRef,
+  type CheckInTpl as CheckIn,
+} from './ActivityTemplate';
 import {
   RecommendationProvenanceSchema,
   type RecommendationProvenanceType,
 } from './RecommendationProvenance';
+import type { EvidenceCaptureMode } from '@/domain/model/evidence/evidence';
 
 export interface Answer {
   checkInId: string;
   by: 'A' | 'B';
   ui: number;
   at: Date;
+  feedbackRevision: number;
+  captureMode: Extract<EvidenceCaptureMode, 'PRIVATE' | 'PAIR_MODEL_ONLY'>;
+  policyVersion: string;
+  consentRevision: string;
 }
 
 export type ActivityCompletedStatus =
@@ -19,11 +29,21 @@ export type ActivityCompletedStatus =
 
 export type ActivityLifecycleVersion =
   | 'activity-lifecycle-v1'
-  | 'activity-lifecycle-v2';
+  | 'activity-lifecycle-v2'
+  | 'activity-lifecycle-v3';
 
 export type ActivityFeedbackSchemaVersion =
   | 'activity-feedback-v1'
   | 'activity-feedback-v2';
+
+export interface ActivityFactorEvidenceProvenance {
+  taskResultEventIds: string[];
+  pairActivityEventIds: string[];
+  individualSnapshotIds: string[];
+  pairSnapshotIds: string[];
+  pairEvaluationSnapshotIds: string[];
+  recordedAt: Date;
+}
 
 export interface ActivityResultSummary {
   submittedBy: Array<'A' | 'B'>;
@@ -39,44 +59,44 @@ export interface ActivityResultSummary {
   subjectiveChangeAvg?: number;
   difficultyAvg?: number;
   feedbackSchemaVersion: ActivityFeedbackSchemaVersion;
-  effectApplied: boolean;
-  effect: {
-    fatigueDelta: number;
-    readinessDelta: number;
-    axisDeltas: Array<{
-      axis: Axis;
-      delta: number;
-    }>;
-  };
-  effectExplanation: {
+  factorEvidenceRecorded: boolean;
+  factorEvidence: ActivityFactorEvidenceProvenance;
+  explanation: {
     ru: string;
     en?: string;
   };
   completedAt?: Date;
-  resultVersion: 'activity-result-v1';
+  resultVersion: 'activity-result-v2';
 }
 
 export interface PairActivityType {
   pairId: Types.ObjectId;
   members: [Types.ObjectId, Types.ObjectId];
 
-  intent: 'improve'|'celebrate';
-  archetype: 'micro_habit'|'dialogue'|'ritual'|'date'|'game'|'education'|'task';
-  axis: Axis[];
-  facetsTarget?: string[];
+  intent: 'improve' | 'celebrate';
+  archetype:
+    | 'micro_habit'
+    | 'dialogue'
+    | 'ritual'
+    | 'date'
+    | 'game'
+    | 'education'
+    | 'task';
+  actionDefinition: ActionDefinitionRef;
+  targetFactorKeys: string[];
 
-  title: { ru:string; en:string };
-  description?: { ru:string; en:string };
-  why: { ru:string; en:string };
+  title: { ru: string; en: string };
+  description?: { ru: string; en: string };
+  why: { ru: string; en: string };
 
-  mode: 'together'|'soloA'|'soloB';
-  sync: 'sync'|'async';
-  difficulty: 1|2|3|4|5;
-  intensity: 1|2|3;
+  mode: 'together' | 'soloA' | 'soloB';
+  sync: 'sync' | 'async';
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  intensity: 1 | 2 | 3;
 
   timeEstimateMin?: number;
   costEstimate?: number;
-  location?: 'home'|'outdoor'|'online'|'any';
+  location?: 'home' | 'outdoor' | 'online' | 'any';
   materials?: string[];
 
   offeredAt: Date;
@@ -89,43 +109,73 @@ export interface PairActivityType {
   cooldownDays?: number;
 
   requiresConsent?: boolean;
-  consentA?: 'pending'|'granted'|'rejected';
-  consentB?: 'pending'|'granted'|'rejected';
-  visibility?: 'both'|'privateA'|'privateB';
+  consentA?: 'pending' | 'granted' | 'rejected';
+  consentB?: 'pending' | 'granted' | 'rejected';
+  visibility?: 'both' | 'privateA' | 'privateB';
 
   status:
-    | 'suggested' | 'offered' | 'accepted' | 'in_progress'
-    | 'awaiting_feedback' | 'awaiting_checkin'
-    | 'completed_success' | 'completed_partial' | 'failed' | 'expired' | 'cancelled';
+    | 'suggested'
+    | 'offered'
+    | 'accepted'
+    | 'in_progress'
+    | 'awaiting_feedback'
+    | 'awaiting_checkin'
+    | 'completed_success'
+    | 'completed_partial'
+    | 'failed'
+    | 'expired'
+    | 'cancelled';
   lifecycleVersion?: ActivityLifecycleVersion;
   feedbackSchemaVersion?: ActivityFeedbackSchemaVersion;
   recommendationProvenance?: RecommendationProvenanceType;
-  stateMeta?: Record<string,unknown>;
+  stateMeta?: Record<string, unknown>;
 
   checkIns: CheckIn[];
   answers?: Answer[];
   successScore?: number;
-  effect?: Effect[];
+  factorEvidence?: ActivityFactorEvidenceProvenance;
   resultSummary?: ActivityResultSummary;
 
-  fatigueDeltaOnComplete?: number;
-  readinessDeltaOnComplete?: number;
-
-  createdBy: 'system'|'curator'|'user';
+  createdBy: 'system' | 'curator' | 'user';
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-/* ── subdoc for answers ──────────────────────────────────── */
 const AnswerSchema = new Schema<Answer>(
   {
     checkInId: { type: String, required: true },
-    by:        { type: String, enum: ['A','B'], required: true },
-    ui:        { type: Number, required: true },
-    at:        { type: Date,   required: true },
+    by: { type: String, enum: ['A', 'B'], required: true },
+    ui: { type: Number, required: true },
+    at: { type: Date, required: true },
+    feedbackRevision: { type: Number, required: true, min: 1, default: 1 },
+    captureMode: {
+      type: String,
+      enum: ['PRIVATE', 'PAIR_MODEL_ONLY'],
+      required: true,
+      default: 'PRIVATE',
+    },
+    policyVersion: {
+      type: String,
+      required: true,
+      default: 'activity-feedback-legacy-v1',
+    },
+    consentRevision: { type: String, required: true, default: 'not-granted' },
   },
   { _id: false }
 );
+
+const ActivityFactorEvidenceProvenanceSchema =
+  new Schema<ActivityFactorEvidenceProvenance>(
+    {
+      taskResultEventIds: { type: [String], required: true, default: [] },
+      pairActivityEventIds: { type: [String], required: true, default: [] },
+      individualSnapshotIds: { type: [String], required: true, default: [] },
+      pairSnapshotIds: { type: [String], required: true, default: [] },
+      pairEvaluationSnapshotIds: { type: [String], required: true, default: [] },
+      recordedAt: { type: Date, required: true },
+    },
+    { _id: false }
+  );
 
 const ActivityResultSummarySchema = new Schema<ActivityResultSummary>(
   {
@@ -149,102 +199,103 @@ const ActivityResultSummarySchema = new Schema<ActivityResultSummary>(
       type: String,
       enum: ['activity-feedback-v1', 'activity-feedback-v2'],
       required: true,
-      default: 'activity-feedback-v1',
+      default: 'activity-feedback-v2',
     },
-    effectApplied: { type: Boolean, required: true, default: false },
-    effect: {
-      fatigueDelta: { type: Number, required: true, default: 0 },
-      readinessDelta: { type: Number, required: true, default: 0 },
-      axisDeltas: {
-        type: [
-          new Schema(
-            {
-              axis: {
-                type: String,
-                enum: ['communication', 'domestic', 'personalViews', 'finance', 'sexuality', 'psyche'],
-                required: true,
-              },
-              delta: { type: Number, required: true },
-            },
-            { _id: false }
-          ),
-        ],
-        default: [],
-      },
+    factorEvidenceRecorded: { type: Boolean, required: true, default: false },
+    factorEvidence: {
+      type: ActivityFactorEvidenceProvenanceSchema,
+      required: true,
     },
-    effectExplanation: {
+    explanation: {
       ru: { type: String, required: true },
       en: { type: String },
     },
     completedAt: { type: Date },
     resultVersion: {
       type: String,
-      enum: ['activity-result-v1'],
+      enum: ['activity-result-v2'],
       required: true,
-      default: 'activity-result-v1',
+      default: 'activity-result-v2',
     },
   },
   { _id: false }
 );
 
-/* ── root schema ─────────────────────────────────────────── */
 const PairActivitySchema = new Schema<PairActivityType>(
   {
-    pairId:   { type: Schema.Types.ObjectId, ref: 'Pair', required: true },
-    members:  { type: [Schema.Types.ObjectId], ref: 'User', required: true },
-
-    intent:    { type: String, enum: ['improve','celebrate'], required: true },
+    pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },
+    members: { type: [Schema.Types.ObjectId], ref: 'User', required: true },
+    intent: { type: String, enum: ['improve', 'celebrate'], required: true },
     archetype: {
       type: String,
-      enum: ['micro_habit','dialogue','ritual','date','game','education','task'],
-      required: true
+      enum: ['micro_habit', 'dialogue', 'ritual', 'date', 'game', 'education', 'task'],
+      required: true,
     },
-    axis: {
-      type: [String],
-      enum: ['communication','domestic','personalViews','finance','sexuality','psyche'],
-      required: true
-    },
-    facetsTarget: { type: [String], default: [] },
-
-    title:       { type: Schema.Types.Mixed, required: true },
+    actionDefinition: { type: ActionDefinitionRefSchema, required: true },
+    targetFactorKeys: { type: [String], required: true },
+    title: { type: Schema.Types.Mixed, required: true },
     description: { type: Schema.Types.Mixed },
-    why:         { type: Schema.Types.Mixed, required: true },
-
-    mode: { type: String, enum: ['together','soloA','soloB'], required: true },
-    sync: { type: String, enum: ['sync','async'], required: true },
-    difficulty: { type: Number, enum: [1,2,3,4,5], required: true },
-    intensity:  { type: Number, enum: [1,2,3],     required: true },
-
-    timeEstimateMin: { type: Number },
-    costEstimate:    { type: Number },
-    location: { type: String, enum: ['home','outdoor','online','any'], default: 'any' },
+    why: { type: Schema.Types.Mixed, required: true },
+    mode: { type: String, enum: ['together', 'soloA', 'soloB'], required: true },
+    sync: { type: String, enum: ['sync', 'async'], required: true },
+    difficulty: { type: Number, enum: [1, 2, 3, 4, 5], required: true },
+    intensity: { type: Number, enum: [1, 2, 3], required: true },
+    timeEstimateMin: Number,
+    costEstimate: Number,
+    location: {
+      type: String,
+      enum: ['home', 'outdoor', 'online', 'any'],
+      default: 'any',
+    },
     materials: { type: [String], default: [] },
-
-    offeredAt:   { type: Date, required: true },
-    acceptedAt:  { type: Date },
-    startedAt:   { type: Date },
-    windowStart: { type: Date },
-    windowEnd:   { type: Date },
-    dueAt:       { type: Date },
-    recurrence:  { type: String },
-    cooldownDays:{ type: Number },
-
+    offeredAt: { type: Date, required: true },
+    acceptedAt: Date,
+    startedAt: Date,
+    windowStart: Date,
+    windowEnd: Date,
+    dueAt: Date,
+    recurrence: String,
+    cooldownDays: Number,
     requiresConsent: { type: Boolean, default: false },
-    consentA: { type: String, enum: ['pending','granted','rejected'], default: 'pending' },
-    consentB: { type: String, enum: ['pending','granted','rejected'], default: 'pending' },
-    visibility:{ type: String, enum: ['both','privateA','privateB'], default: 'both' },
-
+    consentA: {
+      type: String,
+      enum: ['pending', 'granted', 'rejected'],
+      default: 'pending',
+    },
+    consentB: {
+      type: String,
+      enum: ['pending', 'granted', 'rejected'],
+      default: 'pending',
+    },
+    visibility: {
+      type: String,
+      enum: ['both', 'privateA', 'privateB'],
+      default: 'both',
+    },
     status: {
       type: String,
       enum: [
-        'suggested','offered','accepted','in_progress','awaiting_feedback','awaiting_checkin',
-        'completed_success','completed_partial','failed','expired','cancelled'
+        'suggested',
+        'offered',
+        'accepted',
+        'in_progress',
+        'awaiting_feedback',
+        'awaiting_checkin',
+        'completed_success',
+        'completed_partial',
+        'failed',
+        'expired',
+        'cancelled',
       ],
-      required: true
+      required: true,
     },
     lifecycleVersion: {
       type: String,
-      enum: ['activity-lifecycle-v1', 'activity-lifecycle-v2'],
+      enum: [
+        'activity-lifecycle-v1',
+        'activity-lifecycle-v2',
+        'activity-lifecycle-v3',
+      ],
       immutable: true,
     },
     feedbackSchemaVersion: {
@@ -257,25 +308,42 @@ const PairActivitySchema = new Schema<PairActivityType>(
       immutable: true,
     },
     stateMeta: { type: Schema.Types.Mixed },
-
     checkIns: { type: [CheckInSchema], default: [] },
-    answers:  { type: [AnswerSchema],  default: [] },
-    successScore: { type: Number },
-    effect:      { type: [EffectSchema], default: [] },
+    answers: { type: [AnswerSchema], default: [] },
+    successScore: Number,
+    factorEvidence: { type: ActivityFactorEvidenceProvenanceSchema },
     resultSummary: { type: ActivityResultSummarySchema },
-
-    fatigueDeltaOnComplete:   { type: Number },
-    readinessDeltaOnComplete: { type: Number },
-
-    createdBy: { type: String, enum: ['system','curator','user'], default: 'system' },
+    createdBy: {
+      type: String,
+      enum: ['system', 'curator', 'user'],
+      default: 'system',
+    },
   },
   { collection: 'pair_activities', timestamps: true }
 );
+
+PairActivitySchema.pre('validate', function validateFactorBinding() {
+  if (this.targetFactorKeys.length === 0) {
+    throw new Error('Pair activity requires at least one target factor');
+  }
+});
 
 PairActivitySchema.index({ pairId: 1, status: 1, dueAt: 1 });
 PairActivitySchema.index(
   { pairId: 1, status: 1, offeredAt: -1, _id: -1 },
   { name: 'pair_activity_history_by_pair_status_offered' }
+);
+PairActivitySchema.index(
+  { pairId: 1, 'actionDefinition.key': 1, offeredAt: -1 },
+  { name: 'pair_activity_action_history' }
+);
+PairActivitySchema.index(
+  { pairId: 1, 'stateMeta.offerKey': 1 },
+  {
+    name: 'pair_activity_offer_idempotency',
+    unique: true,
+    partialFilterExpression: { 'stateMeta.offerKey': { $type: 'string' } },
+  }
 );
 
 export const PairActivity =

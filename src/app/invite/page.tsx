@@ -196,7 +196,7 @@ export default function PairInvitePage() {
     }
   };
 
-  if (!loaded && loading) {
+  if (!loaded) {
     return <LoadingView label="Проверяем приглашение..." />;
   }
 

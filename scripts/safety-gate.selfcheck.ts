@@ -21,7 +21,12 @@ const service = readFileSync(
 );
 assert.ok(service.includes('requirePairMember'));
 assert.ok(service.includes('ownerUserId: input.ownerUserId'));
-assert.ok(service.includes('SafetyGate.exists({ pairId, enabled: true })'));
+assert.match(
+  service,
+  /SafetyGate\.exists\(\{[\s\S]*?pairId: input\.pairId,[\s\S]*?ownerUserId: input\.ownerUserId,[\s\S]*?enabled: true/
+);
+assert.ok(service.includes('export const isOwnerSafetyGateActive'));
+assert.equal(service.includes('isPairSafetyVetoActive'), false);
 assert.ok(service.includes("event: 'SAFETY_GATE_UPDATED'"));
 assert.equal(service.includes('rawReason'), false);
 
@@ -38,13 +43,27 @@ const offerService = readFileSync(
   join(process.cwd(), 'src/domain/services/activityOffer.service.ts'),
   'utf8'
 );
-assert.ok(offerService.includes('isPairSafetyVetoActive'));
+assert.ok(offerService.includes('isOwnerSafetyGateActive'));
+assert.ok(offerService.includes('ownerUserId: input.currentUserId'));
+assert.equal(offerService.includes('isPairSafetyVetoActive'), false);
 assert.ok(offerService.includes('isSafetyFallbackTemplateId'));
-assert.ok(offerService.includes('A neutral low-effort format is available now.'));
-assert.equal(offerService.includes('safetyVeto: true'), false);
+assert.ok(offerService.includes('readActivityRecommendationInputs'));
+assert.ok(offerService.includes('buildPairActivitySuggestionPlan'));
+assert.ok(offerService.includes('blockedActionKeys'));
 assert.ok(offerService.includes('isOfferedActivityEligibleForRole'));
 assert.ok(offerService.includes('if (!isSafetyFallbackTemplateId(input.templateId))'));
 assert.ok(offerService.includes("code: 'ACTIVITY_UNAVAILABLE'"));
+const createFromTemplateBlock = offerService.slice(
+  offerService.indexOf('async createFromTemplate'),
+  offerService.indexOf('\n  },\n};', offerService.indexOf('async createFromTemplate'))
+);
+assert.match(createFromTemplateBlock, /isSafetyFallbackTemplateId\(input\.templateId\)/);
+assert.match(createFromTemplateBlock, /safetyVeto: false/);
+assert.doesNotMatch(
+  createFromTemplateBlock,
+  /isOwnerSafetyGateActive|SafetyGate\.find|SafetyGate\.exists/,
+  'generic fallback creation must not require or reveal an owner SafetyGate'
+);
 
 const activityService = readFileSync(
   join(process.cwd(), 'src/domain/services/activities.service.ts'),
@@ -57,9 +76,22 @@ const eligibilityService = readFileSync(
   join(process.cwd(), 'src/domain/services/activityEligibility.service.ts'),
   'utf8'
 );
-assert.ok(eligibilityService.includes("['finance', 'sexuality']"));
+assert.ok(eligibilityService.includes('resolveActivityFactorBinding'));
+assert.ok(eligibilityService.includes("factor.privacyClass !== 'SENSITIVE'"));
+assert.ok(eligibilityService.includes("factor.privacyClass !== 'MATCHING_ONLY'"));
+assert.equal(eligibilityService.includes("['finance', 'sexuality']"), false);
 assert.ok(eligibilityService.includes('isActivityEligibleForSafetyState'));
 assert.ok(eligibilityService.includes('isActivityAccessibleToRole'));
+
+const activityDto = readFileSync(
+  join(process.cwd(), 'src/lib/dto/activity.dto.ts'),
+  'utf8'
+);
+assert.doesNotMatch(
+  activityDto,
+  /safetyVeto|SafetyGate|safety_gate/,
+  'participant activity DTO must not disclose the hidden SafetyGate state'
+);
 
 const activitiesRoute = readFileSync(
   join(process.cwd(), 'src/app/api/pairs/[id]/activities/route.ts'),
@@ -72,9 +104,21 @@ const activityReadService = readFileSync(
   join(process.cwd(), 'src/domain/services/pairActivityRead.service.ts'),
   'utf8'
 );
-assert.ok(activityReadService.includes('isPairSafetyVetoActive'));
+assert.ok(activityReadService.includes('isOwnerSafetyGateActive'));
+assert.ok(activityReadService.includes('ownerUserId: input.currentUserId'));
+assert.equal(activityReadService.includes('isPairSafetyVetoActive'), false);
 assert.ok(activityReadService.includes('isOfferedActivityEligibleForRole'));
-assert.ok(activityReadService.includes('if (safetyVeto)'));
+assert.ok(activityReadService.includes("safetyVeto && activity.status === 'offered'"));
+assert.ok(activityReadService.includes('safetyVeto: false'));
+const activityBucketBlock = activityReadService.slice(
+  activityReadService.indexOf('const buildQuery'),
+  activityReadService.indexOf('export const pairActivityReadService')
+);
+assert.doesNotMatch(
+  activityBucketBlock,
+  /SafetyGate|safetyVeto/,
+  'current/history bucket selection must be independent of SafetyGate'
+);
 assert.ok(activityReadService.includes('canonicalOfferedIds'));
 assert.ok(activityReadService.includes("status: 'OFFERED'"));
 
@@ -84,15 +128,24 @@ const eventService = readFileSync(
 );
 assert.ok(eventService.includes('system-resource-relief'));
 assert.ok(eventService.includes('eventEligibleForPairProjection'));
-assert.ok(eventService.includes('isActivityEligibleForSafetyState'));
+assert.doesNotMatch(
+  eventService,
+  /safetyGate\.service|isOwnerSafetyGateActive|isPairSafetyVetoActive|isActivityEligibleForSafetyState|safetyVeto/,
+  'PairEvent list and generated activities must be independent of owner-private SafetyGate state'
+);
 
 const dashboardService = readFileSync(
   join(process.cwd(), 'src/domain/services/pairDashboardSummary.service.ts'),
   'utf8'
 );
-assert.ok(dashboardService.includes('isPairSafetyVetoActive'));
+assert.doesNotMatch(
+  dashboardService,
+  /safetyGate\.service|isOwnerSafetyGateActive|isPairSafetyVetoActive|SafetyGate|safetyVeto: true/,
+  'partner dashboard must not import or read owner-private SafetyGate state'
+);
 assert.ok(dashboardService.includes('isActivityAccessibleToRole'));
 assert.ok(dashboardService.includes('isOfferedActivityEligibleForRole'));
+assert.ok(dashboardService.includes('safetyVeto: false'));
 assert.ok(dashboardService.includes('canonicalOfferedIds'));
 assert.ok(dashboardService.includes('Math.min'));
 

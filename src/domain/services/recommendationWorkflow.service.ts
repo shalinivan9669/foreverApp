@@ -19,7 +19,6 @@ import {
 } from '@/lib/dto';
 import { recordOperationalEvent } from '@/lib/observability/operationalEvents';
 import { isSafetyFallbackTemplateId } from '@/domain/services/safetyGate.service';
-
 const unavailable = (): never => {
   throw new DomainError({
     code: 'RECOMMENDATION_UNAVAILABLE',
@@ -114,16 +113,44 @@ type CanonicalOfferProjection = {
 
 type StoredActivity = PairActivityType & { _id: Types.ObjectId };
 
-const offerDecision = async (
+type OfferDecisionResult = {
+  decision: RecommendationDecisionDTO;
+  createdDecision: boolean;
+};
+
+const offerFlights = new Map<string, Promise<OfferDecisionResult>>();
+const offerVisibilityFlights = new Map<
+  string,
+  Promise<RecommendationDecisionDTO | null>
+>();
+
+const loadVisibleCurrentOffer = (
   input: WorkflowInput
-): Promise<{ decision: RecommendationDecisionDTO; createdDecision: boolean }> => {
-  const current = await recommendationDecisionService.getCurrent(input);
-  if (current) return { decision: current, createdDecision: false };
+): Promise<RecommendationDecisionDTO | null> => {
+  const flightKey = `${input.pairId}:${input.currentUserId}`;
+  const existingFlight = offerVisibilityFlights.get(flightKey);
+  if (existingFlight) return existingFlight;
+
+  // The canonical offer flight has already reconciled ACTION_AVAILABLE before
+  // followers are released. Followers need only their owner-specific projection.
+  const flight = recommendationDecisionService.getCurrent(input, {
+    reconcileActionNotification: false,
+  });
+  offerVisibilityFlights.set(flightKey, flight);
+  const clearFlight = () => {
+    if (offerVisibilityFlights.get(flightKey) === flight) {
+      offerVisibilityFlights.delete(flightKey);
+    }
+  };
+  void flight.then(clearFlight, clearFlight);
+  return flight;
+};
+
+const createOfferWithConcurrentRecovery = async (
+  input: WorkflowInput
+): Promise<RecommendationDecisionDTO> => {
   try {
-    return {
-      decision: await createOrReuseOffer(input),
-      createdDecision: true,
-    };
+    return await createOrReuseOffer(input);
   } catch (error) {
     if (
       !(error instanceof DomainError) ||
@@ -133,9 +160,7 @@ const offerDecision = async (
     }
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const concurrent = await recommendationDecisionService.getCurrent(input);
-      if (concurrent) {
-        return { decision: concurrent, createdDecision: false };
-      }
+      if (concurrent) return concurrent;
       if (attempt < 2) {
         await new Promise<void>((resolve) =>
           setTimeout(resolve, 10 * (attempt + 1))
@@ -143,6 +168,44 @@ const offerDecision = async (
       }
     }
     throw error;
+  }
+};
+
+const resolveOfferDecision = async (
+  input: WorkflowInput
+): Promise<OfferDecisionResult> => {
+  const current = await recommendationDecisionService.getCurrent(input);
+  if (current) return { decision: current, createdDecision: false };
+
+  return {
+    decision: await createOfferWithConcurrentRecovery(input),
+    createdDecision: true,
+  };
+};
+
+const offerDecision = async (
+  input: WorkflowInput
+): Promise<OfferDecisionResult> => {
+  const flightKey = input.pairId;
+  let flight = offerFlights.get(flightKey);
+  const createdFlight = !flight;
+  if (!flight) {
+    flight = resolveOfferDecision(input);
+    offerFlights.set(flightKey, flight);
+  }
+
+  try {
+    const result = await flight;
+    if (createdFlight) {
+      return result;
+    }
+    const visibleDecision = await loadVisibleCurrentOffer(input);
+    if (!visibleDecision) return unavailable();
+    return { decision: visibleDecision, createdDecision: false };
+  } finally {
+    if (createdFlight && offerFlights.get(flightKey) === flight) {
+      offerFlights.delete(flightKey);
+    }
   }
 };
 
@@ -188,9 +251,9 @@ export const recommendationWorkflowService = {
     return {
       plan: {
         status: 'ready',
-        reasonCode: 'CURRENT_CYCLE_SUPPORT',
+        reasonCode: 'FACTOR_SUPPORT',
         explanation: projection.decision.explanation,
-        decisionVersion: 'activity-decision-v1',
+        decisionVersion: 'activity-decision-v2',
       },
       currentActivity: null,
       offers: [projection.activity],
@@ -313,6 +376,21 @@ export const recommendationWorkflowService = {
         auditRequest: input.auditRequest,
       });
     } catch (error) {
+      if (
+        error instanceof DomainError &&
+        error.code === 'RECOMMENDATION_UNAVAILABLE'
+      ) {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const recovered =
+            await recommendationDecisionService.prepareReplacement(input);
+          if (recovered.kind === 'existing') return recovered.decision;
+          if (attempt < 2) {
+            await new Promise<void>((resolve) =>
+              setTimeout(resolve, 10 * (attempt + 1))
+            );
+          }
+        }
+      }
       await recommendationDecisionService.rollbackReplacement(input);
       throw error;
     }

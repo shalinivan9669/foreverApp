@@ -12,6 +12,9 @@ Purpose: keep architecture decisions discoverable and linked to runtime modules.
 | [ADR-005](./ADR-005-entitlements-billing.md) | Billing Abstraction Via Entitlements | 2026-02-04 | Billing provider is abstracted behind entitlements/quota guards. | `src/lib/entitlements/*`, `src/models/Subscription.ts`, `src/models/EntitlementQuotaUsage.ts` |
 | [ADR-006](./ADR-006-channels-as-adapters.md) | Channels As Adapters (Discord/TG/Web) | 2026-02-04 | Channels are adapters over one shared domain and API contract. | `src/app/page.tsx`, `src/app/api/exchange-code/route.ts`, `src/client/api/*` |
 | [ADR-007](./ADR-007-relationship-activity-legacy.md) | Deprecate RelationshipActivity In Favor Of PairActivity | 2026-02-04 | New features target `PairActivity`; legacy flow remains read-only compatibility. | `src/models/RelationshipActivity.ts`, `src/domain/services/relationshipActivityLegacy.service.ts`, `src/app/api/pairs/[id]/activities/route.ts` |
+| [ADR-008](./ADR-008-factor-new-only-free-core.md) | Semantic Factor Engine NEW_ONLY and free core | 2026-08-11 | Replace six-axis runtime with versioned semantic evidence/snapshots and remove entitlement from core eligibility. | `src/domain/model/**`, Factor persistence/runtime, weekly/recommendation/activity/profile consumers |
+
+ADR-005 remains a record of the isolated billing abstraction. ADR-008 supersedes ADR-005 wherever it previously implied a paywall or entitlement gate in the public core loop.
 
 ## How to add ADR
 1. Copy `docs/engineering/templates/ADR-template.md`.

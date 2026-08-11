@@ -125,7 +125,7 @@ function PairWeeklyCheckInPanelSession({
           const normalized =
             caughtError instanceof Error
               ? caughtError
-              : new Error('Не удалось загрузить статус weekly check-in.');
+              : new Error('Не удалось загрузить статус еженедельной отметки.');
           if (!signal?.aborted) setError(toUiErrorState(normalized));
         })
         .finally(() => {
@@ -148,7 +148,7 @@ function PairWeeklyCheckInPanelSession({
         const normalized =
           caughtError instanceof Error
             ? caughtError
-            : new Error('Не удалось загрузить статус weekly check-in.');
+            : new Error('Не удалось загрузить статус еженедельной отметки.');
         if (!controller.signal.aborted) setError(toUiErrorState(normalized));
       })
       .finally(() => {
@@ -185,7 +185,7 @@ function PairWeeklyCheckInPanelSession({
       <div className="app-panel app-panel-solid p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Weekly check-in недели</h2>
+            <h2 className="text-lg font-semibold">Еженедельная отметка</h2>
             <p className="app-muted mt-1 text-sm">
               Короткая сверка состояния пары по ответам этой недели.
             </p>
@@ -198,7 +198,7 @@ function PairWeeklyCheckInPanelSession({
         </div>
 
         {loading && !summary && (
-          <div className="app-muted mt-4 text-sm">Загружаем статус check-in...</div>
+          <div className="app-muted mt-4 text-sm" role="status">Загружаем статус отметки...</div>
         )}
 
         {error && (
@@ -217,8 +217,8 @@ function PairWeeklyCheckInPanelSession({
                     : currentCompletion === 'EXPIRED'
                       ? 'Цикл завершён без вашего ответа'
                       : currentCompletion === 'SUBMITTED'
-                        ? 'Вы заполнили check-in'
-                        : 'Вы ещё не заполнили check-in'}
+                        ? 'Вы заполнили отметку'
+                        : 'Вы ещё не заполнили отметку'}
                 </div>
                 <p className="app-muted mt-1">
                   {currentCompletion === 'SKIPPED'
@@ -263,7 +263,7 @@ function PairWeeklyCheckInPanelSession({
                       ? 'Пока ответил один участник. Общие сигналы появятся только после второго ответа.'
                       : pairDataStatus === 'INSUFFICIENT'
                         ? 'Общих данных недостаточно для осторожной сводки. Индивидуальные ответы остаются личными.'
-                        : 'Общие сигналы появятся после check-in обоих участников.'}
+                        : 'Общие сигналы появятся после отметок обоих участников.'}
                 </p>
               </div>
               {pairSignals.length > 0 ? (
@@ -284,7 +284,7 @@ function PairWeeklyCheckInPanelSession({
 
       {pairStatus === 'ended' ? (
         <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
-          Пара завершена, поэтому новый weekly check-in недоступен. Сводка прошлых ответов остаётся видимой.
+          Пара завершена, поэтому новая еженедельная отметка недоступна. Сводка прошлых ответов остаётся видимой.
         </div>
       ) : (
         <WeeklyCheckInCard

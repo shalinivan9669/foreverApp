@@ -72,16 +72,14 @@ const main = async (): Promise<void> => {
       latestSnapshotRevision: 0,
     });
 
-    await assert.rejects(
-      () =>
-        cycleEntitlementService.assertCanOpen({
-          pairId,
-          currentUserId: memberA,
-          cycleKey: '2026-W32',
-          billingMode: 'sandbox',
-        }),
-      (error: Error) =>
-        error instanceof DomainError && error.code === 'ENTITLEMENT_REQUIRED'
+    assert.deepEqual(
+      await cycleEntitlementService.assertCanOpen({
+        pairId,
+        currentUserId: memberA,
+        cycleKey: '2026-W32',
+        billingMode: 'sandbox',
+      }),
+      { allowed: true, reason: 'FREE_CORE' }
     );
 
     const rawBody = JSON.stringify({
@@ -150,7 +148,7 @@ const main = async (): Promise<void> => {
         cycleKey: '2026-W32',
         billingMode: 'sandbox',
       }),
-      { allowed: true, reason: 'PAIR_ENTITLED' }
+      { allowed: true, reason: 'FREE_CORE' }
     );
 
     await assert.rejects(
@@ -188,16 +186,14 @@ const main = async (): Promise<void> => {
         occurredAt: '2026-08-07T13:00:00.000Z',
       },
     });
-    await assert.rejects(
-      () =>
-        cycleEntitlementService.assertCanOpen({
-          pairId,
-          currentUserId: memberA,
-          cycleKey: '2026-W32',
-          billingMode: 'sandbox',
-        }),
-      (error: Error) =>
-        error instanceof DomainError && error.code === 'ENTITLEMENT_REQUIRED'
+    assert.deepEqual(
+      await cycleEntitlementService.assertCanOpen({
+        pairId,
+        currentUserId: memberA,
+        cycleKey: '2026-W32',
+        billingMode: 'sandbox',
+      }),
+      { allowed: true, reason: 'FREE_CORE' }
     );
 
     await Promise.all([

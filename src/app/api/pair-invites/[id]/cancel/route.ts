@@ -16,7 +16,7 @@ const paramsSchema = z.object({
 const bodySchema = z.object({}).strict();
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const rate = await enforceRateLimit({

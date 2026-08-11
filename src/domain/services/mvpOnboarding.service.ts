@@ -9,8 +9,9 @@ import {
   type MvpOnboardingSessionType,
 } from '@/models/MvpOnboardingSession';
 import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
+import { materializeOnboardingFactorEvidence } from '@/domain/services/onboardingFactorEngine.service';
 
-export const MVP_ONBOARDING_CONTENT_REVISION = 'mvp-onboarding-v1';
+export const MVP_ONBOARDING_CONTENT_REVISION = 'mvp-onboarding-v2';
 export const MVP_ONBOARDING_POLICY_VERSION = 'mvp-privacy-v1';
 
 export type MvpOnboardingQuestionKind = 'single' | 'multi' | 'boolean';
@@ -110,6 +111,21 @@ export const MVP_ONBOARDING_QUESTIONS: MvpOnboardingQuestionDefinition[] = [
       { id: 'short_pause', label: 'Короткая пауза на несколько минут' },
       { id: 'return_later', label: 'Вернуться к теме позже' },
       { id: 'write_first', label: 'Сначала сформулировать мысль письменно' },
+    ],
+    allowedCapturePolicies: [...ALL_CAPTURE_POLICIES],
+  },
+  {
+    id: 'repair_confidence',
+    revision: 'repair-confidence-v1',
+    kind: 'single',
+    title: 'Насколько уверенно тебе обычно удаётся вернуться к разговору после паузы?',
+    description: 'Это самооценка текущего навыка, а не оценка личности.',
+    optional: false,
+    sensitive: false,
+    choices: [
+      { id: 'need_guidance', label: 'Пока нужна понятная опора' },
+      { id: 'sometimes_manage', label: 'Иногда удаётся самостоятельно' },
+      { id: 'usually_manage', label: 'Обычно удаётся спокойно вернуться' },
     ],
     allowedCapturePolicies: [...ALL_CAPTURE_POLICIES],
   },
@@ -216,6 +232,22 @@ export const MVP_ONBOARDING_QUESTIONS: MvpOnboardingQuestionDefinition[] = [
     ],
     allowedCapturePolicies: [...ALL_CAPTURE_POLICIES],
   },
+  {
+    id: 'children_intent',
+    revision: 'children-intent-v1',
+    kind: 'single',
+    title: 'Есть ли у тебя сейчас определённый план относительно детей?',
+    description:
+      'Чувствительный вопрос: можно выбрать «не определился» или пропустить. Ответ не показывается партнёру автоматически.',
+    optional: true,
+    sensitive: true,
+    choices: [
+      { id: 'yes', label: 'Да, хочу детей' },
+      { id: 'no', label: 'Нет, не планирую' },
+      { id: 'unsure', label: 'Пока не определился' },
+    ],
+    allowedCapturePolicies: [...ALL_CAPTURE_POLICIES],
+  },
 ];
 
 export type MvpOnboardingOwnerSessionDTO = {
@@ -229,6 +261,7 @@ export type MvpOnboardingOwnerSessionDTO = {
     confirmedAt: string;
   };
   cursor: number;
+  modelStatus: 'PENDING' | 'MATERIALIZED';
   answers: Array<{
     questionId: string;
     questionRevision: string;
@@ -511,6 +544,7 @@ export const toMvpOnboardingOwnerDTO = (
     confirmedAt: session.consent.confirmedAt.toISOString(),
   },
   cursor: session.cursor,
+  modelStatus: session.factorEngine?.status ?? 'PENDING',
   answers: session.answers.map((answer) => ({
     questionId: answer.questionId,
     questionRevision: answer.questionRevision,
@@ -585,6 +619,11 @@ const start = async (input: {
         },
         cursor: 0,
         answers: [],
+        factorEngine: {
+          status: 'PENDING',
+          evidenceEventIds: [],
+          individualSnapshotIds: [],
+        },
         startedAt: now,
       },
     },
@@ -652,6 +691,52 @@ const saveAnswer = async (input: {
   );
 };
 
+const materializeCompletedOnboarding = async (input: {
+  currentUserId: string;
+  session: StoredSession;
+}): Promise<StoredSession> => {
+  if (input.session.factorEngine?.status === 'MATERIALIZED') {
+    return input.session;
+  }
+  const materialized = await materializeOnboardingFactorEvidence({
+    sessionId: String(input.session._id),
+    subjectId: input.currentUserId,
+    session: input.session,
+  });
+  const updated = await MvpOnboardingSession.findOneAndUpdate(
+    {
+      _id: input.session._id,
+      userId: input.currentUserId,
+      status: 'completed',
+      $or: [
+        { 'factorEngine.status': 'PENDING' },
+        { factorEngine: { $exists: false } },
+      ],
+    },
+    {
+      $set: {
+        factorEngine: {
+          status: 'MATERIALIZED',
+          registryVersion: materialized.registryVersion,
+          evidenceEventIds: materialized.evidenceEventIds,
+          individualSnapshotIds: materialized.individualSnapshotIds,
+        },
+      },
+    },
+    { new: true }
+  ).lean<StoredSession | null>();
+  if (updated) return updated;
+  const canonical = await MvpOnboardingSession.findById(input.session._id).lean<
+    StoredSession | null
+  >();
+  if (canonical?.factorEngine?.status === 'MATERIALIZED') return canonical;
+  throw new DomainError({
+    code: 'IDEMPOTENCY_IN_PROGRESS',
+    status: 503,
+    message: 'Onboarding Factor Engine materialization is still in progress',
+  });
+};
+
 const complete = async (input: {
   currentUserId: string;
 }): Promise<MvpOnboardingResponseDTO> => {
@@ -659,7 +744,14 @@ const complete = async (input: {
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const session = await requireCurrentSession(input.currentUserId);
-    if (session.status === 'completed') return responseDTO(session);
+    if (session.status === 'completed') {
+      return responseDTO(
+        await materializeCompletedOnboarding({
+          currentUserId: input.currentUserId,
+          session,
+        })
+      );
+    }
     if (!canCompleteMvpOnboarding(session.answers)) {
       stateConflict(
         'MVP_ONBOARDING_INCOMPLETE',
@@ -690,7 +782,12 @@ const complete = async (input: {
         technicalScope: 'onboarding',
         at: now,
       });
-      return responseDTO(updated);
+      return responseDTO(
+        await materializeCompletedOnboarding({
+          currentUserId: input.currentUserId,
+          session: updated,
+        })
+      );
     }
   }
 

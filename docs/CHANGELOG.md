@@ -1,5 +1,45 @@
 # Changelog (Docs & Project Notes)
 
+Date: 2026-08-11
+Summary:
+- Added a persistent account write barrier: authenticated, OAuth, admin and billing writers hold expiring leases; deletion now fences `ACTIVE -> DELETING -> DELETED`, drains writers, deletes artifacts and rotates sessions transactionally.
+- Closed Pair lifecycle races for weekly materialization, activity transitions, feedback, recommendation notification reconciliation and lazy Factor materialization; deterministic replica-set races all converge on the lifecycle winner.
+- Completed the exact-tree local release gate: lint, types, all selfchecks, agent checks, production build, diff check, destructive deletion/race integrations, registry v6 migration, 28 + 97 indexes, 72 invariants and responsive production-browser smoke.
+Files: package.json, src/models/SessionSubject.ts, src/domain/services/accountWriteBarrier.service.ts, src/lib/auth/accountWriteLeaseRuntime.ts, src/lib/auth/guards.ts, src/domain/services/accountDeletion.service.ts, src/domain/services/discordOAuth.service.ts, src/domain/services/entitlementGrant.service.ts, src/domain/services/billingWebhook.service.ts, src/domain/services/activities.service.ts, src/domain/services/weeklyCycle.service.ts, src/domain/services/activityFactorRuntime.service.ts, src/domain/services/recommendationWorkflow.service.ts, scripts/privacy-deletion-execution.integration.ts, scripts/activity-lifecycle-races.integration.ts, scripts/pair-context-lifecycle.integration.ts, scripts/pair-lifecycle-remaining.integration.ts, docs/MVP_RELEASE_STATUS.md, docs/PUBLIC_FREE_MVP_EXECUTION.md, docs/SCALE_READINESS.md, docs/RELEASE_RUNBOOK.md, docs/TESTING.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Made weekly cycle materialization, submission claims, skips and post-check-in synchronization share one transactional Pair lifecycle fence with their cycle, Pair Summary snapshot, Factor and notification writes.
+- Restricted ended-Pair historical reconciliation to existing expired cycles without participant notifications, and added deterministic current/claim/skip-versus-end plus claim-versus-pause races.
+Files: src/domain/services/weeklyCycle.service.ts, src/domain/services/factorEngineRuntime.service.ts, src/domain/services/factorEnginePersistence.service.ts, scripts/pair-context-lifecycle.integration.ts, docs/SECURITY.md, docs/TESTING.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Transactionally fenced lazy activity-recommendation Factor materialization against Pair end with an `active|paused` `lifecycleRevision` write and one propagated Mongo session.
+- Ended Pair contexts now fail closed before any pair-scoped Factor read/write; a deterministic replica-set race proves end adds no individual, pair or evaluation snapshot revisions.
+Files: src/domain/services/activityFactorRuntime.service.ts, scripts/activity-factor-read-batching.selfcheck.ts, scripts/pair-lifecycle-remaining.integration.ts, docs/SECURITY.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Published Factor registry v6 and algorithm v4 with immutable snapshot v3, dual `observedAt`/`recordedAt` as-of bounds, bounded definition-driven evidence selection, and fail-closed current-strategy reads.
+- Added lazy daily rematerialization for DECAY-backed profile, Today and activity factors, plus transaction-safe sequential Factor writes and latest-per-factor server-side reads.
+- Hardened the NEW_ONLY migration and release preflight with one immutable `asOf`, exact source-time markers, undeclared-index blocking, deep-history explain checks and strict p95 load gates.
+Files: src/domain/model/aggregation/factorAggregation.ts, src/domain/model/definitions/mvpDefinitions.ts, src/domain/model/snapshots/snapshots.ts, src/domain/services/factorEngineRuntime.service.ts, src/domain/services/activityFactorRuntime.service.ts, src/domain/services/factorProfileSummary.service.ts, src/domain/services/personalToday.service.ts, src/domain/services/onboardingFactorEngine.service.ts, src/models/EvidenceEvent.ts, src/models/IndividualFactorSnapshot.ts, src/models/PairFactorEvaluationSnapshot.ts, scripts/lib/factor-engine-migration.ts, scripts/release-preflight.ts, scripts/release-load-smoke.ts, scripts/release-readiness.selfcheck.ts, scripts/factor-engine.selfcheck.ts, scripts/factor-engine-cutover.integration.ts, scripts/factor-engine-runtime.integration.ts, scripts/activity-factor-read-batching.selfcheck.ts, docs/ADR/ADR-008-factor-new-only-free-core.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Closed privacy deletion residue by removing pairless owner/actor/observed-subject records from the active `factor_evidence_events` collection while preserving unrelated evidence.
+- Replaced length-only PartnerSignal and daily private-string idempotency fingerprints with canonical, content-sensitive digests and added behavioral collision regressions.
+- Made consented partner Factor disclosure summary-only for normal/private definitions and fail-closed for sensitive/matching-only definitions.
+Files: src/domain/services/accountDeletion.service.ts, src/lib/idempotency/key.ts, src/app/api/users/me/daily-checkins/request.ts, src/app/api/users/me/daily-checkins/[id]/partner-signal/route.ts, src/domain/model/privacy/disclosure.ts, scripts/privacy-deletion-execution.integration.ts, scripts/partner-signal.integration.ts, scripts/factor-engine.selfcheck.ts, scripts/participant-disclosure.selfcheck.ts, scripts/security-critical.selfcheck.ts, docs/SECURITY.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Hardened immutable Factor snapshots with registry/definition/algorithm/snapshot/display pinning, canonical measurement/instrument references, strategy identity and actual relationship context.
+- Added canonical effective intervals, daily rematerialization for DECAY factors, fail-closed active reads, replay-envelope verification and stale-marker contract detection.
+- Added focused snapshot, runtime and cutover regressions for rejected evidence isolation, next-window revisions, expiry and malformed persisted contracts.
+Files: src/domain/model/snapshots/snapshots.ts, src/models/factorEngineSchemas.ts, src/models/IndividualFactorSnapshot.ts, src/models/PairFactorSnapshot.ts, src/models/PairFactorEvaluationSnapshot.ts, src/domain/services/factorEnginePersistence.service.ts, src/domain/services/factorEngineRuntime.service.ts, src/domain/services/activityFactorRuntime.service.ts, src/domain/services/weeklyCycle.service.ts, scripts/factor-engine.selfcheck.ts, scripts/factor-engine-runtime.integration.ts, scripts/factor-engine-cutover.integration.ts, scripts/lib/factor-engine-migration.ts, docs/CHANGELOG.md
+
 Date: 2026-07-02
 Summary:
 - Added the Personal Today MVP on `/profile`: daily read-model DTO/API, daily check-in storage, relationship lens settings, explicit partner signals, and the top-of-profile dashboard.
@@ -588,3 +628,45 @@ Summary:
 - Completed the post-fix local production-browser gate: hydration produced no console warnings/errors, retry and client-side back navigation were interactive, and `/` plus `/join` had no horizontal overflow at 390x844.
 - Kept real Discord iframe/two-session and physical-mobile safe-area/keyboard checks external, synchronized the two-run dashboard/history latency evidence, normalized the release matrix to the required status enum with explicit privacy/security impact and next-step fields, and recorded sensitive-content/private-help approval as a separate full-release P1 gate.
 Files: docs/MVP_RELEASE_STATUS.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Cut questionnaire runtime over to the semantic `SEMANTIC_V1` content contract (`domainKey`/`topicKey`/`optionCount`/`contentRevision`) and removed the standalone question/vector-scoring flow.
+- Added immutable, intrinsically idempotent owner-private questionnaire submissions with strict complete-answer validation; unbound content remains `UNMAPPED` and produces no Factor evidence or profile/passport mutation.
+- Added bounded owner export and deletion coverage for personal questionnaire sources plus a Mongo integration for idempotency, pair completion, non-disclosure, export, and deletion.
+Files: src/models/Questionnaire.ts, src/models/PersonalQuestionnaireSubmission.ts, src/domain/services/questionnaires.service.ts, src/domain/services/privacyExport.service.ts, src/domain/services/accountDeletion.service.ts, src/app/api/questionnaires/**, src/app/api/pairs/[id]/questionnaires/**, src/client/**, src/components/QuestionnaireCard.tsx, src/components/QuestionCard.tsx, scripts/seedBetaQuestionnaires.ts, scripts/beta-questionnaires.selfcheck.ts, scripts/questionnaire-new-only.integration.ts, package.json, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Replaced the active six-axis/vector/diagnostics computation path with the published semantic Factor registry, typed unavailable states, immutable evidence, individual/pair/evaluation snapshots, all ten deterministic pair strategies, version/hash validation, replay, central disclosure and Factor-bound recommendation/action provenance.
+- Cut onboarding, weekly Pair Summary, recommendation, PairEvent, activity feedback and owner profile to `NEW_ONLY`; removed vector/diagnostics models/services/routes/radar/passport UI and added guarded raw-source/PairEvent migrations that never infer atomic factors from aggregate legacy axes.
+- Made the complete core loop free for every cycle, removed entitlement/paywall checks and purchase UI from core, and verified a no-entitlement pair through three weekly-summary/recommendation/activity/feedback/history cycles.
+- Completed Pair end/new-context reconnect, durable logout/deletion session revocation, bounded Factor-aware export, destructive confirmed deletion, explicit source-bound PartnerSignal with TTL, private SafetyGate cleanup, settings and private help surfaces.
+- Added focused selfchecks/integrations for Factor runtime/cutover, legacy absence, onboarding/questionnaires, PairEvent, Pair lifecycle, PartnerSignal, privacy/export/deletion and three-cycle behavior; fresh migration/preflight produced registry v3, 22 Factor plus 94 other declared indexes, no drift and 69 green blockers. Two strict load runs met dashboard/history/recommendation p95 targets with zero errors/conflicts/duplicates after post-auth per-Pair recommendation single-flight.
+- Rewrote active product/domain/architecture/API/security/testing/release/scale/status documentation, added ADR-008, and marked pre-cutover vector/paywall inventories historical. Final exact-tree static/build/browser checks and independent reviews remain tracked in `docs/PUBLIC_FREE_MVP_EXECUTION.md`; production Discord/operations/content approval remains external.
+Files: src/domain/model/**, src/domain/services/**, src/domain/state/**, src/models/**, src/app/api/**, src/app/**, src/client/**, src/components/**, src/features/**, src/lib/**, scripts/**, package.json, README.md, docs/ADR/ADR-008-factor-new-only-free-core.md, docs/ARCHITECTURE.md, docs/TARGET_DOMAIN_MODEL.md, docs/TARGET_DOMAIN_OPERATIONS.md, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/TESTING.md, docs/PRODUCT_SPEC.md, docs/MVP_SPEC.md, docs/MVP_FLOWS.md, docs/P0_CAPABILITY_MATRIX.md, docs/P0_TWO_USER_E2E.md, docs/MVP_RELEASE_STATUS.md, docs/SCALE_READINESS.md, docs/RELEASE_RUNBOOK.md, docs/PUBLIC_FREE_MVP_EXECUTION.md, docs/INDEX.md, docs/DOCS_STATUS.md, docs/PROJECT_MAP.md, docs/03-state-machines.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Finalized the public-free help boundary with the versioned `help-ru-v1` catalog, documented complete removal of public legacy `/api/match/**` routes, and recorded passing participant-disclosure and guarded replica-set reliability/reconciliation evidence.
+- Recorded lint/typecheck and a full selfcheck-chain pass after synchronizing stale assertions; kept reviewer-driven reruns, remaining exact-tree gates, supported-host browser/mobile validation and expert/legal jurisdiction-content approval open.
+Files: src/client/content/helpCatalog.ts, src/app/profile/help/page.tsx, scripts/frontend-mvp-ui.selfcheck.ts, scripts/participant-disclosure.selfcheck.ts, docs/API_CONTRACTS.md, docs/03-state-machines.md, docs/PRODUCT_SPEC.md, docs/TESTING.md, docs/P0_CAPABILITY_MATRIX.md, docs/MVP_RELEASE_STATUS.md, docs/PUBLIC_FREE_MVP_EXECUTION.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Made rejected Factor evidence a strict provenance-only record: it carries the submitted value and rejection code but never a normalized value, while accepted evidence still requires one.
+- Preserved append-only idempotency by validating the complete immutable document before the atomic insert-only upsert, and added runtime integration coverage for replay, changed-content conflict, document validation and zero snapshot influence.
+Files: src/domain/model/evidence/evidence.ts, src/models/EvidenceEvent.ts, src/domain/services/factorEnginePersistence.service.ts, src/domain/services/factorEngineRuntime.service.ts, src/domain/services/activityFactorRuntime.service.ts, src/domain/services/privacyExport.service.ts, scripts/factor-engine-runtime.integration.ts, scripts/onboarding-factor-engine.integration.ts, docs/TARGET_DOMAIN_MODEL.md, docs/TARGET_DOMAIN_OPERATIONS.md, docs/SECURITY.md, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Versioned every pair-strategy definition and made its symmetric/directional contract part of registry validation and canonical hashing; pair evaluation now requires an exact relationship-context match and the registry rejects strategy confidence below the factor-level floor.
+- Split HARD_CONSTRAINT outcomes by lifecycle context: only DATING produces a matching conflict, while every other relationship context produces a discussion-required result, with persisted status and deterministic regression coverage.
+Files: src/domain/model/pair/**, src/domain/model/definitions/**, src/domain/model/recommendations/recommendation.ts, src/domain/services/weeklyCycle.service.ts, src/models/factorEngineSchemas.ts, scripts/pair-strategy-contract.selfcheck.ts, scripts/weekly-cycle.selfcheck.ts, package.json, docs/CHANGELOG.md
+
+Date: 2026-08-11
+Summary:
+- Made pair-questionnaire start and answer writes transactionally fence the active Pair lifecycle, so pause/end wins cleanly and no questionnaire source write can commit after Pair termination.
+- Added one canonical `in_progress` session per pair/questionnaire, immutable unique member answers, terminal `closed` sessions on Pair end, and conflict-safe convergence for concurrent requests using different idempotency keys.
+- Added a fail-closed duplicate preflight/additive-index migration plus database-free and deterministic replica-set coverage; legacy duplicates are reported and never silently selected, deleted or rewritten.
+Files: src/models/PairQuestionnaireSession.ts, src/models/PairQuestionnaireAnswer.ts, src/domain/services/questionnaires.service.ts, src/domain/services/pairs.service.ts, scripts/lib/pair-questionnaire-integrity.ts, scripts/migrate-pair-questionnaire-integrity.ts, scripts/pair-questionnaire-integrity.selfcheck.ts, scripts/pair-questionnaire-concurrency.integration.ts, package.json, docs/API_CONTRACTS.md, docs/TESTING.md, docs/RELEASE_RUNBOOK.md, docs/MVP_RELEASE_STATUS.md, docs/CHANGELOG.md

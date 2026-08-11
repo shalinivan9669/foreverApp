@@ -1,5 +1,7 @@
 ﻿# Pair Activity Inventory Working (2026-02-08)
 
+> Status: historical working snapshot. It contains pre-lifecycle-v3 paths/statuses. Current contracts are in `docs/MVP_FLOWS.md` and `docs/API_CONTRACTS.md`.
+
 ## 1) What users can do now (end-to-end)
 
 Current `/couple-activity` flow:

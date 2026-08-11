@@ -1,9 +1,11 @@
-import { Types } from 'mongoose';
+import mongoose, { Types, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { DomainError } from '@/domain/errors';
+import { emitEvent } from '@/lib/audit/emitEvent';
+import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { Pair } from '@/models/Pair';
 import { PersonalDailyCheckIn } from '@/models/PersonalDailyCheckIn';
-import { PartnerSignal, type PartnerSignalTone } from '@/models/PartnerSignal';
+import { PartnerSignal, type PartnerSignalType } from '@/models/PartnerSignal';
 
 export type PartnerSignalSendResponse = {
   id: string;
@@ -11,21 +13,19 @@ export type PartnerSignalSendResponse = {
   sentAt: string;
 };
 
-const toneFromMode = (mode: string | undefined): PartnerSignalTone => {
-  if (mode === 'repair') return 'repair';
-  if (mode === 'low_resource') return 'low_resource';
-  if (mode === 'closeness') return 'closeness';
-  if (mode === 'conflict_risk') return 'space';
-  if (mode === 'growth') return 'support';
-  return 'neutral';
+export type PartnerSignalReliabilityTestHooks = {
+  beforeTransactionalPairGuard?: () => Promise<void>;
 };
+
+const PARTNER_SIGNAL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const partnerSignalService = {
   async send(input: {
     currentUserId: string;
     checkInId: string;
     text: string;
-  }): Promise<PartnerSignalSendResponse> {
+    auditRequest?: AuditRequestContext;
+  }, hooks: PartnerSignalReliabilityTestHooks = {}): Promise<PartnerSignalSendResponse> {
     await connectToDatabase();
     const checkInId = input.checkInId.trim();
     const text = input.text.trim();
@@ -70,8 +70,10 @@ export const partnerSignalService = {
       });
     }
 
-    const toUserId = pair.members.find((memberId) => memberId !== input.currentUserId);
-    if (!toUserId) {
+    const initialToUserId = pair.members.find(
+      (memberId) => memberId !== input.currentUserId
+    );
+    if (!initialToUserId) {
       throw new DomainError({
         code: 'STATE_CONFLICT',
         status: 409,
@@ -80,35 +82,143 @@ export const partnerSignalService = {
     }
 
     const sentAt = new Date();
-    const signal = await PartnerSignal.create({
-      pairId: String(pair._id),
-      fromUserId: input.currentUserId,
-      toUserId,
-      sourceCheckInId: checkIn._id,
-      dateKey: checkIn.dateKey,
-      text,
-      tone: toneFromMode(checkIn.computed?.mode),
-      status: 'sent',
-      createdAt: sentAt,
-    });
+    const outcome: {
+      toUserId: string;
+      signal: HydratedDocument<PartnerSignalType> | null;
+    } = { toUserId: initialToUserId, signal: null };
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await hooks.beforeTransactionalPairGuard?.();
+        const activePair = await Pair.findOneAndUpdate(
+          {
+            _id: pair._id,
+            members: input.currentUserId,
+            status: { $in: ['active', 'paused'] },
+          },
+          { $inc: { lifecycleRevision: 1 } },
+          { new: false, session }
+        ).select({ members: 1 });
+        if (!activePair) {
+          throw new DomainError({
+            code: 'STATE_CONFLICT',
+            status: 409,
+            message: 'Partner signal is unavailable after pair end',
+          });
+        }
+        const receiver = activePair.members.find(
+          (memberId) => memberId !== input.currentUserId
+        );
+        if (!receiver) {
+          throw new DomainError({
+            code: 'STATE_CONFLICT',
+            status: 409,
+            message: 'Pair receiver was not found',
+          });
+        }
+        outcome.toUserId = receiver;
 
-    await PersonalDailyCheckIn.updateOne(
-      { _id: checkIn._id, userId: input.currentUserId },
-      {
-        $set: {
-          'share.partnerSignal.enabled': true,
-          'share.partnerSignal.text': text,
-          'share.partnerSignal.status': 'sent',
-          'share.partnerSignal.sentSignalId': signal._id,
-          'share.partnerSignal.sentAt': sentAt,
-        },
-      }
-    );
+        const canonicalCheckIn = await PersonalDailyCheckIn.findOne({
+          _id: checkIn._id,
+          userId: input.currentUserId,
+        }).session(session);
+        if (!canonicalCheckIn) {
+          throw new DomainError({
+            code: 'NOT_FOUND',
+            status: 404,
+            message: 'Daily check-in not found',
+          });
+        }
+
+        let canonicalSignal = await PartnerSignal.findOne({
+          sourceCheckInId: canonicalCheckIn._id,
+        }).session(session);
+        if (!canonicalSignal) {
+          [canonicalSignal] = await PartnerSignal.create(
+            [
+              {
+                pairId: activePair._id,
+                fromUserId: input.currentUserId,
+                toUserId: outcome.toUserId,
+                sourceCheckInId: canonicalCheckIn._id,
+                dateKey: canonicalCheckIn.dateKey,
+                text,
+                tone: 'neutral',
+                status: 'sent',
+                expiresAt: new Date(
+                  sentAt.getTime() + PARTNER_SIGNAL_RETENTION_MS
+                ),
+              },
+            ],
+            { session }
+          );
+        }
+        if (
+          canonicalSignal.fromUserId !== input.currentUserId ||
+          canonicalSignal.toUserId !== outcome.toUserId ||
+          canonicalSignal.text !== text
+        ) {
+          throw new DomainError({
+            code: 'PARTNER_SIGNAL_ALREADY_SENT',
+            status: 409,
+            message: 'A confirmed partner signal was already sent for this check-in',
+          });
+        }
+
+        const sourceUpdated = await PersonalDailyCheckIn.updateOne(
+          { _id: canonicalCheckIn._id, userId: input.currentUserId },
+          {
+            $set: {
+              'share.partnerSignal.enabled': true,
+              'share.partnerSignal.text': text,
+              'share.partnerSignal.status': 'sent',
+              'share.partnerSignal.sentSignalId': canonicalSignal._id,
+              'share.partnerSignal.sentAt': canonicalSignal.createdAt,
+            },
+          },
+          { session }
+        );
+        if (sourceUpdated.matchedCount !== 1) {
+          throw new DomainError({
+            code: 'PARTNER_SIGNAL_NOT_PERSISTED',
+            status: 500,
+            message: 'Partner signal source was not persisted',
+          });
+        }
+        outcome.signal = canonicalSignal;
+      });
+    } finally {
+      await session.endSession();
+    }
+    const signal = outcome.signal;
+    if (!signal) {
+      throw new DomainError({
+        code: 'PARTNER_SIGNAL_NOT_PERSISTED',
+        status: 500,
+        message: 'Partner signal was not persisted',
+      });
+    }
+    const canonicalSentAt = signal.createdAt;
+
+    await emitEvent({
+      event: 'PARTNER_SIGNAL_SENT',
+      actor: { userId: input.currentUserId },
+      request: input.auditRequest ?? {
+        route: '/api/users/me/daily-checkins/[id]/partner-signal',
+        method: 'POST',
+      },
+      context: { pairId: String(pair._id) },
+      target: { type: 'pair', id: String(pair._id) },
+      metadata: {
+        delivery: 'EXPLICIT_CONFIRMED',
+        retentionClass: 'THIRTY_DAYS',
+      },
+    });
 
     return {
       id: String(signal._id),
       status: 'sent',
-      sentAt: sentAt.toISOString(),
+      sentAt: canonicalSentAt.toISOString(),
     };
   },
 };

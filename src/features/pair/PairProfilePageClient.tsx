@@ -2,8 +2,11 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
 import PairWeeklyCheckInPanel from '@/components/checkins/PairWeeklyCheckInPanel';
 import {
   pairHistoryApi,
@@ -21,35 +24,26 @@ type PairProfilePageClientProps = {
 type I18n = Record<string, string>;
 type PairMember = PairSummaryDTO['members'][number];
 
-const AXIS_LABELS: Record<string, string> = {
-  communication: 'Коммуникация',
-  domestic: 'Быт',
-  personalViews: 'Личные взгляды',
-  finance: 'Финансы',
-  sexuality: 'Близость',
-  psyche: 'Ресурс',
-};
-
 const PAIR_STATUS_LABELS: Record<string, string> = {
   active: 'Активна',
   paused: 'На паузе',
   ended: 'Завершена',
 };
 
-const SEVERITY_LABELS: Record<1 | 2 | 3, string> = {
-  1: 'слабый сигнал',
-  2: 'средний риск',
-  3: 'высокий риск',
-};
-
 const formatDate = (value?: string): string =>
   value ? new Date(value).toLocaleDateString('ru-RU') : 'дата не указана';
 
-const axisLabel = (axis?: string): string =>
-  axis ? AXIS_LABELS[axis] ?? 'Общая зона' : 'Общая зона';
+const FACTOR_LABELS: Record<string, string> = {
+  'communication.weekly.connection': 'Контакт',
+  'wellbeing.current.overload': 'Текущий ресурс',
+  'communication.conflict.repairSkill': 'Восстановление разговора',
+  'sharedLife.roles.householdCapability': 'Бытовые роли',
+};
 
-const axisList = (axes: string[]): string =>
-  axes.length ? axes.map(axisLabel).join(', ') : 'Общая зона';
+const factorList = (factorKeys: string[]): string =>
+  factorKeys.length
+    ? factorKeys.map((key) => FACTOR_LABELS[key] ?? 'Совместный шаг').join(', ')
+    : 'Совместный шаг';
 
 const t = (text?: I18n): string =>
   text ? text.ru ?? text.en ?? Object.values(text)[0] ?? '' : '';
@@ -67,7 +61,7 @@ const historyStatusLabel = (item: PairHistoryItemDTO): string => {
     return 'недостаточно данных';
   }
   if (item.status === 'completed_success') return 'завершена';
-  if (item.status === 'completed_partial') return 'частичный feedback';
+  if (item.status === 'completed_partial') return 'частичная обратная связь';
   if (item.status === 'failed') return 'не подошла';
   if (item.status === 'cancelled') return 'отменена';
   return 'истекла';
@@ -88,12 +82,6 @@ const intensityLabel = (intensity: number): string => {
 const badgeClassForPair = (status?: string): string => {
   if (status === 'active') return 'bg-emerald-100 text-emerald-700';
   if (status === 'paused') return 'bg-amber-100 text-amber-700';
-  return 'bg-slate-100 text-slate-700';
-};
-
-const severityClass = (severity: 1 | 2 | 3): string => {
-  if (severity === 3) return 'bg-rose-100 text-rose-700';
-  if (severity === 2) return 'bg-amber-100 text-amber-700';
   return 'bg-slate-100 text-slate-700';
 };
 
@@ -122,13 +110,35 @@ function ActionLink({
 }
 
 export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePageClientProps) {
-  const { data: currentUser } = useCurrentUser();
+  const router = useRouter();
+  const {
+    data: currentUser,
+    loading,
+    error,
+    refetch,
+  } = useCurrentUser();
+
+  if (loading && !currentUser) {
+    return <LoadingView label="Загружаем профиль пары..." />;
+  }
+
+  if (!currentUser && error) {
+    return (
+      <main className="app-shell-compact py-3 sm:py-4">
+        <ErrorView
+          error={error}
+          onRetry={() => void refetch()}
+          onAuthRequired={() => router.push('/')}
+        />
+      </main>
+    );
+  }
 
   if (!currentUser) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
-        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
-          Нет пользователя. Откройте приложение из Discord ещё раз.
+        <div className="app-panel-soft app-panel-soft-solid p-4 text-sm" role="status">
+          Сессия не найдена. Откройте приложение из Discord ещё раз.
         </div>
       </main>
     );
@@ -143,14 +153,24 @@ export default function PairProfilePageClient({ pairIdFromRoute }: PairProfilePa
 }
 
 function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProps) {
+  const router = useRouter();
   const [pairId, setPairId] = useState<string | null>(pairIdFromRoute ?? null);
   const [data, setData] = useState<PairSummaryDTO | null>(null);
   const [historyItems, setHistoryItems] = useState<PairHistoryItemDTO[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   const [loading, setLoading] = useState(Boolean(pairIdFromRoute));
   const [resolvingPair, setResolvingPair] = useState(!pairIdFromRoute);
-  const [busy, setBusy] = useState<'pause' | 'resume' | null>(null);
+  const [resolveAttempt, setResolveAttempt] = useState(0);
+  const [busy, setBusy] = useState<'pause' | 'resume' | 'end' | null>(null);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const confirmEndRef = useRef<HTMLDivElement | null>(null);
+  const endButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (confirmEnd) confirmEndRef.current?.focus();
+  }, [confirmEnd]);
 
   useEffect(() => {
     if (pairIdFromRoute) return;
@@ -167,6 +187,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
       .catch(() => {
         if (!active) return;
         setPairId(null);
+        setLoadError('Не удалось проверить текущую пару. Проверьте соединение и попробуйте ещё раз.');
       })
       .finally(() => {
         if (active) setResolvingPair(false);
@@ -175,7 +196,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
     return () => {
       active = false;
     };
-  }, [pairIdFromRoute]);
+  }, [pairIdFromRoute, resolveAttempt]);
 
   const fetchPair = useCallback(async (id: string) => {
     try {
@@ -190,11 +211,13 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
 
     setLoading(false);
     setHistoryLoading(true);
+    setHistoryError(false);
     try {
       const history = await pairHistoryApi.list(id, { limit: 3 });
       setHistoryItems(history.items);
     } catch {
       setHistoryItems([]);
+      setHistoryError(true);
     } finally {
       setHistoryLoading(false);
     }
@@ -205,6 +228,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
       setLoading(true);
       setLoadError(null);
       setHistoryItems([]);
+      setHistoryError(false);
       await fetchPair(id);
     },
     [fetchPair]
@@ -221,13 +245,17 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
         setData(summary);
         setLoading(false);
         setHistoryLoading(true);
+        setHistoryError(false);
         void pairHistoryApi
           .list(pairId, { limit: 3 })
           .then((history) => {
             if (active) setHistoryItems(history.items);
           })
           .catch(() => {
-            if (active) setHistoryItems([]);
+            if (active) {
+              setHistoryItems([]);
+              setHistoryError(true);
+            }
           })
           .finally(() => {
             if (active) setHistoryLoading(false);
@@ -271,6 +299,21 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
     }
   };
 
+  const onEnd = async () => {
+    if (!pairId) return;
+    setBusy('end');
+    try {
+      await pairsApi.endPair(pairId);
+      router.push('/invite');
+      router.refresh();
+    } catch {
+      setLoadError('Не удалось завершить пару. Попробуйте ещё раз.');
+      setConfirmEnd(false);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (resolvingPair) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
@@ -285,15 +328,32 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
     return (
       <main className="app-shell-compact py-3 sm:py-4">
         <BackBar title="Профиль пары" fallbackHref="/main-menu" />
+        {loadError ? (
+          <section className="app-alert app-alert-error mt-4 text-sm" role="alert">
+            <p>{loadError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setResolvingPair(true);
+                setLoadError(null);
+                setResolveAttempt((attempt) => attempt + 1);
+              }}
+              className="app-btn-secondary mt-3 px-4 py-2 text-sm"
+            >
+              Повторить
+            </button>
+          </section>
+        ) : (
         <section className="app-panel app-panel-solid mt-4 p-4">
           <h1 className="text-xl font-semibold">Пара не найдена</h1>
           <p className="app-muted mt-2 text-sm">
-            Когда появится активная пара, здесь будет общий dashboard: состояние, активности и следующий шаг.
+            Когда появится активная пара, здесь будет общая сводка: состояние, активности и следующий шаг.
           </p>
           <Link href="/invite" className="app-btn-primary mt-4 inline-flex px-4 py-2 text-sm">
             Создать приглашение
           </Link>
         </section>
+        )}
       </main>
     );
   }
@@ -309,11 +369,23 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
       <BackBar title="Профиль пары" fallbackHref="/main-menu" />
 
       {loading && (
-        <div className="app-panel-soft app-panel-soft-solid p-3 text-sm app-muted">
-          Загружаем dashboard пары...
+        <div className="app-panel-soft app-panel-soft-solid p-3 text-sm app-muted" role="status" aria-live="polite">
+          Загружаем данные пары...
         </div>
       )}
-      {!loading && loadError && <div className="app-alert app-alert-error text-sm">{loadError}</div>}
+      {!loading && loadError && (
+        <div className="app-alert app-alert-error text-sm" role="alert">
+          <p>{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void load(pairId)}
+            disabled={busy !== null}
+            className="app-btn-secondary mt-3 px-4 py-2 text-sm disabled:opacity-60"
+          >
+            Повторить
+          </button>
+        </div>
+      )}
 
       {dashboardReady && data && (
         <div className="pair-dashboard-grid">
@@ -340,7 +412,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
 
                 <div>
                   <div className="app-muted text-xs">Вы вместе с {peerName}</div>
-                  <h1 className="app-page-title font-semibold">Dashboard пары</h1>
+                  <h1 className="app-page-title font-semibold">Пространство пары</h1>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                     <span className={`rounded-full px-2 py-0.5 text-xs ${badgeClassForPair(pairStatus)}`}>
                       {pairStatusLabel}
@@ -351,7 +423,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
               </div>
 
               <div className="flex flex-wrap gap-2 sm:ml-auto sm:justify-end">
-                {data.pair.status === 'active' ? (
+                {data.pair.status === 'active' && (
                   <button
                     type="button"
                     onClick={onPause}
@@ -360,7 +432,8 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
                   >
                     Пауза
                   </button>
-                ) : (
+                )}
+                {data.pair.status === 'paused' && (
                   <button
                     type="button"
                     onClick={onResume}
@@ -370,31 +443,70 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
                     Возобновить
                   </button>
                 )}
-                <Link href="/couple-activity" className="app-btn-primary px-3 py-2 text-sm">
-                  Активности
-                </Link>
+                {data.pair.status === 'ended' ? (
+                  <Link href="/invite" className="app-btn-primary px-3 py-2 text-sm">
+                    Новое подключение
+                  </Link>
+                ) : (
+                  <Link href="/couple-activity" className="app-btn-primary px-3 py-2 text-sm">
+                    Активности
+                  </Link>
+                )}
                 <Link href="/profile/history" className="app-btn-secondary px-3 py-2 text-sm">
                   История
                 </Link>
+                {data.pair.status !== 'ended' && (
+                  <button
+                    ref={endButtonRef}
+                    type="button"
+                    onClick={() => setConfirmEnd(true)}
+                    disabled={busy !== null}
+                    aria-expanded={confirmEnd}
+                    aria-controls="end-pair-confirmation"
+                    className="min-h-11 rounded-lg border border-rose-200 px-3 py-2 text-sm text-rose-700 disabled:opacity-60"
+                  >
+                    Завершить пару
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="app-metric-grid mt-5">
-              <div className="rounded-lg border border-slate-100 bg-white/70 p-3">
-                <div className="app-muted text-xs">Серия</div>
-                <div className="text-xl font-semibold">{data.pair.progress?.streak ?? 0}</div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-white/70 p-3">
-                <div className="app-muted text-xs">Выполнено</div>
-                <div className="text-xl font-semibold">{data.pair.progress?.completed ?? 0}</div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-white/70 p-3">
-                <div className="app-muted text-xs">Участники</div>
-                <div className="truncate text-sm font-medium">
-                  {members.map(memberName).join(' + ') || 'Пара'}
+            {confirmEnd && (
+              <div
+                ref={confirmEndRef}
+                id="end-pair-confirmation"
+                role="alertdialog"
+                aria-labelledby="end-pair-confirmation-title"
+                tabIndex={-1}
+                className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950 outline-none"
+              >
+                <p id="end-pair-confirmation-title" className="font-semibold">Завершить текущую пару?</p>
+                <p className="mt-1">
+                  Текущий общий контекст будет закрыт. При новом соединении появится новая пара без переноса закрытого контекста.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onEnd}
+                    disabled={busy === 'end'}
+                    className="rounded-lg bg-rose-700 px-3 py-2 font-medium text-white disabled:opacity-60"
+                  >
+                    {busy === 'end' ? 'Завершаем…' : 'Да, завершить'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmEnd(false);
+                      requestAnimationFrame(() => endButtonRef.current?.focus());
+                    }}
+                    disabled={busy === 'end'}
+                    className="app-btn-secondary px-3 py-2"
+                  >
+                    Отмена
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
           </section>
 
           <section className="app-panel app-panel-solid app-reveal app-grid-narrow border-l-4 border-l-rose-300 p-4 sm:p-5">
@@ -403,11 +515,6 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
               <div className="min-w-0 flex-1">
                 <h2 className="text-xl font-semibold">{data.nextStep.title}</h2>
                 <p className="app-muted mt-2 text-sm">{data.nextStep.description}</p>
-                {data.nextStep.severity && (
-                  <span className={`mt-3 inline-flex rounded-full px-2 py-0.5 text-xs ${severityClass(data.nextStep.severity)}`}>
-                    {SEVERITY_LABELS[data.nextStep.severity]}
-                  </span>
-                )}
               </div>
               <ActionLink
                 href={data.nextStep.href}
@@ -433,7 +540,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
             {data.currentActivity ? (
               <div className="mt-3 text-sm">
                 <div className="app-muted">
-                  {axisList(data.currentActivity.axis)} • {difficultyLabel(data.currentActivity.difficulty)} •{' '}
+                  {factorList(data.currentActivity.targetFactorKeys)} • {difficultyLabel(data.currentActivity.difficulty)} •{' '}
                   {intensityLabel(data.currentActivity.intensity)}
                 </div>
                 <p className="mt-2">
@@ -467,7 +574,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
           <section className="app-panel app-panel-solid app-reveal app-grid-wide p-4 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="app-muted text-xs">History light</div>
+                <div className="app-muted text-xs">Недавняя история</div>
                 <h2 className="mt-1 text-xl font-semibold">Недавние циклы и действия</h2>
               </div>
               <Link href="/profile/history" className="app-btn-secondary px-3 py-2 text-sm">
@@ -476,6 +583,17 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
             </div>
             {historyLoading ? (
               <p className="app-muted mt-4 text-sm">Загружаем историю…</p>
+            ) : historyError ? (
+              <div className="app-alert app-alert-rate mt-4 text-sm" role="alert">
+                <p>Не удалось загрузить недавнюю историю.</p>
+                <button
+                  type="button"
+                  onClick={() => void load(pairId)}
+                  className="app-btn-secondary mt-3 px-3 py-2 text-sm"
+                >
+                  Повторить
+                </button>
+              </div>
             ) : historyItems.length ? (
               <ul className="mt-4 space-y-2">
                 {historyItems.map((item) => (

@@ -11,7 +11,6 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 import { parseJson, parseParams } from '@/lib/api/validate';
-import { cycleEntitlementService } from '@/domain/services/cycleEntitlement.service';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -23,7 +22,7 @@ const paramsSchema = z.object({
 const bodySchema = z.object({}).strict();
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const params = parseParams(await ctx.params, paramsSchema);
@@ -34,11 +33,6 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   try {
     const now = new Date();
-    await cycleEntitlementService.assertCanOpen({
-      pairId: params.data.id,
-      currentUserId: auth.data.userId,
-      cycleKey: weeklyCycleKeyForDate(now),
-    });
     const response = jsonOk(
       await weeklyCycleService.current({
         pair: pairGuard.data.pair,
@@ -60,7 +54,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const params = parseParams(await ctx.params, paramsSchema);
   if (!params.ok) return params.response;
@@ -77,22 +71,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!pairGuard.ok) return pairGuard.response;
   const now = new Date();
   const cycleKey = weeklyCycleKeyForDate(now);
-
-  try {
-    await cycleEntitlementService.assertCanOpen({
-      pairId: params.data.id,
-      currentUserId: auth.data.userId,
-      cycleKey,
-    });
-  } catch (error) {
-    const domainError = toDomainError(asError(error));
-    return jsonError(
-      domainError.status,
-      domainError.code,
-      domainError.message,
-      domainError.details
-    );
-  }
 
   const response = await withIdempotency({
     req,

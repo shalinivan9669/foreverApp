@@ -5,19 +5,14 @@ import { requireSession } from '@/lib/auth/guards';
 import { requireActivePairForMember } from '@/lib/auth/resourceGuards';
 import { parseJson, parseQuery } from '@/lib/api/validate';
 import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
-import { recommendationDecisionService } from '@/domain/services/recommendationDecision.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
-import {
-  assertRecommendationOfferAccess,
-  buildRecommendationQuotaClaimKey,
-} from '@/lib/entitlements';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
 
 const emptySchema = z.object({}).strict();
 
 export async function POST(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const query = parseQuery(req, emptySchema);
   if (!query.ok) return query.response;
@@ -41,34 +36,11 @@ export async function POST(req: NextRequest) {
     route,
     userId: auth.data.userId,
     requestBody: body.data,
-    execute: async () => {
-      const current = await recommendationDecisionService.getCurrent({
-        pairId,
-        currentUserId: auth.data.userId,
-      });
-      if (!current) {
-        const context =
-          await recommendationDecisionService.requireCurrentPublishableSummary({
-            pairId,
-            currentUserId: auth.data.userId,
-          });
-        await assertRecommendationOfferAccess({
-          req,
-          route,
-          pairId,
-          currentUserId: auth.data.userId,
-          quotaClaimKey: buildRecommendationQuotaClaimKey({
-            pairId,
-            cycleKey: context.cycleKey,
-            kind: 'primary',
-          }),
-        });
-      }
-      return recommendationWorkflowService.nextCompatibility({
+    execute: async () =>
+      recommendationWorkflowService.nextCompatibility({
         pairId,
         currentUserId: auth.data.userId,
         auditRequest,
-      });
-    },
+      }),
   });
 }

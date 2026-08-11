@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { mock } from 'node:test';
 import mongoose, { Types } from 'mongoose';
 import { DomainError } from '@/domain/errors';
 import { activitiesService } from '@/domain/services/activities.service';
@@ -12,19 +13,21 @@ import { notificationService } from '@/domain/services/notification.service';
 import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
 import {
   currentWeekKey,
-  toPairWeeklyCheckInPairDTO,
   weeklyCheckInService,
 } from '@/domain/services/weeklyCheckIn.service';
 import { weeklyCycleService } from '@/domain/services/weeklyCycle.service';
 import { toPairActivityDTO } from '@/lib/dto/activity.dto';
 import { EventLog } from '@/models/EventLog';
-import { Insight } from '@/models/Insight';
+import { EvidenceEvent } from '@/models/EvidenceEvent';
+import { IndividualFactorSnapshot } from '@/models/IndividualFactorSnapshot';
 import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
 import {
   Notification,
   type NotificationType,
 } from '@/models/Notification';
 import { Pair } from '@/models/Pair';
+import { PairFactorEvaluationSnapshot } from '@/models/PairFactorEvaluationSnapshot';
+import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
 import {
   PairActivity,
   type PairActivityType,
@@ -35,7 +38,6 @@ import { PairStateSnapshot } from '@/models/PairStateSnapshot';
 import { RecommendationDecision } from '@/models/RecommendationDecision';
 import type { RecommendationProvenanceType } from '@/models/RecommendationProvenance';
 import { User } from '@/models/User';
-import { VectorSnapshot } from '@/models/VectorSnapshot';
 import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
 import { WeeklyCycle } from '@/models/WeeklyCycle';
 
@@ -64,9 +66,27 @@ const memberA = `two-user-mvp-a-${runId}`;
 const memberB = `two-user-mvp-b-${runId}`;
 const memberIds = [memberA, memberB].sort();
 const pairKey = memberIds.join('|');
-const privateNoteA = `weekly-private-a-${runId}`;
-const privateNoteB = `weekly-private-b-${runId}`;
 const timingsMs: Record<string, number> = {};
+
+const cycleDates = [
+  new Date('2026-08-10T12:00:00.000Z'),
+  new Date('2026-08-17T12:00:00.000Z'),
+  new Date('2026-08-24T12:00:00.000Z'),
+] as const;
+
+const weeklyFactorKeys = [
+  'communication.weekly.connection',
+  'communication.weekly.tension',
+  'wellbeing.current.overload',
+  'wellbeing.current.readiness',
+] as const;
+
+const privateNotesByCycle = cycleDates.map((_, index) => ({
+  memberA: `weekly-private-a-${runId}-cycle-${index + 1}`,
+  memberB: `weekly-private-b-${runId}-cycle-${index + 1}`,
+}));
+const privateNoteA = privateNotesByCycle[0]?.memberA ?? '';
+const privateNoteB = privateNotesByCycle[0]?.memberB ?? '';
 
 const auditRequest = {
   route: '/integration/two-user-mvp',
@@ -81,23 +101,24 @@ type AcceptanceEvidence = {
     retryableConflicts: number;
     retryAlreadyAccepted: boolean;
   };
-  canonical: {
+  cycles: Array<{
+    cycleNumber: number;
     weekKey: string;
     dataStatus: 'ENOUGH';
-    snapshotRevision: number;
-    snapshotCount: number;
-  };
-  recommendation: {
+    factorEvidenceEvents: number;
+    individualFactorSnapshots: number;
+    pairEvaluations: number;
+    legacySnapshotRevision: number;
+    legacySnapshotCount: number;
+    decisionId: string;
     templateId: string;
-    decisionVersion: 'recommendation-decision-v1';
-    provenanceVersion: 'recommendation-provenance-v1';
-  };
-  activity: {
-    status: 'completed_success';
-    feedbackRoles: number;
+    actionKey: string;
+    activityId: string;
     feedbackAnswers: number;
-    effectSnapshots: number;
-  };
+    activityFactorEvents: number;
+    historyVisibleForBoth: true;
+  }>;
+  freeAccessVerified: true;
   counts: {
     pairs: number;
     membershipClaims: number;
@@ -133,6 +154,26 @@ const timed = async <T>(
     return await operation();
   } finally {
     timingsMs[label] = Date.now() - startedAt;
+  }
+};
+
+const freeCall = async <T>(
+  label: string,
+  operation: () => Promise<T>
+): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error) {
+    if (
+      error instanceof DomainError &&
+      (error.status === 402 || /ENTITLEMENT|PAYWALL|PAYMENT_REQUIRED/i.test(error.code))
+    ) {
+      assert.fail(`${label} unexpectedly required a paid entitlement: ${error.code}`);
+    }
+    if (error instanceof Error) {
+      error.message = `${label}: ${error.message}`;
+    }
+    throw error;
   }
 };
 
@@ -186,7 +227,6 @@ const userFixture = (id: string, username: string) => ({
     city: 'Qyzylorda',
     relationshipStatus: 'in_relationship' as const,
   },
-  vectors: {},
   preferences: {
     desiredAgeRange: { min: 18, max: 99 },
     maxDistanceKm: 50,
@@ -236,14 +276,128 @@ const normalizeProvenance = (value: RecommendationProvenanceType) => ({
   activityContentHash: value.activityContentHash,
 });
 
+const unique = (values: readonly string[]): string[] => [...new Set(values)];
+
+const assertSemanticWeeklyFactors = async (input: {
+  pairId: string;
+  weekKey: string;
+}): Promise<{
+  factorEvidenceEvents: number;
+  individualFactorSnapshots: number;
+  pairEvaluations: number;
+  latestPairEvaluationSnapshotIds: string[];
+}> => {
+  const checkIns = await WeeklyCheckIn.find({
+    pairId: new Types.ObjectId(input.pairId),
+    weekKey: input.weekKey,
+  }).lean();
+  assert.equal(checkIns.length, 2, `${input.weekKey} must contain two submissions`);
+  assert.ok(
+    checkIns.every((checkIn) => checkIn.computed.factorEngine.status === 'MATERIALIZED'),
+    `${input.weekKey} Factor materialization is incomplete`
+  );
+
+  const eventIds = unique(
+    checkIns.flatMap((checkIn) => checkIn.computed.factorEngine.evidenceEventIds)
+  );
+  const individualSnapshotIds = unique(
+    checkIns.flatMap(
+      (checkIn) => checkIn.computed.factorEngine.individualSnapshotIds
+    )
+  );
+  const evaluationSnapshotIds = unique(
+    checkIns.flatMap(
+      (checkIn) => checkIn.computed.factorEngine.pairEvaluationSnapshotIds
+    )
+  );
+  const [events, snapshots, evaluations] = await Promise.all([
+    EvidenceEvent.find({ eventId: { $in: eventIds } }).lean(),
+    IndividualFactorSnapshot.find({
+      snapshotId: { $in: individualSnapshotIds },
+    }).lean(),
+    PairFactorEvaluationSnapshot.find({
+      snapshotId: { $in: evaluationSnapshotIds },
+    }).lean(),
+  ]);
+
+  assert.equal(events.length, eventIds.length, `${input.weekKey} evidence pointer broke`);
+  assert.equal(
+    snapshots.length,
+    individualSnapshotIds.length,
+    `${input.weekKey} individual snapshot pointer broke`
+  );
+  assert.equal(
+    evaluations.length,
+    evaluationSnapshotIds.length,
+    `${input.weekKey} pair evaluation pointer broke`
+  );
+  assert.deepEqual(
+    [...new Set(events.map((event) => event.factorKey))].sort(),
+    [...weeklyFactorKeys].sort(),
+    `${input.weekKey} did not materialize every weekly factor`
+  );
+  assert.ok(
+    events.every(
+      (event) =>
+        event.status === 'ACCEPTED' &&
+        event.sourceType === 'CHECK_IN' &&
+        event.subjectKind === 'INDIVIDUAL' &&
+        event.observationScope === 'SELF' &&
+        event.pairId === input.pairId &&
+        event.purpose === 'PAIR_MODEL' &&
+        event.captureMode === 'PAIR_MODEL_ONLY' &&
+        event.retentionClass === 'PAIR_CONTEXT' &&
+        event.normalizedValue.kind === 'SCALAR'
+    ),
+    `${input.weekKey} contains non-semantic or non-pair-model evidence`
+  );
+  assert.ok(
+    snapshots.every(
+      (snapshot) =>
+        snapshot.contextPairId === input.pairId &&
+        snapshot.projectionPurpose === 'PAIR_MODEL' &&
+        snapshot.status === 'AVAILABLE' &&
+        snapshot.value.kind === 'SCALAR' &&
+        snapshot.evidenceIds.length > 0
+    ),
+    `${input.weekKey} contains an unusable individual Factor snapshot`
+  );
+  assert.ok(evaluations.length >= weeklyFactorKeys.length);
+  assert.ok(
+    evaluations.every(
+      (evaluation) =>
+        evaluation.pairId === input.pairId &&
+        evaluation.context === 'COMMITTED_RELATIONSHIP' &&
+        evaluation.individualSnapshotIds.length === 2 &&
+        evaluation.evaluation.status !== 'INSUFFICIENT_DATA'
+    ),
+    `${input.weekKey} contains a non-semantic pair evaluation`
+  );
+  const latestEvaluationByFactor = new Map<
+    string,
+    (typeof evaluations)[number]
+  >();
+  for (const evaluation of evaluations) {
+    const latest = latestEvaluationByFactor.get(evaluation.factorKey);
+    if (!latest || evaluation.revision > latest.revision) {
+      latestEvaluationByFactor.set(evaluation.factorKey, evaluation);
+    }
+  }
+
+  return {
+    factorEvidenceEvents: events.length,
+    individualFactorSnapshots: snapshots.length,
+    pairEvaluations: evaluations.length,
+    latestPairEvaluationSnapshotIds: [...latestEvaluationByFactor.values()].map(
+      (evaluation) => evaluation.snapshotId
+    ),
+  };
+};
+
 const cleanupRunScope = async (): Promise<void> => {
   const pairs = await Pair.find({ key: pairKey }).select({ _id: 1 });
   const pairIds = pairs.map((pair) => pair._id);
   const pairIdStrings = pairIds.map(String);
-  const mixedPairIds: Array<Types.ObjectId | string> = [
-    ...pairIds,
-    ...pairIdStrings,
-  ];
 
   await Promise.all([
     EventLog.deleteMany({
@@ -255,18 +409,21 @@ const cleanupRunScope = async (): Promise<void> => {
     Notification.deleteMany({ userId: { $in: memberIds } }),
     RecommendationDecision.deleteMany({ pairId: { $in: pairIds } }),
     PairActivity.deleteMany({ pairId: { $in: pairIds } }),
-    VectorSnapshot.deleteMany({
+    EvidenceEvent.deleteMany({
       $or: [
-        { userId: { $in: memberIds } },
-        { pairId: { $in: mixedPairIds } },
+        { actorId: { $in: memberIds } },
+        { subjectId: { $in: memberIds } },
+        { pairId: { $in: pairIdStrings } },
       ],
     }),
-    Insight.deleteMany({
+    IndividualFactorSnapshot.deleteMany({
       $or: [
-        { userId: { $in: memberIds } },
-        { pairId: { $in: mixedPairIds } },
+        { subjectId: { $in: memberIds } },
+        { contextPairId: { $in: pairIdStrings } },
       ],
     }),
+    PairFactorSnapshot.deleteMany({ pairId: { $in: pairIdStrings } }),
+    PairFactorEvaluationSnapshot.deleteMany({ pairId: { $in: pairIdStrings } }),
     PairStateSnapshot.deleteMany({ pairId: { $in: pairIds } }),
     WeeklyCycle.deleteMany({ pairId: { $in: pairIds } }),
     WeeklyCheckIn.deleteMany({ userId: { $in: memberIds } }),
@@ -295,18 +452,21 @@ const cleanupRunScope = async (): Promise<void> => {
     Notification.countDocuments({ userId: { $in: memberIds } }),
     RecommendationDecision.countDocuments({ pairId: { $in: pairIds } }),
     PairActivity.countDocuments({ pairId: { $in: pairIds } }),
-    VectorSnapshot.countDocuments({
+    EvidenceEvent.countDocuments({
       $or: [
-        { userId: { $in: memberIds } },
-        { pairId: { $in: mixedPairIds } },
+        { actorId: { $in: memberIds } },
+        { subjectId: { $in: memberIds } },
+        { pairId: { $in: pairIdStrings } },
       ],
     }),
-    Insight.countDocuments({
+    IndividualFactorSnapshot.countDocuments({
       $or: [
-        { userId: { $in: memberIds } },
-        { pairId: { $in: mixedPairIds } },
+        { subjectId: { $in: memberIds } },
+        { contextPairId: { $in: pairIdStrings } },
       ],
     }),
+    PairFactorSnapshot.countDocuments({ pairId: { $in: pairIdStrings } }),
+    PairFactorEvaluationSnapshot.countDocuments({ pairId: { $in: pairIdStrings } }),
     PairStateSnapshot.countDocuments({ pairId: { $in: pairIds } }),
     WeeklyCycle.countDocuments({ pairId: { $in: pairIds } }),
     WeeklyCheckIn.countDocuments({ userId: { $in: memberIds } }),
@@ -338,12 +498,17 @@ const ensureCriticalIndexes = async (): Promise<void> => {
     PairStateSnapshot.createIndexes(),
     RecommendationDecision.createIndexes(),
     Notification.createIndexes(),
+    EvidenceEvent.createIndexes(),
+    IndividualFactorSnapshot.createIndexes(),
+    PairFactorSnapshot.createIndexes(),
+    PairFactorEvaluationSnapshot.createIndexes(),
   ]);
 };
 
 const runAcceptance = async (
   replicaSet: string
 ): Promise<AcceptanceEvidence> => {
+  mock.timers.setTime(cycleDates[0].getTime());
   await timed('indexes', ensureCriticalIndexes);
 
   const fixtureNow = new Date();
@@ -532,7 +697,7 @@ const runAcceptance = async (
     assert.equal(JSON.stringify(ownerA).includes(privateNoteB), false);
     assert.equal(JSON.stringify(ownerB).includes(privateNoteA), false);
 
-    const safePairProjection = toPairWeeklyCheckInPairDTO(internalPairSummary);
+    const safePairProjection = internalPairSummary;
     assert.equal(safePairProjection.pair.dataStatus, 'ENOUGH');
     const weeklyRawKeys = [
       'answers',
@@ -571,9 +736,14 @@ const runAcceptance = async (
     assert.equal(latestSnapshot.dataStatus, 'ENOUGH');
     assert.equal(latestSnapshot.revision, cycle.latestSnapshotRevision);
     assert.equal(latestSnapshot.revision, canonical.snapshot.revision);
+    const factorCounts = await assertSemanticWeeklyFactors({
+      pairId: inviteEvidence.pairId,
+      weekKey,
+    });
     assert.deepEqual(
       [...latestSnapshot.input.evidenceRevisionIds].sort(),
-      [ownerA.id, ownerB.id].sort()
+      [...factorCounts.latestPairEvaluationSnapshotIds].sort(),
+      'canonical snapshot provenance did not use semantic pair evaluations'
     );
     assert.match(latestSnapshot.input.hash, /^[a-f0-9]{64}$/);
 
@@ -618,12 +788,12 @@ const runAcceptance = async (
       2,
       'weekly submissions duplicated'
     );
-
     return {
       weekKey,
       cycle,
       latestSnapshot,
       snapshotCount,
+      ...factorCounts,
     };
   });
 
@@ -711,36 +881,44 @@ const runAcceptance = async (
   });
 
   const activityEvidence = await timed('activityLifecycle', async () => {
-    const accepted = await recommendationWorkflowService.accept({
-      pairId: inviteEvidence.pairId,
-      decisionId: recommendationEvidence.decision.id,
-      currentUserId: memberA,
-      auditRequest,
-    });
-    const acceptedRetry = await recommendationWorkflowService.accept({
-      pairId: inviteEvidence.pairId,
-      decisionId: recommendationEvidence.decision.id,
-      currentUserId: memberA,
-      auditRequest,
-    });
+    const accepted = await freeCall('cycle 1 accept activity', () =>
+      recommendationWorkflowService.accept({
+        pairId: inviteEvidence.pairId,
+        decisionId: recommendationEvidence.decision.id,
+        currentUserId: memberA,
+        auditRequest,
+      })
+    );
+    const acceptedRetry = await freeCall('cycle 1 accept activity retry', () =>
+      recommendationWorkflowService.accept({
+        pairId: inviteEvidence.pairId,
+        decisionId: recommendationEvidence.decision.id,
+        currentUserId: memberA,
+        auditRequest,
+      })
+    );
     assert.equal(accepted.status, 'ACCEPTED');
     assert.equal(acceptedRetry.status, 'ACCEPTED');
 
     const activityId = recommendationEvidence.decision.activity.id;
-    await activitiesService.startActivity({
-      activityId,
-      currentUserId: memberA,
-      auditRequest,
-    });
+    await freeCall('cycle 1 start activity', () =>
+      activitiesService.startActivity({
+        activityId,
+        currentUserId: memberA,
+        auditRequest,
+      })
+    );
     const started = await PairActivity.findById(activityId).lean();
     assert.ok(started?.startedAt, 'explicit START did not persist startedAt');
     assert.equal(started.status, 'in_progress');
     const firstStartedAt = started.startedAt.getTime();
-    await activitiesService.startActivity({
-      activityId,
-      currentUserId: memberA,
-      auditRequest,
-    });
+    await freeCall('cycle 1 start activity retry', () =>
+      activitiesService.startActivity({
+        activityId,
+        currentUserId: memberA,
+        auditRequest,
+      })
+    );
     const startedRetry = await PairActivity.findById(activityId).lean();
     assert.ok(startedRetry?.startedAt, 'activity was not reloadable after START');
     assert.equal(
@@ -760,20 +938,26 @@ const runAcceptance = async (
       ui: checkIn.map.length,
     }));
 
-    const partial = await activitiesService.checkinActivity({
-      activityId,
-      currentUserId: memberA,
-      answers: positiveFeedback,
-      auditRequest,
-    });
+    const partial = await freeCall('cycle 1 feedback A', () =>
+      activitiesService.checkinActivity({
+        activityId,
+        currentUserId: memberA,
+        answers: positiveFeedback,
+        allowPairModelUse: true,
+        auditRequest,
+      })
+    );
     assert.equal(partial.dataStatus, 'PARTIAL');
     assert.equal(partial.bothSubmitted, false);
-    const partialRetry = await activitiesService.checkinActivity({
-      activityId,
-      currentUserId: memberA,
-      answers: positiveFeedback,
-      auditRequest,
-    });
+    const partialRetry = await freeCall('cycle 1 feedback A retry', () =>
+      activitiesService.checkinActivity({
+        activityId,
+        currentUserId: memberA,
+        answers: positiveFeedback,
+        allowPairModelUse: true,
+        auditRequest,
+      })
+    );
     assert.equal(partialRetry.dataStatus, 'PARTIAL');
     const afterARetry = await PairActivity.findById(activityId).lean();
     assert.ok(afterARetry);
@@ -783,12 +967,15 @@ const runAcceptance = async (
       'same-role feedback retry appended duplicate answers'
     );
 
-    const enough = await activitiesService.checkinActivity({
-      activityId,
-      currentUserId: memberB,
-      answers: positiveFeedback,
-      auditRequest,
-    });
+    const enough = await freeCall('cycle 1 feedback B', () =>
+      activitiesService.checkinActivity({
+        activityId,
+        currentUserId: memberB,
+        answers: positiveFeedback,
+        allowPairModelUse: true,
+        auditRequest,
+      })
+    );
     assert.equal(enough.dataStatus, 'ENOUGH');
     assert.equal(enough.bothSubmitted, true);
     const afterBoth = await PairActivity.findById(activityId).lean();
@@ -803,82 +990,99 @@ const runAcceptance = async (
       'feedback contains duplicate role/question effects'
     );
 
-    const pairBeforeCompletion = await Pair.findById(inviteEvidence.pairId).lean();
-    assert.ok(pairBeforeCompletion);
-    const completedBefore = pairBeforeCompletion.progress?.completed ?? 0;
-    const completed = await activitiesService.completeActivity({
-      activityId,
-      currentUserId: memberA,
-      auditRequest,
-    });
+    const taskResultEvents = await EvidenceEvent.find({
+      pairId: inviteEvidence.pairId,
+      sourceType: 'TASK_RESULT',
+      sourceRef: { $regex: `^pair-activity:${activityId}:feedback:` },
+      status: 'ACCEPTED',
+    }).lean();
+    assert.ok(taskResultEvents.length > 0, 'check-in did not record TASK_RESULT evidence');
+    assert.ok(
+      taskResultEvents.every(
+        (event) =>
+          event.captureMode === 'PAIR_MODEL_ONLY' &&
+          event.purpose === 'PAIR_MODEL' &&
+          event.retentionClass === 'PAIR_CONTEXT'
+      ),
+      'consented check-in evidence was not isolated to the pair model'
+    );
+    const completed = await freeCall('cycle 1 complete activity', () =>
+      activitiesService.completeActivity({
+        activityId,
+        currentUserId: memberA,
+        auditRequest,
+      })
+    );
     assert.equal(completed.status, 'completed_success');
     assert.equal(completed.resultSummary.dataStatus, 'ENOUGH');
-    const effectsAfterCompletion = await VectorSnapshot.find({
-      'reason.source': 'activity_completion',
-      'reason.activityId': activityId,
+    const factorEventsAfterCompletion = await EvidenceEvent.find({
+      pairId: inviteEvidence.pairId,
+      sourceRef: { $regex: `^pair-activity:${activityId}:` },
+      status: 'ACCEPTED',
     }).lean();
     assert.ok(
-      effectsAfterCompletion.length > 0,
-      'activity completion did not persist effects'
+      factorEventsAfterCompletion.some((event) => event.sourceType === 'PAIR_ACTIVITY'),
+      'activity completion did not persist PAIR_ACTIVITY evidence'
     );
 
-    const completionRetry = await activitiesService.completeActivity({
-      activityId,
-      currentUserId: memberA,
-      auditRequest,
-    });
+    const completionRetry = await freeCall('cycle 1 complete activity retry', () =>
+      activitiesService.completeActivity({
+        activityId,
+        currentUserId: memberA,
+        auditRequest,
+      })
+    );
     assert.equal(completionRetry.status, 'completed_success');
-    const [finalActivity, finalPair, effectsAfterRetry, duplicateEffects] =
+    const [
+      finalActivity,
+      factorEventsAfterRetry,
+      individualSnapshots,
+      pairSnapshots,
+      pairEvaluationSnapshots,
+    ] =
       await Promise.all([
         PairActivity.findById(activityId).lean(),
-        Pair.findById(inviteEvidence.pairId).lean(),
-        VectorSnapshot.find({
-          'reason.source': 'activity_completion',
-          'reason.activityId': activityId,
+        EvidenceEvent.find({
+          pairId: inviteEvidence.pairId,
+          sourceRef: { $regex: `^pair-activity:${activityId}:` },
+          status: 'ACCEPTED',
         }).lean(),
-        VectorSnapshot.aggregate<{ count: number }>([
-          {
-            $match: {
-              'reason.source': 'activity_completion',
-              'reason.activityId': activityId,
-            },
-          },
-          {
-            $group: {
-              _id: {
-                userId: '$userId',
-                axis: '$axis',
-                layer: '$layer',
-              },
-              count: { $sum: 1 },
-            },
-          },
-          { $match: { count: { $gt: 1 } } },
-        ]),
+        IndividualFactorSnapshot.find({
+          contextPairId: inviteEvidence.pairId,
+          evidenceIds: { $in: factorEventsAfterCompletion.map((event) => event.eventId) },
+        }).lean(),
+        PairFactorSnapshot.find({
+          pairId: inviteEvidence.pairId,
+          evidenceIds: { $in: factorEventsAfterCompletion.map((event) => event.eventId) },
+        }).lean(),
+        PairFactorEvaluationSnapshot.find({
+          pairId: inviteEvidence.pairId,
+        }).lean(),
       ]);
     assert.ok(finalActivity);
-    assert.ok(finalPair);
     assert.equal(finalActivity.status, 'completed_success');
-    assert.equal(finalActivity.resultSummary?.effectApplied, true);
+    assert.equal(finalActivity.resultSummary?.factorEvidenceRecorded, true);
     assert.equal(
-      effectsAfterRetry.length,
-      effectsAfterCompletion.length,
-      'completion retry reapplied vector effects'
+      factorEventsAfterRetry.length,
+      factorEventsAfterCompletion.length,
+      'completion retry duplicated immutable Factor evidence'
     );
-    assert.equal(duplicateEffects.length, 0, 'activity effects duplicated');
-    assert.equal(
-      finalPair.progress?.completed,
-      completedBefore + 1,
-      'completion retry incremented pair progress twice'
-    );
+    assert.ok(individualSnapshots.length > 0, 'individual Factor snapshots missing');
+    assert.ok(pairSnapshots.length > 0, 'pair Factor snapshots missing');
+    assert.ok(pairEvaluationSnapshots.length > 0, 'pair evaluations missing');
     assert.equal(
       await RecommendationDecision.countDocuments({
-        pairId: finalPair._id,
+        pairId: new Types.ObjectId(inviteEvidence.pairId),
         cycleKey: weeklyEvidence.weekKey,
       }),
       1
     );
-    assert.equal(await PairActivity.countDocuments({ pairId: finalPair._id }), 1);
+    assert.equal(
+      await PairActivity.countDocuments({
+        pairId: new Types.ObjectId(inviteEvidence.pairId),
+      }),
+      1
+    );
 
     const finalActivityDocument = await PairActivity.findById(activityId);
     assert.ok(finalActivityDocument);
@@ -906,6 +1110,12 @@ const runAcceptance = async (
         'difficultyAvg',
         'effectApplied',
         'effectExplanation',
+        'factorEvidence',
+        'taskResultEventIds',
+        'pairActivityEventIds',
+        'individualSnapshotIds',
+        'pairSnapshotIds',
+        'pairEvaluationSnapshotIds',
       ],
       'activity DTO'
     );
@@ -913,11 +1123,325 @@ const runAcceptance = async (
     return {
       activityId,
       activityDto,
-      finalPair,
       feedbackAnswers: feedbackAnswers.length,
-      effectSnapshots: effectsAfterRetry.length,
+      factorEvents: factorEventsAfterRetry.length,
     };
   });
+
+  const cycleRuns: Array<{
+    cycleNumber: number;
+    weekKey: string;
+    factorEvidenceEvents: number;
+    individualFactorSnapshots: number;
+    pairEvaluations: number;
+    legacySnapshotRevision: number;
+    legacySnapshotCount: number;
+    cycleId: string;
+    snapshotId: string;
+    decisionId: string;
+    templateId: string;
+    actionKey: string;
+    activityId: string;
+    feedbackAnswers: number;
+    activityFactorEvents: number;
+  }> = [
+    {
+      cycleNumber: 1,
+      weekKey: weeklyEvidence.weekKey,
+      factorEvidenceEvents: weeklyEvidence.factorEvidenceEvents,
+      individualFactorSnapshots: weeklyEvidence.individualFactorSnapshots,
+      pairEvaluations: weeklyEvidence.pairEvaluations,
+      legacySnapshotRevision: weeklyEvidence.latestSnapshot.revision,
+      legacySnapshotCount: weeklyEvidence.snapshotCount,
+      cycleId: String(weeklyEvidence.cycle._id),
+      snapshotId: String(weeklyEvidence.latestSnapshot._id),
+      decisionId: recommendationEvidence.decision.id,
+      templateId: recommendationEvidence.templateId,
+      actionKey: recommendationEvidence.decision.activity.actionDefinition.key,
+      activityId: activityEvidence.activityId,
+      feedbackAnswers: activityEvidence.feedbackAnswers,
+      activityFactorEvents: activityEvidence.factorEvents,
+    },
+  ];
+
+  for (let cycleIndex = 1; cycleIndex < cycleDates.length; cycleIndex += 1) {
+    const cycleNumber = cycleIndex + 1;
+    const cycleDate = cycleDates[cycleIndex];
+    const notes = privateNotesByCycle[cycleIndex];
+    assert.ok(cycleDate && notes);
+    mock.timers.setTime(cycleDate.getTime());
+
+    const weekly = await timed(`weeklyCycle${cycleNumber}`, async () => {
+      const weekKey = currentWeekKey();
+      const answersA = {
+        closeness: 0.72 + cycleIndex * 0.02,
+        fatigue: 0.3 - cycleIndex * 0.02,
+        irritation: 0.2 - cycleIndex * 0.02,
+        readiness: 0.76 + cycleIndex * 0.02,
+        unresolvedTopic: false,
+        note: notes.memberA,
+      };
+      const answersB = {
+        closeness: 0.68 + cycleIndex * 0.02,
+        fatigue: 0.32 - cycleIndex * 0.02,
+        irritation: 0.22 - cycleIndex * 0.02,
+        readiness: 0.74 + cycleIndex * 0.02,
+        unresolvedTopic: false,
+        note: notes.memberB,
+      };
+      const submittedA = await freeCall(`cycle ${cycleNumber} submit A`, () =>
+        weeklyCheckInService.submit({
+          currentUserId: memberA,
+          pairId: inviteEvidence.pairId,
+          weekKey,
+          answers: answersA,
+          auditRequest,
+        })
+      );
+      const retriedA = await freeCall(`cycle ${cycleNumber} retry A`, () =>
+        weeklyCheckInService.submit({
+          currentUserId: memberA,
+          pairId: inviteEvidence.pairId,
+          weekKey,
+          answers: answersA,
+          auditRequest,
+        })
+      );
+      assert.equal(retriedA.id, submittedA.id);
+      await freeCall(`cycle ${cycleNumber} submit B`, () =>
+        weeklyCheckInService.submit({
+          currentUserId: memberB,
+          pairId: inviteEvidence.pairId,
+          weekKey,
+          answers: answersB,
+          auditRequest,
+        })
+      );
+
+      const pair = await Pair.findById(inviteEvidence.pairId);
+      assert.ok(pair);
+      const [canonical, ownerA, ownerB] = await Promise.all([
+        freeCall(`cycle ${cycleNumber} pair projection`, () =>
+          weeklyCycleService.current({ pair, currentUserId: memberA })
+        ),
+        freeCall(`cycle ${cycleNumber} owner A projection`, () =>
+          weeklyCheckInService.current({
+            currentUserId: memberA,
+            pairId: inviteEvidence.pairId,
+            weekKey,
+          })
+        ),
+        freeCall(`cycle ${cycleNumber} owner B projection`, () =>
+          weeklyCheckInService.current({
+            currentUserId: memberB,
+            pairId: inviteEvidence.pairId,
+            weekKey,
+          })
+        ),
+      ]);
+      assert.equal(canonical.pair.dataStatus, 'ENOUGH');
+      assert.equal(canonical.pair.bothSubmitted, true);
+      assert.ok(ownerA && ownerB);
+      assert.equal(ownerA.answers.note, notes.memberA);
+      assert.equal(ownerB.answers.note, notes.memberB);
+      assertOmitsSecrets(canonical, [notes.memberA, notes.memberB], `cycle ${cycleNumber}`);
+
+      const cycle = await WeeklyCycle.findOne({
+        pairId: pair._id,
+        cycleKey: weekKey,
+      }).lean();
+      assert.ok(cycle?.latestSnapshotId);
+      assert.equal(cycle.pairReadiness, 'ENOUGH');
+      assert.equal(cycle.submissionCount, 2);
+      const latestSnapshot = await PairStateSnapshot.findById(
+        cycle.latestSnapshotId
+      ).lean();
+      assert.ok(latestSnapshot);
+      assert.equal(latestSnapshot.dataStatus, 'ENOUGH');
+      const legacySnapshotCount = await PairStateSnapshot.countDocuments({
+        cycleId: cycle._id,
+      });
+      const factorCounts = await assertSemanticWeeklyFactors({
+        pairId: inviteEvidence.pairId,
+        weekKey,
+      });
+      assert.deepEqual(
+        [...latestSnapshot.input.evidenceRevisionIds].sort(),
+        [...factorCounts.latestPairEvaluationSnapshotIds].sort(),
+        `cycle ${cycleNumber} canonical provenance did not use Factor evaluations`
+      );
+      return {
+        weekKey,
+        cycle,
+        latestSnapshot,
+        legacySnapshotCount,
+        ...factorCounts,
+      };
+    });
+
+    const recommendation = await timed(`recommendation${cycleNumber}`, async () => {
+      const offered = await freeCall(`cycle ${cycleNumber} recommendation`, () =>
+        recommendationWorkflowService.offer({
+          pairId: inviteEvidence.pairId,
+          currentUserId: memberA,
+          auditRequest,
+        })
+      );
+      const retry = await freeCall(`cycle ${cycleNumber} recommendation retry`, () =>
+        recommendationWorkflowService.offer({
+          pairId: inviteEvidence.pairId,
+          currentUserId: memberB,
+          auditRequest,
+        })
+      );
+      assert.equal(retry.id, offered.id);
+      assert.equal(retry.activity.id, offered.activity.id);
+      const [storedDecision, storedActivity] = await Promise.all([
+        RecommendationDecision.findById(offered.id).lean(),
+        PairActivity.findById(offered.activity.id).lean(),
+      ]);
+      assert.ok(storedDecision?.provenance);
+      assert.ok(storedActivity?.recommendationProvenance);
+      assert.equal(String(storedDecision.provenance.cycleId), String(weekly.cycle._id));
+      assert.equal(
+        String(storedDecision.provenance.snapshotId),
+        String(weekly.latestSnapshot._id)
+      );
+      assert.ok(storedActivity.actionDefinition);
+      assert.ok(storedActivity.targetFactorKeys.length > 0);
+      assert.equal(Object.prototype.hasOwnProperty.call(storedActivity, 'axis'), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(storedActivity, 'effect'), false);
+      const templateId = storedActivity.stateMeta?.templateId;
+      assert.equal(typeof templateId, 'string');
+      assert.ok(
+        SYSTEM_ACTIVITY_TEMPLATES.some(
+          (template) => String(template._id) === templateId
+        )
+      );
+      return {
+        decision: offered,
+        templateId: String(templateId),
+        actionKey: storedActivity.actionDefinition.key,
+      };
+    });
+
+    const activity = await timed(`activityLifecycle${cycleNumber}`, async () => {
+      await freeCall(`cycle ${cycleNumber} accept activity`, () =>
+        recommendationWorkflowService.accept({
+          pairId: inviteEvidence.pairId,
+          decisionId: recommendation.decision.id,
+          currentUserId: memberA,
+          auditRequest,
+        })
+      );
+      const activityId = recommendation.decision.activity.id;
+      await freeCall(`cycle ${cycleNumber} start activity`, () =>
+        activitiesService.startActivity({
+          activityId,
+          currentUserId: memberA,
+          auditRequest,
+        })
+      );
+      const document = await PairActivity.findById(activityId);
+      assert.ok(document);
+      const dto = toPairActivityDTO(
+        document.toObject<PairActivityType & { _id: Types.ObjectId }>()
+      );
+      const positiveFeedback = dto.checkIns.map((checkIn) => ({
+        checkInId: checkIn.id,
+        ui: checkIn.map.length,
+      }));
+      await freeCall(`cycle ${cycleNumber} feedback A`, () =>
+        activitiesService.checkinActivity({
+          activityId,
+          currentUserId: memberA,
+          answers: positiveFeedback,
+          allowPairModelUse: true,
+          auditRequest,
+        })
+      );
+      const enough = await freeCall(`cycle ${cycleNumber} feedback B`, () =>
+        activitiesService.checkinActivity({
+          activityId,
+          currentUserId: memberB,
+          answers: positiveFeedback,
+          allowPairModelUse: true,
+          auditRequest,
+        })
+      );
+      assert.equal(enough.dataStatus, 'ENOUGH');
+      const completed = await freeCall(`cycle ${cycleNumber} complete activity`, () =>
+        activitiesService.completeActivity({
+          activityId,
+          currentUserId: memberA,
+          auditRequest,
+        })
+      );
+      assert.equal(completed.status, 'completed_success');
+      const completionRetry = await freeCall(
+        `cycle ${cycleNumber} complete retry`,
+        () =>
+          activitiesService.completeActivity({
+            activityId,
+            currentUserId: memberB,
+            auditRequest,
+          })
+      );
+      assert.equal(completionRetry.status, 'completed_success');
+
+      const stored = await PairActivity.findById(activityId).lean();
+      assert.ok(stored?.resultSummary?.factorEvidenceRecorded);
+      const provenance = stored.resultSummary.factorEvidence;
+      const factorEventIds = unique([
+        ...provenance.taskResultEventIds,
+        ...provenance.pairActivityEventIds,
+      ]);
+      const [factorEvents, pairSnapshots, evaluations] = await Promise.all([
+        EvidenceEvent.find({ eventId: { $in: factorEventIds } }).lean(),
+        PairFactorSnapshot.find({
+          snapshotId: { $in: provenance.pairSnapshotIds },
+        }).lean(),
+        PairFactorEvaluationSnapshot.find({
+          snapshotId: { $in: provenance.pairEvaluationSnapshotIds },
+        }).lean(),
+      ]);
+      assert.equal(factorEvents.length, factorEventIds.length);
+      assert.ok(
+        factorEvents.some((event) => event.sourceType === 'TASK_RESULT') &&
+          factorEvents.some((event) => event.sourceType === 'PAIR_ACTIVITY')
+      );
+      assert.ok(pairSnapshots.length > 0);
+      assert.ok(evaluations.length > 0);
+      assert.equal(
+        await EvidenceEvent.countDocuments({ eventId: { $in: factorEventIds } }),
+        factorEvents.length,
+        'completion retry duplicated activity Factor evidence'
+      );
+      return {
+        activityId,
+        feedbackAnswers: stored.answers?.length ?? 0,
+        factorEvents: factorEvents.length,
+      };
+    });
+
+    cycleRuns.push({
+      cycleNumber,
+      weekKey: weekly.weekKey,
+      factorEvidenceEvents: weekly.factorEvidenceEvents,
+      individualFactorSnapshots: weekly.individualFactorSnapshots,
+      pairEvaluations: weekly.pairEvaluations,
+      legacySnapshotRevision: weekly.latestSnapshot.revision,
+      legacySnapshotCount: weekly.legacySnapshotCount,
+      cycleId: String(weekly.cycle._id),
+      snapshotId: String(weekly.latestSnapshot._id),
+      decisionId: recommendation.decision.id,
+      templateId: recommendation.templateId,
+      actionKey: recommendation.actionKey,
+      activityId: activity.activityId,
+      feedbackAnswers: activity.feedbackAnswers,
+      activityFactorEvents: activity.factorEvents,
+    });
+  }
 
   const assertHistoryPrivacy = async (): Promise<void> => {
     await timed('historyPrivacy', async () => {
@@ -925,44 +1449,26 @@ const runAcceptance = async (
       assert.ok(pair, 'pair was not reloadable for history');
       const roleA = pair.members[0] === memberA ? 'A' : 'B';
       const roleB = roleA === 'A' ? 'B' : 'A';
-      const [historyA, historyB, storedActivity, users] = await Promise.all([
-        pairHistoryService.list({ pair, role: roleA, limit: 20 }),
-        pairHistoryService.list({ pair, role: roleB, limit: 20 }),
-        PairActivity.findById(activityEvidence.activityId).lean(),
-        User.find({ id: { $in: memberIds } }).select({ _id: 1 }).lean(),
+      const [historyA, historyB] = await Promise.all([
+        freeCall('history A', () =>
+          pairHistoryService.list({ pair, role: roleA, limit: 20 })
+        ),
+        freeCall('history B', () =>
+          pairHistoryService.list({ pair, role: roleB, limit: 20 })
+        ),
       ]);
-      assert.ok(storedActivity);
-      const assignedValue = storedActivity.stateMeta?.assignedMemberIds;
-      const assignedMemberIds = Array.isArray(assignedValue)
-        ? assignedValue.filter(
-            (value): value is string => typeof value === 'string'
-          )
-        : [];
-      const internalUserObjectIds = users.map((user) => String(user._id));
-      const assignedInternalIdsInsteadOfExternalIds =
-        assignedMemberIds.length === 2 &&
-        assignedMemberIds.every((id) => internalUserObjectIds.includes(id)) &&
-        assignedMemberIds.every((id) => !memberIds.includes(id));
       for (const [surface, history] of [
         ['pair history A', historyA] as const,
         ['pair history B', historyB] as const,
       ]) {
-        const includesCompletedActivity = history.items.some(
-          (item) =>
-            item.kind === 'activity' && item.id === activityEvidence.activityId
-        );
-        if (
-          !includesCompletedActivity &&
-          assignedInternalIdsInsteadOfExternalIds
-        ) {
-          assert.fail(
-            'SERVICE_CONTRACT_BLOCKER: pair history filters external Pair.members IDs, but the recommendation stored stateMeta.assignedMemberIds as internal User ObjectId strings'
+        for (const cycle of cycleRuns) {
+          assert.ok(
+            history.items.some(
+              (item) => item.kind === 'activity' && item.id === cycle.activityId
+            ),
+            `${surface} omitted cycle ${cycle.cycleNumber} activity`
           );
         }
-        assert.ok(
-          includesCompletedActivity,
-          `${surface} omitted the completed activity`
-        );
         assertNoForbiddenKeys(
           history,
           [
@@ -981,7 +1487,11 @@ const runAcceptance = async (
           ],
           surface
         );
-        assertOmitsSecrets(history, [privateNoteA, privateNoteB], surface);
+        assertOmitsSecrets(
+          history,
+          privateNotesByCycle.flatMap((notes) => [notes.memberA, notes.memberB]),
+          surface
+        );
       }
     });
   };
@@ -999,30 +1509,39 @@ const runAcceptance = async (
         type: 'PAIR_JOINED',
         sourceKey: `invite:${inviteEvidence.inviteId}`,
       },
-      {
-        userIds: memberIds,
-        pairId: inviteEvidence.pairId,
-        type: 'CYCLE_AVAILABLE',
-        sourceKey: `cycle:${String(weeklyEvidence.cycle._id)}`,
-      },
-      {
-        userIds: memberIds,
-        pairId: inviteEvidence.pairId,
-        type: 'SUMMARY_READY',
-        sourceKey: `snapshot:${String(weeklyEvidence.latestSnapshot._id)}`,
-      },
-      {
-        userIds: memberIds,
-        pairId: inviteEvidence.pairId,
-        type: 'ACTION_AVAILABLE',
-        sourceKey: `decision:${recommendationEvidence.decision.id}`,
-      },
-      {
-        userIds: [memberB],
-        pairId: inviteEvidence.pairId,
-        type: 'FEEDBACK_REQUESTED',
-        sourceKey: `activity:${activityEvidence.activityId}`,
-      },
+      ...cycleRuns.flatMap(
+        (cycle): Array<{
+          userIds: string[];
+          pairId: string;
+          type: NotificationType;
+          sourceKey: string;
+        }> => [
+          {
+            userIds: memberIds,
+            pairId: inviteEvidence.pairId,
+            type: 'CYCLE_AVAILABLE',
+            sourceKey: `cycle:${cycle.cycleId}`,
+          },
+          {
+            userIds: memberIds,
+            pairId: inviteEvidence.pairId,
+            type: 'SUMMARY_READY',
+            sourceKey: `snapshot:${cycle.snapshotId}`,
+          },
+          {
+            userIds: memberIds,
+            pairId: inviteEvidence.pairId,
+            type: 'ACTION_AVAILABLE',
+            sourceKey: `decision:${cycle.decisionId}`,
+          },
+          {
+            userIds: [memberB],
+            pairId: inviteEvidence.pairId,
+            type: 'FEEDBACK_REQUESTED',
+            sourceKey: `activity:${cycle.activityId}`,
+          },
+        ]
+      ),
     ];
     await Promise.all(
       notificationSpecs.flatMap((spec) => [
@@ -1048,23 +1567,17 @@ const runAcceptance = async (
         pairId: new Types.ObjectId(inviteEvidence.pairId),
       }),
     ]);
-    assert.deepEqual(
-      pageA.items.map((item) => item.type).sort(),
-      ['ACTION_AVAILABLE', 'CYCLE_AVAILABLE', 'PAIR_JOINED', 'SUMMARY_READY']
+    const expectedA = 1 + cycleRuns.length * 3;
+    const expectedB = 1 + cycleRuns.length * 4;
+    assert.equal(pageA.items.length, expectedA);
+    assert.equal(pageB.items.length, expectedB);
+    assert.equal(pageA.unreadCount, expectedA);
+    assert.equal(pageB.unreadCount, expectedB);
+    assert.equal(
+      count,
+      expectedA + expectedB,
+      'notification types or dedupe count drifted'
     );
-    assert.deepEqual(
-      pageB.items.map((item) => item.type).sort(),
-      [
-        'ACTION_AVAILABLE',
-        'CYCLE_AVAILABLE',
-        'FEEDBACK_REQUESTED',
-        'PAIR_JOINED',
-        'SUMMARY_READY',
-      ]
-    );
-    assert.equal(pageA.unreadCount, 4);
-    assert.equal(pageB.unreadCount, 5);
-    assert.equal(count, 9, 'notification types or dedupe count drifted');
     assert.equal(duplicateNotifications.length, 0, 'notifications duplicated');
     assertNoForbiddenKeys(
       pageA,
@@ -1083,10 +1596,43 @@ const runAcceptance = async (
   assert.ok(auditEvents.length > 0, 'acceptance flow did not emit audit events');
   assertOmitsSecrets(
     auditEvents,
-    [privateNoteA, privateNoteB, inviteEvidence.token],
+    [
+      ...privateNotesByCycle.flatMap((notes) => [notes.memberA, notes.memberB]),
+      inviteEvidence.token,
+    ],
     'audit events'
   );
+  assert.doesNotMatch(
+    JSON.stringify(auditEvents),
+    /ENTITLEMENT_REQUIRED|PAYWALL|PAYMENT_REQUIRED|"status":402/i,
+    'free-cycle flow emitted a paid-access failure'
+  );
   await assertHistoryPrivacy();
+  assert.ok(cycleRuns.length >= 3, 'fewer than three free cycles were exercised');
+  assert.deepEqual(
+    cycleRuns.map((cycle) => cycle.weekKey),
+    cycleDates.map((cycleDate) => currentWeekKey(cycleDate)),
+    'weekly cycles were not exercised in the expected consecutive weeks'
+  );
+  const [weeklySubmissionCount, weeklyCycleCount, decisionCount, activityCount] =
+    await Promise.all([
+      WeeklyCheckIn.countDocuments({
+        pairId: new Types.ObjectId(inviteEvidence.pairId),
+      }),
+      WeeklyCycle.countDocuments({
+        pairId: new Types.ObjectId(inviteEvidence.pairId),
+      }),
+      RecommendationDecision.countDocuments({
+        pairId: new Types.ObjectId(inviteEvidence.pairId),
+      }),
+      PairActivity.countDocuments({
+        pairId: new Types.ObjectId(inviteEvidence.pairId),
+      }),
+    ]);
+  assert.equal(weeklySubmissionCount, cycleRuns.length * 2);
+  assert.equal(weeklyCycleCount, cycleRuns.length);
+  assert.equal(decisionCount, cycleRuns.length);
+  assert.equal(activityCount, cycleRuns.length);
 
   return {
     replicaSet,
@@ -1096,30 +1642,31 @@ const runAcceptance = async (
       retryableConflicts: inviteEvidence.retryableConflicts,
       retryAlreadyAccepted: inviteEvidence.retryAlreadyAccepted,
     },
-    canonical: {
-      weekKey: weeklyEvidence.weekKey,
-      dataStatus: 'ENOUGH',
-      snapshotRevision: weeklyEvidence.latestSnapshot.revision,
-      snapshotCount: weeklyEvidence.snapshotCount,
-    },
-    recommendation: {
-      templateId: recommendationEvidence.templateId,
-      decisionVersion: recommendationEvidence.decision.decisionVersion,
-      provenanceVersion: 'recommendation-provenance-v1',
-    },
-    activity: {
-      status: 'completed_success',
-      feedbackRoles: 2,
-      feedbackAnswers: activityEvidence.feedbackAnswers,
-      effectSnapshots: activityEvidence.effectSnapshots,
-    },
+    cycles: cycleRuns.map((cycle) => ({
+      cycleNumber: cycle.cycleNumber,
+      weekKey: cycle.weekKey,
+      dataStatus: 'ENOUGH' as const,
+      factorEvidenceEvents: cycle.factorEvidenceEvents,
+      individualFactorSnapshots: cycle.individualFactorSnapshots,
+      pairEvaluations: cycle.pairEvaluations,
+      legacySnapshotRevision: cycle.legacySnapshotRevision,
+      legacySnapshotCount: cycle.legacySnapshotCount,
+      decisionId: cycle.decisionId,
+      templateId: cycle.templateId,
+      actionKey: cycle.actionKey,
+      activityId: cycle.activityId,
+      feedbackAnswers: cycle.feedbackAnswers,
+      activityFactorEvents: cycle.activityFactorEvents,
+      historyVisibleForBoth: true as const,
+    })),
+    freeAccessVerified: true,
     counts: {
       pairs: 1,
       membershipClaims: 2,
-      weeklySubmissions: 2,
-      weeklyCycles: 1,
-      recommendationDecisions: 1,
-      activities: 1,
+      weeklySubmissions: cycleRuns.length * 2,
+      weeklyCycles: cycleRuns.length,
+      recommendationDecisions: cycleRuns.length,
+      activities: cycleRuns.length,
       notifications: notificationCount,
       auditEvents: auditEvents.length,
     },
@@ -1134,6 +1681,7 @@ const runAcceptance = async (
 
 const main = async (): Promise<void> => {
   let evidence: AcceptanceEvidence | undefined;
+  let fakeClockEnabled = false;
   await timed('connect', async () => {
     await mongoose.connect(mongodbUri, {
       autoIndex: false,
@@ -1151,8 +1699,13 @@ const main = async (): Promise<void> => {
       expectedReplicaSet,
       'Mongo connection is not using the requested replica set'
     );
+    mock.timers.enable({ apis: ['Date'], now: cycleDates[0] });
+    fakeClockEnabled = true;
     evidence = await runAcceptance(String(hello.setName));
   } finally {
+    if (fakeClockEnabled) {
+      mock.timers.reset();
+    }
     if (mongoose.connection.readyState === 1) {
       await timed('cleanup', cleanupRunScope);
     }

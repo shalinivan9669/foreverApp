@@ -41,7 +41,7 @@ const userUpdateSchema = z
   .strict();
 
 export async function POST(request: Request) {
-  const auth = requireSession(request);
+  const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 

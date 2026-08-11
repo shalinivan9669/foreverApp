@@ -6,25 +6,6 @@ export type ApiJsonObject = {
 
 export type ApiJsonValue = ApiJsonPrimitive | ApiJsonObject | ApiJsonValue[];
 
-export type InsightDTO = {
-  id: string;
-  ownerType?: 'user' | 'pair';
-  userId?: string;
-  pairId?: string;
-  ruleId?: string;
-  axis?: QuestionnaireAxis;
-  severity?: 1 | 2 | 3;
-  title?: string;
-  safeWording?: string;
-  recommendedAction?: string;
-  activityId?: string;
-  questionnaireId?: string;
-  pairShared?: boolean;
-  cooldownUntil?: string;
-  createdAt?: string;
-  delta?: number;
-};
-
 export type WeeklyCheckInAnswersDTO = {
   closeness: number;
   fatigue: number;
@@ -37,17 +18,9 @@ export type WeeklyCheckInAnswersDTO = {
 export type WeeklyCheckInDTO = {
   id: string;
   userId: string;
-  pairId?: string;
+  pairId: string;
   weekKey: string;
   answers: WeeklyCheckInAnswersDTO;
-  computed: {
-    userStateDelta: Partial<Record<QuestionnaireAxis, number>>;
-    pairRiskDelta?: number;
-    generatedInsightIds: string[];
-  };
-  readiness: { score: number; updatedAt?: string };
-  fatigue: { score: number; updatedAt?: string };
-  insights: InsightDTO[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -179,6 +152,11 @@ export type PersonalTodayMode =
   | 'repair'
   | 'growth';
 
+export type PersonalTodayDataStatus =
+  | 'AVAILABLE'
+  | 'MISSING'
+  | 'INSUFFICIENT';
+
 export type PersonalTodayDTO = {
   user: {
     id: string;
@@ -209,8 +187,15 @@ export type PersonalTodayDTO = {
     hasPair: boolean;
     pairId?: string;
     status?: 'active' | 'paused';
-    warmth?: number;
     label: string;
+  };
+
+  dataStatus: {
+    overall: PersonalTodayDataStatus;
+    metricGroups: {
+      resource: PersonalTodayDataStatus;
+      connection: PersonalTodayDataStatus;
+    };
   };
 
   hero: {
@@ -218,9 +203,9 @@ export type PersonalTodayDTO = {
     title: string;
     subtitle: string;
     rings: {
-      resource: number;
-      closeness: number;
-      tension: number;
+      resource?: number;
+      closeness?: number;
+      tension?: number;
     };
     hints: string[];
   };
@@ -267,7 +252,7 @@ export type PersonalTodayDTO = {
     alternatives: string[];
     primaryCta: string;
     secondaryCta: string;
-  };
+  } | null;
 
   todayMap: Array<{
     key:
@@ -396,16 +381,6 @@ export type PairDTO = {
   status: PairState;
   createdAt?: string;
   updatedAt?: string;
-  progress?: {
-    streak: number;
-    completed: number;
-  };
-  readiness?: {
-    score: number;
-  };
-  fatigue?: {
-    score: number;
-  };
 };
 
 export type PairMeDTO = {
@@ -415,34 +390,11 @@ export type PairMeDTO = {
   status: PairState | null;
 };
 
-export type PairPassportDTO = {
-  strongSides: { axis: string; facets: string[] }[];
-  riskZones: { axis: string; facets: string[]; severity: 1 | 2 | 3 }[];
-  complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
-  levelDelta: { axis: string; delta: number }[];
-  lastDiagnosticsAt?: string;
-};
-
-export type PairDashboardDiagnosticsDTO = {
-  overall?: {
-    score: number;
-    confidence: number;
-    status: 'strong' | 'neutral' | 'risk' | 'insufficient_data';
-  };
-  strongSides: { axis: string; facets: string[] }[];
-  riskZones: { axis: string; facets: string[]; severity: 1 | 2 | 3 }[];
-  complementMap: { axis: string; A_covers_B: string[]; B_covers_A: string[] }[];
-  levelDelta: { axis: string; delta: number }[];
-  lastDiagnosticsAt?: string;
-};
-
 export type PairNextStepKind =
   | 'complete_weekly_checkin'
   | 'wait_or_invite_peer_checkin'
   | 'review_weekly_divergence'
   | 'complete_current_activity'
-  | 'run_pair_diagnostics'
-  | 'review_risk_zone'
   | 'suggest_activity'
   | 'none';
 
@@ -452,46 +404,6 @@ export type PairNextStepDTO = {
   description: string;
   href?: string;
   ctaLabel?: string;
-  axis?: string;
-  severity?: 1 | 2 | 3;
-};
-
-export type PairAxisDiagnosticDTO = {
-  axis: QuestionnaireAxis;
-  status: 'insufficient_data' | 'strong' | 'risk' | 'complement' | 'neutral';
-  a: number;
-  b: number;
-  delta: number;
-  confidence: number;
-  safeWording: string;
-};
-
-export type PairAnswerSignalDTO = {
-  axis: QuestionnaireAxis;
-  a: number;
-  b: number;
-  confidenceA: number;
-  confidenceB: number;
-  pairConfidence: number;
-  delta: number;
-  status: PairAxisDiagnosticDTO['status'];
-  reasons: string[];
-  recommendedAction?: string;
-};
-
-export type PairDiagnosticsDTO = {
-  pairId: string;
-  passport: PairPassportDTO;
-  axes?: PairAxisDiagnosticDTO[];
-  pairAnswerSignals?: PairAnswerSignalDTO[];
-  overall?: {
-    score: number;
-    confidence: number;
-    status: 'strong' | 'neutral' | 'risk' | 'insufficient_data';
-  };
-  fatigue?: { score: number; updatedAt?: string };
-  readiness?: { score: number; updatedAt?: string };
-  generatedInsightIds?: string[];
 };
 
 export type MatchFeedCandidateDTO = {
@@ -640,7 +552,14 @@ export type ActivityResultSummaryDTO = {
   bothSubmitted: boolean;
   status: 'completed_success' | 'completed_partial' | 'failed';
   completedAt?: string;
-  resultVersion: 'activity-result-v1';
+  resultVersion: 'activity-result-v2';
+  evidenceStatus: 'RECORDED' | 'PENDING';
+};
+
+export type ActivityActionDefinitionRef = {
+  key: string;
+  actionVersion: number;
+  registryVersion: number;
 };
 
 export type PairActivityDTO = {
@@ -650,7 +569,8 @@ export type PairActivityDTO = {
   title: ActivityI18nText;
   description?: ActivityI18nText;
   why: ActivityI18nText;
-  axis: string[];
+  actionDefinition?: ActivityActionDefinitionRef;
+  targetFactorKeys: string[];
   archetype: string;
   intent: 'improve' | 'celebrate';
   mode: 'together' | 'solo';
@@ -690,18 +610,17 @@ export type PairActivitySuggestionPlanDTO = {
   status:
     | 'blocked_by_current_activity'
     | 'blocked_by_pair_state'
-    | 'needs_diagnostics'
-    | 'needs_weekly_checkin'
+    | 'insufficient_factor_data'
     | 'ready';
   reasonCode:
     | 'CURRENT_ACTIVITY'
     | 'PAIR_UNAVAILABLE'
-    | 'CURRENT_CYCLE_SUPPORT';
+    | 'FACTOR_SUPPORT';
   explanation: {
     ru: string;
     en: string;
   };
-  decisionVersion: 'activity-decision-v1';
+  decisionVersion: 'activity-decision-v2';
 };
 
 export type PairActivitySuggestionResponse = {
@@ -715,8 +634,7 @@ export type PairActivitySuggestionResponse = {
 export type PairEventCategory =
   | 'relationship_milestone'
   | 'calendar_event'
-  | 'behavioral_event'
-  | 'system_signal';
+  | 'behavioral_event';
 
 export type PairEventType =
   | 'first_month'
@@ -729,10 +647,9 @@ export type PairEventType =
   | 'partner_birthday'
   | 'inactive_pair'
   | 'failed_activity_recovery'
-  | 'high_fatigue_recovery'
-  | 'weekly_divergence_repair'
-  | 'weekly_success_celebration'
-  | 'diagnostics_risk_focus';
+  | 'weekly_overload_recovery'
+  | 'weekly_tension_support'
+  | 'weekly_success_celebration';
 
 export type PairEventStatus =
   | 'upcoming'
@@ -755,13 +672,10 @@ export type PairEventDTO = {
   windowStart: string;
   windowEnd: string;
   status: PairEventStatus;
-  priority: 1 | 2 | 3;
-  severity?: 1 | 2 | 3;
-  axis?: QuestionnaireAxis[];
   canAccept: boolean;
   canDecline: boolean;
   canSnooze: boolean;
-  generatedActivityIds: string[];
+  hasGeneratedActivity: boolean;
   acceptedAt?: string;
   declinedAt?: string;
   snoozedUntil?: string;
@@ -785,7 +699,8 @@ export type PairEventMutationResponse = {
 export type ActivityOfferDTO = {
   id: string;
   title: ActivityI18nText;
-  axis: string[];
+  actionDefinition: ActivityActionDefinitionRef;
+  targetFactorKeys: string[];
   difficulty: 1 | 2 | 3 | 4 | 5;
   stepsPreview?: {
     ru: string[];
@@ -801,6 +716,7 @@ export type ActivityCheckInRequest = {
     checkInId: string;
     ui: number;
   }>;
+  allowPairModelUse?: boolean;
 };
 
 export type ActivityCheckInResponse = ActivityResultSummaryDTO;
@@ -824,14 +740,6 @@ export type CreateActivityFromTemplateResponse = {
   offer?: ActivityOfferDTO;
 };
 
-export type QuestionnaireAxis =
-  | 'communication'
-  | 'domestic'
-  | 'personalViews'
-  | 'finance'
-  | 'sexuality'
-  | 'psyche';
-
 export type QuestionnaireAudience = 'pair' | 'solo' | 'universal';
 export type QuestionnaireScope = 'personal' | 'couple';
 
@@ -841,7 +749,7 @@ export type QuestionnaireCta = 'start' | 'continue' | 'result' | 'locked';
 
 export type QuestionnaireCardDTO = {
   id: string;
-  vector: QuestionnaireAxis;
+  domainKey: string;
   scope: QuestionnaireScope;
   audience: QuestionnaireAudience;
   title: string;
@@ -853,7 +761,6 @@ export type QuestionnaireCardDTO = {
   estMinutesMax: number;
   level: 1 | 2 | 3 | 4 | 5;
   rewardCoins?: number;
-  insightsCount?: number;
   status: QuestionnaireStatus;
   progressPct?: number;
   lockReason?: string;
@@ -864,40 +771,32 @@ export type QuestionnaireCardDTO = {
 
 export type QuestionnaireQuestionDTO = {
   id: string;
-  _id?: string;
-  axis: QuestionnaireAxis;
-  facet: string;
-  polarity: '+' | '-' | 'neutral';
+  domainKey: string;
+  topicKey: string;
   scale: 'likert5' | 'bool';
-  map: number[];
-  weight: number;
+  optionCount: number;
   text: Record<string, string>;
-  polarityNumeric?: 1 | -1;
-  reverseScoring?: boolean;
-  confidenceWeight?: number;
   scope?: 'solo' | 'pair' | 'pair_or_solo';
   audience?: 'personal' | 'couple' | 'weekly';
   sensitivity?: 'low' | 'medium' | 'high';
   locale?: 'ru' | 'en';
   explanation?: string;
-  scoringVersion?: string;
+  contentRevision: string;
 };
 
 export type QuestionDTO = QuestionnaireQuestionDTO;
 
 export type QuestionnaireDTO = {
   id: string;
-  _id?: string;
+  contentModel: 'SEMANTIC_V1';
   scope: QuestionnaireScope;
   title: Record<string, string>;
   description?: Record<string, string>;
-  meta?: Record<string, unknown>;
   target: {
     type: 'individual' | 'couple';
     gender: 'unisex' | 'male' | 'female';
-    vector: '+' | '-' | 'neutral';
   };
-  axis: QuestionnaireAxis;
+  domainKey: string;
   difficulty: 1 | 2 | 3;
   tags: string[];
   version: number;
@@ -905,253 +804,13 @@ export type QuestionnaireDTO = {
   questions: QuestionnaireQuestionDTO[];
 };
 
-export type ProfilePersonalDTO = {
-  gender: 'male' | 'female' | null;
-  age: number | null;
-  city: string;
-  relationshipStatus: 'seeking' | 'in_relationship' | null;
-};
-
-export type ProfileModeDTO = {
-  kind: 'solo' | 'paired';
-  status: 'solo_new' | 'solo_with_history' | 'paired_active' | 'paired_paused';
-  label: string;
-  description: string;
-};
-
-export type ProfileCurrentPairDTO = null | {
-  id: string;
-  status: 'active' | 'paused';
-  since: string;
-  daysTogether?: number;
-};
-
-export type RelationshipContextDTO = {
-  currentPair: ProfileCurrentPairDTO;
-  hasPairHistory: boolean;
-};
-
-export type ProfileCompletionLevelDTO = 'empty' | 'basic' | 'good' | 'strong';
-
-export type ProfileCompletionDTO = {
-  score: number;
-  level: ProfileCompletionLevelDTO;
-  missing: Array<{
-    key: string;
-    label: string;
-    href: string;
-  }>;
-  sections: {
-    account: {
-      score: number;
-      completed: boolean;
-      missing: string[];
-    };
-    matchCard: {
-      score: number;
-      completed: boolean;
-      isActive: boolean;
-      missing: string[];
-    };
-    preferences: {
-      score: number;
-      completed: boolean;
-      missing: string[];
-    };
-    passport: {
-      score: number;
-      completed: boolean;
-      missing: string[];
-    };
-    pairContext?: {
-      score: number;
-      completed: boolean;
-      missing: string[];
-    };
-  };
-};
-
-export type ProfileNextStepDTO = {
-  kind:
-    | 'complete_account'
-    | 'create_match_card'
-    | 'improve_match_card'
-    | 'open_search'
-    | 'open_pair'
-    | 'resume_pair'
-    | 'weekly_checkin'
-    | 'questionnaire'
-    | 'activity_feedback'
-    | 'open_activity';
-  title: string;
-  description: string;
-  href: string;
-  ctaLabel: string;
-  priority: 1 | 2 | 3;
-};
-
-export type PairedProfileStateDTO = null | {
-  pairId: string;
-  pairStatus: 'active' | 'paused';
-  myWeeklyCheckIn: {
-    weekKey: string;
-    submitted: boolean;
-    submittedAt?: string;
-    readiness?: number;
-    fatigue?: number;
-    closeness?: number;
-    irritation?: number;
-  };
-  pairWeeklyCheckIn: {
-    peerSubmitted: boolean;
-    bothSubmitted: boolean;
-    hasDivergence: boolean;
-    status: 'missing' | 'partial' | 'complete' | 'divergent';
-  };
-  myActivityState: {
-    hasCurrentActivity: boolean;
-    currentActivityId?: string;
-    currentActivityTitle?: string;
-    status?: string;
-    awaitsMyFeedback: boolean;
-    awaitsPartnerFeedback: boolean;
-  };
-  contribution: {
-    score: number;
-    level: 'low' | 'stable' | 'strong';
-    completedThisWeek: string[];
-    pendingFromMe: string[];
-    message: string;
-  };
-  resourceMessage: {
-    tone: 'stable' | 'tired' | 'tense' | 'low_data';
-    title: string;
-    description: string;
-  };
-};
-
-export type ExperienceSummaryDTO = {
-  mode: 'solo' | 'paired';
-  tone: 'empty' | 'calm' | 'good' | 'attention' | 'warning';
-  title: string;
-  message: string;
-  reason?: string;
-  primaryAction: {
-    label: string;
-    href: string;
-  };
-  secondaryAction?: {
-    label: string;
-    href: string;
-  };
-};
-
-export type PersonalAxisCardDTO = {
-  axis: QuestionnaireAxis;
-  label: string;
-  level: number;
-  confidenceLabel: 'low' | 'medium' | 'high';
-  status: 'strength' | 'growth' | 'low_data' | 'balanced';
-  title: string;
-  description: string;
-  relationshipImpact: string;
-  nextAction?: {
-    label: string;
-    href: string;
-  };
-};
-
-export type PartnerHelpfulNotesDTO = {
-  visibility: 'private_preview';
-  items: string[];
-  disclaimer: string;
-};
-
-export type NeedsAndBoundariesLiteDTO = {
-  title: string;
-  items: string[];
-  source: 'low_data' | 'onboarding' | 'weekly_checkin' | 'passport' | 'mixed';
-};
-
-export type ProfileSummaryDTO = {
-  user: {
-    id: string;
-    name?: string;
-    handle: string;
-    avatar: string | null;
-    avatarUrl?: string | null;
-    joinedAt?: string;
-    status: 'solo:new' | 'solo:history' | 'paired';
-    lastActiveAt?: string;
-    personal: ProfilePersonalDTO;
-    featureFlags: Record<string, boolean>;
-  };
-  currentPair: ProfileCurrentPairDTO;
-  relationshipContext: RelationshipContextDTO;
-  profileMode: ProfileModeDTO;
-  profileCompletion: ProfileCompletionDTO;
-  pairedProfileState: PairedProfileStateDTO;
-  nextStep: ProfileNextStepDTO;
-  experienceSummary: ExperienceSummaryDTO;
-  personalAxisCards: PersonalAxisCardDTO[];
-  partnerHelpfulNotes: PartnerHelpfulNotesDTO;
-  needsAndBoundariesLite: NeedsAndBoundariesLiteDTO;
-  metrics: {
-    streak: {
-      individual: number;
-    };
-    completed: {
-      individual: number;
-    };
-  };
-  readiness: {
-    score: number;
-    updatedAt?: string;
-  };
-  fatigue: {
-    score: number;
-    updatedAt?: string;
-  };
-  passport: {
-    levelsByAxis: Record<QuestionnaireAxis, number>;
-    positivesByAxis: Record<QuestionnaireAxis, string[]>;
-    negativesByAxis: Record<QuestionnaireAxis, string[]>;
-    strongSides: string[];
-    growthAreas: string[];
-    values: string[];
-    boundaries: string[];
-    updatedAt?: string;
-  };
-  activity: {
-    current: {
-      id: string;
-      title?: string;
-      progress?: number;
-    } | null;
-    suggested: Array<{
-      id: string;
-      title?: string;
-    }>;
-    historyCount: number;
-  };
-  matching: {
-    inboxCount: number;
-    outboxCount: number;
-    filters: {
-      age: [number, number];
-      radiusKm: number;
-      valuedQualities: string[];
-      excludeTags: string[];
-    };
-  };
-  insights: InsightDTO[];
-  featureFlags: Record<string, boolean>;
-  entitlements: {
-    plan: 'FREE' | 'SOLO' | 'COUPLE';
-    status: string;
-    periodEnd: string | null;
-  };
-};
+export type {
+  FactorConfidenceBand,
+  FactorFreshnessBand,
+  FactorProfileStatus,
+  FactorSemanticCardDTO,
+  ProfileSummaryDTO,
+} from '@/lib/dto/factorProfile.dto';
 
 export type ExchangeCodeRequest = {
   code: string;

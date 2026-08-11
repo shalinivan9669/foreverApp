@@ -1,4 +1,6 @@
 **Как Сейчас (Обзор)**
+> Status: historical/deprecated for core eligibility. Since 2026-08-11 the public MVP core is free for every cycle; entitlement/billing code is isolated and non-gating. See ADR-008 and `docs/API_CONTRACTS.md`.
+
 1. В репозитории не найдено упоминаний `billing/entitlement/stripe/subscription/premium/payment` (по результатам поиска). Доказательства: `docs/_evidence/search-no-billing.txt:1-3`.
 2. Есть OAuth-обмен через `/api/exchange-code` с возвратом `access_token`. Доказательства: `src/app/api/exchange-code/route.ts:3-27`.
 3. В `profile-summary` возвращаются `featureFlags` и `PERSONAL_ACTIVITIES`. Доказательства: `src/app/api/users/me/profile-summary/route.ts:125-154`.

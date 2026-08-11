@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
 import {
   mvpOnboardingApi,
@@ -58,7 +58,7 @@ function ConsentScreen({
       <h1 className="mt-1 text-2xl font-semibold">Короткое знакомство с форматом</h1>
       <p className="app-muted mt-2 max-w-2xl text-sm">
         Здесь 10 закрытых вопросов без свободного текста. Чувствительные вопросы можно
-        пропустить. Для каждого ответа ты отдельно выбираешь, как его разрешено использовать.
+        пропустить. Для каждого ответа вы отдельно выбираете, как его разрешено использовать.
       </p>
 
       <div className="mt-5 space-y-3">
@@ -150,6 +150,7 @@ function QuestionOptions({
           type="button"
           onClick={() => onBooleanChange(true)}
           className={optionButtonClass(booleanValue === true)}
+          aria-pressed={booleanValue === true}
         >
           Да
         </button>
@@ -157,6 +158,7 @@ function QuestionOptions({
           type="button"
           onClick={() => onBooleanChange(false)}
           className={optionButtonClass(booleanValue === false)}
+          aria-pressed={booleanValue === false}
         >
           Нет
         </button>
@@ -190,6 +192,7 @@ function QuestionOptions({
               }
             }}
             className={optionButtonClass(selected)}
+            aria-pressed={selected}
           >
             {choice.label}
           </button>
@@ -218,6 +221,11 @@ function QuestionScreen({
   const [capturePolicy, setCapturePolicy] =
     useState<MvpOnboardingCapturePolicy | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [question.id]);
 
   const answerValue = useMemo<MvpOnboardingAnswerValue | null>(() => {
     if (question.kind === 'single') {
@@ -249,7 +257,7 @@ function QuestionScreen({
       });
       onSaved(next);
     } catch {
-      onError('Не удалось сохранить ответ. Попробуй ещё раз.');
+      onError('Не удалось сохранить ответ. Попробуйте ещё раз.');
     } finally {
       setSubmitting(false);
     }
@@ -282,13 +290,23 @@ function QuestionScreen({
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
         <div
+          role="progressbar"
+          aria-label="Прогресс начальной настройки"
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={cursor}
           className="h-full rounded-full bg-blue-500"
           style={{ width: `${Math.round((cursor / total) * 100)}%` }}
         />
       </div>
 
-      <h1 className="mt-5 text-xl font-semibold">{question.title}</h1>
+      <h1 ref={headingRef} tabIndex={-1} className="mt-5 text-xl font-semibold outline-none">{question.title}</h1>
       <p className="app-muted mt-2 text-sm">{question.description}</p>
+      {question.kind === 'multi' && (
+        <p className="app-muted mt-2 text-xs">
+          Выберите от {question.minSelections ?? 1} до {question.maxSelections ?? question.choices?.length ?? 1} вариантов.
+        </p>
+      )}
 
       <div className="mt-5">
         <QuestionOptions
@@ -316,6 +334,7 @@ function QuestionScreen({
                 type="button"
                 onClick={() => setCapturePolicy(policy.id)}
                 className={policyButtonClass(capturePolicy === policy.id)}
+                aria-pressed={capturePolicy === policy.id}
               >
                 <span className="block font-medium">{policy.title}</span>
                 <span className="app-muted mt-1 block text-xs">{policy.description}</span>
@@ -364,7 +383,7 @@ export default function MvpOnboardingPage() {
     try {
       setPayload(await mvpOnboardingApi.getOwnerState());
     } catch {
-      setError('Не удалось загрузить настройку. Проверь вход и попробуй ещё раз.');
+      setError('Не удалось загрузить настройку. Проверьте вход и попробуйте ещё раз.');
     } finally {
       setLoading(false);
     }
@@ -388,7 +407,7 @@ export default function MvpOnboardingPage() {
       })
       .catch(() => {
         if (active) {
-          setError('Не удалось загрузить настройку. Проверь вход и попробуй ещё раз.');
+          setError('Не удалось загрузить настройку. Проверьте вход и попробуйте ещё раз.');
         }
       })
       .finally(() => {
@@ -414,7 +433,7 @@ export default function MvpOnboardingPage() {
         })
       );
     } catch {
-      setError('Не удалось сохранить согласие. Проверь отметки и попробуй ещё раз.');
+      setError('Не удалось сохранить согласие. Проверьте отметки и попробуйте ещё раз.');
     } finally {
       setBusy(false);
     }
@@ -426,7 +445,7 @@ export default function MvpOnboardingPage() {
     try {
       setPayload(await mvpOnboardingApi.mutate({ action: 'complete' }));
     } catch {
-      setError('Не удалось завершить настройку. Проверь обязательные ответы.');
+      setError('Не удалось завершить настройку. Проверьте обязательные ответы.');
     } finally {
       setBusy(false);
     }
@@ -441,11 +460,11 @@ export default function MvpOnboardingPage() {
       <BackBar title="Начальная настройка" fallbackHref="/main-menu" />
 
       {loading && (
-        <div className="app-panel-soft p-4 text-sm app-muted">Загружаем прогресс...</div>
+        <div className="app-panel-soft p-4 text-sm app-muted" role="status" aria-live="polite">Загружаем прогресс...</div>
       )}
 
       {error && (
-        <div className="app-alert app-alert-error text-sm">
+        <div className="app-alert app-alert-error text-sm" role="alert">
           <div>{error}</div>
           {!payload && (
             <button

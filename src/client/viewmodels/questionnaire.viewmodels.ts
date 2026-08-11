@@ -1,13 +1,5 @@
 import type { QuestionnaireCardDTO } from '@/client/api/types';
 
-export type QuestionnaireAxisVM =
-  | 'communication'
-  | 'domestic'
-  | 'personalViews'
-  | 'finance'
-  | 'sexuality'
-  | 'psyche';
-
 export type QuestionnaireAudienceVM = 'pair' | 'solo' | 'universal';
 export type QuestionnaireScopeVM = 'personal' | 'couple';
 export type QuestionnaireStatusVM = 'new' | 'required' | 'in_progress' | 'completed' | 'locked';
@@ -15,7 +7,7 @@ export type QuestionnaireCtaVM = 'start' | 'continue' | 'result' | 'locked';
 
 export type QuestionnaireCardVM = {
   id: string;
-  vector: QuestionnaireAxisVM;
+  domainKey: string;
   scope: QuestionnaireScopeVM;
   audience: QuestionnaireAudienceVM;
   title: string;
@@ -27,7 +19,6 @@ export type QuestionnaireCardVM = {
   estMinutesMax: number;
   level: 1 | 2 | 3 | 4 | 5;
   rewardCoins?: number;
-  insightsCount?: number;
   status: QuestionnaireStatusVM;
   progressPct?: number;
   lockReason?: string;
@@ -48,7 +39,7 @@ const normalizeTags = (tags: string[]): string[] =>
 
 export const toQuestionnaireCardVM = (dto: QuestionnaireCardDTO): QuestionnaireCardVM => ({
   id: dto.id,
-  vector: dto.vector,
+  domainKey: dto.domainKey,
   scope: dto.scope,
   audience: dto.audience,
   title: dto.title,
@@ -60,7 +51,6 @@ export const toQuestionnaireCardVM = (dto: QuestionnaireCardDTO): QuestionnaireC
   estMinutesMax: dto.estMinutesMax,
   level: dto.level,
   rewardCoins: dto.rewardCoins,
-  insightsCount: dto.insightsCount,
   status: dto.status,
   progressPct: clampProgress(dto.progressPct),
   lockReason: dto.lockReason,

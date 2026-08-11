@@ -27,37 +27,37 @@ export const isConflictResolvedByRefetch = (
 
 export const toCompleteRetryMessage = (error: UiErrorState | null): string => {
   if (!error) {
-    return 'Could not complete the activity. Answers were saved. Click "Complete again".';
+    return 'Не удалось завершить активность. Ответы сохранены — нажмите «Завершить ещё раз».';
   }
   const code = normalizeCode(error.code);
 
   if (error.status === 401) {
-    return 'Session expired. Sign in again, then click "Complete again".';
+    return 'Сессия истекла. Войдите снова, затем нажмите «Завершить ещё раз».';
   }
   if (error.status === 403) {
-    return 'Not enough permissions to complete this activity. Refresh and try again.';
+    return 'Недостаточно прав для завершения активности. Обновите экран и повторите попытку.';
   }
   if (error.status === 404) {
-    return 'Activity not found. Refresh: state may have changed.';
+    return 'Активность не найдена. Обновите экран: её состояние могло измениться.';
   }
   if (code === 'IDEMPOTENCY_IN_PROGRESS') {
-    return 'Previous completion request is still processing. Wait a moment, then click "Complete again".';
+    return 'Предыдущий запрос ещё обрабатывается. Подождите немного и нажмите «Завершить ещё раз».';
   }
   if (code === 'IDEMPOTENCY_KEY_REUSE_CONFLICT') {
-    return 'Retry key conflict. Refresh the list and click "Complete again".';
+    return 'Не удалось безопасно повторить запрос. Обновите список и нажмите «Завершить ещё раз».';
   }
   if (error.status === 409) {
-    return 'Activity state conflict. Refresh the list, then click "Complete again".';
+    return 'Состояние активности уже изменилось. Обновите список и нажмите «Завершить ещё раз».';
   }
   if (error.status === 422) {
-    return 'Idempotency key error. Answers were saved. Click "Complete again".';
+    return 'Не удалось безопасно повторить завершение. Ответы сохранены — нажмите «Завершить ещё раз».';
   }
   if (error.status >= 500 || error.status === 0) {
-    return 'Server is unavailable. Answers were saved. Click "Complete again".';
+    return 'Сервер временно недоступен. Ответы сохранены — нажмите «Завершить ещё раз».';
   }
 
-  return `Could not complete the activity (${error.code}). Answers were saved. Click "Complete again".`;
+  return 'Не удалось завершить активность. Ответы сохранены — нажмите «Завершить ещё раз».';
 };
 
 export const CONFLICT_RESOLVED_MESSAGE =
-  'Activity state has already changed. The list was refreshed.';
+  'Состояние активности уже изменилось. Список обновлён.';

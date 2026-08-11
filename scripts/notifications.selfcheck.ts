@@ -56,7 +56,7 @@ assert.ok(cycleService.includes("type: 'CYCLE_AVAILABLE'"));
 assert.ok(cycleService.includes("type: 'SUMMARY_READY'"));
 assert.ok(source('src/domain/services/recommendationDecision.service.ts').includes("type: 'ACTION_AVAILABLE'"));
 assert.ok(source('src/domain/services/activities.service.ts').includes("type: 'FEEDBACK_REQUESTED'"));
-assert.ok(source('src/app/main-menu/page.tsx').includes('<NotificationPanel />'));
+assert.match(source('src/app/main-menu/page.tsx'), /<NotificationPanel\b/);
 const notificationPanel = source('src/components/notifications/NotificationPanel.tsx');
 assert.ok(notificationPanel.includes('loadFailed'));
 assert.ok(notificationPanel.includes('Повторить'));

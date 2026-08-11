@@ -47,6 +47,7 @@ export type MvpOnboardingResponseDTO = {
       confirmedAt: string;
     };
     cursor: number;
+    modelStatus: 'PENDING' | 'MATERIALIZED';
     answers: Array<{
       questionId: string;
       questionRevision: string;

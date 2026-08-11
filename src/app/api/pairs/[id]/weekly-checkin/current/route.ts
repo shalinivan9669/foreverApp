@@ -5,10 +5,7 @@ import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseParams, parseQuery } from '@/lib/api/validate';
 import { asError, toDomainError } from '@/domain/errors';
-import {
-  buildPairWeeklyCheckInSummary,
-  toPairWeeklyCheckInPairDTO,
-} from '@/domain/services/weeklyCheckIn.service';
+import { weeklyCheckInService } from '@/domain/services/weeklyCheckIn.service';
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -25,7 +22,7 @@ const querySchema = z
   .strict();
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const params = parseParams(await ctx.params, paramsSchema);
@@ -38,12 +35,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!pairGuard.ok) return pairGuard.response;
 
   try {
-    const summary = await buildPairWeeklyCheckInSummary({
-      pair: pairGuard.data.pair,
+    const summary = await weeklyCheckInService.pairCurrent({
+      pairId: String(pairGuard.data.pair._id),
       currentUserId: auth.data.userId,
       weekKey: query.data.weekKey,
     });
-    return jsonOk(toPairWeeklyCheckInPairDTO(summary));
+    return jsonOk(summary);
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));
     return jsonError(

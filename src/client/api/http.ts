@@ -36,6 +36,10 @@ export type HttpRequestOptions = {
 const MUTATION_METHODS: HttpMethod[] = ['POST', 'PATCH', 'PUT', 'DELETE'];
 let embeddedSessionBearerToken: string | null = null;
 
+export const clearEmbeddedSessionBearerToken = (): void => {
+  embeddedSessionBearerToken = null;
+};
+
 const toProxyPath = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
   if (path.startsWith('/.proxy/')) return path;
@@ -197,4 +201,6 @@ export const http = {
     body: TBody,
     options?: HttpRequestOptions
   ): Promise<TResponse> => request<TResponse>('PUT', path, body, options),
+  delete: <TResponse>(path: string, options?: HttpRequestOptions): Promise<TResponse> =>
+    request<TResponse>('DELETE', path, undefined, options),
 };

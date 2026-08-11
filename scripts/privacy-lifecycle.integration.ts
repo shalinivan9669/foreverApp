@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import mongoose, { Types } from 'mongoose';
 import { privacyExportService } from '@/domain/services/privacyExport.service';
 import { privacyRequestService } from '@/domain/services/privacyRequest.service';
+import { SYSTEM_ACTIVITY_TEMPLATES } from '@/domain/services/pairActivityDecision.service';
 import {
   enforceRateLimit,
   RATE_LIMIT_POLICIES,
@@ -45,6 +46,8 @@ const auditRequest = {
   route: '/api/privacy/integration',
   method: 'TEST',
 };
+const activityTemplate = SYSTEM_ACTIVITY_TEMPLATES[0];
+assert.ok(activityTemplate, 'canonical activity fixture is required');
 
 const userFixture = (id: string, username: string) => ({
   id,
@@ -56,7 +59,6 @@ const userFixture = (id: string, username: string) => ({
     city: 'Qyzylorda',
     relationshipStatus: 'in_relationship' as const,
   },
-  vectors: {},
   preferences: {
     desiredAgeRange: { min: 18, max: 99 },
     maxDistanceKm: 50,
@@ -92,7 +94,14 @@ const weeklyFixture = (params: {
     unresolvedTopic: false,
     note: params.note,
   },
-  computed: { userStateDelta: {}, generatedInsightIds: [] },
+  computed: {
+    factorEngine: {
+      status: 'PENDING',
+      evidenceEventIds: [],
+      individualSnapshotIds: [],
+      pairEvaluationSnapshotIds: [],
+    },
+  },
 });
 
 const assertRouteBoundaries = (): void => {
@@ -212,6 +221,7 @@ const main = async (): Promise<void> => {
         text: partnerHiddenSignal,
         tone: 'neutral',
         status: 'hidden_by_sender',
+        expiresAt: new Date('2026-08-17T00:00:00.000Z'),
       }),
       PairQuestionnaireAnswer.create({
         sessionId: new Types.ObjectId(),
@@ -266,8 +276,13 @@ const main = async (): Promise<void> => {
         members: [owner._id, partner._id],
         intent: 'improve',
         archetype: 'dialogue',
-        axis: ['communication'],
+        actionDefinition: activityTemplate.actionDefinition,
+        targetFactorKeys: [...activityTemplate.targetFactorKeys],
         title: { ru: 'Общее действие', en: 'Shared action' },
+        description: {
+          ru: 'Безопасная общая активность',
+          en: 'A safe shared activity',
+        },
         why: { ru: 'Нейтральная причина', en: 'Neutral reason' },
         mode: 'together',
         sync: 'sync',
@@ -275,7 +290,7 @@ const main = async (): Promise<void> => {
         intensity: 1,
         offeredAt: new Date('2026-08-10T08:05:00.000Z'),
         status: 'completed_success',
-        lifecycleVersion: 'activity-lifecycle-v2',
+        lifecycleVersion: 'activity-lifecycle-v3',
         feedbackSchemaVersion: 'activity-feedback-v2',
         visibility: 'both',
         checkIns: [],
@@ -287,15 +302,21 @@ const main = async (): Promise<void> => {
           successScore: 0.93,
           status: 'completed_success',
           feedbackSchemaVersion: 'activity-feedback-v2',
-          effectApplied: true,
-          effect: {
-            fatigueDelta: -0.1,
-            readinessDelta: 0.1,
-            axisDeltas: [{ axis: 'communication', delta: 0.1 }],
+          factorEvidenceRecorded: true,
+          factorEvidence: {
+            taskResultEventIds: ['private-evidence-id'],
+            pairActivityEventIds: ['private-pair-evidence-id'],
+            individualSnapshotIds: ['private-individual-snapshot-id'],
+            pairSnapshotIds: ['private-pair-snapshot-id'],
+            pairEvaluationSnapshotIds: ['private-evaluation-snapshot-id'],
+            recordedAt: new Date('2026-08-10T08:06:00.000Z'),
           },
-          effectExplanation: { ru: 'private-derived-effect' },
+          explanation: {
+            ru: 'private-derived-effect',
+            en: 'private-derived-effect',
+          },
           completedAt: new Date('2026-08-10T08:06:00.000Z'),
-          resultVersion: 'activity-result-v1',
+          resultVersion: 'activity-result-v2',
         },
         createdBy: 'system',
       }),
@@ -338,7 +359,7 @@ const main = async (): Promise<void> => {
     assert.equal(
       await PrivacyRequest.countDocuments({
         ownerUserId,
-        status: 'PENDING_POLICY_REVIEW',
+        status: 'PENDING_CONFIRMATION',
       }),
       1
     );
@@ -361,7 +382,7 @@ const main = async (): Promise<void> => {
       ownerUserId,
       auditRequest,
     });
-    assert.equal(reopened.status, 'PENDING_POLICY_REVIEW');
+    assert.equal(reopened.status, 'PENDING_CONFIRMATION');
     assert.notEqual(reopened.id, cancelled?.id);
     assert.equal(await User.countDocuments({ id: ownerUserId }), 1);
 

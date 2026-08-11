@@ -20,7 +20,6 @@ export type ApiErrorCode =
   | (string & {});
 
 export type UiErrorKind =
-  | 'paywall'
   | 'rate_limited'
   | 'auth_required'
   | 'not_found'
@@ -97,14 +96,10 @@ export const hasApiErrorCode = (error: Error, code: ApiErrorCode): boolean => {
   return isApiClientError(error) && error.code === code;
 };
 
-export const isPaywallCode = (code: ApiErrorCode): boolean =>
-  code === 'ENTITLEMENT_REQUIRED' || code === 'QUOTA_EXCEEDED';
-
-export const isPaywallError = (error: Error): boolean =>
-  isApiClientError(error) && isPaywallCode(error.code);
-
 const toUiErrorKind = (code: ApiErrorCode, status: number): UiErrorKind => {
-  if (isPaywallCode(code)) return 'paywall';
+  if (code === 'ENTITLEMENT_REQUIRED' || code === 'QUOTA_EXCEEDED') {
+    return 'generic';
+  }
   if (code === 'RATE_LIMITED') return 'rate_limited';
   if (code === 'AUTH_REQUIRED' || code === 'AUTH_INVALID_SESSION') return 'auth_required';
   if (code === 'IDEMPOTENCY_KEY_REQUIRED' || code === 'IDEMPOTENCY_KEY_INVALID') {
@@ -128,20 +123,51 @@ const toUiErrorKind = (code: ApiErrorCode, status: number): UiErrorKind => {
   return 'generic';
 };
 
+const fallbackMessageForKind = (kind: UiErrorKind): string => {
+  if (kind === 'auth_required') {
+    return 'Сессия не найдена или истекла. Откройте приложение из Discord и войдите снова.';
+  }
+  if (kind === 'access_denied') return 'У вас нет доступа к этому действию.';
+  if (kind === 'not_found') return 'Запрошенные данные не найдены. Обновите экран и попробуйте снова.';
+  if (kind === 'state_conflict') {
+    return 'Состояние уже изменилось. Обновите данные и попробуйте снова.';
+  }
+  if (kind === 'validation') return 'Проверьте введённые данные и попробуйте снова.';
+  if (kind === 'rate_limited') {
+    return 'Слишком много запросов. Подождите немного и попробуйте снова.';
+  }
+  return 'Не удалось выполнить запрос. Проверьте соединение и попробуйте снова.';
+};
+
+const userFacingMessage = (error: ApiClientError, kind: UiErrorKind): string => {
+  const message = error.message.trim();
+  return /[А-Яа-яЁё]/.test(message) ? message : fallbackMessageForKind(kind);
+};
+
 export const toUiErrorState = (error: Error): UiErrorState => {
   if (!isApiClientError(error)) {
     return {
       kind: 'generic',
       code: 'INTERNAL',
-      message: error.message || 'Unexpected error',
+      message: 'Внутренняя ошибка. Попробуйте ещё раз.',
       status: 500,
     };
   }
 
+  if (error.status >= 500 || error.code === 'INTERNAL') {
+    return {
+      kind: 'generic',
+      code: 'INTERNAL',
+      message: 'Внутренняя ошибка. Попробуйте ещё раз.',
+      status: error.status,
+    };
+  }
+
+  const kind = toUiErrorKind(error.code, error.status);
   return {
-    kind: toUiErrorKind(error.code, error.status),
+    kind,
     code: error.code,
-    message: error.message,
+    message: userFacingMessage(error, kind),
     status: error.status,
     details: error.details,
     retryAfterMs: error.retryAfterMs,

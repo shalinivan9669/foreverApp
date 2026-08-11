@@ -1,6 +1,6 @@
 import { Types, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
-import { jsonForbidden, jsonNotFound } from '@/lib/auth/errors';
+import { jsonNotFound } from '@/lib/auth/errors';
 import { Pair, type PairType } from '@/models/Pair';
 import { PairActivity, type PairActivityType } from '@/models/PairActivity';
 import { Like, type LikeType } from '@/models/Like';
@@ -14,6 +14,10 @@ type ActivityDoc = HydratedDocument<PairActivityType>;
 type LikeDoc = HydratedDocument<LikeType>;
 
 const isObjectId = (id: string) => Types.ObjectId.isValid(id);
+const NON_RESOURCE_OBJECT_ID = new Types.ObjectId('000000000000000000000000');
+
+const guardedObjectId = (id: string): Types.ObjectId =>
+  isObjectId(id) ? new Types.ObjectId(id) : NON_RESOURCE_OBJECT_ID;
 
 export const requirePairMember = async (
   pairId: string,
@@ -21,12 +25,12 @@ export const requirePairMember = async (
 ): Promise<ResourceGuardResult<{ pair: PairDoc; by: 'A' | 'B' }>> => {
   await connectToDatabase();
 
-  if (!isObjectId(pairId)) {
-    return { ok: false, response: jsonNotFound('NOT_FOUND', 'pair not found') };
-  }
-
-  const pair = await Pair.findById(pairId);
-  if (!pair) {
+  const pair = await Pair.findOne({
+    _id: guardedObjectId(pairId),
+    members: currentUserId,
+    status: { $in: ['active', 'paused'] },
+  });
+  if (!isObjectId(pairId) || !pair) {
     return { ok: false, response: jsonNotFound('NOT_FOUND', 'pair not found') };
   }
 
@@ -37,9 +41,7 @@ export const requirePairMember = async (
         ? 'B'
         : null;
 
-  if (!by) {
-    return { ok: false, response: jsonForbidden('ACCESS_DENIED', 'forbidden') };
-  }
+  if (!by) return { ok: false, response: jsonNotFound('NOT_FOUND', 'pair not found') };
 
   return { ok: true, data: { pair, by } };
 };
@@ -67,26 +69,39 @@ export const requireActivityMember = async (
 ): Promise<ResourceGuardResult<{ activity: ActivityDoc; pair: PairDoc; by: 'A' | 'B' }>> => {
   await connectToDatabase();
 
-  if (!isObjectId(activityId)) {
-    return { ok: false, response: jsonNotFound('NOT_FOUND', 'activity not found') };
+  const validActivityId = isObjectId(activityId);
+  const activity = await PairActivity.findById(guardedObjectId(activityId));
+  const pair = await Pair.findOne({
+    _id: activity?.pairId ?? NON_RESOURCE_OBJECT_ID,
+    members: currentUserId,
+    status: { $in: ['active', 'paused'] },
+  });
+  if (!validActivityId || !activity || !pair) {
+    return {
+      ok: false,
+      response: jsonNotFound('NOT_FOUND', 'activity not found'),
+    };
   }
 
-  const activity = await PairActivity.findById(activityId);
-  if (!activity) {
-    return { ok: false, response: jsonNotFound('NOT_FOUND', 'activity not found') };
-  }
-
-  const pairGuard = await requirePairMember(String(activity.pairId), currentUserId);
-  if (!pairGuard.ok) {
-    return pairGuard;
+  const by: 'A' | 'B' | null =
+    pair.members[0] === currentUserId
+      ? 'A'
+      : pair.members[1] === currentUserId
+        ? 'B'
+        : null;
+  if (!by) {
+    return {
+      ok: false,
+      response: jsonNotFound('NOT_FOUND', 'activity not found'),
+    };
   }
 
   return {
     ok: true,
     data: {
       activity,
-      pair: pairGuard.data.pair,
-      by: pairGuard.data.by,
+      pair,
+      by,
     },
   };
 };
@@ -97,12 +112,11 @@ export const requireLikeParticipant = async (
 ): Promise<ResourceGuardResult<{ like: LikeDoc; role: 'from' | 'to' }>> => {
   await connectToDatabase();
 
-  if (!isObjectId(likeId)) {
-    return { ok: false, response: jsonNotFound('NOT_FOUND', 'like not found') };
-  }
-
-  const like = await Like.findById(likeId);
-  if (!like) {
+  const like = await Like.findOne({
+    _id: guardedObjectId(likeId),
+    $or: [{ fromId: currentUserId }, { toId: currentUserId }],
+  });
+  if (!isObjectId(likeId) || !like) {
     return { ok: false, response: jsonNotFound('NOT_FOUND', 'like not found') };
   }
 
@@ -113,6 +127,5 @@ export const requireLikeParticipant = async (
   if (like.toId === currentUserId) {
     return { ok: true, data: { like, role: 'to' } };
   }
-
-  return { ok: false, response: jsonForbidden('ACCESS_DENIED', 'forbidden') };
+  return { ok: false, response: jsonNotFound('NOT_FOUND', 'like not found') };
 };

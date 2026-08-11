@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { canonicalizeFactorRegistry } from '@/domain/model/definitions/registry';
+import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
 import { Pair } from '@/models/Pair';
 import { PairInvite } from '@/models/PairInvite';
 import { PairMembershipClaim } from '@/models/PairMembershipClaim';
@@ -16,20 +18,28 @@ import { BillingWebhookEvent } from '@/models/BillingWebhookEvent';
 import { PrivacyRequest } from '@/models/PrivacyRequest';
 import { Like } from '@/models/Like';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
-import { Questionnaire } from '@/models/Questionnaire';
+import {
+  Questionnaire,
+  publishedQuestionnaireFilter,
+} from '@/models/Questionnaire';
 import { EntitlementQuotaUsage } from '@/models/EntitlementQuotaUsage';
-import { Insight } from '@/models/Insight';
 import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
 import { PairEvent } from '@/models/PairEvent';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import { PartnerSignal } from '@/models/PartnerSignal';
 import { PersonalDailyCheckIn } from '@/models/PersonalDailyCheckIn';
+import { PersonalQuestionnaireSubmission } from '@/models/PersonalQuestionnaireSubmission';
 import { RelationshipActivity } from '@/models/RelationshipActivity';
 import { SafetyGate } from '@/models/SafetyGate';
-import { ScoringVersion } from '@/models/ScoringVersion';
 import { User } from '@/models/User';
-import { VectorSnapshot } from '@/models/VectorSnapshot';
+import { DefinitionRegistryRelease } from '@/models/DefinitionRegistryRelease';
+import { EvidenceEvent } from '@/models/EvidenceEvent';
+import { IndividualFactorSnapshot } from '@/models/IndividualFactorSnapshot';
+import { PairFactorEvaluationSnapshot } from '@/models/PairFactorEvaluationSnapshot';
+import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
+import { SessionSubject } from '@/models/SessionSubject';
+import { runFactorEngineMigration } from './lib/factor-engine-migration';
 
 type CountRow = { groups: number };
 type Finding = {
@@ -39,6 +49,7 @@ type Finding = {
 };
 
 const LEGACY_WEEKLY_USER_INDEX = { userId: 1, weekKey: 1 };
+const LEGACY_PAIR_KEY_INDEX = { key: 1 };
 
 const sameIndexKey = (actual: object, expected: object): boolean => {
   const actualEntries = Object.entries(actual);
@@ -246,7 +257,7 @@ try {
       { $count: 'groups' },
     ]),
     PrivacyRequest.aggregate<CountRow>([
-      { $match: { status: 'PENDING_POLICY_REVIEW' } },
+      { $match: { status: 'PENDING_CONFIRMATION' } },
       {
         $group: {
           _id: { ownerUserId: '$ownerUserId', kind: '$kind' },
@@ -273,14 +284,61 @@ try {
       publicationStatus: { $in: ['draft', 'in_review', 'retired'] },
     }),
     Questionnaire.countDocuments({ publicationStatus: 'published' }),
-    Questionnaire.countDocuments({
-      publicationStatus: 'published',
-      version: { $gte: 1 },
-      reviewedAt: { $type: 'date' },
-      publishedAt: { $type: 'date' },
-      retiredAt: { $exists: false },
-    }),
+    Questionnaire.countDocuments(publishedQuestionnaireFilter()),
   ]);
+
+  const [
+    legacyPrivacyRequests,
+    weeklyStringPairIds,
+    pendingWeeklyFactorReplay,
+    pendingOnboardingFactorReplay,
+    canonicalRegistry,
+  ] = await Promise.all([
+    PrivacyRequest.collection.countDocuments({
+      $or: [
+        { status: 'PENDING_POLICY_REVIEW' },
+        { requestVersion: { $ne: 'privacy-request-v2' } },
+        { policyReasonCode: { $ne: 'PRIVACY_MINIMAL_IMMEDIATE_DELETION' } },
+        { ownerSubjectHash: { $not: /^[a-f\d]{64}$/ } },
+      ],
+    }),
+    WeeklyCheckIn.collection.countDocuments({ pairId: { $type: 'string' } }),
+    WeeklyCheckIn.collection.countDocuments({
+      'computed.factorEngine.status': { $ne: 'MATERIALIZED' },
+    }),
+    MvpOnboardingSession.collection.countDocuments({
+      status: 'completed',
+      'factorEngine.status': { $ne: 'MATERIALIZED' },
+    }),
+    DefinitionRegistryRelease.findOne({
+      registryKey: MVP_FACTOR_REGISTRY.registryKey,
+      registryVersion: MVP_FACTOR_REGISTRY.registryVersion,
+    })
+      .select({
+        hash: 1,
+        canonicalRegistry: 1,
+        algorithmVersion: 1,
+        snapshotVersion: 1,
+        displayVersion: 1,
+        status: 1,
+      })
+      .lean(),
+  ]);
+  const canonicalRegistryMatches = Boolean(
+    canonicalRegistry &&
+      canonicalRegistry.hash === MVP_FACTOR_REGISTRY.hash &&
+      canonicalRegistry.canonicalRegistry ===
+        canonicalizeFactorRegistry(MVP_FACTOR_REGISTRY) &&
+      canonicalRegistry.algorithmVersion ===
+        MVP_FACTOR_REGISTRY.algorithmVersion &&
+      canonicalRegistry.snapshotVersion === MVP_FACTOR_REGISTRY.snapshotVersion &&
+      canonicalRegistry.displayVersion === MVP_FACTOR_REGISTRY.displayVersion &&
+      canonicalRegistry.status === 'PUBLISHED'
+  );
+  const factorMarkerAudit = await runFactorEngineMigration({
+    mode: 'DRY_RUN',
+    batchSize: 500,
+  });
 
   const findings: Finding[] = [
     { key: 'duplicate-active-membership', count: countGroups(duplicateActiveMemberships), blocking: true },
@@ -316,6 +374,38 @@ try {
     {
       key: 'duplicate-pending-privacy-requests',
       count: countGroups(duplicatePendingPrivacyRequests),
+      blocking: true,
+    },
+    {
+      key: 'legacy-privacy-requests-v1',
+      count: legacyPrivacyRequests,
+      blocking: true,
+    },
+    {
+      key: 'weekly-string-pair-ids',
+      count: weeklyStringPairIds,
+      blocking: true,
+    },
+    {
+      key: 'pending-weekly-factor-replay',
+      count: pendingWeeklyFactorReplay,
+      blocking: false,
+    },
+    {
+      key: 'pending-onboarding-factor-replay',
+      count: pendingOnboardingFactorReplay,
+      blocking: false,
+    },
+    {
+      key: 'stale-materialized-factor-markers',
+      count:
+        factorMarkerAudit.weekly.staleMarkers +
+        factorMarkerAudit.onboarding.staleMarkers,
+      blocking: true,
+    },
+    {
+      key: 'canonical-factor-registry-missing-or-conflicting',
+      count: canonicalRegistryMatches ? 0 : 1,
       blocking: true,
     },
     {
@@ -370,18 +460,22 @@ try {
     ActivityTemplate,
     Questionnaire,
     EntitlementQuotaUsage,
-    Insight,
     MvpOnboardingSession,
     PairEvent,
     PairQuestionnaireAnswer,
     PairQuestionnaireSession,
     PartnerSignal,
     PersonalDailyCheckIn,
+    PersonalQuestionnaireSubmission,
     RelationshipActivity,
     SafetyGate,
-    ScoringVersion,
     User,
-    VectorSnapshot,
+    DefinitionRegistryRelease,
+    EvidenceEvent,
+    IndividualFactorSnapshot,
+    PairFactorSnapshot,
+    PairFactorEvaluationSnapshot,
+    SessionSubject,
   ];
 
   for (const model of models) {
@@ -460,6 +554,28 @@ try {
     blocking: true,
   });
 
+  let pairIndexes: mongoose.mongo.IndexDescriptionInfo[] = [];
+  try {
+    pairIndexes = await Pair.collection.indexes();
+  } catch (error) {
+    if (
+      !(error instanceof mongoose.mongo.MongoServerError) ||
+      error.codeName !== 'NamespaceNotFound'
+    ) {
+      throw error;
+    }
+  }
+  const legacyPairUniqueIndexes = pairIndexes.filter(
+    (index) =>
+      index.unique === true &&
+      sameIndexKey(index.key, LEGACY_PAIR_KEY_INDEX)
+  );
+  findings.push({
+    key: 'legacy-pair-key-unique-index',
+    count: legacyPairUniqueIndexes.length,
+    blocking: true,
+  });
+
   const indexDiffs: Array<{
     collection: string;
     missing: number;
@@ -489,6 +605,11 @@ try {
   console.log(`preflight data invariants: passed (${findings.length} checks)`);
   console.log(`preflight indexes: missing=${missingIndexCount} extra=${extraIndexCount}`);
 
+  if (extraIndexCount > 0) {
+    throw new Error(
+      'Undeclared indexes are present; release is blocked until every extra index is reviewed and reconciled'
+    );
+  }
   if (applyIndexes) {
     for (const model of models) {
       await model.createIndexes();

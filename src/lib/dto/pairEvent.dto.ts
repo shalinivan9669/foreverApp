@@ -1,4 +1,3 @@
-import type { Axis } from '@/models/ActivityTemplate';
 import type {
   PairEventCategory,
   PairEventStatus,
@@ -33,13 +32,10 @@ export type PairEventDTO = {
   windowStart: string;
   windowEnd: string;
   status: PairEventStatus;
-  priority: 1 | 2 | 3;
-  severity?: 1 | 2 | 3;
-  axis?: Axis[];
   canAccept: boolean;
   canDecline: boolean;
   canSnooze: boolean;
-  generatedActivityIds: string[];
+  hasGeneratedActivity: boolean;
   acceptedAt?: string;
   declinedAt?: string;
   snoozedUntil?: string;
@@ -60,13 +56,10 @@ export function toPairEventDTO(event: PairEventSource): PairEventDTO {
     windowStart: event.windowStart.toISOString(),
     windowEnd: event.windowEnd.toISOString(),
     status: event.status,
-    priority: event.priority,
-    severity: event.severity,
-    axis: event.axis?.length ? event.axis : undefined,
     canAccept: event.actionPolicy.canAccept,
     canDecline: event.actionPolicy.canDecline,
     canSnooze: event.actionPolicy.canSnooze,
-    generatedActivityIds: event.generatedActivityIds.map((id) => String(id)),
+    hasGeneratedActivity: event.generatedActivityIds.length > 0,
     acceptedAt: toIso(event.acceptedAt),
     declinedAt: toIso(event.declinedAt),
     snoozedUntil: toIso(event.snoozedUntil),

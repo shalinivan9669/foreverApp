@@ -21,7 +21,7 @@ const paramsSchema = z.object({
 const bodySchema = z.object({}).passthrough();
 
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const actorUserId = auth.data.userId;
 

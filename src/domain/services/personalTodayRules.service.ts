@@ -9,7 +9,12 @@ export type PersonalTodaySource =
   | 'profile_fallback'
   | 'low_data';
 
-export type PersonalTodayMetrics = {
+export type PersonalTodayDataStatus =
+  | 'AVAILABLE'
+  | 'MISSING'
+  | 'INSUFFICIENT';
+
+export type PersonalTodayMetricValues = {
   resource: number;
   closeness: number;
   tension: number;
@@ -20,6 +25,22 @@ export type PersonalTodayMetrics = {
   repair: number;
 };
 
+export type PersonalTodayMetrics = {
+  dataStatus: {
+    resource: PersonalTodayDataStatus;
+    connection: PersonalTodayDataStatus;
+  };
+  values: Partial<PersonalTodayMetricValues>;
+};
+
+export type PersonalTodayAvailableMetrics = PersonalTodayMetrics & {
+  dataStatus: {
+    resource: 'AVAILABLE';
+    connection: 'AVAILABLE';
+  };
+  values: PersonalTodayMetricValues;
+};
+
 export type PersonalTodayFocus = {
   mode: PersonalTodayMode;
   title: string;
@@ -28,18 +49,22 @@ export type PersonalTodayFocus = {
 };
 
 export type WeeklyPersonalSignal = {
-  readiness?: number;
-  fatigue?: number;
-  closeness?: number;
-  irritation?: number;
+  readiness: number;
+  fatigue: number;
+  closeness: number;
+  irritation: number;
   unresolvedTopic?: boolean;
 };
 
-export type ProfilePersonalSignal = {
-  readiness?: number;
-  fatigue?: number;
-  hasUsefulData?: boolean;
-};
+export type ProfilePersonalSignal =
+  | {
+      dataStatus: 'AVAILABLE';
+      readiness: number;
+      fatigue: number;
+    }
+  | {
+      dataStatus: 'MISSING' | 'INSUFFICIENT';
+    };
 
 export type PersonalTodayMetricsInput =
   | {
@@ -56,6 +81,7 @@ export type PersonalTodayMetricsInput =
     }
   | {
       source: 'low_data';
+      resourceDataStatus?: 'MISSING' | 'INSUFFICIENT';
     };
 
 export type PersonalTodayFocusInput = {
@@ -64,98 +90,158 @@ export type PersonalTodayFocusInput = {
   unresolvedTopic?: boolean;
 };
 
-export const clamp01 = (value: number): number =>
-  Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+export const clamp01 = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    throw new Error('PERSONAL_TODAY_METRIC_INVALID');
+  }
+  return Math.max(0, Math.min(1, value));
+};
 
-const neutralMetrics = (): PersonalTodayMetrics => ({
-  resource: 0.5,
-  closeness: 0.5,
-  tension: 0.25,
-  supportNeed: 0.5,
-  conversationReadiness: 0.45,
-  irritationRisk: 0.2,
-  initiative: 0.45,
-  repair: 0,
+const requireFiniteSignal = (value: number, key: string): number => {
+  if (!Number.isFinite(value)) {
+    throw new Error(`PERSONAL_TODAY_SIGNAL_MISSING:${key}`);
+  }
+  return clamp01(value);
+};
+
+const unavailableMetrics = (
+  resource: 'MISSING' | 'INSUFFICIENT'
+): PersonalTodayMetrics => ({
+  dataStatus: {
+    resource,
+    connection: 'MISSING',
+  },
+  values: {},
 });
 
-export const buildPersonalTodayMetrics = (
+export const personalTodayOverallDataStatus = (
+  metrics: PersonalTodayMetrics
+): PersonalTodayDataStatus => {
+  const { resource, connection } = metrics.dataStatus;
+  if (resource === 'AVAILABLE' && connection === 'AVAILABLE') return 'AVAILABLE';
+  if (resource === 'MISSING' && connection === 'MISSING') return 'MISSING';
+  return 'INSUFFICIENT';
+};
+
+export function buildPersonalTodayMetrics(input: {
+  source: 'daily_checkin';
+  answers: PersonalDailyAnswers;
+}): PersonalTodayAvailableMetrics;
+export function buildPersonalTodayMetrics(input: {
+  source: 'weekly_fallback';
+  weekly: WeeklyPersonalSignal;
+}): PersonalTodayAvailableMetrics;
+export function buildPersonalTodayMetrics(
+  input: Extract<PersonalTodayMetricsInput, { source: 'profile_fallback' | 'low_data' }>
+): PersonalTodayMetrics;
+export function buildPersonalTodayMetrics(
   input: PersonalTodayMetricsInput
-): PersonalTodayMetrics => {
+): PersonalTodayMetrics {
   if (input.source === 'daily_checkin') {
     const answers = input.answers;
-    const energy = clamp01(answers.energy);
-    const stress = clamp01(answers.stress);
-    const closenessNeed = clamp01(answers.closenessNeed);
-    const supportNeed = clamp01(answers.supportNeed);
-    const conflictSensitivity = clamp01(answers.conflictSensitivity);
-    const conversationReadiness = clamp01(answers.conversationReadiness);
+    const energy = requireFiniteSignal(answers.energy, 'energy');
+    const stress = requireFiniteSignal(answers.stress, 'stress');
+    const closenessNeed = requireFiniteSignal(answers.closenessNeed, 'closenessNeed');
+    const supportNeed = requireFiniteSignal(answers.supportNeed, 'supportNeed');
+    const conflictSensitivity = requireFiniteSignal(
+      answers.conflictSensitivity,
+      'conflictSensitivity'
+    );
+    const conversationReadiness = requireFiniteSignal(
+      answers.conversationReadiness,
+      'conversationReadiness'
+    );
     const resource = clamp01(
       0.45 * energy + 0.25 * conversationReadiness + 0.3 * (1 - stress)
     );
     const tension = clamp01(Math.max(stress, conflictSensitivity));
     return {
-      resource,
-      closeness: closenessNeed,
-      tension,
-      supportNeed,
-      conversationReadiness,
-      irritationRisk: clamp01(0.65 * conflictSensitivity + 0.35 * stress),
-      initiative: clamp01(0.55 * resource + 0.45 * conversationReadiness),
-      repair: clamp01(0.55 * tension + 0.45 * conversationReadiness),
+      dataStatus: { resource: 'AVAILABLE', connection: 'AVAILABLE' },
+      values: {
+        resource,
+        closeness: closenessNeed,
+        tension,
+        supportNeed,
+        conversationReadiness,
+        irritationRisk: clamp01(0.65 * conflictSensitivity + 0.35 * stress),
+        initiative: clamp01(0.55 * resource + 0.45 * conversationReadiness),
+        repair: clamp01(0.55 * tension + 0.45 * conversationReadiness),
+      },
     };
   }
 
   if (input.source === 'weekly_fallback') {
-    const readiness = clamp01(input.weekly.readiness ?? 0.5);
-    const fatigue = clamp01(input.weekly.fatigue ?? 0.5);
-    const irritation = clamp01(input.weekly.irritation ?? 0.2);
-    const closeness = clamp01(input.weekly.closeness ?? 0.5);
+    const readiness = requireFiniteSignal(input.weekly.readiness, 'readiness');
+    const fatigue = requireFiniteSignal(input.weekly.fatigue, 'fatigue');
+    const irritation = requireFiniteSignal(input.weekly.irritation, 'irritation');
+    const closeness = requireFiniteSignal(input.weekly.closeness, 'closeness');
     const tension = clamp01(Math.max(irritation, fatigue * 0.65));
     const resource = clamp01(0.55 * readiness + 0.45 * (1 - fatigue));
     return {
-      resource,
-      closeness,
-      tension,
-      supportNeed: clamp01(0.45 + fatigue * 0.35 + closeness * 0.2),
-      conversationReadiness: readiness,
-      irritationRisk: irritation,
-      initiative: clamp01(0.6 * resource + 0.4 * readiness),
-      repair: input.weekly.unresolvedTopic ? 0.85 : clamp01(0.35 * tension),
+      dataStatus: { resource: 'AVAILABLE', connection: 'AVAILABLE' },
+      values: {
+        resource,
+        closeness,
+        tension,
+        supportNeed: clamp01(0.45 + fatigue * 0.35 + closeness * 0.2),
+        conversationReadiness: readiness,
+        irritationRisk: irritation,
+        initiative: clamp01(0.6 * resource + 0.4 * readiness),
+        repair: input.weekly.unresolvedTopic ? 0.85 : clamp01(0.35 * tension),
+      },
     };
   }
 
   if (input.source === 'profile_fallback') {
-    const readiness = clamp01(input.profile.readiness ?? 0.45);
-    const fatigue = clamp01(input.profile.fatigue ?? 0.45);
+    if (input.profile.dataStatus !== 'AVAILABLE') {
+      return unavailableMetrics(input.profile.dataStatus);
+    }
+    const readiness = requireFiniteSignal(input.profile.readiness, 'readiness');
+    const fatigue = requireFiniteSignal(input.profile.fatigue, 'fatigue');
     const resource = clamp01(0.6 * readiness + 0.4 * (1 - fatigue));
     return {
-      resource,
-      closeness: 0.5,
-      tension: clamp01(fatigue * 0.45),
-      supportNeed: 0.5,
-      conversationReadiness: readiness,
-      irritationRisk: clamp01(fatigue * 0.35),
-      initiative: clamp01(0.55 * resource + 0.45 * readiness),
-      repair: 0,
+      dataStatus: {
+        resource: 'AVAILABLE',
+        connection: 'MISSING',
+      },
+      values: {
+        resource,
+        conversationReadiness: readiness,
+        initiative: clamp01(0.55 * resource + 0.45 * readiness),
+      },
     };
   }
 
-  return neutralMetrics();
+  return unavailableMetrics(input.resourceDataStatus ?? 'MISSING');
+}
+
+const metricValue = (
+  metrics: PersonalTodayMetrics,
+  key: keyof PersonalTodayMetricValues
+): number => {
+  const value = metrics.values[key];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`PERSONAL_TODAY_METRIC_MISSING:${key}`);
+  }
+  return value;
 };
 
 export const buildPersonalTodayFocus = (
   input: PersonalTodayFocusInput
 ): PersonalTodayFocus => {
-  const { metrics } = input;
-
-  if (input.source === 'low_data') {
+  if (personalTodayOverallDataStatus(input.metrics) !== 'AVAILABLE') {
     return {
       mode: 'low_data',
-      title: 'Сегодня можно начать с короткой сверки',
-      subtitle: 'Данных пока мало, поэтому лучше выбрать мягкий ориентир',
+      title: 'Для фокуса дня пока недостаточно данных',
+      subtitle: 'Отметьте своё состояние, чтобы увидеть личную сводку без догадок',
       ruleIds: ['low_data'],
     };
   }
+
+  const resource = metricValue(input.metrics, 'resource');
+  const closeness = metricValue(input.metrics, 'closeness');
+  const tension = metricValue(input.metrics, 'tension');
+  const conversationReadiness = metricValue(input.metrics, 'conversationReadiness');
 
   if (input.unresolvedTopic) {
     return {
@@ -166,7 +252,7 @@ export const buildPersonalTodayFocus = (
     };
   }
 
-  if (metrics.tension >= 0.72) {
+  if (tension >= 0.72) {
     return {
       mode: 'conflict_risk',
       title: 'Сегодня важен мягкий вход в контакт',
@@ -175,7 +261,7 @@ export const buildPersonalTodayFocus = (
     };
   }
 
-  if (metrics.resource <= 0.38) {
+  if (resource <= 0.38) {
     return {
       mode: 'low_resource',
       title: 'Хочется тепла и бережности',
@@ -184,7 +270,7 @@ export const buildPersonalTodayFocus = (
     };
   }
 
-  if (metrics.closeness >= 0.7 && metrics.tension <= 0.55) {
+  if (closeness >= 0.7 && tension <= 0.55) {
     return {
       mode: 'closeness',
       title: 'Сегодня может подойти больше близости',
@@ -194,9 +280,9 @@ export const buildPersonalTodayFocus = (
   }
 
   if (
-    metrics.resource >= 0.68 &&
-    metrics.tension <= 0.35 &&
-    metrics.conversationReadiness >= 0.6
+    resource >= 0.68 &&
+    tension <= 0.35 &&
+    conversationReadiness >= 0.6
   ) {
     return {
       mode: 'growth',

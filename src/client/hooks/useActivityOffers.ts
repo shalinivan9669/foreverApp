@@ -277,13 +277,20 @@ export function useActivityOffers(options: UseActivityOffersOptions) {
 
   const activeId = useMemo(() => (buckets.active ? toActivityId(buckets.active) : null), [buckets.active]);
   const error = loadError ?? mutationError;
+  const awaitingInitialBuckets =
+    enabled &&
+    Boolean(pairId) &&
+    loadError === null &&
+    (currentActivities === null ||
+      suggestedActivities === null ||
+      historicalActivities === null);
 
   return {
     active: buckets.active,
     activeId,
     suggested: buckets.suggested,
     history: buckets.history,
-    loading,
+    loading: loading || awaitingInitialBuckets,
     error,
     mutationLoading,
     mutationError,

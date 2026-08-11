@@ -189,6 +189,11 @@ const session: MvpOnboardingSessionType = {
   },
   cursor: buildMvpOnboardingCursor(requiredAnswers),
   answers: requiredAnswers,
+  factorEngine: {
+    status: 'PENDING',
+    evidenceEventIds: [],
+    individualSnapshotIds: [],
+  },
   startedAt: now,
   createdAt: now,
   updatedAt: now,
@@ -198,6 +203,8 @@ assert.equal(ownerJson.includes('owner-user-id'), false, 'owner DTO must omit DB
 assert.equal(ownerJson.includes('questionRevision'), true);
 assert.equal(ownerJson.includes('answerRevision'), true);
 assert.equal(ownerJson.includes('capturePolicy'), true);
+assert.equal(ownerJson.includes('evidenceEventIds'), false);
+assert.equal(ownerJson.includes('modelStatus'), true);
 
 const modelSource = readProjectFile('src/models/MvpOnboardingSession.ts');
 assert.match(modelSource, /contentRevision:\s*1, policyVersion:\s*1/);
@@ -210,6 +217,18 @@ assert.match(serviceSource, /currentUserId/);
 assert.match(serviceSource, /updatedAt:\s*session\.updatedAt/);
 assert.doesNotMatch(serviceSource, /@\/models\/(User|Pair)/);
 assert.doesNotMatch(serviceSource, /console\.(log|error|warn)/);
+assert.match(serviceSource, /materializeOnboardingFactorEvidence/);
+
+const factorServiceSource = readProjectFile(
+  'src/domain/services/onboardingFactorEngine.service.ts'
+);
+assert.match(factorServiceSource, /createEvidenceEvent/);
+assert.match(factorServiceSource, /projectionPurpose/);
+assert.match(factorServiceSource, /kind: 'UNKNOWN'/);
+assert.doesNotMatch(
+  factorServiceSource,
+  /user\.vectors|VectorSnapshot|\?\?\s*0\.5/
+);
 
 const routeSource = readProjectFile('src/app/api/users/me/mvp-onboarding/route.ts');
 assert.match(routeSource, /requireSession\(req\)/);

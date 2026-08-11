@@ -4,7 +4,10 @@ export const PRIVACY_REQUEST_KINDS = ['ACCOUNT_DELETION'] as const;
 export type PrivacyRequestKind = (typeof PRIVACY_REQUEST_KINDS)[number];
 
 export const PRIVACY_REQUEST_STATUSES = [
-  'PENDING_POLICY_REVIEW',
+  'PENDING_CONFIRMATION',
+  'EXECUTING',
+  'EXECUTED',
+  'FAILED',
   'CANCELLED',
 ] as const;
 export type PrivacyRequestStatus = (typeof PRIVACY_REQUEST_STATUSES)[number];
@@ -13,9 +16,13 @@ export interface PrivacyRequestType {
   ownerUserId: string;
   kind: PrivacyRequestKind;
   status: PrivacyRequestStatus;
-  requestVersion: 'privacy-request-v1';
-  policyReasonCode: 'SHARED_ARTIFACT_RETENTION_REQUIRED';
+  requestVersion: 'privacy-request-v2';
+  policyReasonCode: 'PRIVACY_MINIMAL_IMMEDIATE_DELETION';
+  ownerSubjectHash: string;
   requestedAt: Date;
+  confirmedAt?: Date;
+  executedAt?: Date;
+  failureCode?: 'DELETION_EXECUTION_FAILED';
   cancelledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -29,7 +36,6 @@ const privacyRequestSchema = new Schema<PrivacyRequestType>(
       trim: true,
       minlength: 1,
       maxlength: 128,
-      immutable: true,
     },
     kind: {
       type: String,
@@ -41,23 +47,27 @@ const privacyRequestSchema = new Schema<PrivacyRequestType>(
       type: String,
       enum: PRIVACY_REQUEST_STATUSES,
       required: true,
-      default: 'PENDING_POLICY_REVIEW',
+      default: 'PENDING_CONFIRMATION',
     },
     requestVersion: {
       type: String,
-      enum: ['privacy-request-v1'],
+      enum: ['privacy-request-v2'],
       required: true,
-      default: 'privacy-request-v1',
+      default: 'privacy-request-v2',
       immutable: true,
     },
     policyReasonCode: {
       type: String,
-      enum: ['SHARED_ARTIFACT_RETENTION_REQUIRED'],
+      enum: ['PRIVACY_MINIMAL_IMMEDIATE_DELETION'],
       required: true,
-      default: 'SHARED_ARTIFACT_RETENTION_REQUIRED',
+      default: 'PRIVACY_MINIMAL_IMMEDIATE_DELETION',
       immutable: true,
     },
+    ownerSubjectHash: { type: String, required: true, immutable: true },
     requestedAt: { type: Date, required: true, default: Date.now, immutable: true },
+    confirmedAt: { type: Date },
+    executedAt: { type: Date },
+    failureCode: { type: String, enum: ['DELETION_EXECUTION_FAILED'] },
     cancelledAt: { type: Date },
   },
   {
@@ -71,8 +81,8 @@ privacyRequestSchema.index(
   { ownerUserId: 1, kind: 1, status: 1 },
   {
     unique: true,
-    name: 'privacy_request_one_pending_per_owner',
-    partialFilterExpression: { status: 'PENDING_POLICY_REVIEW' },
+    name: 'privacy_request_one_confirmable_per_owner_v2',
+    partialFilterExpression: { status: 'PENDING_CONFIRMATION' },
   }
 );
 privacyRequestSchema.index(

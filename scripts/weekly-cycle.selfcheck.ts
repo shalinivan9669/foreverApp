@@ -14,6 +14,10 @@ import {
   type PairStateCheckInInput,
 } from '@/domain/services/weeklyCycle.service';
 import { isRecommendationSummaryPublishable } from '@/domain/services/recommendationDecision.service';
+import type {
+  WeeklyFactorKey,
+  WeeklyPairEvaluationMetadata,
+} from '@/domain/services/factorEngineRuntime.service';
 
 const memberA = 'member-a';
 const memberB = 'member-b';
@@ -24,8 +28,8 @@ const window = weeklyCycleWindow(cycleKey);
 assert.equal(cycleKey, '2026-W23');
 assert.equal(window.startsAt.toISOString(), '2026-06-01T00:00:00.000Z');
 assert.equal(window.endsAt.toISOString(), '2026-06-08T00:00:00.000Z');
-assert.equal(WEEKLY_CYCLE_INPUT_DEFINITION_VERSION, 'weekly-checkin-v1');
-assert.equal(PAIR_STATE_ALGORITHM_VERSION, 'pair-state-v1');
+assert.equal(WEEKLY_CYCLE_INPUT_DEFINITION_VERSION, 'factor-registry-v2');
+assert.equal(PAIR_STATE_ALGORITHM_VERSION, 'factor-engine-v2');
 assert.equal(WEEKLY_CYCLE_TIME_ZONE, 'UTC');
 assert.equal(WEEKLY_CYCLE_SUBMISSION_CLAIM_TTL_MS, 120_000);
 assert.equal(WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT, 8);
@@ -44,22 +48,58 @@ const first: PairStateCheckInInput = {
   _id: new Types.ObjectId(),
   userId: memberA,
   createdAt: new Date('2026-06-03T09:00:00.000Z'),
-  answers: {
-    closeness: 0.7,
-    fatigue: 0.8,
-    irritation: 0.2,
-    readiness: 0.4,
+  computed: {
+    factorEngine: {
+      status: 'MATERIALIZED',
+      registryVersion: 2,
+      evidenceEventIds: ['e-a-1', 'e-a-2', 'e-a-3', 'e-a-4'],
+      individualSnapshotIds: ['i-a-1', 'i-a-2', 'i-a-3', 'i-a-4'],
+      pairEvaluationSnapshotIds: [],
+    },
   },
 };
+const evaluationFor = (
+  factorKey: WeeklyFactorKey,
+  status: WeeklyPairEvaluationMetadata['status'],
+  ordinal: number
+): WeeklyPairEvaluationMetadata => ({
+  snapshotId: `pair-evaluation-${ordinal}`,
+  pairId: 'pair-factor-context',
+  factorKey,
+  revision: 0,
+  context: 'COMMITTED_RELATIONSHIP',
+  strategy: factorKey.includes('tension') || factorKey.includes('overload')
+    ? 'TARGET_RANGE'
+    : 'MINIMUM_BOTH',
+  status,
+  confidence: 0.8,
+  reasonCodes: status === 'INSUFFICIENT_DATA' ? ['PAIR_DATA_INSUFFICIENT'] : [],
+  actionability: 'AWARENESS',
+  individualSnapshotIds: [`individual-a-${ordinal}`, `individual-b-${ordinal}`],
+  inputHash: `input-${ordinal}`,
+  outputHash: `output-${ordinal}`,
+  calculatedAt: new Date('2026-06-05T09:00:00.000Z'),
+});
+const evaluations: readonly WeeklyPairEvaluationMetadata[] = [
+  evaluationFor('communication.weekly.connection', 'ALIGNED', 1),
+  evaluationFor('communication.weekly.tension', 'WORKABLE_DIFFERENCE', 2),
+  evaluationFor('wellbeing.current.overload', 'TENSION', 3),
+  evaluationFor('wellbeing.current.readiness', 'ALIGNED', 4),
+];
 const second: PairStateCheckInInput = {
   _id: new Types.ObjectId(),
   userId: memberB,
   createdAt: new Date('2026-06-05T09:00:00.000Z'),
-  answers: {
-    closeness: 0.3,
-    fatigue: 0.2,
-    irritation: 0.7,
-    readiness: 0.8,
+  computed: {
+    factorEngine: {
+      status: 'MATERIALIZED',
+      registryVersion: 2,
+      evidenceEventIds: ['e-b-1', 'e-b-2', 'e-b-3', 'e-b-4'],
+      individualSnapshotIds: ['i-b-1', 'i-b-2', 'i-b-3', 'i-b-4'],
+      pairEvaluationSnapshotIds: evaluations.map(
+        (evaluation) => evaluation.snapshotId
+      ),
+    },
   },
 };
 
@@ -113,6 +153,7 @@ const firstThenSecond = buildPairStateProjection({
   cycleKey,
   members: [memberA, memberB],
   checkIns: [first, second],
+  evaluations,
   endsAt: window.endsAt,
   now: withinCycle,
 });
@@ -120,12 +161,31 @@ const secondThenFirst = buildPairStateProjection({
   cycleKey,
   members: [memberB, memberA],
   checkIns: [second, first],
+  evaluations: [...evaluations].reverse(),
   endsAt: window.endsAt,
   now: withinCycle,
 });
 assert.equal(firstThenSecond.dataStatus, 'ENOUGH');
 assert.equal(firstThenSecond.submissionCount, 2);
 assert.equal(firstThenSecond.signals.length, 4);
+const discussionProjection = buildPairStateProjection({
+  cycleKey,
+  members: [memberA, memberB],
+  checkIns: [first, second],
+  evaluations: evaluations.map((evaluation) =>
+    evaluation.factorKey === 'communication.weekly.connection'
+      ? { ...evaluation, status: 'REQUIRES_DISCUSSION' as const }
+      : evaluation
+  ),
+  endsAt: window.endsAt,
+  now: withinCycle,
+});
+const discussionSignal = discussionProjection.signals.find(
+  (signal) => signal.key === 'connection'
+);
+assert.equal(discussionSignal?.status, 'MIXED');
+assert.equal(discussionSignal?.reasonCode, 'DIFFERENT_EXPERIENCE');
+assert.equal(discussionSignal?.nextStepHint, 'CHOOSE_LOW_EFFORT');
 assert.equal(
   isRecommendationSummaryPublishable(firstThenSecond),
   true,
@@ -200,13 +260,12 @@ assert.equal(terminalSkipFencesOrphanEvidence.signals.length, 0);
 const insufficient = buildPairStateProjection({
   cycleKey,
   members: [memberA, memberB],
-  checkIns: [
-    first,
-    {
-      ...second,
-      answers: { ...second.answers, readiness: Number.NaN },
-    },
-  ],
+  checkIns: [first, second],
+  evaluations: evaluations.map((evaluation) =>
+    evaluation.factorKey === 'wellbeing.current.readiness'
+      ? { ...evaluation, status: 'INSUFFICIENT_DATA' as const }
+      : evaluation
+  ),
   endsAt: window.endsAt,
   now: withinCycle,
 });
@@ -217,6 +276,7 @@ const expired = buildPairStateProjection({
   cycleKey,
   members: [memberA, memberB],
   checkIns: [first, second],
+  evaluations,
   endsAt: window.endsAt,
   now: new Date('2026-06-08T00:00:00.000Z'),
 });
@@ -379,12 +439,16 @@ assert.ok(
   cycleService.includes('$set: { expiredReconciliationCompletedAt: now }')
 );
 assert.ok(cycleService.includes("code: 'EXPIRED_RECONCILIATION_FAILED'"));
-assert.ok(cycleService.includes('allowEndedPair: true'));
+assert.ok(cycleService.includes("allowedStatuses: ['active', 'paused', 'ended']"));
+assert.ok(cycleService.includes("status: 'EXPIRED'"));
+assert.ok(cycleService.includes('historicalEnded: pair.status === \'ended\''));
+assert.ok(cycleService.includes('suppressNotifications: input.historicalEnded'));
 assert.ok(cycleService.includes('canonicalSnapshotId'));
 assert.ok(cycleService.includes('projectionFromSnapshot(canonicalSnapshot)'));
 assert.ok(cycleService.includes("type: 'CYCLE_AVAILABLE'"));
 assert.ok(cycleService.includes("type: 'SUMMARY_READY'"));
-assert.ok(cycleService.includes("routeGroup: 'notification'"));
+assert.ok(cycleService.includes('session: input.session'));
+assert.ok(cycleService.includes('$inc: { lifecycleRevision: 1 }'));
 assert.ok(cycleService.includes('status: projection.cycleStatus'));
 assert.ok(cycleService.includes('pairReadiness: projection.dataStatus'));
 assert.equal(
@@ -423,6 +487,21 @@ assert.ok(commitSection.includes('expiresAt: { $gt: commitNow }'));
 assert.ok(commitSection.includes("'member.status': 'PENDING'"));
 assert.ok(commitSection.includes('WeeklyCheckIn.create'));
 assert.ok(commitSection.includes('{ session }'));
+const lifecycleGuardPosition = commitSection.indexOf(
+  'const activePair = await Pair.findOneAndUpdate'
+);
+const cycleCommitPosition = commitSection.indexOf(
+  'const claimedCycle = await WeeklyCycle.findOneAndUpdate'
+);
+const checkInCommitPosition = commitSection.indexOf(
+  'const created = await WeeklyCheckIn.create'
+);
+assert.ok(lifecycleGuardPosition > commitSection.indexOf('session.withTransaction'));
+assert.ok(cycleCommitPosition > lifecycleGuardPosition);
+assert.ok(checkInCommitPosition > cycleCommitPosition);
+assert.ok(commitSection.includes('members: input.currentUserId'));
+assert.ok(commitSection.includes("status: 'active'"));
+assert.ok(commitSection.includes('beforePairLifecycleGuard'));
 const skipSection = cycleService.slice(cycleService.indexOf('async skipCurrent'));
 assert.ok(skipSection.includes('expiresAt: { $gt: now }'));
 assert.ok(skipSection.includes("'memberCompletion.$.status': 'SKIPPED'"));
@@ -431,11 +510,24 @@ const weeklyService = readFileSync(
   join(process.cwd(), 'src/domain/services/weeklyCheckIn.service.ts'),
   'utf8'
 );
-assert.ok((weeklyService.match(/syncAfterCheckIn/g) ?? []).length >= 2);
+assert.ok((weeklyService.match(/syncAfterCheckIn/g) ?? []).length >= 1);
 assert.ok(weeklyService.includes('runWeeklyCheckInFinalization'));
+assert.ok(weeklyService.includes('processWeeklyFactorCheckIn'));
+assert.equal(weeklyService.includes('VectorSnapshot'), false);
+assert.equal(weeklyService.includes('buildPairAnswerDiagnostics'), false);
 assert.ok(weeklyService.includes('submissionClaimToken'));
 assert.ok(weeklyService.includes('token: submissionClaimToken'));
 assert.ok(weeklyService.includes('commitClaimedSubmission'));
+assert.ok(
+  weeklyService.includes(
+    'beforePairLifecycleGuard: hooks.beforePrimaryCommitLifecycleGuard'
+  )
+);
+
+assert.ok(cycleService.includes('readLatestInternalWeeklyPairEvaluations'));
+assert.ok(cycleService.includes('pairEvaluationSnapshotIds'));
+assert.equal(cycleService.includes("'answers.closeness'"), false);
+assert.equal(cycleService.includes("'answers.fatigue'"), false);
 
 const route = readFileSync(
   join(process.cwd(), 'src/app/api/pairs/[id]/weekly-cycle/current/route.ts'),

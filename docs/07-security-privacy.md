@@ -1,4 +1,6 @@
 **Как Сейчас (Обзор)**
+> Status: historical security inventory. It predates Factor disclosure, destructive deletion and session revocation. Use `docs/SECURITY.md`.
+
 1. Модель `User` хранит персональные поля `gender`, `age`, `city`, `relationshipStatus`, а также `profile.onboarding`. Доказательства: `src/models/User.ts:7-45`.
 2. Ответы чек-инов пишутся в `PairActivity.answers` (поля `checkInId`, `by`, `ui`, `at`) и записываются через `/api/activities/[id]/checkin`. Доказательства: `src/models/PairActivity.ts:4-54`, `src/app/api/activities/[id]/checkin/route.ts:10-20`.
 3. Ответы парного опросника пишутся в `PairQuestionnaireAnswer` с полями `sessionId`, `questionId`, `by`, `ui`, `at`. Доказательства: `src/models/PairQuestionnaireAnswer.ts:3-24`, `src/app/api/pairs/[id]/questionnaires/[qid]/answer/route.ts:39-47`.

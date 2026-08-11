@@ -1,4 +1,4 @@
-import { Types, type ClientSession } from 'mongoose';
+import mongoose, { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
@@ -9,6 +9,7 @@ import {
   type RecommendationReasonCode,
 } from '@/models/RecommendationDecision';
 import { PairActivity, type PairActivityType } from '@/models/PairActivity';
+import { Pair } from '@/models/Pair';
 import {
   PairStateSnapshot,
   type PairStateSnapshotType,
@@ -20,10 +21,10 @@ import {
   type RecommendationDecisionAction,
 } from '@/domain/state/recommendationDecisionMachine';
 import {
-  isPairSafetyVetoActive,
+  isOwnerSafetyGateActive,
 } from '@/domain/services/safetyGate.service';
 import {
-  hasP0SensitiveActivityAxis,
+  hasEligibleActivityFactorBinding,
   isActivityAccessibleToRole,
   isActivityEligibleForSafetyState,
   isOfferedActivityEligibleForRole,
@@ -75,7 +76,7 @@ export type RecommendationDecisionDTO = {
   activity: {
     id: string;
     title: { ru: string; en: string };
-    axis: PairActivityType['axis'];
+    actionDefinition: PairActivityType['actionDefinition'];
     difficulty: PairActivityType['difficulty'];
     expiresAt?: string;
   };
@@ -109,6 +110,11 @@ type PreparedReplacement = {
 type ExistingReplacement = {
   kind: 'existing';
   decision: RecommendationDecisionDTO;
+};
+
+export type RecommendationDecisionReliabilityTestHooks = {
+  beforeTransactionalPairGuard?: () => Promise<void>;
+  beforeActionNotificationPairGuard?: () => Promise<void>;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -198,16 +204,90 @@ const ensurePairMember = async (pairId: string, currentUserId: string) => {
 
 type GuardedPair = Awaited<ReturnType<typeof ensurePairMember>>;
 
-const ensureActionNotification = async (
+const assertActivePairForDecisionMutation = async (input: {
+  pairId: Types.ObjectId;
+  currentUserId: string;
+  session: ClientSession;
+}): Promise<void> => {
+  const activePair = await Pair.findOneAndUpdate(
+    {
+      _id: input.pairId,
+      members: input.currentUserId,
+      status: 'active',
+    },
+    { $inc: { lifecycleRevision: 1 } },
+    { new: false, session: input.session }
+  )
+    .select({ _id: 1 })
+    .lean<{ _id: Types.ObjectId } | null>();
+  if (!activePair) unavailable();
+};
+
+const actionNotificationFlights = new Map<string, Promise<void>>();
+
+const reconcileActionNotification = async (
   pair: GuardedPair,
-  decision: StoredDecision
+  decision: StoredDecision,
+  beforePairGuard?: () => Promise<void>
 ): Promise<void> => {
+  const session = await mongoose.startSession();
   try {
-    await notificationService.create({
-      userIds: [...pair.members],
-      pairId: String(pair._id),
-      type: 'ACTION_AVAILABLE',
-      sourceKey: `decision:${String(decision._id)}`,
+    await session.withTransaction(async () => {
+      await beforePairGuard?.();
+      const activePair = await Pair.findOneAndUpdate(
+        {
+          _id: pair._id,
+          members: { $all: pair.members },
+          status: 'active',
+        },
+        { $inc: { lifecycleRevision: 1 } },
+        { new: false, session, timestamps: false }
+      )
+        .select({ _id: 1, members: 1 })
+        .lean<{ _id: Types.ObjectId; members: [string, string] } | null>();
+      if (!activePair) return;
+      const currentDecision = await RecommendationDecision.findOne({
+        _id: decision._id,
+        pairId: activePair._id,
+        activityId: decision.activityId,
+        status: 'OFFERED',
+      })
+        .session(session)
+        .lean<StoredDecision | null>();
+      if (!currentDecision) return;
+      const activity = await PairActivity.findOne({
+        _id: currentDecision.activityId,
+        pairId: activePair._id,
+        status: 'offered',
+      })
+        .session(session)
+        .lean<StoredActivity | null>();
+      if (!activity || !hasEligibleActivityFactorBinding(activity)) return;
+      const recipientEligibility = await Promise.all(
+        activePair.members.map(async (userId, memberIndex) => ({
+          userId,
+          eligible: isOfferedActivityEligibleForRole({
+            activity,
+            role: memberIndex === 0 ? 'A' : 'B',
+            safetyVeto: await isOwnerSafetyGateActive({
+              pairId: String(activePair._id),
+              ownerUserId: userId,
+              session,
+            }),
+          }),
+        }))
+      );
+      const userIds = recipientEligibility
+        .filter((recipient) => recipient.eligible)
+        .map((recipient) => recipient.userId);
+      if (userIds.length === 0) return;
+      await notificationService.create({
+        userIds,
+        pairId: String(activePair._id),
+        type: 'ACTION_AVAILABLE',
+        sourceKey: `decision:${String(currentDecision._id)}`,
+        session,
+      });
     });
   } catch {
     recordOperationalEvent({
@@ -216,6 +296,31 @@ const ensureActionNotification = async (
       outcome: 'error',
       code: 'WRITE_FAILED',
     });
+  } finally {
+    await session.endSession();
+  }
+};
+
+const ensureActionNotification = async (
+  pair: GuardedPair,
+  decision: StoredDecision,
+  beforePairGuard?: () => Promise<void>
+): Promise<void> => {
+  const flightKey = String(decision._id);
+  const existingFlight = actionNotificationFlights.get(flightKey);
+  if (existingFlight) {
+    await existingFlight;
+    return;
+  }
+
+  const flight = reconcileActionNotification(pair, decision, beforePairGuard);
+  actionNotificationFlights.set(flightKey, flight);
+  try {
+    await flight;
+  } finally {
+    if (actionNotificationFlights.get(flightKey) === flight) {
+      actionNotificationFlights.delete(flightKey);
+    }
   }
 };
 
@@ -263,9 +368,6 @@ const loadCurrentRecommendationContext = async (input: {
   };
 };
 
-const isDuplicateKey = (error: object): boolean =>
-  'code' in error && error.code === 11000;
-
 const transitionSet = (
   action: RecommendationDecisionAction,
   status: RecommendationDecisionStatus
@@ -309,7 +411,8 @@ const transitionStored = async (
 };
 
 const reserveReplacementSuccessor = async (
-  decision: StoredDecision
+  decision: StoredDecision,
+  session?: ClientSession
 ): Promise<StoredDecision> => {
   if (decision.successorDecisionId) return decision;
 
@@ -322,11 +425,12 @@ const reserveReplacementSuccessor = async (
       successorDecisionId: { $exists: false },
     },
     { $set: { successorDecisionId } },
-    { new: true }
+    { new: true, ...(session ? { session } : {}) }
   ).lean<StoredDecision | null>();
   if (reserved) return reserved;
 
   const concurrent = await RecommendationDecision.findById(decision._id)
+    .session(session ?? null)
     .lean<StoredDecision | null>();
   if (
     concurrent?.status === 'REPLACED' &&
@@ -423,7 +527,7 @@ const expireInvalidOfferedDecision = async (
 const activityPreview = (activity: StoredActivity) => ({
   id: String(activity._id),
   title: activity.title,
-  axis: activity.axis,
+  actionDefinition: activity.actionDefinition,
   difficulty: activity.difficulty,
   ...(activity.dueAt ? { expiresAt: activity.dueAt.toISOString() } : {}),
 });
@@ -493,7 +597,7 @@ const decisionCanBeProjected = (input: {
 }): boolean =>
   isActivityAccessibleToRole(input.activity, input.role) &&
   (input.decision.status === 'ACCEPTED' ||
-    (!hasP0SensitiveActivityAxis(input.activity.axis) &&
+    (hasEligibleActivityFactorBinding(input.activity) &&
       isActivityEligibleForSafetyState(input.activity, input.safetyVeto)));
 
 const hydrateDecisionIfVisible = async (input: {
@@ -529,7 +633,8 @@ const expireAllOffered = async (
   pairId: Types.ObjectId,
   now: Date,
   preservedDecisionId?: Types.ObjectId,
-  preservedCycleKey?: string
+  preservedCycleKey?: string,
+  session?: ClientSession
 ): Promise<void> => {
   const offered = await RecommendationDecision.find({
     pairId,
@@ -537,13 +642,14 @@ const expireAllOffered = async (
     ...(preservedDecisionId ? { _id: { $ne: preservedDecisionId } } : {}),
     ...(preservedCycleKey ? { cycleKey: { $ne: preservedCycleKey } } : {}),
   })
+    .session(session ?? null)
     .lean<StoredDecision[]>();
   for (const decision of offered) {
-    await transitionStored(decision, { type: 'EXPIRE', at: now });
+    await transitionStored(decision, { type: 'EXPIRE', at: now }, session);
     await PairActivity.updateOne(
       { _id: decision.activityId, status: 'offered' },
       { $set: { status: 'expired' } }
-    );
+    ).session(session ?? null);
   }
 };
 
@@ -561,7 +667,6 @@ const reconcileOffered = async (
     _id: { $in: offered.map((decision) => decision.activityId) },
   }).lean<StoredActivity[]>();
   const byId = new Map(activities.map((activity) => [String(activity._id), activity]));
-  const safetyVeto = await isPairSafetyVetoActive(String(pairId));
   const stillOffered: StoredDecision[] = [];
 
   for (const decision of offered) {
@@ -570,10 +675,7 @@ const reconcileOffered = async (
       await transitionStored(decision, { type: 'EXPIRE', at: now });
       continue;
     }
-    if (
-      hasP0SensitiveActivityAxis(activity.axis) ||
-      !isActivityEligibleForSafetyState(activity, safetyVeto)
-    ) {
+    if (!hasEligibleActivityFactorBinding(activity)) {
       await transitionStored(decision, { type: 'EXPIRE', at: now });
       await PairActivity.updateOne(
         { _id: activity._id, status: 'offered' },
@@ -680,7 +782,10 @@ const loadDecisionForMember = async (input: {
   if (!decision) return unavailable();
   const activity = await PairActivity.findById(decision.activityId)
     .lean<StoredActivity | null>();
-  const safetyVeto = await isPairSafetyVetoActive(String(pair._id));
+  const safetyVeto = await isOwnerSafetyGateActive({
+    pairId: String(pair._id),
+    ownerUserId: input.currentUserId,
+  });
   if (
     !activity ||
     !decisionCanBeProjected({
@@ -751,7 +856,10 @@ export const recommendationDecisionService = {
       pair.members as [string, string],
       input.currentUserId
     );
-    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
+    const safetyVeto = await isOwnerSafetyGateActive({
+      pairId: String(pairId),
+      ownerUserId: input.currentUserId,
+    });
     if (pair.status !== 'active') await expireAllOffered(pairId, new Date());
     const now = new Date();
     const current = pair.status === 'active'
@@ -772,7 +880,7 @@ export const recommendationDecisionService = {
     const currentDto = current
       ? await hydrateDecisionIfVisible({ decision: current, role, safetyVeto })
       : null;
-    if (current && currentDto) {
+    if (current) {
       await ensureActionNotification(pair, current);
     }
     const historyDtos = await Promise.all(
@@ -791,7 +899,9 @@ export const recommendationDecisionService = {
   async getCurrent(input: {
     pairId: string;
     currentUserId: string;
-  }): Promise<RecommendationDecisionDTO | null> {
+  }, options: {
+    reconcileActionNotification?: boolean;
+  } = {}): Promise<RecommendationDecisionDTO | null> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     if (pair.status !== 'active') {
@@ -810,9 +920,12 @@ export const recommendationDecisionService = {
         pair.members as [string, string],
         input.currentUserId
       ),
-      safetyVeto: await isPairSafetyVetoActive(String(pair._id)),
+      safetyVeto: await isOwnerSafetyGateActive({
+        pairId: String(pair._id),
+        ownerUserId: input.currentUserId,
+      }),
     });
-    if (visible) {
+    if (options.reconcileActionNotification !== false) {
       await ensureActionNotification(pair, current);
     }
     return visible;
@@ -851,7 +964,10 @@ export const recommendationDecisionService = {
       .sort({ offeredAt: -1, _id: 1 })
       .limit(20)
       .lean<StoredActivity[]>();
-    const safetyVeto = await isPairSafetyVetoActive(String(pair._id));
+    const safetyVeto = await isOwnerSafetyGateActive({
+      pairId: String(pair._id),
+      ownerUserId: input.currentUserId,
+    });
     const unsafeIds: Types.ObjectId[] = [];
     const role: 'A' | 'B' =
       pair.members[0] === input.currentUserId ? 'A' : 'B';
@@ -860,13 +976,11 @@ export const recommendationDecisionService = {
       const templateId = templateIdFromActivity(candidate);
       if (input.excludeTemplateId && templateId === input.excludeTemplateId) return false;
       if (input.includeTemplateId && templateId !== input.includeTemplateId) return false;
-      if (
-        hasP0SensitiveActivityAxis(candidate.axis) ||
-        !isActivityEligibleForSafetyState(candidate, safetyVeto)
-      ) {
+      if (!hasEligibleActivityFactorBinding(candidate)) {
         unsafeIds.push(candidate._id);
         return false;
       }
+      if (!isActivityEligibleForSafetyState(candidate, safetyVeto)) return false;
       return isOfferedActivityEligibleForRole({
         activity: candidate,
         role,
@@ -874,36 +988,26 @@ export const recommendationDecisionService = {
       });
     });
 
-    if (safetyVeto || unsafeIds.length > 0) {
-      const unsafeIdSet = new Set(unsafeIds.map(String));
-      for (const candidate of candidates) {
-        if (
-          (hasP0SensitiveActivityAxis(candidate.axis) ||
-            !isActivityEligibleForSafetyState(candidate, safetyVeto)) &&
-          !unsafeIdSet.has(String(candidate._id))
-        ) {
-          unsafeIds.push(candidate._id);
-          unsafeIdSet.add(String(candidate._id));
-        }
-      }
-      if (unsafeIds.length) {
-        await PairActivity.updateMany(
-          { _id: { $in: unsafeIds }, status: 'offered' },
-          { $set: { status: 'cancelled' } }
-        );
-      }
+    if (unsafeIds.length) {
+      await PairActivity.updateMany(
+        { _id: { $in: unsafeIds }, status: 'offered' },
+        { $set: { status: 'cancelled' } }
+      );
     }
     return selected ? String(selected._id) : null;
   },
 
-  async openForActivity(input: {
-    pairId: string;
-    activityId: string;
-    currentUserId: string;
-    previousDecisionId?: string;
-    successorDecisionId?: string;
-    recommendationContext?: RecommendationSummaryContext;
-  }): Promise<RecommendationDecisionDTO> {
+  async openForActivity(
+    input: {
+      pairId: string;
+      activityId: string;
+      currentUserId: string;
+      previousDecisionId?: string;
+      successorDecisionId?: string;
+      recommendationContext?: RecommendationSummaryContext;
+    },
+    hooks: RecommendationDecisionReliabilityTestHooks = {}
+  ): Promise<RecommendationDecisionDTO> {
     await connectToDatabase();
     const pair = await ensurePairMember(input.pairId, input.currentUserId);
     if (pair.status !== 'active') return unavailable();
@@ -964,15 +1068,14 @@ export const recommendationDecisionService = {
       return unavailable();
     }
 
-    const templateId = templateIdFromActivity(activity);
-    const safetyVeto = await isPairSafetyVetoActive(String(pairId));
+    const safetyVeto = await isOwnerSafetyGateActive({
+      pairId: String(pairId),
+      ownerUserId: input.currentUserId,
+    });
     const role: 'A' | 'B' =
       pair.members[0] === input.currentUserId ? 'A' : 'B';
     if (!isOfferedActivityEligibleForRole({ activity, role, safetyVeto })) {
-      if (
-        hasP0SensitiveActivityAxis(activity.axis) ||
-        !isActivityEligibleForSafetyState(activity, safetyVeto)
-      ) {
+      if (!hasEligibleActivityFactorBinding(activity)) {
         await PairActivity.updateOne(
           { _id: activity._id, status: 'offered' },
           { $set: { status: 'cancelled' } }
@@ -1013,92 +1116,163 @@ export const recommendationDecisionService = {
       return hydrateDecision(existing);
     }
 
-    let replacementDepth: 0 | 1 = 0;
-    let previousDecision: StoredDecision | null = null;
-    if (input.previousDecisionId) {
-      previousDecision = await RecommendationDecision.findOne({
-        _id: input.previousDecisionId,
-        pairId,
-        status: 'REPLACED',
-        replacementDepth: 0,
-        ...(reservedSuccessorId
-          ? { successorDecisionId: reservedSuccessorId }
-          : {}),
-      }).lean<StoredDecision | null>();
-      if (!previousDecision) return unavailable();
-      replacementDepth = 1;
-    }
-
     const now = new Date();
     const cycleKey = recommendationContext.cycleKey;
-    const expiresAt = activity.dueAt ?? new Date(now.getTime() + 3 * DAY_MS);
-    await expireAllOffered(pairId, now, reservedSuccessorId, cycleKey);
-
-    let created: StoredDecision;
+    let created: StoredDecision | undefined;
+    let previousDecision: StoredDecision | null = null;
     let newlyCreated = false;
+    const session = await mongoose.startSession();
     try {
-      const document = await RecommendationDecision.create({
-        ...(reservedSuccessorId ? { _id: reservedSuccessorId } : {}),
-        pairId,
-        cycleKey,
-        activityId: activity._id,
-        templateId,
-        status: 'OFFERED',
-        reasonCode: previousDecision
-          ? 'ALTERNATIVE_REQUESTED'
-          : 'CURRENT_CYCLE_SUPPORT',
-        decisionVersion: 'recommendation-decision-v1',
-        provenance: activityProvenance,
-        replacementDepth,
-        ...(previousDecision ? { previousDecisionId: previousDecision._id } : {}),
-        expiresAt,
-      });
-      created = document.toObject() as StoredDecision;
-      newlyCreated = true;
-    } catch (error) {
-      if (!isRecord(error) || !isDuplicateKey(error)) throw error;
-      const concurrent = reservedSuccessorId
-        ? await RecommendationDecision.findById(reservedSuccessorId)
-            .lean<StoredDecision | null>()
-        : await RecommendationDecision.findOne({
-            $or: [
-              { activityId: activity._id },
-              { pairId, cycleKey, status: 'OFFERED' },
-            ],
-          }).lean<StoredDecision | null>();
-      if (!concurrent) return unavailable();
-      const concurrentActivity = await PairActivity.findById(
-        concurrent.activityId
-      ).lean<StoredActivity | null>();
-      if (
-        !concurrentActivity ||
-        !recommendationDocumentsMatchContext({
-          decision: concurrent,
-          activity: concurrentActivity,
-          context: recommendationContext,
-        }) ||
-        (previousDecision &&
-          String(concurrent.previousDecisionId ?? '') !==
-            String(previousDecision._id))
-      ) {
-        if (concurrent.status === 'OFFERED') {
-          await expireInvalidOfferedDecision(concurrent, new Date());
-        }
-        return unavailable();
-      }
-      created = concurrent;
-    }
+      await session.withTransaction(async () => {
+        created = undefined;
+        previousDecision = null;
+        newlyCreated = false;
+        await hooks.beforeTransactionalPairGuard?.();
+        await assertActivePairForDecisionMutation({
+          pairId,
+          currentUserId: input.currentUserId,
+          session,
+        });
 
-    if (previousDecision) {
-      await RecommendationDecision.updateOne(
-        {
-          _id: previousDecision._id,
-          status: 'REPLACED',
-          successorDecisionId: { $exists: false },
-        },
-        { $set: { successorDecisionId: created._id } }
-      );
+        const transactionActivity = await PairActivity.findOne({
+          _id: activity._id,
+          pairId,
+          status: 'offered',
+        })
+          .session(session)
+          .lean<StoredActivity | null>();
+        if (
+          !transactionActivity ||
+          !recommendationProvenanceMatchesContext(
+            transactionActivity.recommendationProvenance,
+            recommendationContext
+          ) ||
+          transactionActivity.recommendationProvenance?.activityContentHash !==
+            buildActivityContentHash(transactionActivity)
+        ) {
+          return unavailable();
+        }
+
+        const activeInTransaction = await PairActivity.exists({
+          pairId,
+          status: { $in: ACTIVE_ACTIVITY_STATUSES },
+        }).session(session);
+        if (activeInTransaction) return unavailable();
+
+        if (
+          !(await recommendationContextIsStillCanonical({
+            pairId,
+            context: recommendationContext,
+            now,
+            session,
+          }))
+        ) {
+          return summaryNotReady();
+        }
+
+        const concurrentDecision = await RecommendationDecision.findOne({
+          $or: [
+            { activityId: transactionActivity._id },
+            { pairId, cycleKey, status: 'OFFERED' },
+            ...(reservedSuccessorId ? [{ _id: reservedSuccessorId }] : []),
+          ],
+        })
+          .session(session)
+          .lean<StoredDecision | null>();
+        if (concurrentDecision) {
+          const concurrentActivity = await PairActivity.findById(
+            concurrentDecision.activityId
+          )
+            .session(session)
+            .lean<StoredActivity | null>();
+          if (
+            concurrentDecision.status !== 'OFFERED' ||
+            !concurrentActivity ||
+            !recommendationDocumentsMatchContext({
+              decision: concurrentDecision,
+              activity: concurrentActivity,
+              context: recommendationContext,
+            }) ||
+            (input.previousDecisionId &&
+              String(concurrentDecision.previousDecisionId ?? '') !==
+                input.previousDecisionId) ||
+            (reservedSuccessorId &&
+              String(concurrentDecision._id) !== String(reservedSuccessorId))
+          ) {
+            return unavailable();
+          }
+          created = concurrentDecision;
+          return;
+        }
+
+        let replacementDepth: 0 | 1 = 0;
+        if (input.previousDecisionId) {
+          previousDecision = await RecommendationDecision.findOne({
+            _id: input.previousDecisionId,
+            pairId,
+            status: 'REPLACED',
+            replacementDepth: 0,
+            ...(reservedSuccessorId
+              ? { successorDecisionId: reservedSuccessorId }
+              : {}),
+          })
+            .session(session)
+            .lean<StoredDecision | null>();
+          if (!previousDecision) return unavailable();
+          replacementDepth = 1;
+        }
+
+        await expireAllOffered(
+          pairId,
+          now,
+          reservedSuccessorId,
+          cycleKey,
+          session
+        );
+        const [document] = await RecommendationDecision.create(
+          [
+            {
+              ...(reservedSuccessorId ? { _id: reservedSuccessorId } : {}),
+              pairId,
+              cycleKey,
+              activityId: transactionActivity._id,
+              templateId: templateIdFromActivity(transactionActivity),
+              status: 'OFFERED',
+              reasonCode: previousDecision
+                ? 'ALTERNATIVE_REQUESTED'
+                : 'CURRENT_CYCLE_SUPPORT',
+              decisionVersion: 'recommendation-decision-v1',
+              provenance: transactionActivity.recommendationProvenance,
+              replacementDepth,
+              ...(previousDecision
+                ? { previousDecisionId: previousDecision._id }
+                : {}),
+              expiresAt:
+                transactionActivity.dueAt ??
+                new Date(now.getTime() + 3 * DAY_MS),
+            },
+          ],
+          { session }
+        );
+        created = document.toObject() as StoredDecision;
+        newlyCreated = true;
+
+        if (previousDecision) {
+          await RecommendationDecision.updateOne(
+            {
+              _id: previousDecision._id,
+              status: 'REPLACED',
+              successorDecisionId: { $exists: false },
+            },
+            { $set: { successorDecisionId: created._id } },
+            { session }
+          );
+        }
+      });
+    } finally {
+      await session.endSession();
     }
+    if (!created) return unavailable();
     if (
       !(await recommendationContextIsStillCanonical({
         pairId,
@@ -1109,7 +1283,11 @@ export const recommendationDecisionService = {
       await expireInvalidOfferedDecision(created, new Date());
       return summaryNotReady();
     }
-    await ensureActionNotification(pair, created);
+    await ensureActionNotification(
+      pair,
+      created,
+      hooks.beforeActionNotificationPairGuard
+    );
     if (newlyCreated) {
       recordProductAnalyticsEvent({
         name: 'activity_offered',
@@ -1125,13 +1303,16 @@ export const recommendationDecisionService = {
     return hydrateDecision(created);
   },
 
-  async prepareReplacement(input: {
-    pairId: string;
-    decisionId: string;
-    currentUserId: string;
-  }): Promise<PreparedReplacement | ExistingReplacement> {
+  async prepareReplacement(
+    input: {
+      pairId: string;
+      decisionId: string;
+      currentUserId: string;
+    },
+    hooks: RecommendationDecisionReliabilityTestHooks = {}
+  ): Promise<PreparedReplacement | ExistingReplacement> {
     await connectToDatabase();
-    let decision = await loadDecisionForMember({
+    const decision = await loadDecisionForMember({
       ...input,
       requireActive: true,
     });
@@ -1163,21 +1344,51 @@ export const recommendationDecisionService = {
           decision: await hydrateDecision(validatedSuccessor),
         };
       }
-      decision = await reserveReplacementSuccessor(decision);
-      await PairActivity.updateOne(
-        { _id: decision.activityId, pairId: decision.pairId, status: 'offered' },
-        { $set: { status: 'cancelled' } }
-      );
-      return toPreparedReplacement(decision);
     }
 
-    decision = await transitionStored(decision, { type: 'REPLACE', at: new Date() });
-    decision = await reserveReplacementSuccessor(decision);
-    await PairActivity.updateOne(
-      { _id: decision.activityId, pairId: decision.pairId, status: 'offered' },
-      { $set: { status: 'cancelled' } }
-    );
-    return toPreparedReplacement(decision);
+    let prepared: StoredDecision | undefined;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        prepared = undefined;
+        await hooks.beforeTransactionalPairGuard?.();
+        await assertActivePairForDecisionMutation({
+          pairId: decision.pairId,
+          currentUserId: input.currentUserId,
+          session,
+        });
+        let current = await RecommendationDecision.findOne({
+          _id: decision._id,
+          pairId: decision.pairId,
+        })
+          .session(session)
+          .lean<StoredDecision | null>();
+        if (!current) return unavailable();
+        if (current.status === 'OFFERED') {
+          current = await transitionStored(
+            current,
+            { type: 'REPLACE', at: new Date() },
+            session
+          );
+        } else if (current.status !== 'REPLACED') {
+          return unavailable();
+        }
+        prepared = await reserveReplacementSuccessor(current, session);
+        await PairActivity.updateOne(
+          {
+            _id: prepared.activityId,
+            pairId: prepared.pairId,
+            status: 'offered',
+          },
+          { $set: { status: 'cancelled' } },
+          { session }
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (!prepared) return unavailable();
+    return toPreparedReplacement(prepared);
   },
 
   async rollbackReplacement(input: {
@@ -1188,35 +1399,64 @@ export const recommendationDecisionService = {
     await connectToDatabase();
     const decision = await loadDecisionForMember(input);
     if (decision.status !== 'REPLACED') return;
-    const successor = decision.successorDecisionId
-      ? await RecommendationDecision.findOne({
-          _id: decision.successorDecisionId,
-          previousDecisionId: decision._id,
-        }).lean<StoredDecision | null>()
-      : await RecommendationDecision.findOne({
-          previousDecisionId: decision._id,
-        }).lean<StoredDecision | null>();
-    if (successor) return;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await assertActivePairForDecisionMutation({
+          pairId: decision.pairId,
+          currentUserId: input.currentUserId,
+          session,
+        });
+        const current = await RecommendationDecision.findOne({
+          _id: decision._id,
+          pairId: decision.pairId,
+          status: 'REPLACED',
+        })
+          .session(session)
+          .lean<StoredDecision | null>();
+        if (!current) return;
+        const successor = current.successorDecisionId
+          ? await RecommendationDecision.findOne({
+              _id: current.successorDecisionId,
+              previousDecisionId: current._id,
+            })
+              .session(session)
+              .lean<StoredDecision | null>()
+          : await RecommendationDecision.findOne({
+              previousDecisionId: current._id,
+            })
+              .session(session)
+              .lean<StoredDecision | null>();
+        if (successor) return;
 
-    const restored = await RecommendationDecision.findOneAndUpdate(
-      {
-        _id: decision._id,
-        status: 'REPLACED',
-        ...(decision.successorDecisionId
-          ? { successorDecisionId: decision.successorDecisionId }
-          : { successorDecisionId: { $exists: false } }),
-      },
-      {
-        $set: { status: 'OFFERED' },
-        $unset: { replacedAt: 1, successorDecisionId: 1 },
-      },
-      { new: true }
-    ).lean<StoredDecision | null>();
-    if (restored) {
-      await PairActivity.updateOne(
-        { _id: restored.activityId, pairId: restored.pairId, status: 'cancelled' },
-        { $set: { status: 'offered' } }
-      );
+        const restored = await RecommendationDecision.findOneAndUpdate(
+          {
+            _id: current._id,
+            status: 'REPLACED',
+            ...(current.successorDecisionId
+              ? { successorDecisionId: current.successorDecisionId }
+              : { successorDecisionId: { $exists: false } }),
+          },
+          {
+            $set: { status: 'OFFERED' },
+            $unset: { replacedAt: 1, successorDecisionId: 1 },
+          },
+          { new: true, session }
+        ).lean<StoredDecision | null>();
+        if (restored) {
+          await PairActivity.updateOne(
+            {
+              _id: restored.activityId,
+              pairId: restored.pairId,
+              status: 'cancelled',
+            },
+            { $set: { status: 'offered' } },
+            { session }
+          );
+        }
+      });
+    } finally {
+      await session.endSession();
     }
   },
 
@@ -1313,11 +1553,7 @@ export const recommendationDecisionService = {
       await expireInvalidOfferedDecision(decision, now, session);
       return summaryNotReady();
     }
-    const safetyVeto = await isPairSafetyVetoActive(String(decision.pairId));
-    if (
-      hasP0SensitiveActivityAxis(activity.axis) ||
-      !isActivityEligibleForSafetyState(activity, safetyVeto)
-    ) {
+    if (!hasEligibleActivityFactorBinding(activity)) {
       await transitionStored(decision, { type: 'EXPIRE', at: now }, session);
       await PairActivity.updateOne(
         { _id: activity._id, status: 'offered' },

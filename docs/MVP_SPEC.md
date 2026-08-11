@@ -1,137 +1,102 @@
-# ForeverApp / «Вместе»: границы MVP
+# ForeverApp / «Вместе»: public free MVP scope
 
-Статус: канонический scope MVP и gates первой коммерческой версии. Дата решения: 2026-08-07.
-
-Этот документ отвечает на вопросы **что входит** и **в каком порядке проверяется**. Подробные функциональные acceptance criteria находятся в `docs/MVP_FLOWS.md`, целевая техническая модель — в `docs/TARGET_DOMAIN_MODEL.md` и `docs/TARGET_DOMAIN_OPERATIONS.md`.
-
-Перечисленная функция не считается реализованной без targeted проверки текущего кода. Существующие сервисы, модели и UI переиспользуются, а не переписываются автоматически.
+Статус: canonical MVP scope. Обновлено 2026-08-11.
 
 ## 1. Проверяемая гипотеза
 
-Возвращается ли пара к короткому циклу, который превращает раздельные check-in двух участников в privacy-safe общее резюме и одно полезное действие?
+Вернётся ли пара к безопасному короткому циклу, который превращает два отдельных check-in в одно понятное действие без раскрытия личных ответов?
 
 ```text
-два добровольно связанных аккаунта
-→ отдельный check-in каждого
-→ осторожное Pair Summary
-→ одна рекомендация
-→ activity + раздельный feedback
-→ следующий cycle
+two consenting accounts → Pair → two personal check-ins
+→ qualitative Pair Summary → one action → separate feedback → next free cycle
 ```
 
-Единица activation и retention — Pair. Недостаток данных, отсутствие ответа второго участника, пропуск и частичное завершение являются штатными состояниями, а не ошибками.
+Недостаток данных, skip, expiry, one-sided completion и late feedback — штатные состояния.
 
-## 2. Gates
+## 2. MVP gates
 
-### `P0 — MVP_CORE`
+### Code-complete core
 
-Закрытый или бесплатный пилот полного цикла:
+- Discord auth/session and centralized resource guards;
+- Factor Engine `NEW_ONLY`, immutable evidence/snapshots and no six-axis runtime;
+- personal onboarding and invite-only Pair creation;
+- weekly untouched input, skip/expiry, semantic Pair Summary;
+- Factor-based recommendation and activity feedback loop;
+- free cycle 1, 2, 3 and all later cycles;
+- history/notifications/profile/settings/help/SafetyGate;
+- PartnerSignal;
+- pause/resume/end/reconnect;
+- export, destructive confirmed deletion and session revocation;
+- idempotency, concurrency protection, migrations and privacy tests.
 
-- существующий Discord auth и session boundary;
-- одноразовое приглашение и связывание двух аккаунтов;
-- короткий onboarding, consent и privacy basics;
-- weekly cycle с независимым completion каждого участника;
-- Pair Summary с `INSUFFICIENT_DATA` как нормальным результатом;
-- одна детерминированная рекомендация;
-- activity lifecycle, раздельный feedback и история light;
-- обязательные session/resource guards, item-level authorization, idempotency и privacy-safe DTO;
-- system-only safety veto, не раскрываемый партнёру.
+### Local release gate
 
-### `P1 — MVP_RELEASE`
+- lint, typecheck, all selfchecks, agent diagnostics, production build, diff check and dependency audit;
+- guarded database integrations including three free cycles, NEW_ONLY migrations, lifecycle, privacy and failure/concurrency scenarios;
+- two comparable load runs satisfying required dashboard/history/recommendation p95 targets with no duplicates/errors;
+- supported-browser mobile-width/accessibility smoke;
+- independent architecture, privacy/security and release/performance review.
 
-Готовность к публичной эксплуатации:
+Current evidence and any still-running checks are recorded in [MVP_RELEASE_STATUS.md](./MVP_RELEASE_STATUS.md), never inferred from this scope document.
 
-- полный lifecycle приглашения, Pair, unlink и повторного подключения;
-- утверждённые export/delete/retention правила;
-- проверенные sensitive content и локализованный help flow;
-- безопасные уведомления и продуктовая аналитика без payload;
-- versioned publish process для вопросов и активностей;
-- entitlement, trial и billing только для платного запуска.
+### External production gate
 
-### `P2 — NEXT`
+- two fresh real Discord accounts/sessions complete [P0_TWO_USER_E2E.md](./P0_TWO_USER_E2E.md);
+- production replica set, indexes, secrets, least privilege, backup/restore and rollback are verified;
+- alerts/on-call/privacy incident process have named owners;
+- sensitive Russian content and jurisdiction-specific help/retention terms receive expert/legal approval;
+- controlled deployment and go/no-go are authorized.
 
-Не задерживает `P0/P1`:
+No payment, subscription, provider or entitlement gate belongs to this MVP.
 
-- отдельные partner signals и return-to-conversation;
-- тренды и подтверждаемые patterns;
-- adaptive questions и персонализация;
-- agreements, programs, household и future modules.
+## 3. Functional scope
 
-AI, dating/matching, медицина, pregnancy/children, Family OS и marketplace остаются за границами MVP согласно `docs/PRODUCT_SPEC.md`.
+| Area | Required result |
+| --- | --- |
+| Auth | Repeatable Discord entry, cookie/bearer restore, server-side logout revocation |
+| Onboarding | Resume, consent, explicit closed input, semantic evidence where bound |
+| Pair | Hash-only invite, cancel/reissue/expiry/accept, one active membership |
+| Cycle | Independent explicit submit/skip, server UTC window, concurrency-safe canonical result |
+| Summary | Up to four qualitative non-reconstructable signals; insufficient is valid |
+| Recommendation | One Factor-bound decision, accept/replace once/skip/expire/recovery |
+| Activity | Start, separate feedback, partial/final result, new Factor evidence |
+| Profile | Owner semantic cards, no radar/axis/value/compatibility score |
+| History/notifications | Bounded/cursor-paginated derived records with neutral copy |
+| Safety/help | Owner-private eligibility veto and versioned private `help-ru-v1` catalog |
+| PartnerSignal | Private draft, explicit confirm/send, unique source binding and TTL |
+| Lifecycle | Pause/resume/end, old-id denial and new Pair reconnect |
+| Privacy | Bounded export, deletion request/cancel/execute, session revocation |
+| Operations | Versioned publication/registry, guarded migrations, preflight, load/review evidence |
 
-## 3. End-to-end flow
+## 4. Screen map
 
-```text
-Discord auth
-→ onboarding первого участника
-→ создать одноразовое приглашение
-→ партнёр принимает приглашение и проходит onboarding
-→ подтвердить контекст Pair
-→ первый check-in каждого
-→ privacy-safe Pair Summary
-→ [неблокирующее предложение subscription, если запуск платный]
-→ принять / заменить / пропустить рекомендацию
-→ activity и feedback, если activity принята
-→ история первого cycle
-→ [hard paywall перед cycle 2, если запуск платный]
-→ следующий cycle
-```
-
-Первый cycle всегда доступен целиком. Неблокирующее предложение можно показать после первого summary, но hard paywall разрешён только перед открытием cycle 2.
-
-## 4. Scope по пользовательским возможностям
-
-| Область | `P0` результат | Детали |
-| --- | --- | --- |
-| Auth | Повторяемый Discord вход без нового generic auth | `docs/MVP_FLOWS.md` §1.1 |
-| Onboarding | Минимум данных и явные capture/disclosure choices | §1.2 |
-| Pair linking | Безопасное одноразовое приглашение, waiting/expired/cancelled | §1.3 |
-| Cycle | Два независимых check-in, concurrent/idempotent submit | §1.4 |
-| Summary | До четырёх нейтральных display-сигналов без чтения мотивов | §1.5 |
-| Recommendation | Одна activity, replace/skip и explainable reason | §1.6 |
-| Activity | Отдельные recommendation/activity states и late-peer feedback | §1.7 |
-| History | Циклы, раскрытые summaries и выполненные/пропущенные actions | §1.8 |
-| Privacy | Raw и derived disclosure разделены; safety veto system-only | §1.9–1.10 |
-| Operations | Notifications, billing и analytics по применимому gate | §1.11–1.13 |
-
-## 5. Компактная экранная карта
-
-1. Auth/entry.
+1. Discord entry/error/retry.
 2. Personal onboarding.
-3. Create/accept invite и waiting state.
-4. `/main-menu` как «Сегодня» и главный cycle hub.
-5. Weekly check-in runner.
-6. `/pair` с Pair Summary и history light.
-7. Activity + feedback flow.
-8. `/profile` с личным статусом и privacy.
-9. Settings, Pair lifecycle и subscription при платном запуске.
+3. Invite/create/join/waiting/expired/cancel/reissue.
+4. Main Pair/cycle hub.
+5. Weekly explicit check-in and skip confirmation.
+6. Pair Summary and recommendation decision.
+7. Activity/start/feedback/partial/final/history.
+8. Owner semantic profile and personal today.
+9. Settings/privacy/SafetyGate/help/end/reconnect/export/delete/logout.
 
-Отдельный Product Entry с единственным выбором «я уже в отношениях» не нужен. Legacy matching может оставаться изолированным, но не является путём входа MVP.
+Every active screen needs loading, error, empty and retry behavior where applicable; no placeholder, mock, dead CTA, paywall or dating-oriented primary copy.
 
-## 6. Готовность пилота
+## 5. Non-negotiable invariants
 
-Новая пара без разработчика должна суметь:
+- Session identity and resource guard precede business state access.
+- No raw Mongoose document crosses API.
+- Missing/invalid/unknown/insufficient is never a numeric neutral.
+- A/B order does not change symmetric evaluation.
+- A observation does not mutate B profile.
+- One-sided data never reveals a pair signal.
+- No participant endpoint exposes peer raw data, exact Factor internals or SafetyGate.
+- Published versions/snapshots are immutable and replayable.
+- Runtime starts without legacy vector/diagnostics collections and has no fallback.
+- No core mutation consults paid entitlement.
+- Ended Pair ids cannot be reused; reconnect is a new context.
+- Destructive deletion revokes sessions and reports failure honestly.
 
-1. войти и связать два аккаунта;
-2. понять правила использования/раскрытия данных;
-3. пройти первый cycle в любом порядке submit;
-4. получить понятный summary без утечки скрытого ответа;
-5. принять, заменить или пропустить activity;
-6. раздельно дать feedback, включая late-peer path;
-7. увидеть историю и начать следующий cycle;
-8. восстановить flow после повторного входа и повторного запроса.
+## 6. Definition of Done
 
-Privacy/security, content/safety и paid-launch gates перечислены в `docs/MVP_FLOWS.md` §4. Ни один из них не заменяется ручной операцией или «временно доверенным» client input.
-
-## 7. Порядок работ
-
-1. Baseline matrix: `verified / partial / missing / legacy-out-of-scope`.
-2. Entry/linking и Pair invariants.
-3. Consent, versioned input и disclosure.
-4. Cycle projection и insufficient-data behavior.
-5. Recommendation, activity, feedback и history.
-6. Главный UI-flow.
-7. Release safety, lifecycle и operations.
-8. Commercialization для платного запуска.
-
-Полный delivery checklist и критерии перехода к `NEXT` находятся в `docs/MVP_FLOWS.md` §5–6. Любое изменение public API, auth/security model или схемы БД выполняется отдельной задачей в соответствующем operating mode.
+The MVP is locally complete only when implementation, applicable automated/database/load/browser checks and three independent reviews are green for the same tree. It is publicly deployed only after the external production gate is separately recorded. A green build alone is not completion.

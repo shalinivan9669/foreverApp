@@ -1,5 +1,4 @@
 import mongoose, { Schema, Types } from 'mongoose';
-import type { Axis } from '@/domain/vectors';
 
 export type WeeklyCheckInAnswers = {
   closeness: number;
@@ -11,9 +10,13 @@ export type WeeklyCheckInAnswers = {
 };
 
 export type WeeklyCheckInComputed = {
-  userStateDelta: Partial<Record<Axis, number>>;
-  pairRiskDelta?: number;
-  generatedInsightIds: string[];
+  factorEngine: {
+    status: 'PENDING' | 'MATERIALIZED';
+    registryVersion?: number;
+    evidenceEventIds: string[];
+    individualSnapshotIds: string[];
+    pairEvaluationSnapshotIds: string[];
+  };
 };
 
 export const WEEKLY_CHECK_IN_FINALIZATION_VERSION =
@@ -38,7 +41,7 @@ export type WeeklyCheckInFinalization = {
 
 export interface WeeklyCheckInType {
   userId: string;
-  pairId?: string | Types.ObjectId;
+  pairId: Types.ObjectId;
   weekKey: string;
   answers: WeeklyCheckInAnswers;
   computed: WeeklyCheckInComputed;
@@ -62,9 +65,30 @@ const answersSchema = new Schema<WeeklyCheckInAnswers>(
 
 const computedSchema = new Schema<WeeklyCheckInComputed>(
   {
-    userStateDelta: { type: Schema.Types.Mixed, required: true, default: {} },
-    pairRiskDelta: { type: Number },
-    generatedInsightIds: { type: [String], default: [] },
+    factorEngine: {
+      type: new Schema<WeeklyCheckInComputed['factorEngine']>(
+        {
+          status: {
+            type: String,
+            enum: ['PENDING', 'MATERIALIZED'],
+            required: true,
+            default: 'PENDING',
+          },
+          registryVersion: { type: Number, min: 1 },
+          evidenceEventIds: { type: [String], required: true, default: [] },
+          individualSnapshotIds: { type: [String], required: true, default: [] },
+          pairEvaluationSnapshotIds: { type: [String], required: true, default: [] },
+        },
+        { _id: false }
+      ),
+      required: true,
+      default: () => ({
+        status: 'PENDING',
+        evidenceEventIds: [],
+        individualSnapshotIds: [],
+        pairEvaluationSnapshotIds: [],
+      }),
+    },
   },
   { _id: false }
 );
@@ -94,10 +118,15 @@ const finalizationSchema = new Schema<WeeklyCheckInFinalization>(
 
 const weeklyCheckInSchema = new Schema<WeeklyCheckInType>(
   {
-    userId: { type: String, required: true },
-    pairId: { type: Schema.Types.Mixed },
-    weekKey: { type: String, required: true },
-    answers: { type: answersSchema, required: true },
+    userId: { type: String, required: true, immutable: true },
+    pairId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Pair',
+      required: true,
+      immutable: true,
+    },
+    weekKey: { type: String, required: true, immutable: true },
+    answers: { type: answersSchema, required: true, immutable: true },
     computed: { type: computedSchema, required: true, default: () => ({}) },
     finalization: {
       type: finalizationSchema,

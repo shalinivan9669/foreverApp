@@ -1,5 +1,7 @@
 **Relationship Experience Layer (2026-06-05)**
 
+> Status: historical API inventory. Routes/fields below may have been removed by the 2026-08-11 NEW_ONLY cutover. Use `docs/API_CONTRACTS.md` for current contracts.
+
 - `GET /api/users/me/profile-summary` now includes `experienceSummary`, `personalAxisCards`, `partnerHelpfulNotes`, and `needsAndBoundariesLite`.
 - `experienceSummary` powers the profile's primary "Сегодня" card with one contextual action and an optional pair shortcut.
 - `personalAxisCards` converts the six passport axes into `strength`, `growth`, `low_data`, or `balanced` guidance with relationship-safe wording.

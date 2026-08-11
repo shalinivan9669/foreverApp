@@ -1,59 +1,79 @@
-# P0 two-user manual E2E
+# Public MVP two-user manual E2E
 
-Этот сценарий выполняется на отдельном pilot-окружении с MongoDB replica set и двумя новыми Discord-аккаунтами `A` и `B`. Не используйте реальные чувствительные ответы. Секреты, cookies и invite token не копируются в логи или баг-репорты.
+Run on the exact release artifact with a transaction-capable pilot MongoDB and two fresh Discord accounts/sessions `A` and `B`. Use synthetic, non-sensitive answers. Never save request bodies, cookies, bearer tokens or invite tokens in evidence.
 
-## Подготовка
+## Preparation
 
-- Открыть приложение каждым аккаунтом в отдельной Discord-сессии/профиле браузера.
-- Убедиться, что оба аккаунта не состоят в active/paused Pair и не имеют незавершённых тестовых данных.
-- Открыть DevTools Network только для проверки формы DTO; не включать сохранение request body.
+- Record environment, build SHA, browser/Discord versions and pseudonymous testers.
+- Use independent sessions and verify neither account has an active/paused Pair.
+- Confirm billing/entitlement is absent or disabled; do not grant either user a plan.
+- Verify liveness/readiness and intended indexes before the flow.
 
-## Auth, onboarding и invite
+## Auth, onboarding and invite
 
-1. `A` и `B` входят через Discord. После повторного входа приложение должно восстановить допустимый lifecycle step.
-2. Оба подтверждают 18+, добровольность и privacy policy, отвечают на обязательные закрытые вопросы и завершают `/mvp-onboarding`.
-3. Прервать onboarding `B` после нескольких ответов, войти повторно и проверить восстановление cursor и сохранённых answer revisions.
-4. `A` создаёт приглашение. Проверить 72-часовой expiry, copy/share, отсутствие token в query string, localStorage, sessionStorage и server logs.
-5. Попытка `A` принять собственную ссылку должна завершиться generic unavailable state без создания Pair.
-6. `B` открывает `/join#token=…`, подтверждает присоединение; только после этого создаётся active Pair.
-7. Повторный accept тем же `B` идемпотентно возвращает ту же Pair; попытка использовать ссылку третьим аккаунтом не раскрывает владельца, Pair id или причину отказа.
-8. Параллельно принять два разных invite одним аккаунтом. Ровно одна транзакция должна создать membership claim/Pair, вторая — получить generic conflict.
-9. Cancelled/expired/reissued link недоступны; после refresh raw link не восстанавливается, reissue создаёт новый.
+1. Both users sign in; refresh/re-entry restores the correct lifecycle step.
+2. Both complete 18+/voluntary/privacy consent and explicit onboarding input.
+3. Interrupt B midway, sign in again and confirm owner-only resume.
+4. A creates an invite. Verify expiry/copy/reissue and that token is absent from query, browser storage and server logs.
+5. Self-accept and third-user/reused/expired/cancelled attempts return a generic unavailable state and create no Pair.
+6. B accepts from `/join#token=…`; one active Pair and two membership claims exist.
+7. Same accept replay returns the same Pair; a concurrent competing invite cannot create a second Pair.
 
-## Weekly cycle и privacy
+## Three free cycles
 
-1. В cycle 1 сначала отвечает `A`: `A` видит свой exact owner result, `B` — только факт ожидания; Pair Summary не содержит чисел или сигналов.
-2. Затем отвечает `B`: создаётся одна immutable snapshot revision; Pair Summary содержит максимум четыре qualitative signals и neutral reason/next-step keys.
-3. В cycle 2 повторить порядок `B → A`. Результат не зависит от роли/порядка участников.
-4. Отправить одинаковый submit повторно и два concurrent submit: не должно появиться второго check-in/effect/snapshot для одной revision.
-5. Проверить `INSUFFICIENT_DATA`, partial/expired fallback и второй ответ, пришедший до server deadline: старая snapshot остаётся неизменной, новая revision становится текущей. Отдельно проверить, что после deadline незавершённый cycle становится `EXPIRED`/`INSUFFICIENT` и больше не принимает submit.
-6. В Network убедиться, что pair DTO не содержит raw answers, private note, exact peer values, averages, divergence, global score, passport или legacy matching answers.
-7. Прямой вызов `/api/pairs/{pairId}/diagnostics` возвращает только `410 PAIR_DIAGNOSTICS_RETIRED`; страница diagnostics не загружает старый passport/insights и ведёт к Pair Summary.
+For three consecutive server-owned cycle keys, with no entitlement:
 
-## Recommendation, activity и feedback
+1. Cycle 1: A submits first. Fields must start untouched; submit is blocked until every mandatory field is explicitly selected. B sees only waiting, no pair signal/value/note.
+2. B submits. Exactly one Factor-backed summary appears with at most four qualitative signals.
+3. Offer an activity; accept it, start, submit A feedback then B feedback. Verify partial then final result and history.
+4. Cycle 2: reverse order B → A. Replace the first offer once, accept replacement, complete separate feedback.
+5. Cycle 3: exercise skip/recovery or another accepted action as the fixture permits, then complete the cycle/action path required by release evidence.
+6. Repeat same-body and concurrent submit/offer/accept/feedback requests. Canonical evidence/snapshot/cycle/decision/activity counts must not duplicate.
+7. Confirm no price, trial, purchase CTA, `402`, `PAYMENT_REQUIRED` or `ENTITLEMENT_REQUIRED` anywhere.
 
-1. Получить primary recommendation и проверить neutral explanation/reason code без внутренних метрик и safety reason.
-2. Выполнить `replace`: появляется не более одной replacement со ссылкой на предыдущее решение; повторный replace отклоняется.
-3. Выполнить `skip`: решение становится skipped, Pair не получает штраф/скрытое ухудшение.
-4. Принять recommendation повторно с тем же idempotency key: создаётся ровно одна PairActivity.
-5. Завершить activity; сначала feedback даёт `A`. Статус становится partial, `B` не видит exact значения/текст `A`.
-6. Поздний feedback `B` идемпотентно уточняет completion без повторного применения effect и без заявления causal effect.
-7. History light показывает дату/status cycle, ранее раскрытый qualitative summary, activity status и факт feedback — без private payload и без пересчёта старой snapshot новой версией.
+## Privacy and Factor disclosure
 
-## Canonical compatibility verification
+- Pair/user/activity/history/notification responses contain no peer raw input/note, exact Factor/delta/average, numeric confidence/evidence identity/count, internal fit/hash, SafetyGate or compatibility score.
+- Owner profile shows semantic cards and explicit unavailable states, never six axes/radar/passport.
+- Change local drafts/retry timing and verify no binary reconstruction of peer answers.
+- A observer/pair answer must not change B's personal profile.
+- Direct old diagnostics/insights/questions/answer-bulk and public `/api/match/**` paths are absent and cannot return legacy data.
 
-- Concurrently request `/api/pairs/{pairId}/recommendations`, `/suggest`, `/activities/suggest`, `/api/activities/next`, and the allowlisted `/activities/from-template` fallback. Every successful response must reference the same single decision-backed offered activity; no second visible or orphan offer may remain.
-- Accept a Pair Event and verify that it changes only event state, returns `activities: []`, and does not create an activity outside the canonical recommendation flow.
+## Recommendation, PairEvent, activity and safety
 
-## Safety veto
+- Offer/replace/skip explanations are neutral and Factor-bound.
+- Concurrent canonical/compatibility offer routes do not leave parallel visible/orphan offers.
+- PairEvent is current-registry bound; accepted activities are bounded and contain no raw event source in participant DTO.
+- Enable SafetyGate for A. Only A's offered-action visibility/acceptance narrows to neutral eligible actions. B's dashboard, Pair Summary, PairEvent, recommendation/activity current and history projections, timestamps and notifications remain exactly unchanged and reveal no setting/reason.
+- Disable SafetyGate and verify owner state restoration without partner disclosure.
 
-1. `A` включает `/profile/safety`; `B` не видит факт, причину или partner-visible notification.
-2. Новая рекомендация использует только allowlisted neutral low-effort fallback. Попытка принять ранее offered sensitive activity возвращает generic unavailable.
-3. Safety flag не меняет Pair Summary, compatibility/ranking и audit payload не содержит объяснение/ответы.
-4. `A` отключает veto; owner control восстанавливается после повторного входа, изменение присутствует в operator audit только как boolean state.
+## PartnerSignal and help
 
-## Финальная фиксация
+- Create/edit a private daily signal draft; verify nothing is sent before explicit confirm.
+- Confirm send once; B sees only the exact confirmed message. Same retry is idempotent; changed-content reuse conflicts.
+- Audit contains no message text. Help renders catalog `help-ru-v1`, produces no partner notification and makes no diagnosis/emergency-response claim.
 
-- Записать environment/build SHA, время, аккаунты-псевдонимы и pass/fail каждого пункта.
-- Приложить только sanitized response field lists и screenshots без token/answers.
-- P0 не помечать завершённым, пока весь сценарий не пройден на двух новых аккаунтах.
+## Pair lifecycle
+
+1. Pause and resume; new actions respect state while existing allowed recovery remains consistent.
+2. Race Pair end against weekly/recommendation/activity/feedback calls. End wins terminally or the other mutation commits before end without reopening the Pair.
+3. Verify old Pair id denies new reads/writes; open cycles/activities/decisions/events close, SafetyGate/signals/notifications clean up.
+4. Create a new invite and reconnect A/B. New Pair id/context is different and contains no old private projection.
+
+## Export, logout and deletion
+
+- A export contains bounded owner data/allowed shared summaries and no B raw source/snapshot/note/SafetyGate reason.
+- Logout A and verify old cookie/bearer replay fails.
+- B creates then cancels a deletion request; data/session remains.
+- On a dedicated disposable account/context, create request and explicitly confirm deletion. Verify old sessions fail, account/required artifacts disappear, Pair access closes and only pseudonymized request lifecycle remains.
+- Race export versus deletion; neither may return partner data or falsely report success.
+
+## Mobile/accessibility and recovery
+
+- Repeat critical screens at 320, 360, 390 and 430 px; check overflow, safe area, on-screen keyboard, focus order and touch targets.
+- Exercise loading/error/empty/retry, browser back and refresh on entry, invite, weekly, recommendation, activity, settings and deletion confirmations.
+- Confirm no placeholder, mock, dead button, paywall, dating-first copy or mojibake.
+
+## Evidence record
+
+Record only pass/fail, timestamps, sanitized field-name lists, aggregate canonical counts and screenshots without private content. A local synthetic integration does not replace this real two-session gate.

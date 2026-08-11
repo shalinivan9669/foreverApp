@@ -1,5 +1,7 @@
 ﻿# Activities As-Is Inventory (2026-02-08)
 
+> Status: historical snapshot. Do not use as current behavior; see `docs/MVP_FLOWS.md` and `docs/API_CONTRACTS.md`.
+
 ## 1) Entities
 
 | Name | Purpose | Key fields | Invariants | Relations | Evidence |

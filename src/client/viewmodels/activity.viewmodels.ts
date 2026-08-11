@@ -22,7 +22,8 @@ export type ActivityCardVM = {
   title: Record<string, string>;
   description?: Record<string, string>;
   why: Record<string, string>;
-  axis: string[] | string;
+  targetFactorKeys: string[];
+  actionKey?: string;
   archetype: string;
   intent: 'improve' | 'celebrate';
   mode: 'together' | 'solo';
@@ -34,7 +35,6 @@ export type ActivityCardVM = {
   dueAt?: string;
   status: PairActivityDTO['status'];
   checkIns: PairActivityDTO['checkIns'];
-  successScore?: number;
   resultSummary?: PairActivityDTO['resultSummary'];
   eventSourceBadge?: {
     label: string;
@@ -54,10 +54,9 @@ const EVENT_REASON_LABELS: Record<string, string> = {
   new_year: 'новый год',
   inactive_pair: 'пауза в активностях',
   failed_activity_recovery: 'восстановление после неудачной активности',
-  high_fatigue_recovery: 'высокая усталость',
-  weekly_divergence_repair: 'расхождение недели',
+  weekly_overload_recovery: 'высокая перегрузка',
+  weekly_tension_support: 'мягкая сверка недели',
   weekly_success_celebration: 'успешная неделя',
-  diagnostics_risk_focus: 'диагностический фокус',
 };
 
 const eventSourceBadge = (
@@ -80,7 +79,8 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   title: activity.title,
   description: activity.description,
   why: activity.why,
-  axis: activity.axis,
+  targetFactorKeys: activity.targetFactorKeys,
+  actionKey: activity.actionDefinition?.key,
   archetype: activity.archetype,
   intent: activity.intent,
   mode: activity.mode,
@@ -92,7 +92,6 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   dueAt: activity.dueAt,
   status: activity.status,
   checkIns: activity.checkIns,
-  successScore: activity.successScore,
   resultSummary: activity.resultSummary,
   eventSourceBadge: eventSourceBadge(activity),
   isAwaitingCheckin: isAwaitingCheckinStatus(activity.status),

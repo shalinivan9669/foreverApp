@@ -27,6 +27,12 @@ const stableStringify = (value: JsonValue): string => {
   return JSON.stringify(value);
 };
 
+export const hashIdempotencySensitiveValue = (value: JsonValue): string =>
+  createHash('sha256')
+    .update('idempotency-sensitive-v1\0', 'utf8')
+    .update(stableStringify(value), 'utf8')
+    .digest('hex');
+
 export const readIdempotencyKey = (
   request: Request | { headers: Headers }
 ): IdempotencyKeyValidationResult => {

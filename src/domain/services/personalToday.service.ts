@@ -2,7 +2,12 @@ import { Types, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 import { DomainError } from '@/domain/errors';
-import { User, type UserAxisVector, type UserType } from '@/models/User';
+import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
+import {
+  isSnapshotEffectiveAt,
+  snapshotVersionsMatchRegistry,
+} from '@/domain/model/snapshots/snapshots';
+import { User, type UserType } from '@/models/User';
 import { Pair, type PairType } from '@/models/Pair';
 import {
   PersonalDailyCheckIn,
@@ -14,11 +19,15 @@ import {
   type PartnerSignalType,
 } from '@/models/PartnerSignal';
 import {
-  buildPairWeeklyCheckInSummary,
   weeklyCheckInService,
-  type PairWeeklyCheckInSummaryDTO,
   type WeeklyCheckInDTO,
 } from '@/domain/services/weeklyCheckIn.service';
+import {
+  IndividualFactorSnapshot,
+  type IndividualFactorSnapshotType,
+} from '@/models/IndividualFactorSnapshot';
+import { materializeCurrentOwnerFactorSnapshots } from '@/domain/services/activityFactorRuntime.service';
+import { fromStoredFactorValue } from '@/models/factorEngineSchemas';
 import {
   resolveRelationshipLens,
   type RelationshipLens,
@@ -26,6 +35,7 @@ import {
 import {
   buildPersonalTodayFocus,
   buildPersonalTodayMetrics,
+  personalTodayOverallDataStatus,
   type PersonalTodayFocus,
   type PersonalTodayMetrics,
   type PersonalTodaySource,
@@ -99,11 +109,6 @@ const formatDateLabel = (dateKey: string): string =>
     }).format(dateFromDateKey(dateKey))
   );
 
-const clamp01 = (value: number | undefined): number =>
-  typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.min(1, value))
-    : 0;
-
 const pairIdVariants = (pairId: string): Array<string | Types.ObjectId> =>
   Types.ObjectId.isValid(pairId) ? [pairId, new Types.ObjectId(pairId)] : [pairId];
 
@@ -122,50 +127,147 @@ export const resolvePersonalTodayFreshness = (input: {
   return 'low_data';
 };
 
-const hasVectorEvidence = (vectors: Record<string, UserAxisVector> | undefined): boolean =>
-  Object.values(vectors ?? {}).some((axis) => {
-    const trait = axis.trait;
-    const displayed = axis.displayed;
-    return (
-      (trait?.evidenceCount ?? 0) > 0 ||
-      (trait?.confidence ?? 0) > 0 ||
-      (displayed?.confidence ?? 0) > 0
-    );
-  });
+export type ProfileFactorRow = Pick<
+  IndividualFactorSnapshotType,
+  | 'subjectId'
+  | 'contextPairId'
+  | 'projectionPurpose'
+  | 'factorKey'
+  | 'status'
+  | 'value'
+  | 'metrics'
+  | 'revision'
+  | 'calculatedAt'
+  | 'versions'
+  | 'effectiveFrom'
+  | 'effectiveUntil'
+>;
 
-const profileSignal = (user: UserForToday): ProfilePersonalSignal => {
-  const readiness = clamp01(user.readiness?.score);
-  const fatigue = clamp01(user.fatigue?.score);
+const MINIMUM_PROFILE_CONFIDENCE = 0.35;
+const MINIMUM_PROFILE_FRESHNESS = 0.35;
+const PROFILE_FACTOR_KEYS = [
+  'wellbeing.current.readiness',
+  'wellbeing.current.overload',
+] as const;
+
+export const ownerProfileSnapshotFilter = (input: {
+  ownerId: string;
+  pairId?: string;
+}) => ({
+  subjectId: input.ownerId,
+  projectionPurpose: 'OWNER_PROFILE' as const,
+  factorKey: { $in: [...PROFILE_FACTOR_KEYS] },
+  ...(input.pairId
+    ? { contextPairId: input.pairId }
+    : { contextPairId: { $exists: false as const } }),
+});
+
+const latestProfileScalar = (
+  snapshots: readonly ProfileFactorRow[],
+  factorKey: 'wellbeing.current.readiness' | 'wellbeing.current.overload',
+  effectiveAt: Date
+): number | undefined => {
+  const snapshot = snapshots
+    .filter((candidate) => candidate.factorKey === factorKey)
+    .sort(
+      (left, right) =>
+        right.calculatedAt.getTime() - left.calculatedAt.getTime() ||
+        right.revision - left.revision
+    )[0];
+  if (
+    !snapshot ||
+    !snapshotVersionsMatchRegistry(
+      snapshot.versions,
+      MVP_FACTOR_REGISTRY.factors.find((factor) => factor.key === factorKey) ??
+        (() => {
+          throw new TypeError('CANONICAL_PROFILE_FACTOR_MISSING');
+        })(),
+      MVP_FACTOR_REGISTRY
+    ) ||
+    !isSnapshotEffectiveAt(snapshot, effectiveAt) ||
+    snapshot.status !== 'AVAILABLE' ||
+    snapshot.metrics.confidence < MINIMUM_PROFILE_CONFIDENCE ||
+    snapshot.metrics.freshness < MINIMUM_PROFILE_FRESHNESS ||
+    snapshot.metrics.evidenceCount < 1
+  ) {
+    return undefined;
+  }
+  try {
+    const value = fromStoredFactorValue(snapshot.value);
+    return value.kind === 'SCALAR' &&
+      Number.isFinite(value.value) &&
+      value.value >= 0 &&
+      value.value <= 1
+      ? value.value
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const resolveProfilePersonalSignal = (input: {
+  snapshots: readonly ProfileFactorRow[];
+  ownerId: string;
+  pairId?: string;
+  effectiveAt?: Date;
+}): ProfilePersonalSignal => {
+  const snapshots = input.snapshots.filter(
+    (snapshot) =>
+      snapshot.subjectId === input.ownerId &&
+      snapshot.projectionPurpose === 'OWNER_PROFILE' &&
+      (input.pairId
+        ? snapshot.contextPairId === input.pairId
+        : snapshot.contextPairId === undefined)
+  );
+  const effectiveAt = input.effectiveAt ?? new Date();
+  const readiness = latestProfileScalar(
+    snapshots,
+    'wellbeing.current.readiness',
+    effectiveAt
+  );
+  const fatigue = latestProfileScalar(
+    snapshots,
+    'wellbeing.current.overload',
+    effectiveAt
+  );
+  if (readiness !== undefined && fatigue !== undefined) {
+    return {
+      dataStatus: 'AVAILABLE',
+      readiness,
+      fatigue,
+    };
+  }
+  if (snapshots.length === 0 || snapshots.every((snapshot) => snapshot.status === 'MISSING')) {
+    return { dataStatus: 'MISSING' };
+  }
+  return { dataStatus: 'INSUFFICIENT' };
+};
+
+export const resolveOwnerWeeklySignal = (
+  checkIn: Pick<WeeklyCheckInDTO, 'userId' | 'answers'> | null,
+  ownerId: string
+): WeeklyPersonalSignal | null => {
+  if (checkIn?.userId !== ownerId) return null;
+  const { readiness, fatigue, closeness, irritation, unresolvedTopic } =
+    checkIn.answers;
+  const isUnitInterval = (value: number): boolean =>
+    Number.isFinite(value) && value >= 0 && value <= 1;
+  if (
+    !isUnitInterval(readiness) ||
+    !isUnitInterval(fatigue) ||
+    !isUnitInterval(closeness) ||
+    !isUnitInterval(irritation)
+  ) {
+    return null;
+  }
   return {
     readiness,
     fatigue,
-    hasUsefulData: readiness > 0.05 || fatigue > 0.05 || hasVectorEvidence(user.vectors),
+    closeness,
+    irritation,
+    unresolvedTopic,
   };
 };
-
-const weeklySignalFromPairSummary = (
-  summary: PairWeeklyCheckInSummaryDTO | null
-): WeeklyPersonalSignal | null => {
-  if (!summary?.currentUser.submitted) return null;
-  return {
-    readiness: summary.currentUser.readiness,
-    fatigue: summary.currentUser.fatigue,
-    closeness: summary.currentUser.closeness,
-    irritation: summary.currentUser.irritation,
-    unresolvedTopic: summary.currentUser.unresolvedTopic,
-  };
-};
-
-const weeklySignalFromSolo = (checkIn: WeeklyCheckInDTO | null): WeeklyPersonalSignal | null =>
-  checkIn
-    ? {
-        readiness: checkIn.answers.readiness,
-        fatigue: checkIn.answers.fatigue,
-        closeness: checkIn.answers.closeness,
-        irritation: checkIn.answers.irritation,
-        unresolvedTopic: checkIn.answers.unresolvedTopic,
-      }
-    : null;
 
 const focusForSource = (input: {
   source: PersonalTodaySource;
@@ -216,7 +318,11 @@ const focusForSource = (input: {
     };
   }
 
-  const metrics = buildPersonalTodayMetrics({ source: 'low_data' });
+  const metrics = buildPersonalTodayMetrics({
+    source: 'low_data',
+    resourceDataStatus:
+      input.profile.dataStatus === 'INSUFFICIENT' ? 'INSUFFICIENT' : 'MISSING',
+  });
   return {
     metrics,
     focus: buildPersonalTodayFocus({
@@ -232,7 +338,6 @@ const pairContextDTO = (
   hasPair: boolean;
   pairId?: string;
   status?: 'active' | 'paused';
-  warmth?: number;
   label: string;
 } => {
   if (!pair || (pair.status !== 'active' && pair.status !== 'paused')) {
@@ -241,16 +346,14 @@ const pairContextDTO = (
       label: 'Пара пока не активна',
     };
   }
-  const warmth = clamp01(pair.readiness?.score);
   return {
     hasPair: true,
     pairId: String(pair._id),
     status: pair.status,
-    warmth,
     label:
       pair.status === 'paused'
         ? 'Пара на паузе'
-        : `Тепло в паре: ${Math.round(warmth * 100)}%`,
+        : 'Пара активна',
   };
 };
 
@@ -267,7 +370,9 @@ export const sanitizeIncomingPartnerSignal = (input: {
       : null,
   },
   text: input.signal.text,
-  tone: input.signal.tone,
+  // Legacy rows may contain a tone inferred from the sender's private check-in.
+  // Only the explicitly confirmed text crosses the participant boundary.
+  tone: 'neutral',
   createdAt: input.signal.createdAt?.toISOString(),
 });
 
@@ -279,6 +384,7 @@ const findIncomingSignal = async (input: {
   const baseFilter = {
     toUserId: input.currentUserId,
     status: { $in: ['sent', 'read'] },
+    expiresAt: { $gt: new Date() },
     ...(input.pairId ? { pairId: { $in: pairIdVariants(input.pairId) } } : {}),
   };
   const todaySignal = await PartnerSignal.findOne({
@@ -340,22 +446,54 @@ export const personalTodayService = {
     }
 
     const pairId = pair ? String(pair._id) : undefined;
-    const [daily, pairWeekly, soloWeekly, incomingSignal] = await Promise.all([
+    const factorEffectiveAt = new Date();
+    await materializeCurrentOwnerFactorSnapshots({
+      subjectId: input.currentUserId,
+      pairId,
+      factorKeys: PROFILE_FACTOR_KEYS,
+      calculatedAt: factorEffectiveAt,
+    });
+    const [daily, weeklyCheckIn, profileSnapshots, incomingSignal] = await Promise.all([
       PersonalDailyCheckIn.findOne({
         userId: input.currentUserId,
         dateKey,
       })
         .sort({ updatedAt: -1 })
         .lean<PersonalDailyCheckInRow | null>(),
-      pair
-        ? buildPairWeeklyCheckInSummary({
-            pair,
-            currentUserId: input.currentUserId,
-          })
-        : Promise.resolve(null),
-      pair
-        ? Promise.resolve(null)
-        : weeklyCheckInService.current({ currentUserId: input.currentUserId }),
+      weeklyCheckInService.current({
+        currentUserId: input.currentUserId,
+        pairId,
+      }),
+      IndividualFactorSnapshot.aggregate<ProfileFactorRow>([
+        {
+          $match: ownerProfileSnapshotFilter({
+            ownerId: input.currentUserId,
+            pairId,
+          }),
+        },
+        { $sort: { factorKey: 1, calculatedAt: -1, revision: -1 } },
+        { $group: { _id: '$factorKey', document: { $first: '$$ROOT' } } },
+        { $replaceWith: '$document' },
+        {
+          $project: {
+            _id: 0,
+            subjectId: 1,
+            contextPairId: 1,
+            projectionPurpose: 1,
+            factorKey: 1,
+            status: 1,
+            value: 1,
+            metrics: 1,
+            revision: 1,
+            calculatedAt: 1,
+            versions: 1,
+            effectiveFrom: 1,
+            effectiveUntil: 1,
+          },
+        },
+        { $sort: { factorKey: 1 } },
+        { $limit: PROFILE_FACTOR_KEYS.length },
+      ]).exec(),
       findIncomingSignal({
         currentUserId: input.currentUserId,
         pairId,
@@ -363,14 +501,17 @@ export const personalTodayService = {
       }),
     ]);
 
-    const weekly = pair
-      ? weeklySignalFromPairSummary(pairWeekly)
-      : weeklySignalFromSolo(soloWeekly);
-    const profile = profileSignal(user);
+    const weekly = resolveOwnerWeeklySignal(weeklyCheckIn, input.currentUserId);
+    const profile = resolveProfilePersonalSignal({
+      snapshots: profileSnapshots,
+      ownerId: input.currentUserId,
+      pairId,
+      effectiveAt: factorEffectiveAt,
+    });
     const freshness = resolvePersonalTodayFreshness({
       hasDaily: Boolean(daily),
       hasWeekly: Boolean(weekly),
-      hasProfileData: profile.hasUsefulData === true,
+      hasProfileData: profile.dataStatus === 'AVAILABLE',
       dateKey,
       todayDateKey,
     });
@@ -396,6 +537,7 @@ export const personalTodayService = {
         }
       : resolveRelationshipLens(user);
     const pairContext = pairContextDTO(pair);
+    const overallDataStatus = personalTodayOverallDataStatus(metrics);
     const copy = buildPersonalTodayCopy({
       lens,
       focus,
@@ -433,14 +575,29 @@ export const personalTodayService = {
           'Видно только тебе. Партнёр увидит только явно отправленную фразу. Дневник и детали состояния не отправляются.',
       },
       pairContext,
+      dataStatus: {
+        overall: overallDataStatus,
+        metricGroups: {
+          resource: metrics.dataStatus.resource,
+          connection: metrics.dataStatus.connection,
+        },
+      },
       hero: {
         mode: focus.mode,
         title: copy.hero.title,
         subtitle: copy.hero.subtitle,
         rings: {
-          resource: metrics.resource,
-          closeness: metrics.closeness,
-          tension: metrics.tension,
+          ...(metrics.dataStatus.resource === 'AVAILABLE'
+            ? {
+                resource: metrics.values.resource,
+              }
+            : {}),
+          ...(metrics.dataStatus.connection === 'AVAILABLE'
+            ? {
+                closeness: metrics.values.closeness,
+                tension: metrics.values.tension,
+              }
+            : {}),
         },
         hints: copy.hero.hints,
       },
@@ -457,7 +614,7 @@ export const personalTodayService = {
       ...(incomingSignal
         ? { incomingPartnerSignal: sanitizeIncomingPartnerSignal({ signal: incomingSignal, sender }) }
         : {}),
-      softOption: copy.softOption,
+      softOption: overallDataStatus === 'AVAILABLE' ? copy.softOption : null,
       todayMap: copy.todayMap,
       privateJournal: {
         hasEntry: Boolean(daily?.privateJournal?.text?.trim()),

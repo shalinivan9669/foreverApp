@@ -1,10 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { MouseEvent } from 'react';
 import type { QuestionnaireCardVM } from '@/client/viewmodels/questionnaire.viewmodels';
-
-type Axis = QuestionnaireCardVM['vector'];
 
 type QuestionnaireCardProps = {
   q: QuestionnaireCardVM;
@@ -14,23 +11,18 @@ type QuestionnaireCardProps = {
   onStart?: (questionnaire: QuestionnaireCardVM) => Promise<void> | void;
 };
 
-const vectorStripe: Record<Axis, string> = {
-  communication: 'bg-sky-500',
-  domestic: 'bg-amber-500',
-  personalViews: 'bg-violet-500',
-  finance: 'bg-emerald-500',
-  sexuality: 'bg-rose-500',
-  psyche: 'bg-indigo-500',
+const domainPresentation: Record<string, { label: string; stripe: string }> = {
+  communication: { label: 'общение', stripe: 'bg-sky-500' },
+  wellbeing: { label: 'состояние и ресурс', stripe: 'bg-indigo-500' },
+  sharedLife: { label: 'совместная жизнь', stripe: 'bg-amber-500' },
+  lifePlans: { label: 'планы и ценности', stripe: 'bg-violet-500' },
 };
 
-const vectorLabel: Record<Axis, string> = {
-  communication: 'коммуникация',
-  domestic: 'быт',
-  personalViews: 'взгляды',
-  finance: 'финансы',
-  sexuality: 'интим',
-  psyche: 'психика',
-};
+const getDomainPresentation = (domainKey: string) =>
+  domainPresentation[domainKey] ?? {
+    label: 'самопонимание',
+    stripe: 'bg-slate-500',
+  };
 
 const audienceLabel = {
   pair: 'пара',
@@ -76,42 +68,24 @@ export default function QuestionnaireCard({
   const badge = statusBadge(q);
   const href = hrefFor(q);
   const actionDisabled = q.status === 'locked' || disabled || loading;
-
-  const handleStart = (event: MouseEvent) => {
-    if (!onStart) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (actionDisabled) return;
-    void onStart(q);
-  };
+  const domain = getDomainPresentation(q.domainKey);
 
   return (
-    <Link
-      href={href}
-      onClick={(event) => {
-        if (onStart) {
-          handleStart(event);
-          return;
-        }
-        if (q.status === 'locked') {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      }}
+    <article
       className={
         'app-panel app-lift relative flex min-h-[21rem] flex-col p-4 transition sm:p-5 ' +
         'hover:-translate-y-0.5 hover:shadow-md ' +
         (q.status === 'locked' || disabled ? 'opacity-75' : '') +
         (q.isStarter ? ' border-blue-200 bg-blue-50/40' : '')
       }
-      aria-disabled={actionDisabled}
+      aria-busy={loading}
     >
-      <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-lg ${vectorStripe[q.vector]}`} />
+      <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-lg ${domain.stripe}`} />
 
       <div className="flex flex-col gap-2 pl-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="app-muted flex items-center gap-2 text-sm">
           <span className="inline-flex h-2 w-2 rounded-full bg-slate-300" />
-          <span>{vectorLabel[q.vector]}</span>
+          <span>{domain.label}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{scopeLabel[q.scope]}</span>
@@ -133,8 +107,6 @@ export default function QuestionnaireCard({
         </span>
         <span>{q.questionCount} вопросов</span>
         <span>уровень {q.level}</span>
-        {typeof q.rewardCoins === 'number' && <span>{q.rewardCoins} монет</span>}
-        {typeof q.insightsCount === 'number' && <span>{q.insightsCount} инсайтов</span>}
       </div>
 
       <div className="mt-3 pl-3 flex flex-wrap gap-2">
@@ -161,30 +133,35 @@ export default function QuestionnaireCard({
         )}
         {q.status === 'completed' && <div className="app-muted text-xs">Готово</div>}
 
-        <button
-          type="button"
-          onClick={(event) => {
-            if (onStart) {
-              handleStart(event);
-              return;
+        {onStart ? (
+          <button
+            type="button"
+            onClick={() => void onStart(q)}
+            disabled={actionDisabled}
+            className={
+              'min-h-11 rounded px-4 py-2 text-sm ' +
+              (actionDisabled ? 'cursor-not-allowed bg-slate-200 text-slate-500' : 'app-btn-primary text-white')
             }
-            if (q.status === 'locked') {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          }}
-          disabled={actionDisabled}
-          className={
-            'min-h-11 rounded px-4 py-2 text-sm ' +
-            (actionDisabled ? 'cursor-not-allowed bg-slate-200 text-slate-500' : 'app-btn-primary text-white')
-          }
-        >
-          {loading ? 'Запускаем...' : ctaLabel(q)}
-        </button>
+          >
+            {loading ? 'Запускаем...' : ctaLabel(q)}
+          </button>
+        ) : actionDisabled ? (
+          <button
+            type="button"
+            disabled
+            className="min-h-11 cursor-not-allowed rounded bg-slate-200 px-4 py-2 text-sm text-slate-500"
+          >
+            {ctaLabel(q)}
+          </button>
+        ) : (
+          <Link href={href} className="app-btn-primary min-h-11 rounded px-4 py-2 text-sm text-white">
+            {ctaLabel(q)}
+          </Link>
+        )}
       </div>
 
       {q.status === 'locked' && q.lockReason && <div className="app-muted mt-2 pl-3 text-xs">{q.lockReason}</div>}
       {!q.lockReason && disabledReason && <div className="app-muted mt-2 pl-3 text-xs">{disabledReason}</div>}
-    </Link>
+    </article>
   );
 }

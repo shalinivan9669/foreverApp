@@ -1,6 +1,8 @@
 # API Contracts
 
-## API envelope
+Status: current public/participant boundary after the Factor NEW_ONLY and free-core cutover.
+
+## Envelope and caching
 
 Success:
 
@@ -14,92 +16,111 @@ Error:
 { ok: false, error: { code: string, message: string, details?: unknown } }
 ```
 
-HTTP status must remain semantic. The envelope does not replace `400`, `401`, `403`, `404`, `409`, `429`, or `500`.
-Unexpected infrastructure exceptions use the generic `500 INTERNAL` message and do not expose database, index, topology, or stack details.
+Use semantic HTTP statuses (`400`, `401`, `403`, `404`, `409`, `413`, `415`, `422`, `429`, `500`, `503`). Unexpected infrastructure failures return generic `500 INTERNAL` without stack/database/index/topology details. Private responses are `private, no-store` and vary on credentials.
 
-## Route handler rules
+No core endpoint returns `402`, `PAYMENT_REQUIRED` or `ENTITLEMENT_REQUIRED`. Rate-limit/idempotency errors remain possible because abuse/retry safety is independent of billing.
 
-- Validate body/query/params with shared validation helpers from `src/lib/api/validate.ts`.
-- Use `jsonOk` / `jsonError` from `src/lib/api/response.ts`.
-- Use `requireSession` for private endpoints.
-- Use resource guards for pair/activity/like ownership.
-- Return DTO only.
-- Keep handlers thin.
-- Map domain errors at the route boundary.
-- Do not return raw Mongoose documents.
-- Cookie-authenticated mutations must pass the centralized same-origin check. JSON mutations require a JSON media type and are rejected above the shared 64 KiB body limit before parsing.
-- Private envelopes use `Cache-Control: private, no-store` and vary on cookie/authorization credentials.
+## Handler and mutation rules
 
-## Mutation rules
+- Authenticate with `requireSession`; the session subject is authoritative.
+- Validate params/query/body with shared Zod helpers. JSON mutations require JSON media type, same-origin policy for cookie auth and the shared 64 KiB streaming limit unless a stricter route limit applies.
+- Authorize the concrete Pair/activity/invite/resource before reading or mutating its state.
+- Keep route handlers thin; map domain errors at the boundary.
+- Retryable writes require transport idempotency or an explicitly documented intrinsic deterministic identity.
+- Multi-document invariants use transactions/CAS/unique indexes.
+- Return DTOs only; never serialize a Mongoose document.
+- Do not accept client `userId`, `fromId`, `actorId`, member role, score, confidence or Factor result as authoritative.
 
-- Use idempotency for retryable mutations.
-- Use state machines for state transitions.
-- For multi-document state changes, prefer a transaction or safe ordering.
-- Do not perform irreversible side effects before final state validation.
-- Do not accept client-provided `userId`, `fromId`, or `actorId` as authoritative when session exists.
+## Auth and user
 
-## Active endpoint notes
+| Endpoint | Contract |
+| --- | --- |
+| `POST /api/exchange-code` | Validates `redirect_uri` against configured allowlist, exchanges Discord code server-side, upserts verified minimal identity, issues session cookie plus in-memory bearer fallback, and returns `no-store`. |
+| `POST /api/auth/logout` | Revokes all current server-side session versions for the authenticated subject and clears the session cookie. Replay of an old signed token fails. |
+| `GET /api/users/me` | Owner DTO with derived lifecycle/profile status. |
+| `GET /api/users/[id]` | Authenticated public-user DTO only. By-id writes are self-only. |
+| `GET /api/users/me/profile-summary` | Owner-only semantic Factor profile: user identity plus registry-versioned cards/status and qualitative confidence/freshness bands. No Factor value, evidence id, axis, passport or compatibility score. |
+| `GET/PATCH /api/users/me/mvp-onboarding` | Resumable owner-only, versioned consent/closed answers. Exact owner values may be returned for resume; compatible bindings materialize Factor evidence/snapshots. |
+| `GET /api/users/me/today` | Owner daily read model; may include own journal and sanitized incoming confirmed signal only. |
+| `POST /api/users/me/daily-checkins` | Strict owner-private daily source, intrinsically idempotent. Saving a signal draft does not send it. |
+| `POST /api/users/me/daily-checkins/[id]/partner-signal` | Explicit confirmed send. Source check-in must be owned by caller; receiver is derived from Pair. Same text replays, changed text conflicts; response is only `{ id, status, sentAt }`. |
 
-- `GET /api/users/[id]` requires session auth and returns only public user DTO fields.
-- By-id user writes are self-only. The authenticated subject comes from `requireSession`; a mismatched `params.id` returns `403 ACCESS_DENIED`.
-- Self writes should use `/api/users/me` and `/api/users/me/onboarding`.
-- User profile writes (`/api/users`, `/api/users/me`, `/api/users/[id]`) do not accept `vectors` or `embeddings`; vector changes must go through scoring services and `VectorSnapshot` persistence.
-- `GET /api/users/me` includes private DTO fields and a derived `profileStatus`: `auth_created`, `onboarding_started`, or `complete`.
-- User profile `location`, when provided, must be a strict GeoJSON `Point` with longitude/latitude bounds.
-- `POST /api/exchange-code` validates client `redirect_uri` against `DISCORD_REDIRECT_URI`, falling back to `NEXT_PUBLIC_DISCORD_REDIRECT_URI`. Mismatch returns `400 INVALID_REDIRECT_URI`. It upserts the basic user profile from the verified Discord profile server-side, then returns the Discord `access_token` for SDK authentication, a signed in-memory `session_token` fallback for embedded mobile clients, and a minimal `{ id, username, avatar }` user profile so the browser does not need a second direct Discord API call or immediate protected `/api/users` write.
-- `POST /api/entitlements/grant` requires `x-entitlements-admin-key` when `ENTITLEMENTS_ADMIN_KEY` is configured. Without a configured key, it is available only from localhost in non-production.
-- Closed-beta content endpoints (`GET /api/activity-templates`, `GET /api/questionnaires`, `GET /api/questionnaires/[id]`, `GET /api/questions`) require session auth even when they return only catalog/scoring content. Questionnaire-backed and activity-template participant/recommendation reads select only exact `published` definitions with a positive version plus review/publish timestamps; legacy definitions without publication state and `draft`, `in_review`, or `retired` definitions fail closed and are reported by release preflight. The standalone `/api/questions` path is a legacy quick-flow catalog, not a source for the canonical MVP weekly/recommendation loop.
-- `POST /api/match/like` accepts `agreements` and `answers` because they are persisted on the Like as the initiator response snapshot fields. It requires an idempotency key; a derived owner/key identity plus request hash makes concurrent same-body retries return one Like, while key reuse with a different body returns an idempotency conflict.
-- Like `matchScore` is computed from existing vector distance scoring. If either side has no usable vectors yet, create-like returns score `0` instead of a placeholder.
-- Participant match DTOs and stored idempotency replays do not disclose the exact `matchScore`; legacy score fields are projected to the documented unavailable sentinel, and primary UI does not present a compatibility percentage.
-- `POST /api/match/confirm` is retained only as a legacy authenticated boundary and returns `409 PAIR_INVITE_REQUIRED`; it does not transition the Like or create/activate a Pair. P0 pair formation is exclusively invite-based.
-- Questionnaire answer writes (`/api/answers/bulk`, `/api/questionnaires/[id]`, `/api/pairs/[id]/questionnaires/[qid]/answer`) require integer `ui >= 1`; domain scoring additionally rejects values above the target question `map.length`.
-- `/api/answers/bulk` rejects submissions where provided question ids do not match known questions instead of returning a successful zero-match vector audit.
-- Pair questionnaire answers apply vector scoring only for newly answered questions and complete the pair session after both pair members have answered every question in the questionnaire.
-- `GET /api/pairs/[id]/summary` requires session auth and `requirePairMember`. It returns the pair DTO plus public `members`, relative `peer`, `currentActivity`, `suggestedCount`, `hasCurrentWeeklyCheckIn`, and a next step derived from the canonical qualitative weekly-cycle snapshot. The P0 projection returns no passport, compatibility score, risk zones, readiness/fatigue metrics, Like payload, raw Pair/User/WeeklyCheckIn document, or weekly answer.
-- `GET /api/pairs/[id]/diagnostics` is a retired authenticated/member-only P0 boundary and returns `410 PAIR_DIAGNOSTICS_RETIRED` with `private, no-store`. It no longer calculates or returns passport fields, A/B deltas, answer signals, global compatibility, generated insight ids, readiness, or fatigue; clients must use the qualitative Pair Summary.
-- `GET /api/pairs/[id]/events?include=active|all` requires session auth and `requirePairMember`. It lazily refreshes PairEvent records for current relationship milestones, limited calendar events, weekly/activity/diagnostic signals, then returns `{ events: PairEventDTO[] }`. Default `active` excludes declined, expired, and completed events; `all` includes history. It returns DTOs only and never exposes raw Mongoose documents or private weekly notes.
-- `POST /api/pairs/[id]/events/[eventId]/accept` requires session auth, pair membership, and an idempotency key. It accepts `upcoming`, `offered`, and non-expired `snoozed` events for an active pair. In the P0 projection acceptance is status-only: it returns `activities: []`, clears/cancels any legacy event-generated offers, and cannot bypass the canonical `RecommendationDecision` flow.
-- `POST /api/pairs/[id]/events/[eventId]/decline` and `POST /api/pairs/[id]/events/[eventId]/snooze` require session auth, pair membership, and an idempotency key. Decline is allowed only for `upcoming`, `offered`, and non-expired `snoozed` events; it is rejected for `accepted`, `completed`, `expired`, and `declined`. Snooze accepts `{ days?: 1|3|7 }`, defaults to three days, is allowed only for `upcoming` and `offered`, and rejects accepted/completed/expired/declined events, already snoozed events, and snoozes that exceed the event window.
-- `partner_birthday` is a reserved future `PairEventType`. The event refresh service must not create birthday events until a privacy-reviewed birthday/date-of-birth data model exists.
-- `PairActivityDTO.eventSource` is an optional privacy-safe source marker. When present, it contains only `trigger: "pair_event"`; event ids, types, dates, raw `stateMeta`, and check-in/questionnaire evidence are not participant-facing.
-- `POST /api/checkins/weekly` keeps solo check-ins separate from pair check-ins. When `pairId` is present, identity is `{ userId, pairId, weekKey }`, pair membership is required, paused pairs are allowed, and ended pairs return `409 STATE_CONFLICT`. The first submission for that identity is immutable in the P0 flow: after membership/state validation, retries and concurrent duplicates return/reconcile the stored owner result before checking current cycle entitlement, without recomputing a pair projection or applying vector effects twice. Finalization records a durable effects-applied marker and reconciles interrupted derived effects on retry/read.
-- `GET /api/checkins/weekly/current?pairId=...` reads the authenticated user's check-in for that exact pair and week. Without `pairId`, it reads only the solo check-in.
-- `GET /api/pairs/[id]/weekly-checkin/current` requires session auth and `requirePairMember`. It separates the owner check-in DTO from the pair DTO. The pair response contains only current-user/peer submitted status, `dataStatus` (`NOT_READY`, `PARTIAL`, `ENOUGH`, or `INSUFFICIENT`), neutral reason codes, and up to four qualitative signals after both participants submit. It never returns exact averages, divergence, counts, participant answer values, private notes, or raw WeeklyCheckIn documents; a one-sided submission publishes no pair signals.
-- `GET /api/users/me/mvp-onboarding` and `PATCH /api/users/me/mvp-onboarding` are owner-only. They expose the current versioned definition plus the authenticated user's exact answer revisions for resume. Consent requires 18+, voluntary participation, and privacy acknowledgement; answers are closed/typed and use `PRIVATE`, `PAIR_MODEL_ONLY`, or `SHARED`. Mutations are intrinsically idempotent and use optimistic concurrency; responses are `no-store` and are not copied into idempotency records.
-- Pair linking uses `/api/pair-invites`. `POST /api/pair-invites` issues a 32-byte one-time token once in a `no-store` owner response; only SHA-256 `tokenHash` is persisted. Owner status/cancel/reissue routes are authenticated and rate-limited. Create/reissue deliberately do not advertise transport idempotency because safely replaying their envelope would persist the raw one-time token. `POST /api/pair-invites/resolve` and `/accept` take the token in the JSON body, return generic unavailable states to non-owners, reject self-pair/second active pair, and derive the actor from session. Acceptance is transaction-backed, idempotent for the same accepter, and protected by unique per-user membership claims. Legacy `/api/pairs/create` and `/api/match/confirm` cannot form a pair and return `PAIR_INVITE_REQUIRED`.
-- `GET /api/pairs/[id]/weekly-cycle/current` returns the server-defined UTC/ISO-week window, relative participant completion (`PENDING`, `SUBMITTED`, `SKIPPED`, `EXPIRED`), safe pair data status/signals, and immutable snapshot revision/version provenance. Lifecycle expiry is independent from result readiness: an expired cycle with two valid submissions retains `ENOUGH` and its previously published safe signals; incomplete expiry becomes `INSUFFICIENT`. A requested future ISO week is rejected with `409 WEEKLY_CYCLE_NOT_STARTED` before materialization or entitlement counting. The first value cycle is always available; in sandbox billing mode, opening/submitting any other publishable cycle after a prior publishable summary requires active pair entitlement and otherwise returns `402 ENTITLEMENT_REQUIRED`.
-- `POST /api/pairs/[id]/weekly-cycle/current` skips only the authenticated member's current cycle. The strict body is empty, so no reason is collected or disclosed. Skip is cycle-key-idempotent and CAS-protected against an active submit lease; submit/skip races cannot create duplicate evidence or snapshots.
-- `GET /api/pairs/[id]/recommendations` returns `{ current, history }` for a pair member. `POST` accepts `{ action: "offer" }` or `{ action: "accept" | "replace" | "skip", decisionId }` under idempotency. Membership is checked before entitlement/quota resolution and non-members receive generic `404 RECOMMENDATION_UNAVAILABLE`, so paid state cannot be probed. An offer requires the current cycle's publishable canonical snapshot. Same-cycle concurrent offer attempts converge on the persisted canonical decision/activity instead of expiring one another or creating parallel offers. Daily suggestion quota uses a hashed deterministic primary/replacement claim: concurrent aliases count one canonical attempt, accepted claims remain replayable when the quota is full, and denied claims do not grow the counter. A decision has one primary offer, at most one replacement, neutral persisted reason codes, immutable cycle/snapshot/input/rule/content provenance, and CAS terminal transitions. Replacement reserves a deterministic successor identity so a crash after terminalizing the original decision is repairable by retry. Valid current reads re-ensure deduplicated `ACTION_AVAILABLE` notifications. Participant DTOs contain no safety state, template id, exact metric, feedback value, provenance evidence, or raw activity metadata.
-- `GET /api/pairs/[id]/history?cursor=&limit=` is member-only, `private, no-store`, and cursor-paginated to 20 items. Cycle rows come only from `WeeklyCycle.latestSnapshotId` joined to its matching immutable `PairStateSnapshot`; cycles without a canonical snapshot are omitted instead of being recalculated from raw check-ins. Activity rows contain only date/title/status and a feedback-presence fact.
-- `GET`/`PUT /api/users/me/safety-gate?pairId=...` is an owner-only, `no-store` control. The PUT body stores only `{ pairId, enabled }`; no explanation/free text exists. The pair-wide eligibility check is a system-only veto, never enters ranking or Pair Summary, and exposes no owner identity or reason to the peer. Audit metadata is allowlisted to pair id, boolean state, and retention class.
-- `POST /api/pairs/[id]/suggest`, `POST /api/pairs/[id]/activities/suggest`, `POST /api/activities/next`, and `POST /api/pairs/[id]/activities/from-template` are guarded compatibility mutations. Each requires a strict JSON body, an idempotency key, active/session pair membership before paid-state lookup, the shared per-user recommendation rate limit, and pair-owned suggestion entitlement/quota. They reuse a current decision before quota work and share its deterministic claim under concurrency. They delegate to the canonical workflow and return zero or one decision-backed offer, never a parallel batch or orphan activity. Direct-template creation is limited to its neutral allowlisted fallback; retry recovers a same-snapshot/same-template prepared offer and attaches one canonical decision. The primary UI uses `/api/pairs/[id]/recommendations`; legacy controls are not rendered.
-- Compatibility suggestion plans are limited to `status`, a neutral `reasonCode`/`explanation`, and `decisionVersion`; they do not expose exact weekly metrics, diagnostics, axes, severity, recent feedback values, or internal source metadata. Automatic P0 selection excludes finance and sexuality templates and never creates a new offer while an activity is current.
-- Activity suggestions may persist internal decision context in `PairActivity.stateMeta`, including version/provenance and concrete `assignedMemberIds` for legacy `soloA`/`soloB` template modes. That metadata is not returned by participant APIs.
-- Activity DTOs expose effective completion questions and an optional privacy-safe `resultSummary`; they never expose raw per-partner activity answers. New lifecycle-v2 activities use the closed participation/usefulness/subjective-change/difficulty/repeat-intent schema. Existing activities retain their effective legacy schema, and existing completed records without `resultSummary` remain readable.
-- `POST /api/activities/[id]/start` is authenticated, member-guarded through the domain service, rate-limited, and idempotent. It performs `ACCEPTED -> IN_PROGRESS -> AWAITING_FEEDBACK` preparation; retries preserve the original start timestamp. Lifecycle-v2 feedback cannot bypass this transition.
-- `POST /api/activities/[id]/checkin` validates every effective closed feedback question and replaces only the authenticated participant's prior answer for that question. Its response is the safe result projection: `dataStatus`, `bothSubmitted`, qualitative `status`, optional completion time, and `resultVersion`; it returns no exact score, count, average, per-member value, or internal effect.
-- `POST /api/activities/[id]/complete` requires at least one feedback submission and returns `{ status, resultSummary }` with the same safe projection. One-sided results are preliminary `completed_partial`; a late second feedback can refine that result idempotently without applying the effect twice. Internal bounded effects and vector snapshots preserve `source: activity_completion`, activity id, result revision, and scoring version, but are absent from participant DTOs and audit metadata.
-- Activity feedback remains available for an existing accepted/partial activity while a pair is paused, but ended pairs cannot submit or complete activity feedback. Late feedback is accepted only for `completed_partial`; final `completed_success` and `failed` results return `409 ACTIVITY_RESULT_FINALIZED`. Repeated complete calls return the stored result without another effect or completion audit.
-- Recent feedback and cooldown may influence internal eligibility, but exact feedback signals are not returned. P0 automatic and direct-template routes reject finance/sexuality templates; the private safety gate further restricts selection to neutral low-effort system fallbacks without a partner-visible reason.
-- Pair readiness/fatigue are recalculated from the available pair-scoped check-ins for the current week. A single response produces an explicit partial state; the previous Pair metric is never treated as the second response.
-- Before deploying pair-scoped weekly writes, run `npm run release:migrate-weekly-checkins` in dry-run mode. A legacy unique `{ userId, weekKey }` index is a release-preflight blocker because it rejects a valid solo row plus pair row in the same week. On an upgrade database, its removal requires the explicitly approved `-- --apply-additive-indexes --drop-legacy-unique` command in a write-stopped maintenance window after verified backup/restore and rollback review. Fresh databases use the additive command without the drop flag. The final state must contain the `{ userId, pairId, weekKey }` unique identity plus non-unique pair/week and user/week lookups.
-- `GET /api/notifications?cursor=&limit=` is owner-only and cursor-paginated with a maximum limit of 50. `POST /api/notifications/[id]/read` can update only the authenticated owner's notification, is per-user rate-limited, and is intrinsically idempotent: retries preserve the first `readAt`. DTOs expose neutral type/title/body/action/read timestamps, never pair/dedupe internals. Creation is unique by owner plus derived dedupe key.
-- `GET /api/privacy/export` returns a bounded owner export and allowed shared projections only. `GET`/`POST`/`DELETE /api/privacy/deletion-request` reads, creates, or cancels the owner's idempotent reversible request. `PENDING_POLICY_REVIEW` explicitly means no destructive deletion has occurred while shared-artifact retention/session-revocation policy is unresolved.
-- `POST /api/billing/webhooks/sandbox` is available only with `BILLING_MODE=sandbox` and a configured secret. It requires a fresh HMAC signature in `x-billing-signature` over timestamp, event id, and the bounded strict raw payload. The signed body requires ISO `occurredAt` and a nonnegative integer `version`; transactional compare-and-set ordering classifies later, stale, equivalent, and conflicting events so an out-of-order delivery cannot resurrect a cancelled subscription. Provider/event identity and the current pair/provider subscription identity are deduplicated. The route updates pair-owned sandbox state and never performs a charge.
-- `GET /api/health/live` returns only `{ status: "live" }`. `GET /api/health/ready` performs a bounded MongoDB ping and returns only ready/not-ready state. Neither endpoint reveals a URI, database name, secret, topology, or stack detail.
-- `GET /api/users/me/profile-summary` returns account-profile mode fields: `profileMode`, `relationshipContext`, `profileCompletion`, `pairedProfileState`, and `nextStep`. Paused pairs are treated as paired mode, `relationshipContext.currentPair` can be active or paused, and ended pairs are history only. Legacy `user.status` and `currentPair` are preserved for compatibility.
-- `pairedProfileState` is `null` for solo users and contains DTO-safe paired-user read-model fields for active/paused pairs: current weekly check-in state, pair weekly status, current pair activity state, contribution score, and a non-medical `resourceMessage`.
-- Profile `nextStep` uses paired context before falling back to generic profile steps: missing weekly check-in, activity feedback, current activity, weak passport, open pair, or paused-pair resume.
-- `GET /api/users/me/profile-summary` also returns a relationship experience layer: `experienceSummary`, six `personalAxisCards`, private-preview `partnerHelpfulNotes`, and `needsAndBoundariesLite`. These fields are derived from existing completion, passport, onboarding, pair, and weekly check-in data; they do not add storage or sharing behavior.
-- Experience copy must remain non-medical and non-accusatory: no diagnosis or therapy claims, toxic labels, blame wording, or statements that a partner is obligated to act. Client normalization provides safe low-data fallbacks when a deployment temporarily omits the new fields.
-- `GET /api/users/me/today` is the daily personal read-model for `/profile`. It requires session auth, accepts optional `dateKey` (`YYYY-MM-DD`) and `timezoneOffsetMin`, and returns `PersonalTodayDTO` only. It may include the authenticated user's own private journal text and a sanitized incoming partner signal, but never exposes another user's daily answers, body context, private journal, or weekly note.
-- `POST /api/users/me/daily-checkins` requires session auth, strict daily answer validation, private body visibility, and idempotency. It upserts the authenticated user's `PersonalDailyCheckIn` by `{ userId, dateKey }`, stores private journal/body context as self-only data, and may save a partner-signal draft; it never sends a partner signal by itself.
-- `POST /api/users/me/daily-checkins/[id]/partner-signal` requires session auth and idempotency. The source check-in must belong to the authenticated user, the user must have an active or paused pair, and the receiver is derived from the pair membership. The response is `{ id, status: "sent", sentAt }`; the partner sees only the explicit signal text.
-- `PATCH /api/users/me/relationship-lens` requires session auth and idempotency. It updates only the authenticated user's optional `profile.relationshipLens` settings, sets `source: "user_setting"` when `defaultLens` is provided, and returns the resolved lens DTO.
+Profile/user writes reject legacy vector/embedding/passport fields. There is no API for mutating a Factor snapshot directly.
+
+## Pair invitation and lifecycle
+
+| Endpoint | Contract |
+| --- | --- |
+| `POST /api/pair-invites` | Creates a 32-byte one-time token. Only SHA-256 hash is stored; raw token appears once in a `no-store` response. |
+| `GET/POST /api/pair-invites/[id]...` | Owner status, cancel and reissue. Reissue invalidates the old invite and returns a new one-time token. |
+| `POST /api/pair-invites/resolve` | Accepts token in JSON body and returns a generic bounded preview/unavailable state. |
+| `POST /api/pair-invites/accept` | Transactional/session-derived acceptance. Rejects self-pair and second active membership; concurrent accepts converge on one Pair. |
+| `GET /api/pairs/me`, `GET /api/pairs/status` | Current session user's active/paused context only. |
+| `POST /api/pairs/[id]/pause`, `/resume` | Member-only lifecycle transitions. |
+| `POST /api/pairs/[id]/end` | Requires idempotency and `{ confirmation: "END_PAIR" }`. Ends the context and closes/revokes active pair-scoped work; returns `endedAt`. |
+
+`POST /api/pairs/create` is a guarded compatibility seam: it cannot activate a Pair and returns `409 PAIR_INVITE_REQUIRED`. The old `/api/match/**` routes are removed. A new connection after end must use a new invite and receives a new Pair id. Ended pair ids do not authorize new reads/writes.
+
+## Weekly cycle and Pair Summary
+
+| Endpoint | Contract |
+| --- | --- |
+| `POST /api/checkins/weekly` | Strict explicit answers for the authenticated member. Pair identity is `{ userId, pairId, weekKey }`; values are immutable for the accepted revision, note is owner-private, retries/concurrency converge. Valid input materializes Factor evidence/snapshots. |
+| `GET /api/checkins/weekly/current?pairId=...` | Returns only the caller's exact owner check-in for that scope/week. |
+| `GET /api/pairs/[id]/weekly-checkin/current` | Separates owner check-in from pair projection. Pair section contains relative completion, data status and at most four qualitative signals; no peer values/notes/metrics. |
+| `GET /api/pairs/[id]/weekly-cycle/current` | Server-owned UTC/ISO cycle window, relative member statuses, semantic snapshot provenance and safe Pair Summary. Future cycles fail before materialization. |
+| `POST /api/pairs/[id]/weekly-cycle/current` | Empty strict body; skips only the authenticated member. Submit/skip races are lease/CAS protected. |
+| `GET /api/pairs/[id]/summary` | Member dashboard DTO: safe pair/member identity, current activity, bounded offer fact, owner completion and next step derived from the canonical weekly projection. |
+
+Weekly form fields start untouched in the UI; the server still requires all mandatory typed fields. Explicit neutral is a submitted value, while untouched/missing is rejected or remains unavailable. One submit publishes no pair signal; two valid submits create one canonical summary. There is no cycle-number or entitlement gate.
+
+The old `/api/pairs/[id]/diagnostics` and insights routes are removed. They are not compatibility sources and cannot return a passport or numeric score.
+
+## Questionnaires
+
+- `GET /api/questionnaires`, `GET /api/questionnaires/[id]`, `GET /api/questionnaires/cards` and activity-template catalogs require session auth and return only reviewed/published semantic content.
+- Questionnaire DTOs expose semantic `domainKey`, `topicKey`, `optionCount` and content revision, never legacy axis/vector mappings.
+- `POST /api/questionnaires/[id]` requires one complete explicit answer per known question and stores an immutable owner-private `PersonalQuestionnaireSubmission`. Exact-content retries converge. If content has no reviewed measurement binding, status remains `UNMAPPED` and no Factor evidence is invented.
+- Pair questionnaire start/answer routes require an active Pair, store private source rows and return acknowledgements/session progress without partner raw answers or profile mutation. Their response shapes are unchanged. A transaction-level Pair lifecycle fence serializes start/answer against pause/end; at most one `in_progress` session exists per `{pairId, questionnaireId}`, and an answer is immutable and unique by `{sessionId, questionId, by}`. Pair end closes every remaining `in_progress` session with `status=closed`; terminal sessions reject new writes.
+- `/api/questions` and `/api/answers/bulk` are removed.
+
+## Recommendations, PairEvents and activities
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/pairs/[id]/recommendations` | Returns safe current/history decisions for a member. |
+| `POST /api/pairs/[id]/recommendations` | `{ action: "offer" }` or `{ action: "accept" | "replace" | "skip", decisionId }`; requires idempotency. One current decision per pair/cycle, one replacement, one accepted activity. |
+| `/api/pairs/[id]/suggest`, `/activities/suggest`, `/api/activities/next`, `/activities/from-template` | Guarded free compatibility adapters over current Factor-bound activity policy. They cannot invoke legacy diagnostics or create an unbound activity. |
+| `GET /api/pairs/[id]/events` | Member-only active/all PairEvent DTOs. Events must carry current Factor registry/action target binding and a safe source kind. |
+| `POST /api/pairs/[id]/events/[eventId]/accept|decline|snooze` | Member/idempotency/state guarded. Accept may create only bounded, Factor-bound activity DTOs and does not read either member's private SafetyGate; raw source metadata stays internal. |
+| `POST /api/activities/[id]/accept|start|cancel` | Activity-member, state-machine and idempotency guarded lifecycle mutations. |
+| `POST /api/activities/[id]/checkin` | Validates the current closed feedback schema and replaces only caller's answer revision. Returns safe aggregate status, never peer answers. |
+| `POST /api/activities/[id]/complete` | Requires feedback, returns qualitative result. One-sided feedback can be partial; late peer feedback refines once. Factor evidence/snapshots are internal. |
+
+Recommendation/activity participant DTOs omit SafetyGate state, template/internal provenance, Factor values, confidence, evidence ids, internal rank, exact feedback and `stateMeta`. SafetyGate changes only its owner's offered-action visibility and acceptance eligibility, yielding an owner-local neutral fallback/error without changing shared state, Pair Summary, PairEvent, current activity or history.
+
+## History and notifications
+
+- `GET /api/pairs/[id]/history?cursor=&limit=` is member-only, `no-store`, cursor-paginated and bounded. It reads published immutable derived artifacts; raw check-ins/notes and current-code recomputation of old history are forbidden.
+- `GET /api/notifications?cursor=&limit=` is owner-only with maximum 50. `POST /api/notifications/[id]/read` is owner-scoped and idempotent. DTO copy is neutral and omits pair/dedupe ids, Factor topics, answers, conclusions and safety state.
+
+## Safety, export and deletion
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET/PUT /api/users/me/safety-gate?pairId=...` | Owner-only boolean control; no free text/reason. It narrows only that owner's offered-action visibility/acceptance; partner and shared reads remain byte-for-byte independent of the private state. |
+| `GET /api/privacy/export` | Bounded owner export plus allowed shared summaries. Excludes partner raw sources/snapshots/notes, exact pair internals, secrets and SafetyGate reasons. |
+| `GET/POST/DELETE /api/privacy/deletion-request` | Read, create or cancel the caller's `privacy-request-v2`; mutation is rate-limited and idempotent by current owner state. |
+| `POST /api/privacy/deletion-request/execute` | Requires `{ confirmation: "DELETE_ACCOUNT" }`. Revokes sessions, ends active Pair, deletes account/owner and affected pair-scoped artifacts, pseudonymizes the retained request and clears cookie. Retry is allowed after `FAILED`. |
+
+## Health and isolated billing
+
+- `GET /api/health/live` reports only liveness; `GET /api/health/ready` performs bounded config/Mongo checks without environment detail.
+- `POST /api/billing/webhooks/sandbox` and `POST /api/entitlements/grant` remain protected, disabled/isolated infrastructure. Their state never determines access to the public core flow.
+- Legacy matching endpoints are absent from the active runtime. Any retained legacy match data is not an authorization, Pair-activation or compatibility-scoring source.
 
 ## References
 
-- Detailed historical API inventory: `docs/04-api-contracts.md`.
-- Backend checklist: `docs/engineering/checklists/api-endpoint-checklist.md`.
-- DTO checklist: `docs/engineering/checklists/dto-contract-checklist.md`.
+- [Security](./SECURITY.md)
+- [Factor model](./TARGET_DOMAIN_MODEL.md)
+- [Historical API inventory](./04-api-contracts.md) — archaeology only

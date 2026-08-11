@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const query = parseQuery(req, z.object({}).passthrough());
   if (!query.ok) return query.response;
 
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 

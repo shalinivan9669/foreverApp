@@ -1,13 +1,11 @@
 'use client';
 
 import type { UiErrorState } from '@/client/api/errors';
-import PaywallView from './PaywallView';
 
 type ErrorViewProps = {
   error: UiErrorState | null;
   onRetry?: () => void;
   onAuthRequired?: () => void;
-  onUpgrade?: () => void;
 };
 
 const retryAfterLabel = (retryAfterMs?: number): string => {
@@ -20,18 +18,13 @@ export default function ErrorView({
   error,
   onRetry,
   onAuthRequired,
-  onUpgrade,
 }: ErrorViewProps) {
   if (!error) return null;
-
-  if (error.kind === 'paywall') {
-    return <PaywallView error={error} onUpgrade={onUpgrade} />;
-  }
 
   if (error.kind === 'rate_limited') {
     const retryLabel = retryAfterLabel(error.retryAfterMs);
     return (
-      <div className="app-alert app-alert-rate app-reveal">
+      <div className="app-alert app-alert-rate app-reveal" role="alert" aria-live="polite">
         <p className="font-medium">{error.message}</p>
         {retryLabel && <p className="mt-1 text-sm">{retryLabel}</p>}
         {onRetry && (
@@ -45,7 +38,7 @@ export default function ErrorView({
 
   if (error.kind === 'auth_required') {
     return (
-      <div className="app-alert app-alert-auth app-reveal">
+      <div className="app-alert app-alert-auth app-reveal" role="alert" aria-live="polite">
         <p className="font-medium">Требуется авторизация</p>
         <p className="mt-1 text-sm">{error.message}</p>
         {onAuthRequired && (
@@ -58,9 +51,8 @@ export default function ErrorView({
   }
 
   return (
-    <div className="app-alert app-alert-error app-reveal">
+    <div className="app-alert app-alert-error app-reveal" role="alert" aria-live="polite">
       <p className="font-medium">{error.message}</p>
-      <p className="mt-1 text-xs opacity-80">Код: {error.code}</p>
       {onRetry && (
         <button type="button" onClick={onRetry} className="app-btn-secondary mt-3 px-3 py-1.5 text-sm">
           Повторить

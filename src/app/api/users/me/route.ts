@@ -1,11 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { connectToDatabase } from '@/lib/mongodb';
-import { User, type UserType } from '@/models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson } from '@/lib/api/validate';
-import { toUserDTO } from '@/lib/dto';
 import { usersService, type UserProfileUpsertPayload } from '@/domain/services/users.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 
@@ -29,25 +26,17 @@ const userUpdateSchema = z
   .strict();
 
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 
-  await connectToDatabase();
-  const doc = await User.findOne({ id: userId }).lean<UserType | null>();
-  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(
-    toUserDTO(doc, {
-      scope: 'private',
-      includeOnboarding: true,
-      includeMatchCard: true,
-      includeLocation: true,
-    })
-  );
+  const userDto = await usersService.getCurrentUserProfile(userId);
+  if (!userDto) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
+  return jsonOk(userDto);
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const userId = auth.data.userId;
 
@@ -55,18 +44,11 @@ export async function PUT(req: NextRequest) {
   if (!bodyResult.ok) return bodyResult.response;
   const body = bodyResult.data as UserProfileUpsertPayload;
   const auditRequest = auditContextFromRequest(req, '/api/users/me');
-  const doc = await usersService.updateCurrentUserProfile({
+  const userDto = await usersService.updateCurrentUserProfile({
     currentUserId: userId,
     payload: body,
     auditRequest,
   });
 
-  return jsonOk(
-    toUserDTO(doc, {
-      scope: 'private',
-      includeOnboarding: true,
-      includeMatchCard: true,
-      includeLocation: true,
-    })
-  );
+  return jsonOk(userDto);
 }

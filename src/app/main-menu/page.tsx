@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { usePair } from '@/client/hooks/usePair';
 import { pairsApi, type PairSummaryDTO } from '@/client/api/pairs.api';
@@ -48,15 +49,25 @@ const PAIR_DATA_STATUS_LABELS: Record<
 };
 
 export default function MainMenuPage() {
-  const { pairId, pairMe, loading: pairLoading, error: pairError } = usePair();
+  const router = useRouter();
+  const {
+    pairId,
+    pairMe,
+    loading: pairLoading,
+    error: pairError,
+    refetch: refetchPair,
+  } = usePair();
   const [summary, setSummary] = useState<PairSummaryDTO | null>(null);
   const [cycle, setCycle] = useState<CurrentWeeklyCycleDTO | null>(null);
   const [recommendation, setRecommendation] =
     useState<RecommendationDecisionDTO | null>(null);
   const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
+  const [cycleLoading, setCycleLoading] = useState(false);
   const [error, setError] = useState<UiErrorState | null>(null);
 
   const loadCycle = useCallback(async (activePairId: string, signal?: AbortSignal) => {
+    setCycleLoading(true);
+    setError(null);
     try {
       const [pairSummary, currentCycle, recommendationOverview] =
         await Promise.all([
@@ -78,7 +89,10 @@ export default function MainMenuPage() {
             ? caughtError
             : new Error('Не удалось загрузить текущий цикл.');
         setError(toUiErrorState(normalized));
+        setLoadedPairId(activePairId);
       }
+    } finally {
+      if (!signal?.aborted) setCycleLoading(false);
     }
   }, []);
 
@@ -111,7 +125,7 @@ export default function MainMenuPage() {
   const primaryCopy = (() => {
     if (activeCycle?.currentUser.completionStatus === 'SKIPPED') {
       return {
-        title: 'Этот check-in пропущен без штрафа',
+        title: 'Эта еженедельная отметка пропущена без штрафа',
         description:
           'Причина остаётся личной. Можно выбрать только лёгкий следующий шаг или дождаться нового цикла.',
         label: 'Посмотреть лёгкие активности',
@@ -131,7 +145,10 @@ export default function MainMenuPage() {
     };
   })();
 
-  const pageLoading = pairLoading || Boolean(pairId && loadedPairId !== pairId);
+  const pageLoading =
+    pairLoading ||
+    cycleLoading ||
+    Boolean(pairId && loadedPairId !== pairId && error === null);
   const currentPairStatus = activeSummary?.pair.status ?? pairMe?.pair?.status;
 
   return (
@@ -142,7 +159,7 @@ export default function MainMenuPage() {
           <div>
             <h1 className="text-3xl font-semibold">Сегодня</h1>
             <p className="app-muted mt-2 max-w-2xl text-sm">
-              Один понятный следующий шаг для вашей пары — без рейтинга совместимости и
+              Один понятный следующий шаг для вашей пары — без общего рейтинга и
               без раскрытия личных ответов.
             </p>
           </div>
@@ -158,10 +175,26 @@ export default function MainMenuPage() {
         </div>
       </header>
 
-      <NotificationPanel />
+      <NotificationPanel enabled={!pairLoading && !pairError} />
 
       {pageLoading ? (
-        <div className="app-panel app-panel-solid mt-4 p-5 text-sm">Загружаем состояние…</div>
+        <div className="app-panel app-panel-solid mt-4 p-5 text-sm" role="status" aria-live="polite">
+          Загружаем состояние…
+        </div>
+      ) : error || pairError ? (
+        <div className="mt-4">
+          <ErrorView
+            error={error ?? pairError}
+            onRetry={() => {
+              if (pairId) {
+                void loadCycle(pairId);
+                return;
+              }
+              void refetchPair();
+            }}
+            onAuthRequired={() => router.push('/')}
+          />
+        </div>
       ) : !pairId ? (
         <section className="app-panel app-panel-solid mt-4 p-5 sm:p-6">
           <h2 className="text-xl font-semibold">Пригласите партнёра</h2>
@@ -185,25 +218,25 @@ export default function MainMenuPage() {
           </section>
 
           <section className="app-panel app-panel-solid p-5 lg:col-span-5">
-            <div className="app-muted text-xs">Weekly check-in</div>
+            <div className="app-muted text-xs">Еженедельная отметка</div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <div className="rounded-lg border border-slate-100 p-3 text-sm">
                 <div className="font-medium">Вы</div>
                 <p className="app-muted mt-1">
                   {activeCycle.currentUser.completionStatus === 'SKIPPED'
-                    ? 'Check-in пропущен'
+                    ? 'Отметка пропущена'
                     : activeCycle.currentUser.completionStatus === 'SUBMITTED'
-                      ? 'Check-in заполнен'
-                      : 'Ожидает check-in'}
+                      ? 'Отметка заполнена'
+                      : 'Ожидает заполнения'}
                 </p>
               </div>
               <div className="rounded-lg border border-slate-100 p-3 text-sm">
                 <div className="font-medium">Партнёр</div>
                 <p className="app-muted mt-1">
                   {activeCycle.peer.completionStatus === 'SKIPPED'
-                    ? 'Check-in пропущен'
+                    ? 'Отметка пропущена'
                     : activeCycle.peer.completionStatus === 'SUBMITTED'
-                      ? 'Check-in заполнен'
+                      ? 'Отметка заполнена'
                       : 'Ответ ещё не готов'}
                 </p>
               </div>
@@ -213,7 +246,7 @@ export default function MainMenuPage() {
           <section className="app-panel app-panel-solid p-5 lg:col-span-7">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="app-muted text-xs">Pair Summary</div>
+                <div className="app-muted text-xs">Общая сводка</div>
                 <h2 className="mt-1 text-xl font-semibold">Сводка цикла</h2>
               </div>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs">
@@ -245,22 +278,15 @@ export default function MainMenuPage() {
             </h2>
             <p className="app-muted mt-2 text-sm">
               {activeSummary.currentActivity
-                ? 'Продолжите выбранный формат или завершите отдельный feedback.'
+                ? 'Продолжите выбранный формат или завершите отдельную обратную связь.'
                 : activeRecommendation
                   ? 'Открыта одна рекомендация: её можно принять, один раз заменить или пропустить без штрафа.'
-                : 'После check-in система предложит один безопасный следующий шаг.'}
+                : 'После еженедельной отметки система предложит один безопасный следующий шаг.'}
             </p>
             <Link href="/couple-activity" className="app-btn-secondary mt-4 inline-flex px-3 py-2 text-sm">
               Открыть активности
             </Link>
           </section>
-        </div>
-      ) : error || pairError ? (
-        <div className="mt-4">
-          <ErrorView
-            error={error ?? pairError}
-            onRetry={pairId ? () => void loadCycle(pairId) : undefined}
-          />
         </div>
       ) : (
         <div className="app-alert app-alert-error mt-4 text-sm">

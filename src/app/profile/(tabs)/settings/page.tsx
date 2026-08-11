@@ -1,21 +1,34 @@
-// src/app/profile/(tabs)/settings/page.tsx
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
+import PrivacySettingsHub from '@/components/settings/PrivacySettingsHub';
+import ErrorView from '@/components/ui/ErrorView';
+import LoadingView from '@/components/ui/LoadingView';
 
 export default function ProfileSettingsTab() {
-  return (
-    <main className="app-shell-compact space-y-4 py-3 sm:py-4 lg:py-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Настройки</h1>
-        <Link href="/profile" className="text-sm underline">
-          К обзору
-        </Link>
-      </div>
+  const router = useRouter();
+  const { data: currentUser, loading, error, refetch } = useCurrentUser();
 
-      <div className="app-panel app-panel-solid space-y-3 p-4">
-        <p className="app-muted">Уведомления, приватность, аккаунт, данные — позже.</p>
-      </div>
-    </main>
-  );
+  if (loading && !currentUser) {
+    return (
+      <main className="app-shell-narrow py-4 sm:py-7">
+        <LoadingView label="Загружаем настройки..." />
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="app-shell-narrow py-4 sm:py-7">
+        <ErrorView
+          error={error}
+          onRetry={() => void refetch()}
+          onAuthRequired={() => router.push('/')}
+        />
+      </main>
+    );
+  }
+
+  return <PrivacySettingsHub />;
 }

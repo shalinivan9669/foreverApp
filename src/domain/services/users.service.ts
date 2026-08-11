@@ -4,6 +4,7 @@ import { DomainError } from '@/domain/errors';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import type { JsonValue } from '@/lib/api/response';
+import { toUserDTO, type UserDTO } from '@/lib/dto/user.dto';
 
 export type UserProfileUpsertPayload = {
   username?: UserType['username'];
@@ -50,6 +51,27 @@ export const assertSelfUserTarget = (actorUserId: string, targetUserId: string):
 };
 
 export const usersService = {
+  async getCurrentUserProfile(currentUserId: string): Promise<UserDTO | null> {
+    await connectToDatabase();
+
+    const user = await User.findOne({ id: currentUserId }).lean<UserType | null>();
+    return user
+      ? toUserDTO(user, {
+          scope: 'private',
+          includeOnboarding: true,
+          includeMatchCard: true,
+          includeLocation: true,
+        })
+      : null;
+  },
+
+  async getPublicUserProfile(userId: string): Promise<UserDTO | null> {
+    await connectToDatabase();
+
+    const user = await User.findOne({ id: userId }).lean<UserType | null>();
+    return user ? toUserDTO(user, { scope: 'public' }) : null;
+  },
+
   async upsertCurrentUserProfile(input: {
     currentUserId: string;
     payload: UserProfileUpsertPayload;
@@ -100,7 +122,7 @@ export const usersService = {
     currentUserId: string;
     payload: UserProfileUpsertPayload;
     auditRequest?: AuditRequestContext;
-  }): Promise<UserType> {
+  }): Promise<UserDTO> {
     await connectToDatabase();
 
     const updateFields = toUpdateFields(input.payload);
@@ -132,7 +154,12 @@ export const usersService = {
       },
     });
 
-    return doc;
+    return toUserDTO(doc, {
+      scope: 'private',
+      includeOnboarding: true,
+      includeMatchCard: true,
+      includeLocation: true,
+    });
   },
 
   async updateCurrentUserOnboarding(input: {
@@ -192,7 +219,7 @@ export const usersService = {
     actorUserId: string;
     payload: UserProfileUpsertPayload;
     auditRequest?: AuditRequestContext;
-  }): Promise<UserType> {
+  }): Promise<UserDTO> {
     assertSelfUserTarget(input.actorUserId, input.targetUserId);
     await connectToDatabase();
 
@@ -225,7 +252,7 @@ export const usersService = {
       },
     });
 
-    return doc;
+    return toUserDTO(doc, { scope: 'public' });
   },
 
   async updateUserOnboardingById(input: {

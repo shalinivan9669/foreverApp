@@ -14,7 +14,7 @@ const querySchema = z
   .strict();
 
 export async function GET(req: NextRequest): Promise<Response> {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const query = parseQuery(req, querySchema);
   if (!query.ok) return query.response;

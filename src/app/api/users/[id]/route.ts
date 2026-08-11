@@ -1,11 +1,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { connectToDatabase } from '../../../../lib/mongodb';
-import { User, UserType } from '../../../../models/User';
 import { requireSession } from '@/lib/auth/guards';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { parseJson, parseParams, parseQuery } from '@/lib/api/validate';
-import { toUserDTO } from '@/lib/dto';
 import { usersService, type UserProfileUpsertPayload } from '@/domain/services/users.service';
 import { auditContextFromRequest } from '@/lib/audit/emitEvent';
 import { asError, toDomainError } from '@/domain/errors';
@@ -38,7 +35,7 @@ const userUpdateSchema = z
   .strict();
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
   const query = parseQuery(req, z.object({}).passthrough());
@@ -48,14 +45,13 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   if (!params.ok) return params.response;
   const { id } = params.data;
 
-  await connectToDatabase();
-  const doc = await User.findOne({ id }).lean<UserType | null>();
-  if (!doc) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
-  return jsonOk(toUserDTO(doc, { scope: 'public' }));
+  const userDto = await usersService.getPublicUserProfile(id);
+  if (!userDto) return jsonError(404, 'USER_NOT_FOUND', 'user not found');
+  return jsonOk(userDto);
 }
 
 export async function PUT(req: NextRequest, ctx: RouteContext) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const actorUserId = auth.data.userId;
 
@@ -69,13 +65,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   const auditRequest = auditContextFromRequest(req, `/api/users/${id}`);
 
   try {
-    const doc = await usersService.updateUserProfileById({
+    const userDto = await usersService.updateUserProfileById({
       targetUserId: id,
       actorUserId,
       payload: body,
       auditRequest,
     });
-    return jsonOk(toUserDTO(doc, { scope: 'public' }));
+    return jsonOk(userDto);
   } catch (error: unknown) {
     const domainError = toDomainError(asError(error));
     return jsonError(

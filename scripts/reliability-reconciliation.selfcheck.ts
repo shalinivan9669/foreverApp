@@ -16,7 +16,6 @@ import { weeklyCheckInService } from '@/domain/services/weeklyCheckIn.service';
 import { cycleEntitlementService } from '@/domain/services/cycleEntitlement.service';
 import { pairHistoryService } from '@/domain/services/pairHistory.service';
 import { recommendationWorkflowService } from '@/domain/services/recommendationWorkflow.service';
-import { recommendationDecisionService } from '@/domain/services/recommendationDecision.service';
 import {
   PAIR_STATE_ALGORITHM_VERSION,
   WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT,
@@ -27,11 +26,13 @@ import {
 } from '@/domain/services/weeklyCycle.service';
 import { DomainError } from '@/domain/errors';
 import { IdempotencyRecord } from '@/models/IdempotencyRecord';
-import { Insight } from '@/models/Insight';
+import { EvidenceEvent } from '@/models/EvidenceEvent';
+import { IndividualFactorSnapshot } from '@/models/IndividualFactorSnapshot';
+import { PairFactorEvaluationSnapshot } from '@/models/PairFactorEvaluationSnapshot';
+import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
 import { Pair } from '@/models/Pair';
 import { PairStateSnapshot } from '@/models/PairStateSnapshot';
 import { User } from '@/models/User';
-import { VectorSnapshot } from '@/models/VectorSnapshot';
 import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
 import {
   WeeklyCycle,
@@ -41,11 +42,7 @@ import { EventLog } from '@/models/EventLog';
 import { Notification } from '@/models/Notification';
 import { PairActivity } from '@/models/PairActivity';
 import { RecommendationDecision } from '@/models/RecommendationDecision';
-import { EntitlementQuotaUsage } from '@/models/EntitlementQuotaUsage';
-import {
-  assertRecommendationOfferAccess,
-  buildRecommendationQuotaClaimKey,
-} from '@/lib/entitlements';
+import { SafetyGate } from '@/models/SafetyGate';
 
 type ErrorEnvelope = {
   ok: false;
@@ -74,21 +71,18 @@ const responseErrorCode = async (response: Response): Promise<string> => {
 const cleanup = async (): Promise<void> => {
   await IdempotencyRecord.deleteMany({ userId: idemUserId });
   await EventLog.deleteMany({ 'actor.userId': { $in: [...userIds] } });
-  await Insight.deleteMany({
-    $or: [
-      { userId: { $in: [...userIds] } },
-      ...(pairId ? [{ pairId: { $in: [pairId, String(pairId)] } }] : []),
-    ],
-  });
-  await VectorSnapshot.deleteMany({ userId: { $in: [...userIds] } });
+  await EvidenceEvent.deleteMany({ actorId: { $in: [...userIds] } });
+  await IndividualFactorSnapshot.deleteMany({ subjectId: { $in: [...userIds] } });
   await WeeklyCheckIn.deleteMany({ userId: { $in: [...userIds] } });
-  await EntitlementQuotaUsage.deleteMany({ subjectId: { $in: [...userIds] } });
   if (pairId) {
+    await PairFactorEvaluationSnapshot.deleteMany({ pairId: String(pairId) });
+    await PairFactorSnapshot.deleteMany({ pairId: String(pairId) });
     await Notification.deleteMany({
       $or: [{ pairId }, { userId: { $in: [...userIds] } }],
     });
     await RecommendationDecision.deleteMany({ pairId });
     await PairActivity.deleteMany({ pairId });
+    await SafetyGate.deleteMany({ pairId });
     await PairStateSnapshot.deleteMany({ pairId });
     await WeeklyCycle.deleteMany({ pairId });
     await Pair.deleteOne({ _id: pairId });
@@ -362,21 +356,22 @@ const testWeeklyRepair = async (): Promise<void> => {
     pairId: String(pair._id),
   }).lean();
   assert.equal(primaryOnly?.finalization?.state, 'pending');
-  assert.equal(
-    await VectorSnapshot.countDocuments({
-      userId: userIds[0],
-      'reason.source': 'weekly_checkin',
-    }),
-    0
-  );
+  assert.equal(await EvidenceEvent.countDocuments({ actorId: userIds[0] }), 0);
 
   const repaired = await weeklyCheckInService.submit(firstInput);
   assert.equal(repaired.userId, userIds[0]);
-  const firstSnapshots = await VectorSnapshot.countDocuments({
-    userId: userIds[0],
-    'reason.source': 'weekly_checkin',
+  const firstEvidence = await EvidenceEvent.countDocuments({
+    actorId: userIds[0],
+    pairId: String(pair._id),
+    sourceType: 'CHECK_IN',
   });
-  assert.equal(firstSnapshots, 2);
+  const firstSnapshots = await IndividualFactorSnapshot.countDocuments({
+    subjectId: userIds[0],
+    contextPairId: String(pair._id),
+    projectionPurpose: 'PAIR_MODEL',
+  });
+  assert.equal(firstEvidence, 4);
+  assert.equal(firstSnapshots, 4);
   const firstFinalized = await WeeklyCheckIn.findById(repaired.id).lean();
   assert.equal(firstFinalized?.finalization?.state, 'completed');
   assert.equal(firstFinalized?.finalization?.attemptCount, 1);
@@ -395,15 +390,20 @@ const testWeeklyRepair = async (): Promise<void> => {
     pairId: pair._id,
     cycleKey: repaired.weekKey,
   });
-  const userAfterRepair = await User.findOne({ id: userIds[0] }).lean();
-  const evidenceAfterRepair =
-    userAfterRepair?.vectors?.psyche?.state?.evidenceCount;
-
   await weeklyCheckInService.submit(firstInput);
   assert.equal(
-    await VectorSnapshot.countDocuments({
-      userId: userIds[0],
-      'reason.source': 'weekly_checkin',
+    await EvidenceEvent.countDocuments({
+      actorId: userIds[0],
+      pairId: String(pair._id),
+      sourceType: 'CHECK_IN',
+    }),
+    firstEvidence
+  );
+  assert.equal(
+    await IndividualFactorSnapshot.countDocuments({
+      subjectId: userIds[0],
+      contextPairId: String(pair._id),
+      projectionPurpose: 'PAIR_MODEL',
     }),
     firstSnapshots
   );
@@ -414,55 +414,6 @@ const testWeeklyRepair = async (): Promise<void> => {
     }),
     pairSnapshotsAfterRepair
   );
-  const userAfterReplay = await User.findOne({ id: userIds[0] }).lean();
-  assert.equal(
-    userAfterReplay?.vectors?.psyche?.state?.evidenceCount,
-    evidenceAfterRepair
-  );
-
-  const legacyWeekKey = '2020-W01';
-  const legacyCheckInId = new mongoose.Types.ObjectId();
-  const legacyNow = new Date('2020-01-03T12:00:00.000Z');
-  await WeeklyCheckIn.collection.insertOne({
-    _id: legacyCheckInId,
-    userId: userIds[0],
-    weekKey: legacyWeekKey,
-    answers: {
-      closeness: 0.5,
-      fatigue: 0.5,
-      irritation: 0.2,
-      readiness: 0.5,
-      unresolvedTopic: false,
-    },
-    computed: { userStateDelta: {}, generatedInsightIds: [] },
-    createdAt: legacyNow,
-    updatedAt: legacyNow,
-  });
-  const snapshotsBeforeLegacyReplay = await VectorSnapshot.countDocuments({
-    userId: userIds[0],
-    'reason.source': 'weekly_checkin',
-  });
-  const legacyReplay = await weeklyCheckInService.submit({
-    currentUserId: userIds[0],
-    weekKey: legacyWeekKey,
-    answers: {
-      closeness: 0.9,
-      fatigue: 0.9,
-      irritation: 0.9,
-      readiness: 0.1,
-      unresolvedTopic: true,
-    },
-  });
-  assert.equal(legacyReplay.id, String(legacyCheckInId));
-  assert.equal(
-    await VectorSnapshot.countDocuments({
-      userId: userIds[0],
-      'reason.source': 'weekly_checkin',
-    }),
-    snapshotsBeforeLegacyReplay,
-    'legacy rows must not replay side effects without a durable marker'
-  );
-
   const secondInput = {
     currentUserId: userIds[1],
     pairId: String(pair._id),
@@ -489,9 +440,15 @@ const testWeeklyRepair = async (): Promise<void> => {
     weekKey: repaired.weekKey,
   }).lean();
   assert.equal(effectsApplied?.finalization?.state, 'effects_applied');
-  const secondSnapshotsBeforeRetry = await VectorSnapshot.countDocuments({
-    userId: userIds[1],
-    'reason.source': 'weekly_checkin',
+  const secondEvidenceBeforeRetry = await EvidenceEvent.countDocuments({
+    actorId: userIds[1],
+    pairId: String(pair._id),
+    sourceType: 'CHECK_IN',
+  });
+  const secondSnapshotsBeforeRetry = await IndividualFactorSnapshot.countDocuments({
+    subjectId: userIds[1],
+    contextPairId: String(pair._id),
+    projectionPurpose: 'PAIR_MODEL',
   });
   const pairSnapshotsBeforeRetry = await PairStateSnapshot.countDocuments({
     pairId: pair._id,
@@ -501,9 +458,18 @@ const testWeeklyRepair = async (): Promise<void> => {
   const secondRepaired = await weeklyCheckInService.submit(secondInput);
   assert.equal(secondRepaired.userId, userIds[1]);
   assert.equal(
-    await VectorSnapshot.countDocuments({
-      userId: userIds[1],
-      'reason.source': 'weekly_checkin',
+    await EvidenceEvent.countDocuments({
+      actorId: userIds[1],
+      pairId: String(pair._id),
+      sourceType: 'CHECK_IN',
+    }),
+    secondEvidenceBeforeRetry
+  );
+  assert.equal(
+    await IndividualFactorSnapshot.countDocuments({
+      subjectId: userIds[1],
+      contextPairId: String(pair._id),
+      projectionPurpose: 'PAIR_MODEL',
     }),
     secondSnapshotsBeforeRetry
   );
@@ -523,6 +489,13 @@ const testWeeklyRepair = async (): Promise<void> => {
   }).lean();
   assert.equal(completedCycle?.submissionCount, 2);
   assert.equal(completedCycle?.pairReadiness, 'ENOUGH');
+  assert.equal(
+    await PairFactorEvaluationSnapshot.countDocuments({
+      pairId: String(pair._id),
+    }),
+    4,
+    'two completed submissions must materialize one evaluation per weekly factor'
+  );
 
   const priorValueCycleId = new mongoose.Types.ObjectId();
   await WeeklyCycle.collection.insertOne({
@@ -540,7 +513,7 @@ const testWeeklyRepair = async (): Promise<void> => {
     assert.equal(
       entitlementIndependentReplay.id,
       secondRepaired.id,
-      'an existing immutable check-in must replay after entitlement expiry'
+      'an existing immutable check-in must replay in the free core'
     );
   } finally {
     if (previousBillingMode === undefined) {
@@ -551,97 +524,15 @@ const testWeeklyRepair = async (): Promise<void> => {
     await WeeklyCycle.deleteOne({ _id: priorValueCycleId });
   }
 
-  await assert.rejects(
-    cycleEntitlementService.assertCanOpen({
+  assert.deepEqual(
+    await cycleEntitlementService.assertCanOpen({
       pairId: String(pair._id),
       currentUserId: userIds[0],
       cycleKey: '2000-W01',
       billingMode: 'sandbox',
     }),
-    (error: unknown) =>
-      error instanceof DomainError &&
-      error.code === 'ENTITLEMENT_REQUIRED' &&
-      error.status === 402
-  );
-
-  const quotaContext =
-    await recommendationDecisionService.requireCurrentPublishableSummary({
-      pairId: String(pair._id),
-      currentUserId: userIds[0],
-    });
-  const primaryQuotaClaim = buildRecommendationQuotaClaimKey({
-    pairId: String(pair._id),
-    cycleKey: quotaContext.cycleKey,
-    kind: 'primary',
-  });
-  const quotaRequest = new Request(
-    `https://app.example/api/pairs/${String(pair._id)}/recommendations`,
-    { method: 'POST' }
-  );
-  await Promise.all(
-    Array.from({ length: 12 }, () =>
-      assertRecommendationOfferAccess({
-        req: quotaRequest,
-        route: `/api/pairs/${String(pair._id)}/recommendations`,
-        pairId: String(pair._id),
-        currentUserId: userIds[0],
-        quotaClaimKey: primaryQuotaClaim,
-      })
-    )
-  );
-  const primaryQuotaUsage = await EntitlementQuotaUsage.findOne({
-    subjectId: userIds[0],
-    quotaKey: 'activities.suggestions.per_day',
-  }).lean();
-  assert.equal(primaryQuotaUsage?.count, 1);
-  assert.deepEqual(primaryQuotaUsage?.claimKeys, [primaryQuotaClaim]);
-
-  for (let index = 0; index < 5; index += 1) {
-    await assertRecommendationOfferAccess({
-      req: quotaRequest,
-      route: `/api/pairs/${String(pair._id)}/recommendations`,
-      pairId: String(pair._id),
-      currentUserId: userIds[0],
-      quotaClaimKey: buildRecommendationQuotaClaimKey({
-        pairId: String(pair._id),
-        cycleKey: quotaContext.cycleKey,
-        kind: 'replacement',
-        decisionId: `quota-fixture-${index}`,
-      }),
-    });
-  }
-  await assert.rejects(
-    assertRecommendationOfferAccess({
-      req: quotaRequest,
-      route: `/api/pairs/${String(pair._id)}/recommendations`,
-      pairId: String(pair._id),
-      currentUserId: userIds[0],
-      quotaClaimKey: buildRecommendationQuotaClaimKey({
-        pairId: String(pair._id),
-        cycleKey: quotaContext.cycleKey,
-        kind: 'replacement',
-        decisionId: 'quota-fixture-denied',
-      }),
-    }),
-    (error: unknown) =>
-      error instanceof DomainError && error.code === 'QUOTA_EXCEEDED'
-  );
-  await assertRecommendationOfferAccess({
-    req: quotaRequest,
-    route: `/api/pairs/${String(pair._id)}/recommendations`,
-    pairId: String(pair._id),
-    currentUserId: userIds[0],
-    quotaClaimKey: primaryQuotaClaim,
-  });
-  assert.equal(
-    (
-      await EntitlementQuotaUsage.findOne({
-        subjectId: userIds[0],
-        quotaKey: 'activities.suggestions.per_day',
-      }).lean()
-    )?.count,
-    6,
-    'an accepted claim must remain replayable after the quota becomes full'
+    { allowed: true, reason: 'FREE_CORE' },
+    'cycle 2+ must remain available without pair entitlement'
   );
 
   const templateRecoveryInput = {
@@ -649,6 +540,12 @@ const testWeeklyRepair = async (): Promise<void> => {
     currentUserId: userIds[0],
     templateId: 'system-resource-relief',
   };
+  await SafetyGate.create({
+    pairId: pair._id,
+    ownerUserId: userIds[0],
+    enabled: true,
+    retentionClass: 'UNTIL_REVOKED_OR_PAIR_END',
+  });
   await assert.rejects(
     recommendationWorkflowService.fromTemplateCompatibility(
       templateRecoveryInput,
@@ -695,7 +592,6 @@ const testWeeklyRepair = async (): Promise<void> => {
     1,
     'direct-template retry must attach exactly one canonical decision'
   );
-
   const originalRecommendation = await recommendationWorkflowService.offer({
     pairId: String(pair._id),
     currentUserId: userIds[0],

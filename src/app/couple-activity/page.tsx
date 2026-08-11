@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { UiErrorState } from '@/client/api/errors';
 import type { ActivityCompleteResponse } from '@/client/api/types';
 import { useActivityOffers } from '@/client/hooks/useActivityOffers';
@@ -37,6 +38,7 @@ const toCompletionMessage = (result: ActivityCompleteResponse): string => {
 };
 
 export default function CoupleActivityPage() {
+  const router = useRouter();
   const locale = 'ru';
   const [tab, setTab] = useState<Tab>('active');
   const [checkInFor, setCheckInFor] = useState<ActivityCardVM | null>(null);
@@ -46,7 +48,12 @@ export default function CoupleActivityPage() {
   const [retryCompleteSubmitting, setRetryCompleteSubmitting] = useState(false);
   const [activityFlowMessage, setActivityFlowMessage] = useState<string | null>(null);
 
-  const { pairId } = usePair();
+  const {
+    pairId,
+    loading: pairLoading,
+    error: pairError,
+    refetch: refetchPair,
+  } = usePair();
   const {
     active,
     history,
@@ -96,7 +103,11 @@ export default function CoupleActivityPage() {
   );
 
   const submitCheckInAndComplete = useCallback(
-    async (activityId: string, answers: CheckInAnswerInput) => {
+    async (
+      activityId: string,
+      answers: CheckInAnswerInput,
+      allowPairModelUse: boolean
+    ) => {
       if (checkInSubmitting || retryCompleteSubmitting) {
         return;
       }
@@ -110,7 +121,7 @@ export default function CoupleActivityPage() {
       setCheckInSubmitting(true);
       const checkInResult = await checkInActivityDetailed(
         activityId,
-        { answers },
+        { answers, allowPairModelUse },
         { idempotencyKey: attempt.checkInKey }
       );
 
@@ -195,15 +206,21 @@ export default function CoupleActivityPage() {
   return (
     <CoupleActivityView
       tab={tab}
-      loading={loading}
-      error={error}
+      loading={pairLoading || loading}
+      error={pairError ?? error}
       locale={locale}
       active={activeVm}
       history={historyVm}
       hasPair={Boolean(pairId)}
-      onRetry={() => void refetch()}
+      onRetry={() => void (pairError ? refetchPair() : refetch())}
+      onAuthRequired={() => router.push('/')}
       onSetTab={setTab}
-      onCancel={(id) => void cancelActivity(id)}
+      onCancel={(id) => {
+        if (!window.confirm('Отменить текущую активность? Она перейдёт в историю, и продолжить её будет нельзя.')) {
+          return;
+        }
+        void cancelActivity(id);
+      }}
       onStart={(id) => void startActivity(id)}
       onOpenCheckIn={setCheckInFor}
       checkInFor={checkInFor}
@@ -227,8 +244,8 @@ export default function CoupleActivityPage() {
       onRetryComplete={(activityId) => {
         void retryComplete(activityId);
       }}
-      onSubmitCheckIn={(activityId, answers) => {
-        void submitCheckInAndComplete(activityId, answers);
+      onSubmitCheckIn={(activityId, answers, allowPairModelUse) => {
+        void submitCheckInAndComplete(activityId, answers, allowPairModelUse);
       }}
     />
   );

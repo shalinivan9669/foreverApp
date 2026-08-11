@@ -20,6 +20,7 @@ export default function DiscordActivityPage() {
   const [discordUser, setDiscordUser] = useState<DiscordProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(true);
+  const [opening, setOpening] = useState(false);
   const [avatarLoaded, setAvatarLoaded] = useState(false);
   const didInit = useRef(false);
   const router = useRouter();
@@ -68,7 +69,8 @@ export default function DiscordActivityPage() {
   }, [connectDiscord]);
 
   const goToMenu = async () => {
-    if (!discordUser) return;
+    if (!discordUser || opening) return;
+    setOpening(true);
 
     usersApi.writeActivityLog().catch(() => {});
 
@@ -107,7 +109,7 @@ export default function DiscordActivityPage() {
   if (connecting || !discordUser) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-4">
-        <div className="app-panel flex items-center gap-3 px-5 py-4 text-slate-900">
+        <div className="app-panel flex items-center gap-3 px-5 py-4 text-slate-900" role="status" aria-live="polite">
           <Spinner size={28} />
           <span className="app-muted text-sm">Подключаем Discord профиль...</span>
         </div>
@@ -126,7 +128,7 @@ export default function DiscordActivityPage() {
           )}
           <Image
             src={toDiscordAvatarUrl(discordUser.id, discordUser.avatar)}
-            alt="Avatar"
+            alt={`Аватар ${discordUser.username}`}
             width={128}
             height={128}
             className="rounded-full ring-2 ring-slate-200"
@@ -136,8 +138,13 @@ export default function DiscordActivityPage() {
         </div>
         <h2 className="mt-4 text-lg font-semibold">{discordUser.username}</h2>
 
-        <button onClick={goToMenu} className="app-btn-primary mt-6 px-4 py-2 text-white">
-          Открыть «Вместе»
+        <button
+          type="button"
+          onClick={() => void goToMenu()}
+          disabled={opening}
+          className="app-btn-primary mt-6 px-4 py-2 text-white disabled:opacity-60"
+        >
+          {opening ? 'Открываем…' : 'Открыть «Вместе»'}
         </button>
       </div>
     </div>

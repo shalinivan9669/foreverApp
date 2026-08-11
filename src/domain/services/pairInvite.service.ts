@@ -13,6 +13,7 @@ import {
   type PairMembershipClaimType,
 } from '@/models/PairMembershipClaim';
 import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
+import { User } from '@/models/User';
 import { pairInviteTransition } from '@/domain/state/pairInviteMachine';
 import { notificationService } from '@/domain/services/notification.service';
 import { emitEvent } from '@/lib/audit/emitEvent';
@@ -56,6 +57,10 @@ export type PairInviteAcceptDTO = {
   status: 'ACCEPTED';
   pairId: string;
   alreadyAccepted: boolean;
+};
+
+export type PairInviteReliabilityTestHooks = {
+  beforeCreateMembershipFence?: () => Promise<void>;
 };
 
 type AcceptTransactionResult =
@@ -162,6 +167,25 @@ const activePairForAnyMember = async (
   return Boolean(await query);
 };
 
+const fencePairMembershipSlots = async (
+  userIds: readonly string[],
+  session: ClientSession
+): Promise<void> => {
+  const uniqueUserIds = [...new Set(userIds)];
+  const result = await User.updateMany(
+    { id: { $in: uniqueUserIds } },
+    { $inc: { pairMembershipRevision: 1 } },
+    { session }
+  );
+  if (result.matchedCount !== uniqueUserIds.length) {
+    throw new DomainError({
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'Pair member was not found',
+    });
+  }
+};
+
 const expireCreatorInvites = async (
   creatorUserId: string,
   now: Date,
@@ -256,6 +280,7 @@ const existingAcceptedPairId = async (
 
   const members = pairMembers(invite.creatorUserId, currentUserId);
   const query = Pair.findOne({ key: pairKey(members) })
+    .sort({ createdAt: -1 })
     .select({ _id: 1 })
     .lean<{ _id: Types.ObjectId } | null>();
   if (session) query.session(session);
@@ -314,15 +339,35 @@ export const pairInviteService = {
   async create(input: {
     currentUserId: string;
     now?: Date;
-  }): Promise<PairInviteIssueDTO> {
+  }, hooks: PairInviteReliabilityTestHooks = {}): Promise<PairInviteIssueDTO> {
     await connectToDatabase();
     await requireCompletedOnboarding(input.currentUserId);
     const now = input.now ?? new Date();
     if (await activePairForAnyMember([input.currentUserId])) ownerHasPair();
-    await expireCreatorInvites(input.currentUserId, now);
 
+    const session = await mongoose.startSession();
+    let issued: { inviteId: Types.ObjectId; token: string } | undefined;
     try {
-      const issued = await issueInvite({ creatorUserId: input.currentUserId, now });
+      issued = await session.withTransaction(async () => {
+        await hooks.beforeCreateMembershipFence?.();
+        await fencePairMembershipSlots([input.currentUserId], session);
+        if (await activePairForAnyMember([input.currentUserId], session)) {
+          ownerHasPair();
+        }
+        await expireCreatorInvites(input.currentUserId, now, session);
+        return issueInvite({
+          creatorUserId: input.currentUserId,
+          now,
+          session,
+        });
+      });
+      if (!issued) {
+        throw new DomainError({
+          code: 'INTERNAL',
+          status: 500,
+          message: 'Pair invite transaction did not complete',
+        });
+      }
       const invite = await PairInvite.findById(issued.inviteId).lean<StoredPairInvite | null>();
       if (!invite) {
         throw new DomainError({
@@ -340,6 +385,8 @@ export const pairInviteService = {
     } catch (error: unknown) {
       if (isDuplicateKeyError(error)) activeInviteExists();
       throw error;
+    } finally {
+      await session.endSession();
     }
   },
 
@@ -423,6 +470,7 @@ export const pairInviteService = {
     let issued: { inviteId: Types.ObjectId; token: string } | undefined;
     try {
       issued = await session.withTransaction(async () => {
+        await fencePairMembershipSlots([input.currentUserId], session);
         if (await activePairForAnyMember([input.currentUserId], session)) ownerHasPair();
         if (!Types.ObjectId.isValid(input.inviteId)) return ownerInviteNotFound();
 
@@ -607,14 +655,12 @@ export const pairInviteService = {
             };
           }
 
+          await fencePairMembershipSlots(liveMembers, session);
           if (await activePairForAnyMember(liveMembers, session)) unavailable();
           await releaseEndedMembershipClaims({ members: liveMembers, session });
 
           const key = pairKey(liveMembers);
-          const existingPair = await Pair.findOne({ key })
-            .session(session)
-            .lean<(PairType & { _id: Types.ObjectId }) | null>();
-          const targetPairId = existingPair?._id ?? new Types.ObjectId();
+          const targetPairId = new Types.ObjectId();
 
           await PairMembershipClaim.insertMany(
             liveMembers.map((userId) => ({
@@ -626,29 +672,18 @@ export const pairInviteService = {
             { session }
           );
 
-          if (existingPair) {
-            if (existingPair.status !== 'ended') unavailable();
-            const activated = await Pair.findOneAndUpdate(
-              { _id: existingPair._id, status: 'ended' },
-              { $set: { status: 'active' } },
-              { new: true, session }
-            ).lean<(PairType & { _id: Types.ObjectId }) | null>();
-            if (!activated) unavailable();
-          } else {
-            await Pair.create(
-              [
-                {
-                  _id: targetPairId,
-                  members: liveMembers,
-                  key,
-                  status: 'active',
-                  fatigue: { score: 0, updatedAt: now },
-                  readiness: { score: 0, updatedAt: now },
-                },
-              ],
-              { session }
-            );
-          }
+          await Pair.create(
+            [
+              {
+                _id: targetPairId,
+                members: liveMembers,
+                key,
+                status: 'active',
+                contextVersion: 'pair-context-v1',
+              },
+            ],
+            { session }
+          );
 
           const accepted = await PairInvite.findOneAndUpdate(
             {
@@ -667,6 +702,16 @@ export const pairInviteService = {
             { new: true, session }
           ).lean<StoredPairInvite | null>();
           if (!accepted) unavailable();
+
+          await PairInvite.updateMany(
+            {
+              _id: { $ne: invite._id },
+              creatorUserId: { $in: liveMembers },
+              status: 'ACTIVE',
+            },
+            { $set: { status: 'CANCELLED' } },
+            { session }
+          );
 
           await notificationService.create({
             userIds: liveMembers,

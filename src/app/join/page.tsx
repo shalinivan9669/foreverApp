@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { isApiClientError } from '@/client/api/errors';
@@ -83,6 +83,11 @@ export default function JoinPairPage() {
   const [phase, setPhase] = useState<JoinPhase>('checking');
   const [accepting, setAccepting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const phaseHeadingRef = useRef<HTMLHeadingElement | null>(null);
+
+  useEffect(() => {
+    if (phase !== 'checking') phaseHeadingRef.current?.focus();
+  }, [phase]);
 
   useEffect(() => {
     const fragmentToken = readTokenFromFragment();
@@ -203,7 +208,7 @@ export default function JoinPairPage() {
 
       {phase === 'auth_required' && (
         <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 className="font-display text-2xl font-semibold">Войдите через Discord</h1>
+          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Войдите через Discord</h1>
           <p className="app-muted mt-2 text-sm leading-relaxed">
             Авторизация нужна, чтобы безопасно проверить приглашение. До входа мы не показываем
             сведения о владельце или состоянии его пары.
@@ -231,7 +236,7 @@ export default function JoinPairPage() {
               <path d="M12 20.35l-1.45-1.32C5.4 14.36 2 11.27 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09A5.98 5.98 0 0 1 16.5 2C19.58 2 22 4.42 22 7.5c0 3.77-3.4 6.86-8.55 11.54L12 20.35z" />
             </svg>
           </div>
-          <h1 className="font-display mt-4 text-center text-2xl font-semibold">
+          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display mt-4 text-center text-2xl font-semibold outline-none">
             Вас пригласили во «Вместе»
           </h1>
           <p className="app-muted mt-2 text-center text-sm leading-relaxed">
@@ -260,7 +265,7 @@ export default function JoinPairPage() {
             disabled={accepting}
             className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {accepting ? 'Подключаем...' : 'Войти через Discord и присоединиться'}
+            {accepting ? 'Присоединяем...' : 'Присоединиться к паре'}
           </button>
           <p className="app-muted mt-3 text-center text-xs">
             Владелец приглашения увидит только факт присоединения.
@@ -270,7 +275,7 @@ export default function JoinPairPage() {
 
       {phase === 'onboarding_required' && token && (
         <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 className="font-display text-2xl font-semibold">Сначала личная настройка</h1>
+          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Сначала личная настройка</h1>
           <p className="app-muted mt-2 text-sm leading-relaxed">
             Подтвердите добровольное участие и выберите правила использования личных ответов.
             Ссылка останется только во фрагменте браузера и не попадёт в серверный URL.
@@ -290,7 +295,7 @@ export default function JoinPairPage() {
 
       {phase === 'accepted' && (
         <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 className="font-display text-2xl font-semibold">Вы уже присоединились</h1>
+          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Вы уже присоединились</h1>
           <p className="app-muted mt-2 text-sm leading-relaxed">
             Повторный вход безопасно восстановлен. Продолжите в общей области пары.
           </p>
@@ -315,7 +320,7 @@ export default function JoinPairPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-xl">
             i
           </div>
-          <h1 className="font-display mt-4 text-2xl font-semibold">Ссылка недоступна</h1>
+          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display mt-4 text-2xl font-semibold outline-none">Ссылка недоступна</h1>
           <p className="app-muted mt-2 text-sm leading-relaxed">
             Она могла истечь, быть отменена или уже использована. Попросите партнёра создать новую
             ссылку.
@@ -325,7 +330,7 @@ export default function JoinPairPage() {
 
       {phase === 'check_failed' && (
         <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 className="font-display text-2xl font-semibold">Не удалось проверить ссылку</h1>
+          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Не удалось проверить ссылку</h1>
           <p className="app-muted mt-2 text-sm">
             Проверьте соединение и повторите попытку. Содержимое приглашения не было раскрыто.
           </p>

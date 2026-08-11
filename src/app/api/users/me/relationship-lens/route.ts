@@ -29,7 +29,7 @@ const bodySchema = z
   .strict();
 
 export async function PATCH(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
   const currentUserId = auth.data.userId;
 

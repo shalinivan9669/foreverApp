@@ -33,7 +33,7 @@ const rawBody = JSON.stringify({
 const signature = signSandboxWebhook({ secret, timestamp, eventId, rawBody });
 assert.equal(
   verifySandboxWebhook({ secret, timestamp, eventId, rawBody, signature, now }),
-  true
+  true,
 );
 assert.equal(
   verifySandboxWebhook({
@@ -44,7 +44,7 @@ assert.equal(
     signature,
     now,
   }),
-  false
+  false,
 );
 assert.equal(
   verifySandboxWebhook({
@@ -55,12 +55,14 @@ assert.equal(
     signature,
     now,
   }),
-  false
+  false,
 );
 assert.match(hashSandboxWebhookPayload(rawBody), /^[a-f0-9]{64}$/);
 assert.equal(parseSandboxWebhook(rawBody).pairId, '64f000000000000000000001');
 assert.equal(parseSandboxWebhook(rawBody).version, 7);
-assert.throws(() => parseSandboxWebhook('{"eventType":"subscription.updated","extra":true}'));
+assert.throws(() =>
+  parseSandboxWebhook('{"eventType":"subscription.updated","extra":true}'),
+);
 
 const deletedOrder = {
   providerEventVersion: 8,
@@ -78,7 +80,7 @@ assert.equal(
       payloadHash: 'a'.repeat(64),
     },
   }),
-  'STALE'
+  'STALE',
 );
 assert.equal(
   classifyProviderEvent({
@@ -91,7 +93,7 @@ assert.equal(
       payloadHash: 'd'.repeat(64),
     },
   }),
-  'EQUIVALENT'
+  'EQUIVALENT',
 );
 assert.equal(
   classifyProviderEvent({
@@ -104,7 +106,7 @@ assert.equal(
       payloadHash: 'c'.repeat(64),
     },
   }),
-  'CONFLICT'
+  'CONFLICT',
 );
 assert.equal(
   classifyProviderEvent({
@@ -117,7 +119,7 @@ assert.equal(
       payloadHash: 'b'.repeat(64),
     },
   }),
-  'CONFLICT'
+  'CONFLICT',
 );
 assert.ok(
   compareProviderCurrentOrder(
@@ -133,8 +135,8 @@ assert.ok(
       providerEventVersion: 1,
       providerEventOccurredAt: new Date('2026-08-07T12:00:00.000Z'),
       providerLastEventId: 'evt-current',
-    }
-  ) < 0
+    },
+  ) < 0,
 );
 
 const entitlementSnapshot = (input: {
@@ -154,11 +156,11 @@ const entitlementSnapshot = (input: {
 
 assert.deepEqual(
   decideCycleAccess({ billingMode: 'sandbox', hasPriorValueCycle: false }),
-  { allowed: true, reason: 'FIRST_VALUE_CYCLE' }
+  { allowed: true, reason: 'FREE_CORE' },
 );
 assert.deepEqual(
   decideCycleAccess({ billingMode: 'disabled', hasPriorValueCycle: true }),
-  { allowed: true, reason: 'FREE_LAUNCH' }
+  { allowed: true, reason: 'FREE_CORE' },
 );
 assert.deepEqual(
   decideCycleAccess({
@@ -170,9 +172,9 @@ assert.deepEqual(
       source: 'pair_subscription',
     }),
   }),
-  { allowed: true, reason: 'PAIR_ENTITLED' }
+  { allowed: true, reason: 'FREE_CORE' },
 );
-assert.equal(
+assert.deepEqual(
   decideCycleAccess({
     billingMode: 'sandbox',
     hasPriorValueCycle: true,
@@ -181,10 +183,10 @@ assert.equal(
       status: 'active',
       source: 'legacy_user_subscription',
     }),
-  }).allowed,
-  false
+  }),
+  { allowed: true, reason: 'FREE_CORE' },
 );
-assert.equal(
+assert.deepEqual(
   decideCycleAccess({
     billingMode: 'sandbox',
     hasPriorValueCycle: true,
@@ -193,8 +195,8 @@ assert.equal(
       status: 'expired',
       source: 'pair_subscription',
     }),
-  }).allowed,
-  false
+  }),
+  { allowed: true, reason: 'FREE_CORE' },
 );
 
 const source = (path: string): string =>
@@ -202,10 +204,11 @@ const source = (path: string): string =>
 const subscription = source('src/models/Subscription.ts');
 const eventModel = source('src/models/BillingWebhookEvent.ts');
 const service = source('src/domain/services/billingWebhook.service.ts');
+const grantService = source('src/domain/services/entitlementGrant.service.ts');
 const route = source('src/app/api/billing/webhooks/sandbox/route.ts');
 const resolver = source('src/lib/entitlements/resolve.ts');
 const cycleEntitlement = source(
-  'src/domain/services/cycleEntitlement.service.ts'
+  'src/domain/services/cycleEntitlement.service.ts',
 );
 
 assert.ok(subscription.includes('pair_provider_subscription_unique'));
@@ -219,16 +222,56 @@ assert.ok(service.includes("status: { $in: ['active', 'paused'] }"));
 assert.ok(service.includes('payloadHash !== input.payloadHash'));
 assert.ok(service.includes('classifyProviderEvent'));
 assert.ok(service.includes('providerIsCurrent: true'));
+assert.ok(service.includes("kind: 'BILLING_WEBHOOK'"));
+assert.ok(service.includes('[...new Set(pairForLease.members)].sort()'));
+assert.ok(service.includes('Pair.findOneAndUpdate'));
+assert.ok(service.includes('$inc: { lifecycleRevision: 1 }'));
+assert.ok(service.includes('Promise.allSettled'));
+assert.ok(grantService.includes('User.exists({ id: input.userId })'));
+assert.ok(grantService.includes("kind: 'SYSTEM_ADMIN'"));
+assert.ok(grantService.includes('accountWriteBarrierService.release(lease)'));
 assert.ok(route.includes('verifySandboxWebhook'));
 assert.ok(route.includes("process.env.BILLING_MODE !== 'sandbox'"));
 assert.ok(!route.includes('console.log'));
 assert.ok(resolver.includes("ownership: 'pair_subscription'"));
 assert.ok(resolver.includes('$limit: 1'));
 assert.ok(!resolver.includes('.limit(20)'));
-assert.ok(source('scripts/release-preflight.ts').includes('ambiguous-legacy-pair-provider-subscriptions'));
-assert.ok(cycleEntitlement.includes('cycleKey: { $ne: input.cycleKey }'));
-assert.equal(cycleEntitlement.includes('cycleKey: { $lt: input.cycleKey }'), false);
-assert.ok(source('src/app/api/pairs/[id]/weekly-cycle/current/route.ts').includes('cycleEntitlementService.assertCanOpen'));
-assert.ok(source('src/domain/services/weeklyCheckIn.service.ts').includes('cycleEntitlementService.assertCanOpen'));
+assert.ok(
+  source('scripts/release-preflight.ts').includes(
+    'ambiguous-legacy-pair-provider-subscriptions',
+  ),
+);
+assert.equal(cycleEntitlement.includes('resolveEntitlements'), false);
+assert.equal(cycleEntitlement.includes('ENTITLEMENT_REQUIRED'), false);
+assert.match(cycleEntitlement, /reason:\s*'FREE_CORE'/);
+
+const weeklyCycleRoute = source(
+  'src/app/api/pairs/[id]/weekly-cycle/current/route.ts',
+);
+const weeklyCheckInService = source(
+  'src/domain/services/weeklyCheckIn.service.ts',
+);
+assert.equal(weeklyCycleRoute.includes('cycleEntitlementService'), false);
+assert.equal(weeklyCheckInService.includes('cycleEntitlementService'), false);
+
+const canonicalRecommendationRoute = source(
+  'src/app/api/pairs/[id]/recommendations/route.ts',
+);
+const canonicalRecommendationMutation = source(
+  'src/app/api/pairs/[id]/recommendations/mutation.ts',
+);
+assert.match(
+  canonicalRecommendationRoute,
+  /RATE_LIMIT_POLICIES\.recommendationMutations/,
+);
+assert.equal(
+  canonicalRecommendationMutation.includes('assertRecommendationOfferAccess'),
+  false,
+);
+assert.equal(
+  canonicalRecommendationMutation.includes("from '@/lib/entitlements'"),
+  false,
+);
+assert.match(canonicalRecommendationMutation, /action === 'replace'/);
 
 console.log('entitlement webhook selfcheck passed');

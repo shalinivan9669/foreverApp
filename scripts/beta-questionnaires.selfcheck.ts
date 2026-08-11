@@ -1,4 +1,8 @@
-import { BETA_QUESTIONNAIRES, BETA_SCORING_VERSION } from './seedBetaQuestionnaires';
+import {
+  BETA_CONTENT_REVISION,
+  BETA_QUESTIONNAIRES,
+} from './seedBetaQuestionnaires';
+import { QUESTIONNAIRE_CONTENT_MODEL } from '@/models/Questionnaire';
 
 const fail = (message: string): never => {
   throw new Error(message);
@@ -16,9 +20,16 @@ if (BETA_QUESTIONNAIRES.length !== expected.size) {
 }
 
 for (const questionnaire of BETA_QUESTIONNAIRES) {
-  const spec = expected.get(questionnaire._id) ?? fail(`unexpected questionnaire ${questionnaire._id}`);
+  const spec = expected.get(questionnaire._id) ??
+    fail(`unexpected questionnaire ${questionnaire._id}`);
   const meta = questionnaire.meta ?? fail(`missing meta for ${questionnaire._id}`);
+
   if (questionnaire.title.ru !== spec.title) fail(`bad title for ${questionnaire._id}`);
+  if (questionnaire.contentModel !== QUESTIONNAIRE_CONTENT_MODEL) {
+    fail(`bad content model for ${questionnaire._id}`);
+  }
+  if (!questionnaire.domainKey) fail(`missing domainKey for ${questionnaire._id}`);
+  if (questionnaire.version < 2) fail(`semantic questionnaire version is stale: ${questionnaire._id}`);
   if (questionnaire.publicationStatus !== 'published') {
     fail(`questionnaire is not explicitly published: ${questionnaire._id}`);
   }
@@ -29,42 +40,51 @@ for (const questionnaire of BETA_QUESTIONNAIRES) {
     fail(`published questionnaire is retired: ${questionnaire._id}`);
   }
   if (!meta.isBeta) fail(`missing beta meta for ${questionnaire._id}`);
-  if (meta.scoringVersion !== BETA_SCORING_VERSION) {
-    fail(`bad scoring version meta for ${questionnaire._id}`);
+  if (meta.contentRevision !== BETA_CONTENT_REVISION) {
+    fail(`bad content revision meta for ${questionnaire._id}`);
+  }
+  if ('axis' in questionnaire || 'vector' in questionnaire.target) {
+    fail(`legacy vector contract leaked into ${questionnaire._id}`);
   }
   if (questionnaire.questions.length < spec.min || questionnaire.questions.length > spec.max) {
     fail(`bad question count for ${questionnaire._id}`);
   }
 
+  const questionIds = new Set<string>();
   for (const question of questionnaire.questions) {
-    if (!question.axis) fail(`missing axis in ${questionnaire._id}/${question.id}`);
-    if (!question.facet) fail(`missing facet in ${questionnaire._id}/${question.id}`);
-    if (question.polarityNumeric !== 1 && question.polarityNumeric !== -1) {
-      fail(`missing polarity numeric in ${questionnaire._id}/${question.id}`);
+    if (questionIds.has(question.id)) fail(`duplicate question id ${question.id}`);
+    questionIds.add(question.id);
+    if (!question.domainKey) fail(`missing domainKey in ${questionnaire._id}/${question.id}`);
+    if (!question.topicKey) fail(`missing topicKey in ${questionnaire._id}/${question.id}`);
+    if (question.optionCount !== (question.scale === 'bool' ? 2 : 5)) {
+      fail(`bad optionCount in ${questionnaire._id}/${question.id}`);
     }
-    if (question.reverseScoring === undefined) {
-      fail(`missing reverseScoring in ${questionnaire._id}/${question.id}`);
-    }
-    if (!Number.isFinite(question.weight) || question.weight <= 0) {
-      fail(`bad weight in ${questionnaire._id}/${question.id}`);
-    }
-    if (!Number.isFinite(question.confidenceWeight) || (question.confidenceWeight ?? 0) <= 0) {
-      fail(`bad confidenceWeight in ${questionnaire._id}/${question.id}`);
+    if (question.contentRevision !== BETA_CONTENT_REVISION) {
+      fail(`bad content revision in ${questionnaire._id}/${question.id}`);
     }
     if (!question.scope) fail(`missing scope in ${questionnaire._id}/${question.id}`);
     if (!question.audience) fail(`missing audience in ${questionnaire._id}/${question.id}`);
     if (!question.sensitivity) fail(`missing sensitivity in ${questionnaire._id}/${question.id}`);
     if (question.locale !== 'ru') fail(`bad locale in ${questionnaire._id}/${question.id}`);
     if (!question.explanation) fail(`missing explanation in ${questionnaire._id}/${question.id}`);
-    if (question.scoringVersion !== BETA_SCORING_VERSION) {
-      fail(`bad question scoring version in ${questionnaire._id}/${question.id}`);
+    if (
+      'axis' in question ||
+      'facet' in question ||
+      'polarity' in question ||
+      'map' in question ||
+      'scoringVersion' in question
+    ) {
+      fail(`legacy scoring metadata leaked into ${questionnaire._id}/${question.id}`);
+    }
+    if ('factorKey' in question || 'measurementKey' in question) {
+      fail(`unreviewed factor binding leaked into ${questionnaire._id}/${question.id}`);
     }
   }
 }
 
 const pair = BETA_QUESTIONNAIRES.find((item) => item._id === 'beta_pair_expectations');
-if (!pair || pair.target.type !== 'couple' || pair.meta?.targetLayer !== 'pair_passport') {
-  fail('pair questionnaire must target pair passport only');
+if (!pair || pair.target.type !== 'couple' || pair.domainKey !== 'sharedLife') {
+  fail('pair questionnaire must use the semantic shared-life contract');
 }
 
 const weekly = BETA_QUESTIONNAIRES.find((item) => item._id === 'beta_weekly_checkin');
