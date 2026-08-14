@@ -1,6 +1,6 @@
 # ForeverApp / «Вместе»: detailed MVP flows
 
-Статус: active acceptance contract for [MVP_SPEC.md](./MVP_SPEC.md). Обновлено 2026-08-11.
+Статус: active acceptance contract for [MVP_SPEC.md](./MVP_SPEC.md). Обновлено 2026-08-13.
 
 ## 1. Auth and session
 
@@ -42,7 +42,7 @@ Acceptance:
 - self-accept, expired/cancelled/reused-by-other and membership conflicts return generic results;
 - same accepter retry returns the same Pair;
 - concurrent accepts create one active Pair/two claims;
-- direct `/pairs/create` and match confirmation cannot form a Pair;
+- direct `/pairs/create` cannot form a Pair; MatchingConnection may do so only after two distinct participants confirm as defined below;
 - member order has no semantic A/B meaning.
 
 ## 4. Weekly cycle
@@ -202,3 +202,33 @@ Analytics uses an exact allowlist of technical flow events and never includes us
 13. History/notifications/export satisfy disclosure boundaries.
 14. Deletion revokes old sessions and cleans required data.
 15. Required automated, database, load, browser and review gates pass or remain explicitly external.
+
+## 18. Factor Matching
+
+```text
+owner Factor snapshots + MatchingUseGrant + PartnerPreferenceProfile
+→ MatchingProfile activation → coarse CandidateDiscoveryProjection
+→ bounded MatchingFeedSession → CandidatePresentationGrant
+→ qualitative candidate card → Like → response/accept
+→ MatchingConnection → REQUEST by A → CONFIRM by B → Pair
+```
+
+Acceptance:
+
+- `MatchingProfile` is a standalone owner aggregate; it stores the public card/discovery settings and version pointers, not a mutable copy of raw Factor values.
+- Actual matching input uses only current eligible individual snapshots with an active per-factor `MatchingUseGrant`. Desired targets, importance, flexibility and allowed hard constraints live in a separate revisioned `PartnerPreferenceProfile`; revoked/missing grants fail closed.
+- Candidate discovery is mutual and coarse (active/readiness, age, location/distance and relationship intent), excludes self, blocks and anyone with an active Pair, and never returns raw Factor/preference data.
+- A new feed pins at most 200 candidate ids to a hashed, expiring `MatchingFeedSession`; cursor replay is bound to the session actor plus current profile/preference/registry/algorithm revisions. Stale cursors fail closed.
+- Every presented candidate receives an opaque, hashed, expiring `CandidatePresentationGrant` bound to requester, candidate, evaluation and both profile/card/preference revisions. Candidate detail requires it in `X-Candidate-Grant`; Like creation requires the same grant in the strict body. A grant is presentation authority, not identity: the authenticated session remains the actor.
+- Participant fit is only `PROMISING | WORKABLE | LOW_INFORMATION`, `LOW | MEDIUM | HIGH` confidence and up to three reviewed explanations. Numeric rank/fit/contribution, raw Factor values, peer preferences, internal hard-constraint reasons, hashes and evidence stay server-only.
+- Like transitions are state-, role-, block- and idempotency-guarded; inbox reads are bounded/cursor-paginated. Mutual acceptance creates one canonical `MatchingConnection`, not a Pair.
+- Blocking is directional, closes eligible Likes/unpaired connection work and does not resurrect prior work after unblock.
+- Pair formation requires `REQUEST` from one connection participant and `CONFIRM` from the other. Both actors come from independent authenticated sessions; the transaction creates one Pair, generalized `PairMembershipClaim` rows with source `MATCHING_CONNECTION`, and one connection `pairId`. Replays/races converge; block or an existing Pair fails closed.
+- Matching profile, feed, Like, connection, block and confirmation are free core operations and never consult entitlement.
+
+Additional required scenarios:
+
+16. Candidate card/Like without a valid actor-bound grant fails without revealing candidate state.
+17. No matching DTO exposes numeric score or raw Factor/preference/evidence values.
+18. One participant cannot confirm twice or create Pair alone; concurrent two-party confirmation creates exactly one Pair and two membership claims.
+19. Block versus Like/confirmation and active-Pair races fail closed without duplicate social effects.

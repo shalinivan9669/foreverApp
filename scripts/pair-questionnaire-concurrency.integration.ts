@@ -192,13 +192,39 @@ const main = async (): Promise<void> => {
     const duplicateReport = await inspectPairQuestionnaireIntegrity();
     assert.equal(duplicateReport.duplicateActiveSessionGroups, 1);
     assert.equal(duplicateReport.duplicateAnswerGroups, 1);
+    assert.deepEqual(Object.keys(duplicateReport).sort(), [
+      'conflictingCanonicalIndexes',
+      'duplicateActiveSessionGroups',
+      'duplicateAnswerGroups',
+      'migrationVersion',
+      'missingCanonicalIndexes',
+    ]);
+    const serializedDuplicateReport = JSON.stringify(duplicateReport);
+    for (const forbiddenOutput of [
+      String(legacyPairId),
+      String(legacySessionId),
+      'legacy-questionnaire',
+      'legacy-question',
+      'pairId',
+      'sessionId',
+      'questionnaireId',
+      'questionId',
+      'sessionDuplicateSamples',
+      'answerDuplicateSamples',
+    ]) {
+      assert.equal(
+        serializedDuplicateReport.includes(forbiddenOutput),
+        false,
+        `preflight report must omit ${forbiddenOutput}`
+      );
+    }
     const duplicateCountsBefore = await Promise.all([
       PairQuestionnaireSession.countDocuments(),
       PairQuestionnaireAnswer.countDocuments(),
     ]);
     await assert.rejects(
       applyPairQuestionnaireIntegrityIndexes(),
-      /refused duplicate source rows/
+      /duplicate groups found/
     );
     assert.deepEqual(
       await Promise.all([

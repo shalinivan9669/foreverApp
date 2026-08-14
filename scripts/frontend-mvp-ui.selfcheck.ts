@@ -25,35 +25,27 @@ const activeUiFiles = [
   'src/components/settings/PrivacySettingsHub.tsx',
   'src/features/activities/CoupleActivityView.tsx',
   'src/features/pair/PairProfilePageClient.tsx',
+  'src/app/search/page.tsx',
+  'src/app/match-card/create/page.tsx',
+  'src/app/match/inbox/page.tsx',
+  'src/app/match/like/[id]/page.tsx',
+  'src/app/profile/(tabs)/matching/page.tsx',
+  'src/features/matching/MatchingFeedPage.tsx',
+  'src/features/matching/MatchingProfilePage.tsx',
+  'src/features/matching/MatchingInboxPage.tsx',
+  'src/features/matching/MatchingLikePage.tsx',
 ].map(read);
 
-const redirects: Record<string, string> = {
-  'src/app/search/page.tsx': "redirect('/invite')",
-  'src/app/match-card/create/page.tsx': "redirect('/invite')",
-  'src/app/match/inbox/page.tsx': "redirect('/main-menu')",
-  'src/app/match/like/[id]/page.tsx': "redirect('/main-menu')",
-};
-
-for (const [path, expected] of Object.entries(redirects)) {
-  assert.match(read(path), new RegExp(expected.replace(/[()']/g, '\\$&')));
-}
-
-const removedLegacyUi = [
-  'src/features/match/feed/MatchFeedView.tsx',
-  'src/features/match/inbox/MatchInboxView.tsx',
-  'src/features/match/like/LikeDetailsView.tsx',
-  'src/components/CandidateCard.tsx',
-  'src/components/LikeModal.tsx',
-  'src/components/match/LikeModalView.tsx',
-  'src/components/MatchTabs.tsx',
+const requiredMatchingUi = [
   'src/client/hooks/useMatchFeed.ts',
   'src/client/hooks/useInbox.ts',
-  'src/client/viewmodels/match.viewmodels.ts',
   'src/client/api/match.api.ts',
+  'src/components/matching/CandidateCard.tsx',
+  'src/components/matching/LikeComposer.tsx',
 ];
 
-for (const path of removedLegacyUi) {
-  assert.equal(existsSync(resolve(root, path)), false, `${path} must stay removed`);
+for (const path of requiredMatchingUi) {
+  assert.equal(existsSync(resolve(root, path)), true, `${path} must exist`);
 }
 
 const globals = read('src/app/globals.css');

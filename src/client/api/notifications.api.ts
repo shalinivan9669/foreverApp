@@ -5,7 +5,11 @@ export type NotificationType =
   | 'CYCLE_AVAILABLE'
   | 'SUMMARY_READY'
   | 'ACTION_AVAILABLE'
-  | 'FEEDBACK_REQUESTED';
+  | 'FEEDBACK_REQUESTED'
+  | 'MATCH_LIKE_RECEIVED'
+  | 'MATCH_LIKE_RESPONDED'
+  | 'MATCH_CONNECTED'
+  | 'MATCH_CONFIRMATION_REQUESTED';
 
 export type NotificationDTO = {
   id: string;
@@ -14,7 +18,7 @@ export type NotificationDTO = {
   message: string;
   action: {
     label: string;
-    href: '/main-menu' | '/couple-activity';
+    href: '/main-menu' | '/couple-activity' | '/match/inbox';
   };
   isRead: boolean;
   createdAt: string;

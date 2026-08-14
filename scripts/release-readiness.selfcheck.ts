@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { validateRuntimeEnv } from '@/lib/config/runtimeEnv';
+import {
+  formatReleaseCommandFailure,
+  releaseReasonCounts,
+  ReleaseCommandFailure,
+  serializeReleaseCommandEvidence,
+} from './lib/release-command-output';
 
 const valid = {
   NODE_ENV: 'test' as const,
@@ -69,6 +75,15 @@ const preflight = source('scripts/release-preflight.ts');
 const weeklyMigration = source('scripts/migrate-weekly-checkins-pair-scope.ts');
 const pairContextMigration = source('scripts/migrate-pair-context-index.ts');
 const operationalEvents = source('src/lib/observability/operationalEvents.ts');
+const releaseWrapperPaths = [
+  'scripts/release-preflight.ts',
+  'scripts/migrate-factor-engine.ts',
+  'scripts/migrate-pair-events-new-only.ts',
+  'scripts/migrate-pair-context-index.ts',
+  'scripts/migrate-partner-signals.ts',
+  'scripts/migrate-privacy-requests-v2.ts',
+  'scripts/migrate-weekly-checkins-pair-scope.ts',
+] as const;
 assert.ok(liveRoute.includes("status: 'live'"));
 assert.ok(readyRoute.includes("status: 'ready'"));
 assert.ok(readyRoute.includes("'NOT_READY'"));
@@ -114,7 +129,7 @@ assert.ok(legacyPairBlocker < blockerEvaluation);
 assert.ok(blockerEvaluation < additiveIndexApply);
 assert.match(
   preflight,
-  /if \(extraIndexCount > 0\) \{[\s\S]*?Undeclared indexes are present; release is blocked/
+  /if \(extraIndexCount > 0\) \{[\s\S]*?ReleaseCommandFailure\('EXTRA_INDEXES_BLOCKED'\)/
 );
 assert.ok(
   preflight.indexOf('if (extraIndexCount > 0)') < additiveIndexApply,
@@ -123,41 +138,42 @@ assert.ok(
 assert.ok(!preflight.includes('accepted temporarily'));
 assert.ok(!preflight.includes('toleratesLegacyWeeklyUnique'));
 assert.ok(
-  pairContextMigration.includes(
-    '--drop-legacy-unique requires --apply-additive-indexes; no indexes were changed'
-  )
+  pairContextMigration.includes("ReleaseCommandFailure('MODE_INVALID')")
 );
 assert.ok(
-  pairContextMigration.includes(
-    'legacy unique index removed; reconnect index is ready'
-  )
+  pairContextMigration.includes("{ INDEXES_READY: 1 }")
 );
 assert.ok(
-  weeklyMigration.includes(
-    'no legacy unique index was present; non-unique user/week lookup is ready'
-  )
+  weeklyMigration.includes("ReleaseCommandFailure('MODE_INVALID')")
 );
 assert.ok(
-  weeklyMigration.includes(
-    '--drop-legacy-unique requires --apply-additive-indexes; no indexes were changed'
-  )
+  weeklyMigration.includes("{ INDEXES_READY: 1 }")
 );
 assert.ok(weeklyMigration.includes('legacyIndexesAfterDrop.length > 0'));
 assert.ok(weeklyMigration.includes('finalLegacyUniqueIndexes.length > 0'));
 assert.ok(
   weeklyMigration.includes(
-    'const legacyIndexOutcome = finalLegacyUniqueIndexes.length > 0'
+    "throw new ReleaseCommandFailure('INDEX_APPLY_INCOMPLETE')"
   )
 );
 assert.ok(
   weeklyMigration.includes(
-    'legacy unique index removed; non-unique user/week lookup is ready'
+    'legacyUniqueIndexesAfter: finalLegacyUniqueIndexes.length'
   )
 );
 assert.ok(
   weeklyMigration.includes(
-    'legacy unique index retained; release preflight remains blocked'
+    '{ LEGACY_INDEX_REVIEW_REQUIRED: 1 }'
   )
+);
+assert.ok(
+  pairContextMigration.indexOf(
+    'dropLegacyUnique && !applyAdditiveIndexes'
+  ) < pairContextMigration.indexOf('connectToDatabase()')
+);
+assert.ok(
+  weeklyMigration.indexOf('dropLegacyUnique && !applyAdditiveIndexes') <
+    weeklyMigration.indexOf('connectToDatabase()')
 );
 const indexedModelFiles = readdirSync(join(process.cwd(), 'src/models'))
   .filter((file) => file.endsWith('.ts'))
@@ -195,5 +211,111 @@ assert.ok(operationalEvents.includes("console.info('operational_event'"));
 assert.ok(!operationalEvents.includes('userId'));
 assert.ok(!operationalEvents.includes('pairId'));
 assert.ok(!operationalEvents.includes('inviteToken'));
+
+const releaseOutputSentinel =
+  'mongodb://user:secret@target.example/private_db?token=sentinel';
+const genericFailure = new Error(
+  `E11000 duplicate key ${releaseOutputSentinel} C:\\private\\release.ts:42`
+);
+const genericFailureOutput = serializeReleaseCommandEvidence(
+  formatReleaseCommandFailure(genericFailure)
+);
+assert.deepEqual(JSON.parse(genericFailureOutput), {
+  counts: {},
+  reasonCounts: { COMMAND_FAILED: 1 },
+  indexNames: [],
+});
+assert.ok(!genericFailureOutput.includes(releaseOutputSentinel));
+assert.ok(!genericFailureOutput.includes('E11000'));
+assert.ok(!genericFailureOutput.includes('private_db'));
+assert.ok(!genericFailureOutput.includes('release.ts'));
+
+const typedFailure = new ReleaseCommandFailure('MODE_INVALID');
+typedFailure.message = releaseOutputSentinel;
+const typedFailureOutput = serializeReleaseCommandEvidence(
+  formatReleaseCommandFailure(typedFailure)
+);
+assert.deepEqual(JSON.parse(typedFailureOutput), {
+  counts: {},
+  reasonCounts: { MODE_INVALID: 1 },
+  indexNames: [],
+});
+assert.ok(!typedFailureOutput.includes(releaseOutputSentinel));
+
+const unknownReasonCounts = releaseReasonCounts({
+  [releaseOutputSentinel]: 2,
+});
+assert.deepEqual(unknownReasonCounts, { UNCLASSIFIED_DATA_REASON: 2 });
+assert.ok(!JSON.stringify(unknownReasonCounts).includes(releaseOutputSentinel));
+
+const sortedEvidence = serializeReleaseCommandEvidence({
+  counts: { zCount: 2, aCount: 1 },
+  reasonCounts: { MODE_INVALID: 1, COMMAND_FAILED: 2 },
+  indexNames: [
+    'userId_1_weekKey_1',
+    'expiresAt_1',
+    'userId_1_weekKey_1',
+  ],
+});
+assert.equal(
+  sortedEvidence,
+  '{"counts":{"aCount":1,"zCount":2},"reasonCounts":{"COMMAND_FAILED":2,"MODE_INVALID":1},"indexNames":["expiresAt_1","userId_1_weekKey_1"]}'
+);
+assert.throws(
+  () =>
+    serializeReleaseCommandEvidence({
+      counts: { unsafe_count_name: 1 },
+      reasonCounts: {},
+      indexNames: [],
+    }),
+  ReleaseCommandFailure
+);
+assert.throws(
+  () => releaseReasonCounts({ MODE_INVALID: -1 }),
+  ReleaseCommandFailure
+);
+assert.throws(
+  () =>
+    serializeReleaseCommandEvidence({
+      counts: {},
+      reasonCounts: {},
+      indexNames: [releaseOutputSentinel],
+    }),
+  (error: Error) =>
+    error instanceof ReleaseCommandFailure &&
+    error.reasonCode === 'OUTPUT_POLICY_VIOLATION'
+);
+
+for (const wrapperPath of releaseWrapperPaths) {
+  const wrapper = source(wrapperPath);
+  assert.ok(
+    wrapper.includes('writeReleaseCommandFailure(error)'),
+    wrapperPath + ' must route failures through the release sanitizer'
+  );
+  assert.ok(
+    !/console\.error\s*\(\s*error\.(?:message|stack)/.test(wrapper),
+    wrapperPath + ' must not print raw Error fields'
+  );
+  assert.ok(
+    !wrapper.includes('database: databaseName'),
+    wrapperPath + ' must not emit the target database name'
+  );
+  assert.ok(
+    !wrapper.includes('JSON.stringify(report)'),
+    wrapperPath + ' must not serialize an unrestricted migration report'
+  );
+}
+
+for (const wrapperPath of releaseWrapperPaths.filter(
+  (path) =>
+    path !== 'scripts/release-preflight.ts' &&
+    path !== 'scripts/migrate-partner-signals.ts'
+)) {
+  const wrapper = source(wrapperPath);
+  assert.ok(
+    wrapper.lastIndexOf('.finally(') < wrapper.lastIndexOf('.catch('),
+    wrapperPath + ' must sanitize cleanup rejections after finally'
+  );
+}
 
 console.log('release readiness selfcheck passed');

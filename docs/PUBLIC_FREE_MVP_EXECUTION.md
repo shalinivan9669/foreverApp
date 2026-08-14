@@ -46,13 +46,14 @@ Priority: attached master prompt → attached Factor specification → active do
 - [x] Bounded history/notifications and Pair end cleanup.
 - [x] Bounded export, deletion request/cancel/execute and durable session revocation.
 - [x] Private, versioned Russian help catalog (`help-ru-v1`) with no partner notification, automatic diagnosis or hidden contact.
+- [x] External-review packet records the exact `help-ru-v1` copy, implemented retention/deletion behavior and required decision records without claiming approval.
 - [ ] Expert/legal review and jurisdiction-specific resource publication approval (external/content work remains).
 
 ## Phase 5 — frontend
 
 - [x] Legacy radar/passport/diagnostics/paywall/placeholder surfaces removed.
 - [x] Core entry/onboarding/invite/weekly/summary/recommendation/activity/profile/settings/privacy/help/lifecycle screens connected.
-- [x] Local production-browser fallback/onboarding report for 320/360/390/430: no horizontal overflow, all visible controls labeled, retry control responds, no console errors.
+- [x] Isolated production-snapshot reconnect fallback at 320/360/390/430: no horizontal overflow, labeled 44 px retry control, keyboard activation, visible `:focus-visible` and no console errors.
 - [ ] Authenticated Discord browser plus physical-device keyboard/focus/safe-area validation (external).
 - [ ] Two independent real Discord sessions (external).
 
@@ -70,6 +71,10 @@ Priority: attached master prompt → attached Factor specification → active do
 - [x] Final current-tree `lint`, `check:types`, `check:self`, `check:agents`, `build`, `git diff --check` and unchanged-tree `npm audit --omit=dev` recorded together.
 - [x] Critical deletion, weekly/activity/Factor lifecycle replica-set races passed after final fixes.
 - [x] Local production-browser responsive/fallback smoke recorded; authenticated/physical-device coverage remains external.
+- [x] Pair-questionnaire target preflight emits aggregate duplicate counts/canonical index names only and sanitizes every failure to a stable reason code; regression coverage rejects ids and raw duplicate-key output.
+- [x] All seven section-3 target release entrypoints emit only numeric counts, allowlisted reason codes and index names; missing-env, invalid-argument and synthetic connection-error probes each returned one sanitized JSON line without URI/database/stack disclosure.
+- [x] A physically isolated current-tree snapshot passed production build/start, direct/proxy liveness, unauthenticated denial, request-id/cache/security-header and per-response CSP nonce checks. Readiness was intentionally `503` against an unavailable local test DB, so production readiness is not claimed.
+- [x] After release-output hardening, current-working-tree `lint`, `check:types`, full `check:self`, `check:agents`, isolated production `build`, `git diff --check` and `npm audit --omit=dev` passed; audit reported zero vulnerabilities.
 
 ## Phase 7 — docs and reviews
 
@@ -99,7 +104,9 @@ Priority: attached master prompt → attached Factor specification → active do
 - Questionnaire content without reviewed measurement binding remains intentionally `UNMAPPED`; it creates no invented Factor.
 - Per-Pair recommendation single-flight was moved after membership guard and brought both strict load runs below required p95 targets without privacy weakening.
 - Versioned `help-ru-v1` catalog is implemented and runtime-validated; expert/legal review and jurisdiction-specific publication approval remain external content gates.
+- The external-review packet is prepared at `docs/SAFETY_RETENTION_EXTERNAL_REVIEW.md`. Jurisdiction, named safety/legal reviewers, controller/privacy owner, approved retention schedule, and production backup/deletion-after-restore evidence were not provided, so neither external gate is closed.
+- A release-preflight disclosure audit found Pair questionnaire duplicate samples plus raw Mongo error/stack and target metadata in seven target command wrappers. Outputs were reduced to fixed metadata where applicable, numeric counts, allowlisted reason codes and index names; no API, schema or migration write behavior changed.
 
 ## Final Definition of Done
 
-Implementation and local database/performance evidence are complete. Final local release status remains open only for the exact-tree static/build/browser checks and three independent reviews above; production status additionally requires the explicitly external gates in `MVP_RELEASE_STATUS.md` and `RELEASE_RUNBOOK.md`.
+Implementation and executable local database/performance/static/build evidence are complete for the current working tree, including an isolated production-snapshot unauthenticated runtime/fallback smoke. That smoke deliberately used an unreachable local test DB and therefore does not establish target readiness; it also does not cover authenticated Discord, safe-area on a physical device or a deployable artifact. Production status still requires the explicitly external gates in `MVP_RELEASE_STATUS.md` and `RELEASE_RUNBOOK.md`; an immutable release artifact has not been assigned from the dirty working tree.

@@ -33,6 +33,7 @@ type DiscordOAuthSuccess = {
 };
 
 export type DiscordOAuthResult = DiscordOAuthFailure | DiscordOAuthSuccess;
+const DISCORD_REQUEST_TIMEOUT_MS = 8_000;
 
 const isJsonObject = (
   value: JsonValue,
@@ -117,17 +118,28 @@ export const discordOAuthService = {
       return failure(400, 'INVALID_REDIRECT_URI', 'invalid redirect_uri');
     }
 
-    const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID ?? '',
-        client_secret: process.env.DISCORD_CLIENT_SECRET ?? '',
-        grant_type: 'authorization_code',
-        code: input.code,
-        redirect_uri: expectedRedirectUri,
-      }),
-    });
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID ?? '',
+          client_secret: process.env.DISCORD_CLIENT_SECRET ?? '',
+          grant_type: 'authorization_code',
+          code: input.code,
+          redirect_uri: expectedRedirectUri,
+        }),
+        signal: AbortSignal.timeout(DISCORD_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      await recordAuthFailure('oauth_exchange_unavailable', 502);
+      return failure(
+        502,
+        'OAUTH_EXCHANGE_UNAVAILABLE',
+        'Discord OAuth token exchange is unavailable',
+      );
+    }
     const tokenPayload = await responseJson(tokenResponse);
     if (!tokenResponse.ok) {
       await recordAuthFailure('oauth_exchange_failed', tokenResponse.status);
@@ -148,9 +160,20 @@ export const discordOAuthService = {
       return failure(500, 'ACCESS_TOKEN_MISSING', 'missing access_token');
     }
 
-    const userResponse = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    let userResponse: Response;
+    try {
+      userResponse = await fetch('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(DISCORD_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      await recordAuthFailure('discord_user_lookup_unavailable', 502);
+      return failure(
+        502,
+        'DISCORD_USER_LOOKUP_UNAVAILABLE',
+        'Discord user lookup is unavailable',
+      );
+    }
     const userPayload = await responseJson(userResponse);
     if (!userResponse.ok) {
       await recordAuthFailure(

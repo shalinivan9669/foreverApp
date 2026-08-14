@@ -1,14 +1,14 @@
 # ForeverApp / «Вместе»: направление продукта
 
-Статус: каноническое описание публичного бесплатного продукта. Обновлено 2026-08-11.
+Статус: каноническое описание публичного бесплатного продукта. Обновлено 2026-08-13.
 
 Scope и gates: [MVP_SPEC.md](./MVP_SPEC.md). Подробное поведение: [MVP_FLOWS.md](./MVP_FLOWS.md). Вычислительная модель: [TARGET_DOMAIN_MODEL.md](./TARGET_DOMAIN_MODEL.md).
 
 ## 1. Продукт
 
-«Вместе» — приложение для двух совершеннолетних людей, которые уже состоят в отношениях и добровольно создают общую Pair-область.
+«Вместе» — приложение для совершеннолетних людей, которые ищут отношения через Factor Matching или уже состоят в отношениях и добровольно создают общую Pair-область.
 
-Оно помогает:
+Оно помогает найти кандидата без публичного compatibility score, взаимно подтвердить MatchingConnection и затем:
 
 1. отдельно отметить состояние текущей недели;
 2. увидеть осторожное privacy-safe резюме пары;
@@ -20,7 +20,7 @@ Scope и gates: [MVP_SPEC.md](./MVP_SPEC.md). Подробное поведен�
 
 ## 2. Главная гипотеза
 
-Если оба участника регулярно проходят короткий цикл
+Если Factor Matching помогает двум людям безопасно и взаимно сформировать Pair, а оба участника регулярно проходят короткий цикл
 
 ```text
 check-in → Pair Summary → одно действие → отдельный feedback → следующий цикл
@@ -28,22 +28,29 @@ check-in → Pair Summary → одно действие → отдельный f
 
 то им проще замечать текущий контекст и совершать небольшие полезные действия без перегрузки и раскрытия личных ответов.
 
-Единица activation/retention — Pair. Первый value event — оба увидели первое допустимое общее резюме; полный value event — активность завершена с feedback и пара начала следующий цикл.
+Единица долгосрочного activation/retention — Pair. Matching value event — ответ получателя и принятие инициатором создают `MatchingConnection`; Pair value event — оба явно подтвердили переход в Pair. Первый цикл value event — оба увидели первое допустимое общее резюме; полный value event — активность завершена с feedback и пара начала следующий цикл.
 
 ## 3. Для кого MVP
 
+- совершеннолетний пользователь, который добровольно активирует Factor Matching для поиска отношений;
 - существующая романтическая пара;
-- ровно два добровольно подключившихся пользователя 18+;
+- ровно два добровольно подтвердивших участника в каждой `MatchingConnection`/Pair;
 - Discord Embedded App и текущий русский интерфейс;
 - короткое регулярное взаимодействие, а не длинная диагностика.
 
-Другие рынки/языки, несовершеннолетние, dating/matching и регулируемые verticals требуют отдельных решений.
+Другие рынки/языки, несовершеннолетние и регулируемые verticals требуют отдельных решений.
 
 ## 4. Продуктовые принципы
 
 ### Бесплатное ядро
 
-Onboarding, invitation, weekly cycles, Pair Summary, recommendation, activity, feedback, history, profile/settings/help, pair end/reconnect и privacy operations доступны без entitlement. Нет trial, цены, checkout, subscription CTA или hard paywall. Billing-инфраструктура может существовать только как отключённый будущий контур.
+Onboarding, MatchingProfile/preferences/feed/Like/connection/block, invitation, Pair confirmation, weekly cycles, Pair Summary, recommendation, activity, feedback, history, profile/settings/help, pair end/reconnect и privacy operations доступны без entitlement. Нет trial, цены, checkout, subscription CTA или hard paywall. Billing-инфраструктура может существовать только как отключённый будущий контур.
+
+### Matching — качественный, consent-bound подбор
+
+`MatchingProfile` существует отдельно от owner semantic profile и Pair. Actual profile строится из текущих Factor snapshots только при активном per-factor `MatchingUseGrant`; желаемый профиль хранится отдельно как versioned `PartnerPreferenceProfile`. Candidate discovery использует минимальную coarse projection, а подробная карточка и Like требуют ограниченный по requester/candidate/revisions/version/expiry candidate grant.
+
+Internal fit может упорядочивать кандидатов, но участник видит только qualitative label/confidence/explanations — без numeric score, raw Factor values, чужих preferences, evidence graph или причины hard constraint. Like создаёт `MatchingConnection`, а Pair — только два разных session-derived подтверждения.
 
 ### Два человека и отдельный Pair subject
 
@@ -82,8 +89,10 @@ MVP использует типизированные правила и reviewed
 ```text
 Discord auth
 → personal onboarding
-→ one-time invite
-→ partner accepts, Pair created
+→ matching profile/preferences → candidate feed → Like/response
+→ MatchingConnection → two-party Pair confirmation
+  OR one-time invite → partner accepts
+→ Pair created
 → both submit/skip weekly independently
 → privacy-safe Pair Summary
 → offer / accept / replace once / skip
@@ -97,18 +106,20 @@ Discord auth
 ## 6. Информационная архитектура
 
 - entry/onboarding/join/waiting;
+- `/search`, `/match/inbox`, `/match/like/[id]`, `/match-card/create` и matching-tab профиля — Factor Matching;
 - `/main-menu` — текущий Pair/cycle hub;
 - weekly form и Pair Summary;
 - `/couple-activity` — current offer/activity/feedback/history states;
 - `/profile` — semantic owner profile и personal today;
 - settings/privacy/SafetyGate/help/end/reconnect/export/delete.
 
-Legacy matching routes удалены из active runtime. Оставшийся `/api/pairs/create` — только guarded compatibility seam, который отвечает `PAIR_INVITE_REQUIRED`; Pair создаётся исключительно через принятие приглашения.
+Legacy vector/scoring implementation удалён из active runtime. Пространство `/api/match/**` теперь обслуживает только Factor Matching с session-derived actor, candidate grants и qualitative DTO. `/api/pairs/create` остаётся guarded compatibility seam с `PAIR_INVITE_REQUIRED`; Pair создаётся через принятие приглашения либо через двухсторонне подтверждённую `MatchingConnection`.
 
 ## 7. Входит в public-free MVP
 
 - Discord session/resource boundary and durable logout revocation;
 - resumable personal onboarding and consent;
+- standalone MatchingProfile, Factor use grants, partner preferences, bounded candidate feed/grants, Like/response, MatchingConnection/block and two-party Pair transition;
 - hashed invite, cancel/reissue/expiry/accept;
 - weekly untouched/explicit input, skip/expiry and Pair Summary;
 - semantic Factor evidence/snapshots/evaluations;
@@ -124,8 +135,8 @@ Legacy matching routes удалены из active runtime. Оставшийся 
 
 ## 8. Не входит
 
-- dating/candidate feed as a supported product and new matching algorithm;
 - numeric compatibility/relationship-health score or six-axis passport;
+- public user directory, unbounded social feed/chat or automatic Pair creation from a unilateral Like;
 - diagnosis, motive reading or automatic abuse detection;
 - AI therapist/chat/memory, voice/emotion analysis;
 - household/task manager, budget/calendar, marketplace/social network;
@@ -140,7 +151,7 @@ Only with pilot evidence and a new scoped decision:
 - trends and user-confirmed patterns;
 - broader factor/content registry and personal skill programs;
 - agreements/rituals/household modules;
-- opt-in matching using actual and desired profiles with hard constraints;
+- richer matching content/discovery controls beyond the current consent-bound Factor policy;
 - approved localized resource catalogs;
 - limited AI rephrasing/summarization behind purpose-specific consent.
 
@@ -149,6 +160,7 @@ No later feature may reintroduce six-axis scoring, global compatibility, hidden 
 ## 10. Metrics
 
 - pair activation and time to first safe summary;
+- matching profile activation, qualitative feed-to-Like/response/connection/Pair conversion and stale-grant/session rates;
 - full-loop completion and next-cycle starts;
 - accept/replace/skip and activity feedback completion;
 - retention by completed pair cycles;

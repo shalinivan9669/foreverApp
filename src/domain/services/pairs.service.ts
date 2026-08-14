@@ -11,6 +11,9 @@ import { RecommendationDecision } from '@/models/RecommendationDecision';
 import { SafetyGate } from '@/models/SafetyGate';
 import { WeeklyCycle } from '@/models/WeeklyCycle';
 import { Notification } from '@/models/Notification';
+import { User } from '@/models/User';
+import { MatchingConnection } from '@/models/MatchingConnection';
+import { Like } from '@/models/Like';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
 import { pairTransition } from '@/domain/state/pairMachine';
@@ -238,6 +241,38 @@ export const pairsService = {
         }
 
         await PairMembershipClaim.deleteMany({ pairId: pairObjectId }, { session });
+        await User.updateMany(
+          { id: { $in: ended.members } },
+          { $set: { 'personal.relationshipStatus': 'seeking' } },
+          { session }
+        );
+        const matchingConnections = await MatchingConnection.find({
+          pairId: pairObjectId,
+        })
+          .select({ _id: 1 })
+          .session(session)
+          .lean<Array<{ _id: Types.ObjectId }>>();
+        await MatchingConnection.updateMany(
+          { pairId: pairObjectId, status: 'ACTIVE' },
+          {
+            $set: { status: 'CLOSED', updatedAt: now },
+            $inc: { revision: 1 },
+          },
+          { session }
+        );
+        if (matchingConnections.length > 0) {
+          await Like.updateMany(
+            {
+              connectionId: { $in: matchingConnections.map((row) => row._id) },
+              status: 'MATCHED',
+            },
+            {
+              $set: { status: 'EXPIRED', updatedAt: now },
+              $inc: { revision: 1 },
+            },
+            { session }
+          );
+        }
         await PairInvite.updateMany(
           {
             creatorUserId: { $in: ended.members },

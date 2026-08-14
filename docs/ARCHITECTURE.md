@@ -1,6 +1,6 @@
 # Architecture
 
-Status: current runtime architecture after the 2026-08-11 NEW_ONLY cutover.
+Status: current runtime architecture after the NEW_ONLY cutover and Factor Matching integration. Updated 2026-08-13.
 
 ## Layering
 
@@ -45,9 +45,30 @@ published registry
 
 Persistence adapters are `DefinitionRegistryRelease`, `EvidenceEvent`, `IndividualFactorSnapshot`, `PairFactorSnapshot` and `PairFactorEvaluationSnapshot`. Unique identities make retry/concurrency converge on canonical artifacts. Published registry records and computed artifacts are append-only/immutable; current pointers are read optimizations, never a second calculation source.
 
+## Factor Matching bounded context
+
+Factor Matching reuses the semantic engine without merging candidate-search state into `User` or `Pair`:
+
+```text
+current individual Factor snapshots + per-factor MatchingUseGrant
++ PartnerPreferenceProfile
+→ internal version-pinned MatchingEvaluationSnapshot
+→ qualitative candidate projection
+→ Like → MatchingConnection → two-party confirmation → Pair
+```
+
+- `MatchingProfile` is the standalone owner aggregate for public card, discovery activation/settings and revision pointers. It does not persist another raw Factor profile.
+- `PartnerPreferenceProfile` stores revisioned desired targets/importance/flexibility/constraint mode; `MatchingUseGrant` separately controls whether each owner Factor may be used by the matching engine.
+- `CandidateDiscoveryProjection` contains only coarse indexed eligibility/location fields. `MatchingFeedSession` pins a bounded candidate set to the requester and current versions.
+- `MatchingEvaluationSnapshot` stores internal reproducible ranking/constraint evidence. Participant DTOs project only qualitative label, confidence band and reviewed explanations—never numeric fit/rank or raw values.
+- `CandidatePresentationGrant` is hashed, expiring and bound to requester, candidate, evaluation and profile/card/preference/registry/algorithm revisions. It gates candidate detail and Like creation but never supplies actor identity; the session subject does.
+- `Like`, `MatchingConnection`, `MatchingBlock` and `MatchingSocialEffect` own social state, canonical effects and retries. Matching notifications and idempotent `EventLog` rows are inserted in the same transaction as their `MatchingSocialEffect`; a retry cannot duplicate or lose the canonical audit row. A block closes eligible unpaired work, revokes both directional presentation grants and unblock does not resurrect either work or grants.
+- Pair formation requires one connection participant to request and the other to confirm. The transaction creates a single Pair and `PairMembershipClaim` entries with source `MATCHING_CONNECTION`; invitation claims use `PAIR_INVITE`.
+
 ## Core consumers
 
 - Onboarding materializes only reviewed semantic measurements.
+- Matching projects only explicitly granted current individual snapshots against a separate desired profile; discovery and participant disclosure never read raw peer sources.
 - Weekly check-in starts with untouched UI fields, stores owner-private source data, materializes Factor evidence, and publishes a qualitative pair projection only when disclosure conditions are met.
 - Questionnaire submissions are immutable and owner-private. Unmapped content remains `UNMAPPED`; it does not fabricate Factor evidence.
 - Pair Summary reads canonical weekly/Factor projections, never legacy diagnostics or raw partner input.
@@ -60,7 +81,7 @@ Persistence adapters are `DefinitionRegistryRelease`, `EvidenceEvent`, `Individu
 ## Product and lifecycle aggregates
 
 - `PairInvite` owns one-time hashed invite lifecycle.
-- `PairMembershipClaim` enforces one active/paused Pair per user.
+- `PairMembershipClaim` enforces one active/paused Pair per user and records whether formation came from `PAIR_INVITE` or `MATCHING_CONNECTION`.
 - `Pair` owns the relationship context (`pair-context-v1`) and `active → paused → ended` lifecycle. Ending releases membership claims and closes open pair-scoped work. Reconnect always creates a new Pair id/context.
 - `WeeklyCycle` owns UTC cycle windows and relative participant completion. `PairStateSnapshot` is the bounded participant history projection; Factor snapshots are the semantic computation record.
 - `RecommendationDecision` owns offer/replace/accept/skip/expiry and points to one canonical `PairActivity`.
@@ -73,6 +94,7 @@ See [state machines](./03-state-machines.md) for transition details.
 ## Security and disclosure boundaries
 
 - The authenticated session subject is authoritative; client `userId`, `fromId`, `actorId` or membership assertions are not.
+- Matching cursors and candidate grants are scoped capabilities layered on top of the authenticated session actor; they are not bearer identities and cannot change requester/candidate roles.
 - Pair/activity resources use centralized membership/ownership guards before state or future-infrastructure lookups.
 - Cookie mutations enforce same-origin; JSON mutations enforce media type, size and Zod validation.
 - `PRIVATE`, `PAIR_MODEL_ONLY`, `SHARED` and `SYSTEM_ONLY` are computation/capture policies, not automatic partner visibility.
@@ -81,13 +103,13 @@ See [state machines](./03-state-machines.md) for transition details.
 
 ## Free-core boundary
 
-All onboarding, pair formation, weekly cycles, Pair Summary, recommendation decisions, activities, feedback, history, help, lifecycle and privacy operations are available without entitlement. Core routes do not return `402`, `PAYMENT_REQUIRED` or `ENTITLEMENT_REQUIRED`.
+All onboarding, matching profile/preferences/feed/Like/connection/block/confirmation, invite or matching Pair formation, weekly cycles, Pair Summary, recommendation decisions, activities, feedback, history, help, lifecycle and privacy operations are available without entitlement. Core routes do not return `402`, `PAYMENT_REQUIRED` or `ENTITLEMENT_REQUIRED`.
 
 `src/lib/entitlements/**`, sandbox webhook/admin endpoints and billing models remain isolated future infrastructure. They must not be imported as eligibility gates by public core services or routes. Abuse rate limits and idempotency remain active and are unrelated to monetization.
 
 ## Legacy boundary
 
-The following are absent from active runtime: `src/domain/vectors/**`, `vectorScoring.service.ts`, `pairDiagnostics.service.ts`, `VectorSnapshot`, `User.vectors`, Pair passport/readiness/fatigue fields, AxisRadar, diagnostics/insights routes, public legacy `/api/match/**` routes and numeric compatibility UI.
+The following are absent from active runtime: `src/domain/vectors/**`, `vectorScoring.service.ts`, `pairDiagnostics.service.ts`, `VectorSnapshot`, `User.vectors`, Pair passport/readiness/fatigue fields, AxisRadar, diagnostics/insights routes, the legacy scoring implementation behind `/api/match/**` and numeric compatibility UI. The current `/api/match/**` namespace is a new Factor Matching boundary and is not a fallback to those artifacts.
 
 Legacy collections or field names may appear only in:
 
@@ -95,7 +117,9 @@ Legacy collections or field names may appear only in:
 - negative cutover selfchecks;
 - explicitly historical documentation.
 
-There is no dual-read or runtime fallback. Missing new evidence returns an explicit unavailable state.
+There is no Factor-data dual-read or scoring runtime fallback. Missing new evidence returns an explicit unavailable state.
+
+The additive matching data rollout is a narrower compatibility exception, not a scoring fallback: migrated `Like` rows may retain the original state in `legacyStatus`, and rollback artifacts must remain dual-readable for canonical/legacy social statuses during the rollback window. Factor evaluation still remains NEW_ONLY; raw legacy score fields are never a candidate source or participant DTO.
 
 ## Scale boundary
 

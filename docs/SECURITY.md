@@ -1,6 +1,6 @@
 # Security and privacy
 
-Status: active security boundary after the 2026-08-11 cutover.
+Status: active security boundary after the NEW_ONLY cutover and Factor Matching integration. Updated 2026-08-13.
 
 ## Authentication and session revocation
 
@@ -23,7 +23,7 @@ Status: active security boundary after the 2026-08-11 cutover.
 
 - Client `userId`, `fromId`, `actorId`, Pair role and membership claims are never authoritative.
 - User-by-id writes are self-only; public user DTOs contain no private profile data.
-- Pair resources require active/paused membership appropriate to the operation. Activity, invite, notification, SafetyGate and deletion resources have item-level owner/member guards. Public legacy `/api/match/**` routes are absent.
+- Pair resources require active/paused membership appropriate to the operation. Activity, invite, matching, notification, SafetyGate and deletion resources have item-level owner/member guards. The current `/api/match/**` namespace contains only Factor Matching; legacy scoring behavior is absent.
 - Invite acceptance uses a transaction and unique membership claim to prevent a second active Pair.
 - Ended Pair ids cannot authorize new pair reads/writes. Reconnect creates a new context.
 - Membership is checked before optional infrastructure/state lookup, preventing resource and future-billing probing.
@@ -36,6 +36,17 @@ Status: active security boundary after the 2026-08-11 cutover.
 - A's observer report cannot update B's individual snapshots.
 - Invalid evidence is stored only as provenance-bearing `REJECTED` input with a rejection code and no normalized value; it is excluded from aggregation and confidence.
 - Raw profile/vector/passport fields cannot be written through user APIs; no direct snapshot mutation API exists.
+
+## Factor Matching authorization and disclosure
+
+- `MatchingProfile`, `PartnerPreferenceProfile` and `MatchingUseGrant` writes are owner-only. Matching profile activation cannot bypass required-data readiness, and an active Pair membership disables candidate matching.
+- A use grant authorizes the matching engine to use one eligible owner Factor revision; it never authorizes candidate disclosure. Missing/revoked grants, stale snapshots or registry/version mismatch fail closed.
+- `MatchingFeedSession` and `CandidatePresentationGrant` store token hashes, expire by TTL and bind the authenticated requester to current profile/preference/card/evaluation/registry/algorithm revisions. The raw cursor/grant is a scoped capability, not an identity credential.
+- Candidate detail requires the grant header; Like creation revalidates the grant from its strict body. In both cases session subject remains actor, path/body candidate cannot change roles, and stale/mismatched grants return generic failure.
+- Discovery projections contain only coarse mutual-eligibility fields. Candidate output contains public card plus qualitative fit; it never exposes numeric rank/fit/contribution, raw Factor values, peer preferences, evidence, hashes or internal hard-constraint reasons.
+- Like, response, decision, block and connection transitions authorize the concrete session participant and current role/state inside idempotent/CAS/transaction boundaries. Active block and Pair-membership checks fail closed.
+- `REQUEST` and `CONFIRM` must be performed by two distinct authenticated connection participants. A unilateral/replayed confirmation cannot form a Pair; the successful transaction creates one Pair and one source-tagged membership claim per user.
+- Matching audit/social effects record allowlisted event/revision/resource metadata only. Social `EventLog` rows use a deterministic identity and commit with the matching transaction; card/preference audit retries use the same idempotent identity. Candidate grants/cursors, answers, cards, preferences, Factor internals and block-sensitive explanations are excluded from logs and analytics.
 
 ## Participant disclosure
 

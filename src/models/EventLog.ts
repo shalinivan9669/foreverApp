@@ -1,11 +1,11 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema } from "mongoose";
 import type {
   AuditContext,
   AuditEventName,
   AuditRequestContext,
   AuditTarget,
   EventRetentionTier,
-} from '@/lib/audit/eventTypes';
+} from "@/lib/audit/eventTypes";
 
 type EventMetadataScalar = string | number | boolean | null;
 type EventMetadataValue =
@@ -15,6 +15,7 @@ type EventMetadataValue =
 type EventMetadata = Record<string, EventMetadataValue>;
 
 export interface EventLogType {
+  eventKey?: string;
   event: AuditEventName;
   ts: number;
   actor: {
@@ -32,6 +33,14 @@ export interface EventLogType {
 
 const EventLogSchema = new Schema(
   {
+    eventKey: {
+      type: String,
+      required: false,
+      immutable: true,
+      trim: true,
+      minlength: 64,
+      maxlength: 64,
+    },
     event: { type: String, required: true },
     ts: { type: Number, required: true },
     actor: {
@@ -56,22 +65,30 @@ const EventLogSchema = new Schema(
     metadata: { type: Schema.Types.Mixed, required: true },
     retentionTier: {
       type: String,
-      enum: ['short', 'long', 'abuse'],
+      enum: ["short", "long", "abuse"],
       required: true,
     },
     expiresAt: { type: Date, required: true },
   },
-  { collection: 'event_logs', timestamps: true }
+  { collection: "event_logs", timestamps: true },
 );
 
 EventLogSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+EventLogSchema.index(
+  { eventKey: 1 },
+  {
+    unique: true,
+    name: "event_log_idempotent_identity",
+    partialFilterExpression: { eventKey: { $type: "string" } },
+  },
+);
 EventLogSchema.index({ event: 1, ts: -1 });
-EventLogSchema.index({ 'actor.userId': 1, ts: -1 });
-EventLogSchema.index({ 'context.pairId': 1, ts: -1 });
-EventLogSchema.index({ 'context.activityId': 1, ts: -1 });
-EventLogSchema.index({ 'context.likeId': 1, ts: -1 });
-EventLogSchema.index({ 'context.questionnaireId': 1, ts: -1 });
+EventLogSchema.index({ "actor.userId": 1, ts: -1 });
+EventLogSchema.index({ "context.pairId": 1, ts: -1 });
+EventLogSchema.index({ "context.activityId": 1, ts: -1 });
+EventLogSchema.index({ "context.likeId": 1, ts: -1 });
+EventLogSchema.index({ "context.questionnaireId": 1, ts: -1 });
 
 export const EventLog =
   (mongoose.models.EventLog as mongoose.Model<EventLogType>) ||
-  mongoose.model<EventLogType>('EventLog', EventLogSchema);
+  mongoose.model<EventLogType>("EventLog", EventLogSchema);

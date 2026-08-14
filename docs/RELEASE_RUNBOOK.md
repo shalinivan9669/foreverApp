@@ -1,13 +1,14 @@
 # Release and operations runbook
 
-Status: active procedure for the public-free NEW_ONLY artifact. Local evidence is not deployment authority.
+Status: active procedure for the public-free NEW_ONLY + Factor Matching artifact. Local evidence is not deployment authority. Updated 2026-08-13.
 
 ## 0. Release principles
 
 - Core billing is disabled/non-gating; do not configure a paywall or entitlement as part of release.
-- Production runtime must be `NEW_ONLY`. Do not deploy a dual-read/legacy-vector fallback or roll back to one.
+- Factor computation must remain `NEW_ONLY`. Do not deploy a legacy-vector/score fallback. During the matching social-schema rollout only, rollback artifacts must be dual-readable for canonical Like `status` and preserved `legacyStatus`; this narrow compatibility rule never authorizes legacy scoring.
 - All data-changing migration modes require target-specific review, a current verified restore and a write-stopped maintenance window.
-- Dry-run/apply output may record counts, reason codes and index names only—never ids, raw answers, notes, tokens or duplicate key values.
+- Dry-run/apply output may record fixed non-sensitive command/version/status metadata, counts, reason codes and index names only—never ids, raw answers, notes, tokens, target/database names, raw errors/stacks or duplicate key values.
+- Use [SAFETY_RETENTION_EXTERNAL_REVIEW.md](./SAFETY_RETENTION_EXTERNAL_REVIEW.md) for the exact help/retention handoff and attach signed jurisdiction-specific decisions; the draft packet itself is not approval.
 - `*_test` and local-URI guards must never be bypassed. A test-only migration harness is not production authorization.
 
 ## 1. Environment
@@ -31,13 +32,28 @@ Before the maintenance window, record build SHA/operator/environment and run ser
 npm run lint
 npm run check:types
 npm run check:self
+npm run verify:matching:code
 npm run check:agents
 npm run build
 git diff --check
 npm audit --omit=dev
 ```
 
-On disposable local replica-set databases run every applicable integration in [TESTING.md](./TESTING.md), including Factor runtime/cutover, onboarding/questionnaire, PairEvent, Pair lifecycle, PartnerSignal, privacy/export/deletion, three-cycle two-user, reliability and two comparable load runs. Preserve the exact deploy artifact and a NEW_ONLY-compatible rollback artifact.
+On disposable local replica-set databases run every applicable integration in [TESTING.md](./TESTING.md), including Factor runtime/cutover, Matching social/race/security/Pair transition, onboarding/questionnaire, PairEvent, Pair lifecycle, PartnerSignal, privacy/export/deletion, three-cycle two-user, reliability and two comparable load runs. Preserve the exact deploy artifact and a NEW_ONLY-compatible, matching-status-dual-readable rollback artifact.
+
+For the current Factor Matching tree, the locally available commands above pass. `CODE_COMPLETE` nevertheless remains `NO` until the mandatory transaction/race/security integrations pass on the guarded replica-set/Atlas test target; do not infer it from static/local gates or implementation presence alone.
+
+### Factor Matching guarded release verification
+
+Use a dedicated replica-set/Atlas database whose name ends in `_test`. `MATCHING_TEST_MONGODB_URI` is a command-scoped verification input, not an application runtime/production environment variable:
+
+```powershell
+$env:MATCHING_TEST_MONGODB_URI='<approved disposable or restored ..._test URI>'
+npm run selfcheck:matching-test-database
+npm run verify:matching:release
+```
+
+`verify:matching:release` executes `release:matching-preflight`, matching migration `VERIFY`, `integration:matching-atlas` and `release:matching-load-smoke`. It does not apply the migration. If the variable is absent, `ATLAS_VALIDATED` is `NOT RUN`, not a failure that may be waived.
 
 Complete independent architecture, privacy/security and release/performance reviews. Fix confirmed findings and repeat impacted gates.
 
@@ -54,6 +70,10 @@ npm run release:migrate-partner-signals
 npm run release:migrate-privacy-requests-v2
 npm run release:migrate-weekly-checkins
 ```
+
+`release:preflight` includes all declared matching models/indexes. Production Mongoose runtime is `autoIndex: false`: startup is never evidence that these indexes exist, and no traffic may resume until the target preflight reports the reviewed matching index set without duplicate/extra-index blockers.
+
+These seven entrypoints use the shared release evidence shape `counts`, `reasonCounts` and `indexNames`. Unknown failures collapse to `COMMAND_FAILED`; do not replace the sanitizer with raw report, `Error.message`, `stack`, URI or database logging.
 
 Review:
 
@@ -91,6 +111,28 @@ npm run release:migrate-factor-engine -- --apply --mode=NEW_ONLY
 
 It captures one immutable `asOf`, seeds the immutable registry, reconciles Factor indexes and replays only raw onboarding/weekly sources whose observed and recorded times are within that cutoff. Replay markers pin the exact source reference and source times. It never converts aggregate axes. Rerun dry-run; it must be idempotent and registry hash must match.
 
+### Factor Matching additive migration
+
+The command supports only `DRY_RUN`, `APPLY_ADDITIVE` and `VERIFY`; omitted `--mode` means `DRY_RUN`:
+
+```powershell
+# Plan only.
+npm run release:matching-migrate
+
+# Apply to the reviewed disposable/restored _test fixture only.
+$env:MATCHING_MIGRATION_CONFIRM='APPLY_ADDITIVE_MATCHING_MIGRATION'
+npm run release:matching-migrate -- --mode=APPLY_ADDITIVE
+
+# Require zero findings and zero pending rows/indexes.
+npm run release:matching-migrate -- --mode=VERIFY
+```
+
+`release:migrate-matching` is an exact alias. Planning blocks on unknown Like states, duplicate active identities, deterministic connection conflicts, duplicate unique-index groups or extra indexes. `APPLY_ADDITIVE` canonicalizes eligible profile/discovery/Like/connection records, creates missing declared indexes and reruns `VERIFY`; it never reads `matchScore` into Factor intelligence and never drops an extra index. It removes obsolete embedded `matching_profiles.actual` only after canonical Factor snapshots/grants are available. Migrated Likes may preserve the source state as `legacyStatus` for rollback compatibility.
+
+`release:matching-load-smoke` is a dedicated Factor Matching gate, not the general Couple Mode smoke. On a verified Atlas `_test` topology it creates 10,000 run-scoped candidate projections, measures page-20 feed/ranking, card, inbox and social mutations, inspects the geospatial discovery plan for unexpected `COLLSCAN`, checks bounded/batched reads and stable pagination, then verifies run-scoped cleanup. Its report is aggregate-only.
+
+All matching migration/preflight/load wrappers deliberately require guarded `MATCHING_TEST_MONGODB_URI`; they reject a normal production database. Therefore the commands above prove behavior on a disposable or restored fixture but are not authority to mutate production. Before public launch, review the restored-target report, run the general production `release:preflight` with `autoIndex=false`, and approve a separate target-safe additive execution plan/entrypoint. Until that evidence exists, `PUBLIC_READY` remains `NO`; do not bypass or weaken the `_test` guard.
+
 ### PairEvent NEW_ONLY
 
 ```powershell
@@ -105,6 +147,8 @@ It binds safe semantic events, scrubs legacy residue and retires unsafe/invalid 
 Preflight: `npm run release:preflight:pair-questionnaires`.
 
 After reviewing the report on a restored target, create only the additive canonical indexes with `npm run release:migrate-pair-questionnaires`. The command refuses to apply if it finds more than one `in_progress` session for a `{pairId, questionnaireId}`, duplicate `{sessionId, questionId, by}` answers, or a conflicting canonical index. It never chooses, deletes or rewrites duplicate source rows: stop, investigate ownership/history, and use a separately reviewed data-resolution plan. Rerun the preflight and `npm run integration:pair-questionnaire-concurrency` after apply.
+
+The command output is deliberately aggregate-only: migration version, duplicate-group counts and canonical index names. Failures use stable reason codes; no sample ids, raw Mongo error text or duplicate-key values may be added to release evidence.
 
 ### Pair reconnect context index
 
@@ -178,13 +222,16 @@ While writes remain stopped:
 3. Verify live/ready, unauthenticated private denial, correlation id, cache headers and exact `/.proxy/api/...` transport.
 4. Request two documents: CSP nonce must differ and every Next script must use the matching nonce; API JSON remains unaffected.
 5. Complete supported-browser 320/360/390/430 smoke and real two-session Discord checklist.
-6. Verify free cycle access with no entitlement; any payment-required core response is rollback-worthy.
-7. Prove alert delivery, backup recency, incident owner and rollback compatibility before resuming traffic.
+6. With two independent Discord sessions, verify matching profile/preferences, qualitative feed/card grant, Like/response, inbox/connection, block denial and `REQUEST` → other-user `CONFIRM` → one Pair/two membership claims. Confirm no numeric score/raw Factor/preference values and no one-party Pair formation.
+7. Verify matching and free cycle access with no entitlement; any payment-required core response is rollback-worthy.
+8. Prove alert delivery, backup recency, incident owner and rollback compatibility before resuming traffic.
 
 ## 8. Rollback
 
 - Roll back only to an artifact that understands Factor collections, pair-context and weekly scoped indexes, privacy request v2 and session versions.
+- During the matching rollout window, the rollback artifact must read canonical Like `status` and fall back to preserved `legacyStatus`. It must ignore legacy `matchScore` and understand generalized `PairMembershipClaim.source/sourceId` plus `MatchingConnection.pairId`.
 - Leave additive fields/indexes in place. Do not delete evidence/idempotency records or restore legacy vector scoring to reduce errors/latency.
+- Do not remove `legacyStatus` or narrow the claim source enum in the same rollout. Close the dual-readable window only after forward/rollback artifacts and migrated rows have been verified and a separate cleanup is approved.
 - Retry unknown outcomes with the same idempotency key/body; changed-body reuse remains conflict.
 - If a migration changed a destructive uniqueness rule, an older incompatible build is not a valid rollback. Stop the affected mutation and deploy a compatibility patch.
 - Disable the smallest failing boundary; never bypass membership, disclosure, version or canonical uniqueness checks.
@@ -195,8 +242,9 @@ While writes remain stopped:
 2. Record build/time/route group/error code/aggregate count only.
 3. Check readiness, topology, pool, replication, slow ops, migration/index state, retry/lease/single-flight/reconciliation metrics.
 4. Treat any cross-pair read, private disclosure, duplicate canonical registry/evidence/snapshot/cycle/decision/activity/notification or lost committed mutation as critical.
-5. Resume using the persisted phase/idempotency identity; do not hand-edit answers/snapshots.
-6. For deletion/session incidents, revoke access first, preserve minimal pseudonymous forensics and involve privacy/legal owner without sending sensitive detail to a partner.
+5. For matching, also treat cross-actor candidate grants, raw/numeric fit disclosure, block bypass, duplicate Like/connection/social effect or one-party/duplicate Pair formation as critical.
+6. Resume using the persisted phase/idempotency identity; do not hand-edit answers/snapshots.
+7. For deletion/session incidents, revoke access first, preserve minimal pseudonymous forensics and involve privacy/legal owner without sending sensitive detail to a partner.
 
 ## 10. External launch and first production
 

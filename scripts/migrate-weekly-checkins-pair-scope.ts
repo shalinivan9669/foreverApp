@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
+import {
+  ReleaseCommandFailure,
+  writeReleaseCommandEvidence,
+  writeReleaseCommandFailure,
+} from './lib/release-command-output';
 
 type IndexKey = Record<string, number>;
 
@@ -16,22 +21,33 @@ const sameKey = (actual: IndexKey, expected: IndexKey): boolean => {
 };
 
 const run = async (): Promise<void> => {
+  if (!process.env.MONGODB_URI?.trim()) {
+    throw new ReleaseCommandFailure('MONGODB_URI_REQUIRED');
+  }
   const applyAdditiveIndexes = process.argv.includes('--apply-additive-indexes');
   const dropLegacyUnique = process.argv.includes('--drop-legacy-unique');
   if (dropLegacyUnique && !applyAdditiveIndexes) {
-    throw new Error(
-      '--drop-legacy-unique requires --apply-additive-indexes; no indexes were changed'
-    );
+    throw new ReleaseCommandFailure('MODE_INVALID');
   }
 
   const database = await connectToDatabase();
   const mongoDatabase = database.connection.db;
-  if (!mongoDatabase) throw new Error('MongoDB connection is unavailable');
+  if (!mongoDatabase) {
+    throw new ReleaseCommandFailure('DATABASE_NOT_CONNECTED');
+  }
   const collectionExists = await mongoDatabase
     .listCollections({ name: 'weekly_checkins' }, { nameOnly: true })
     .hasNext();
   if (!collectionExists && !applyAdditiveIndexes) {
-    console.log('weekly_checkins dry run complete; collection does not exist');
+    writeReleaseCommandEvidence({
+      counts: {
+        collectionExists: 0,
+        applyRequested: 0,
+        dropLegacyRequested: Number(dropLegacyUnique),
+      },
+      reasonCounts: { COLLECTION_MISSING: 1, DRY_RUN_COMPLETE: 1 },
+      indexNames: [],
+    });
     return;
   }
   if (!collectionExists) {
@@ -62,17 +78,37 @@ const run = async (): Promise<void> => {
     $or: [{ pairId: { $exists: false } }, { pairId: null }],
   });
 
-  console.log(
-    `weekly_checkins preflight: duplicatePairScopedGroups=${duplicateGroupCount} legacyWithoutPairId=${legacyWithoutPairCount}`
+  const canonicalIndexNames = [
+    'userId_1_pairId_1_weekKey_1',
+    'pairId_1_weekKey_1',
+    'userId_1_weekKey_1',
+  ] as const;
+  const inspectedIndexNames = canonicalIndexNames.filter((name) =>
+    indexes.some((index) => index.name === name)
   );
+  writeReleaseCommandEvidence({
+    counts: {
+      duplicatePairScopedGroups: duplicateGroupCount,
+      legacyWithoutPairId: legacyWithoutPairCount,
+      applyRequested: Number(applyAdditiveIndexes),
+      dropLegacyRequested: Number(dropLegacyUnique),
+    },
+    reasonCounts: {},
+    indexNames: inspectedIndexNames,
+  });
   if (duplicateGroupCount > 0) {
-    throw new Error('Pair-scoped duplicate weekly check-ins must be resolved before indexing');
+    throw new ReleaseCommandFailure('MIGRATION_DATA_BLOCKED');
   }
 
   if (!applyAdditiveIndexes) {
-    console.log(
-      'weekly_checkins dry run complete; use --apply-additive-indexes after review'
-    );
+    writeReleaseCommandEvidence({
+      counts: {
+        duplicatePairScopedGroups: duplicateGroupCount,
+        legacyWithoutPairId: legacyWithoutPairCount,
+      },
+      reasonCounts: { DRY_RUN_COMPLETE: 1 },
+      indexNames: inspectedIndexNames,
+    });
     return;
   }
 
@@ -80,7 +116,7 @@ const run = async (): Promise<void> => {
     sameKey(index.key as IndexKey, pairScopedKey)
   );
   if (pairScopedIndex && pairScopedIndex.unique !== true) {
-    throw new Error('Pair-scoped weekly check-in index exists but is not unique');
+    throw new ReleaseCommandFailure('INDEX_SHAPE_BLOCKED');
   }
   if (!pairScopedIndex) {
     await collection.createIndex(pairScopedKey, {
@@ -92,11 +128,10 @@ const run = async (): Promise<void> => {
   const oldUniqueIndexes = indexes.filter(
     (index) => index.unique === true && sameKey(index.key as IndexKey, userWeekKey)
   );
-  const legacyUniqueWasPresent = oldUniqueIndexes.length > 0;
   if (dropLegacyUnique) {
     for (const oldUniqueIndex of oldUniqueIndexes) {
       if (!oldUniqueIndex.name) {
-        throw new Error('Legacy user/week unique index has no droppable name');
+        throw new ReleaseCommandFailure('INDEX_SHAPE_BLOCKED');
       }
       await collection.dropIndex(oldUniqueIndex.name);
     }
@@ -105,12 +140,8 @@ const run = async (): Promise<void> => {
         index.unique === true && sameKey(index.key as IndexKey, userWeekKey)
     );
     if (legacyIndexesAfterDrop.length > 0) {
-      throw new Error('Legacy user/week unique index removal did not complete');
+      throw new ReleaseCommandFailure('INDEX_APPLY_INCOMPLETE');
     }
-  } else if (legacyUniqueWasPresent) {
-    console.log(
-      'weekly_checkins legacy unique index retained; use --drop-legacy-unique only after rollback review'
-    );
   }
 
   let refreshedIndexes = await collection.indexes();
@@ -118,7 +149,7 @@ const run = async (): Promise<void> => {
     sameKey(index.key as IndexKey, pairWeekKey)
   );
   if (pairWeekIndex?.unique === true) {
-    throw new Error('Pair/week lookup index must not be unique');
+    throw new ReleaseCommandFailure('INDEX_SHAPE_BLOCKED');
   }
   if (!pairWeekIndex) {
     await collection.createIndex(pairWeekKey, { name: 'pairId_1_weekKey_1' });
@@ -142,27 +173,38 @@ const run = async (): Promise<void> => {
       index.unique !== true && sameKey(index.key as IndexKey, userWeekKey)
   );
   if (dropLegacyUnique && finalLegacyUniqueIndexes.length > 0) {
-    throw new Error('Legacy user/week unique index removal did not complete');
+    throw new ReleaseCommandFailure('INDEX_APPLY_INCOMPLETE');
   }
   if (!finalUserWeekLookup && finalLegacyUniqueIndexes.length === 0) {
-    throw new Error('Non-unique user/week lookup index was not created');
+    throw new ReleaseCommandFailure('INDEX_APPLY_INCOMPLETE');
   }
 
-  const legacyIndexOutcome = finalLegacyUniqueIndexes.length > 0
-    ? 'legacy unique index retained; release preflight remains blocked'
-    : legacyUniqueWasPresent
-      ? 'legacy unique index removed; non-unique user/week lookup is ready'
-      : 'no legacy unique index was present; non-unique user/week lookup is ready';
-  console.log(
-    `weekly_checkins pair-scoped index staging complete; ${legacyIndexOutcome}`
+  const finalIndexNames = canonicalIndexNames.filter((name) =>
+    finalIndexes.some((index) => index.name === name)
   );
+  writeReleaseCommandEvidence({
+    counts: {
+      duplicatePairScopedGroups: duplicateGroupCount,
+      legacyWithoutPairId: legacyWithoutPairCount,
+      legacyUniqueIndexesBefore: oldUniqueIndexes.length,
+      legacyUniqueIndexesAfter: finalLegacyUniqueIndexes.length,
+      pairScopedUniqueIndexReady: 1,
+      pairWeekLookupReady: 1,
+      userWeekLookupReady: Number(Boolean(finalUserWeekLookup)),
+    },
+    reasonCounts:
+      finalLegacyUniqueIndexes.length > 0
+        ? { LEGACY_INDEX_REVIEW_REQUIRED: 1 }
+        : { INDEXES_READY: 1 },
+    indexNames: finalIndexNames,
+  });
 };
 
 void run()
-  .catch((error: Error) => {
-    console.error(error.message);
-    process.exitCode = 1;
-  })
   .finally(async () => {
     await mongoose.disconnect();
+  })
+  .catch((error: Error) => {
+    writeReleaseCommandFailure(error);
+    process.exitCode = 1;
   });

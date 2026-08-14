@@ -23,6 +23,17 @@ const runtimeEnvSchema = z
         message: 'A Discord redirect URI is required',
       });
     }
+    if (
+      value.DISCORD_REDIRECT_URI &&
+      value.NEXT_PUBLIC_DISCORD_REDIRECT_URI &&
+      value.DISCORD_REDIRECT_URI !== value.NEXT_PUBLIC_DISCORD_REDIRECT_URI
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DISCORD_REDIRECT_URI'],
+        message: 'Server and public Discord redirect URIs must match exactly',
+      });
+    }
 
     if (value.BILLING_MODE !== 'disabled' && !value.BILLING_WEBHOOK_SECRET) {
       context.addIssue({

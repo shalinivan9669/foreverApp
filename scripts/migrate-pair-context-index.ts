@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
+import {
+  ReleaseCommandFailure,
+  writeReleaseCommandEvidence,
+  writeReleaseCommandFailure,
+} from './lib/release-command-output';
 
 type IndexKey = Record<string, number>;
 
@@ -21,23 +26,34 @@ const sameKey = (actual: IndexKey, expected: IndexKey): boolean => {
 };
 
 const run = async (): Promise<void> => {
+  if (!process.env.MONGODB_URI?.trim()) {
+    throw new ReleaseCommandFailure('MONGODB_URI_REQUIRED');
+  }
   const applyAdditiveIndexes = process.argv.includes('--apply-additive-indexes');
   const dropLegacyUnique = process.argv.includes('--drop-legacy-unique');
   if (dropLegacyUnique && !applyAdditiveIndexes) {
-    throw new Error(
-      '--drop-legacy-unique requires --apply-additive-indexes; no indexes were changed'
-    );
+    throw new ReleaseCommandFailure('MODE_INVALID');
   }
 
   const database = await connectToDatabase();
   const mongoDatabase = database.connection.db;
-  if (!mongoDatabase) throw new Error('MongoDB connection is unavailable');
+  if (!mongoDatabase) {
+    throw new ReleaseCommandFailure('DATABASE_NOT_CONNECTED');
+  }
 
   const collectionExists = await mongoDatabase
     .listCollections({ name: PAIRS_COLLECTION }, { nameOnly: true })
     .hasNext();
   if (!collectionExists && !applyAdditiveIndexes) {
-    console.log('pairs dry run complete; collection does not exist');
+    writeReleaseCommandEvidence({
+      counts: {
+        collectionExists: 0,
+        applyRequested: 0,
+        dropLegacyRequested: Number(dropLegacyUnique),
+      },
+      reasonCounts: { COLLECTION_MISSING: 1, DRY_RUN_COMPLETE: 1 },
+      indexNames: [],
+    });
     return;
   }
   if (!collectionExists) {
@@ -59,37 +75,53 @@ const run = async (): Promise<void> => {
       sameKey(namedIndex.key as IndexKey, LEGACY_UNIQUE_KEY)
   );
 
-  console.log(
-    `pairs preflight: legacyUnique=${legacyIndexes.length} contextLookup=${contextIndexes.length} apply=${applyAdditiveIndexes} dropLegacy=${dropLegacyUnique}`
-  );
+  const inspectedIndexNames = contextIndexes.some(
+    (index) => index.name === CONTEXT_LOOKUP_NAME
+  )
+    ? [CONTEXT_LOOKUP_NAME]
+    : [];
+  writeReleaseCommandEvidence({
+    counts: {
+      legacyUniqueIndexes: legacyIndexes.length,
+      contextLookupIndexes: contextIndexes.length,
+      applyRequested: Number(applyAdditiveIndexes),
+      dropLegacyRequested: Number(dropLegacyUnique),
+    },
+    reasonCounts: {},
+    indexNames: inspectedIndexNames,
+  });
 
   if (
     namedIndex &&
     !sameKey(namedIndex.key as IndexKey, CONTEXT_LOOKUP_KEY) &&
     !namedIndexIsDroppableLegacy
   ) {
-    throw new Error(
-      `${CONTEXT_LOOKUP_NAME} exists with an unexpected key; review it manually before migration`
-    );
+    throw new ReleaseCommandFailure('INDEX_SHAPE_BLOCKED');
   }
   if (contextIndexes.some((index) => index.unique === true)) {
-    throw new Error('Pair-context lookup index exists but is unique');
+    throw new ReleaseCommandFailure('INDEX_SHAPE_BLOCKED');
   }
 
   if (!applyAdditiveIndexes) {
-    const outcome =
-      legacyIndexes.length > 0
-        ? 'legacy unique index detected; apply remains blocked until explicit drop review'
-        : 'no legacy unique index detected';
-    console.log(`pairs dry run complete; ${outcome}`);
+    writeReleaseCommandEvidence({
+      counts: {
+        legacyUniqueIndexes: legacyIndexes.length,
+        contextLookupIndexes: contextIndexes.length,
+      },
+      reasonCounts: {
+        DRY_RUN_COMPLETE: 1,
+        ...(legacyIndexes.length > 0
+          ? { LEGACY_INDEX_REVIEW_REQUIRED: 1 }
+          : {}),
+      },
+      indexNames: inspectedIndexNames,
+    });
     return;
   }
 
   if (namedIndexIsDroppableLegacy) {
     if (!dropLegacyUnique || !namedIndex?.name) {
-      throw new Error(
-        `${CONTEXT_LOOKUP_NAME} is occupied by the legacy unique key; explicit legacy drop is required`
-      );
+      throw new ReleaseCommandFailure('LEGACY_INDEX_REVIEW_REQUIRED');
     }
     await collection.dropIndex(namedIndex.name);
     indexes = await collection.indexes();
@@ -109,20 +141,13 @@ const run = async (): Promise<void> => {
     (index) =>
       index.unique === true && sameKey(index.key as IndexKey, LEGACY_UNIQUE_KEY)
   );
-  const legacyUniqueWasPresent =
-    legacyIndexes.length > 0 || legacyIndexesAfterCreate.length > 0;
-
   if (dropLegacyUnique) {
     for (const legacyIndex of legacyIndexesAfterCreate) {
       if (!legacyIndex.name) {
-        throw new Error('Legacy Pair key unique index has no droppable name');
+        throw new ReleaseCommandFailure('INDEX_SHAPE_BLOCKED');
       }
       await collection.dropIndex(legacyIndex.name);
     }
-  } else if (legacyUniqueWasPresent) {
-    console.log(
-      'pairs legacy unique index retained; use --drop-legacy-unique only after rollback review'
-    );
   }
 
   const finalIndexes = await collection.indexes();
@@ -138,26 +163,32 @@ const run = async (): Promise<void> => {
   );
 
   if (!finalContextIndex) {
-    throw new Error('Named non-unique pair-context lookup index was not created');
+    throw new ReleaseCommandFailure('INDEX_APPLY_INCOMPLETE');
   }
   if (dropLegacyUnique && finalLegacyIndexes.length > 0) {
-    throw new Error('Legacy Pair key unique index removal did not complete');
+    throw new ReleaseCommandFailure('INDEX_APPLY_INCOMPLETE');
   }
 
-  const outcome =
-    finalLegacyIndexes.length > 0
-      ? 'legacy unique index retained; reconnect release preflight remains blocked'
-      : legacyUniqueWasPresent
-        ? 'legacy unique index removed; reconnect index is ready'
-        : 'no legacy unique index was present; reconnect index is ready';
-  console.log(`pairs pair-context index staging complete; ${outcome}`);
+  const finalIndexNames = finalContextIndex ? [CONTEXT_LOOKUP_NAME] : [];
+  writeReleaseCommandEvidence({
+    counts: {
+      legacyUniqueIndexesBefore: legacyIndexes.length,
+      legacyUniqueIndexesAfter: finalLegacyIndexes.length,
+      contextLookupIndexesAfter: Number(Boolean(finalContextIndex)),
+    },
+    reasonCounts:
+      finalLegacyIndexes.length > 0
+        ? { LEGACY_INDEX_REVIEW_REQUIRED: 1 }
+        : { INDEXES_READY: 1 },
+    indexNames: finalIndexNames,
+  });
 };
 
 void run()
-  .catch((error: Error) => {
-    console.error(error.message);
-    process.exitCode = 1;
-  })
   .finally(async () => {
     await mongoose.disconnect();
+  })
+  .catch((error: Error) => {
+    writeReleaseCommandFailure(error);
+    process.exitCode = 1;
   });

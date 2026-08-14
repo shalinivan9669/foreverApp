@@ -2,7 +2,7 @@
 
 ## Что это
 
-ForeverApp — Discord Embedded App для двух совершеннолетних людей, уже состоящих в отношениях. Публичное ядро бесплатно: оба участника проходят отдельный weekly check-in, получают privacy-safe Pair Summary, выбирают одно совместное действие, отправляют раздельный feedback и начинают следующий цикл без entitlement или оплаты.
+ForeverApp — Discord Embedded App для совершеннолетних людей, которые ищут отношения или уже состоят в них. Публичное ядро бесплатно: Factor Matching помогает безопасно найти и взаимно подтвердить связь, а сформированная Pair проходит отдельные weekly check-in, получает privacy-safe Pair Summary, выбирает одно совместное действие, отправляет раздельный feedback и начинает следующий цикл без entitlement или оплаты.
 
 Вычислительное ядро работает в режиме `NEW_ONLY` на versioned semantic Factor Engine:
 
@@ -11,6 +11,19 @@ definitions → evidence → immutable snapshots → pair evaluations → recomm
 ```
 
 Шесть legacy-осей, numeric compatibility, Pair Passport и paywall не участвуют в основном runtime. Сохранённая billing-инфраструктура изолирована как необязательный будущий контур и не определяет доступ к core flow.
+
+## Factor Matching
+
+Matching использует отдельный от Pair и owner profile агрегат `MatchingProfile`. Только явно разрешённые `MatchingUseGrant` текущие Factor snapshots и отдельный `PartnerPreferenceProfile` участвуют в подборе:
+
+```text
+Factor snapshots + use grants + partner preferences
+→ coarse candidate discovery → bounded feed session
+→ expiring candidate presentation grant → qualitative fit
+→ Like → MatchingConnection → two-party confirmation → Pair
+```
+
+Пользовательский DTO показывает только `PROMISING`, `WORKABLE` или `LOW_INFORMATION`, качественную confidence-band и короткие объяснения. Numeric rank/fit, raw Factor values, чужие preferences, evidence и внутренние hard-constraint reasons не раскрываются. Feed/card/Like всегда привязаны к session actor и короткоживущему candidate grant; Pair создаётся только после подтверждения обоими участниками. Matching относится к бесплатному core и не проверяет entitlement.
 
 ## Стек
 
@@ -58,6 +71,8 @@ Startup валидирует контракт. Не включайте `x-forwar
 | `npm run check:types` | TypeScript no-emit check |
 | `npm run check:self` | Быстрые database-free selfchecks, включая Factor/legacy-cutover/privacy contracts |
 | `npm run check:agents` | Архитектурные и repository diagnostics |
+| `npm run selfcheck:matching-social` | Database-free lifecycle/authorization checks для Like, connection, block и Pair confirmation |
+| `npm run verify:matching:code` | Matching types, boundaries, Factor policy, social/API/UI/disclosure/migration/bootstrap checks |
 | `npm run integration:factor-engine-runtime` | Persistence/replay/concurrency Factor Engine на `_test` DB |
 | `npm run integration:factor-engine-cutover` | NEW_ONLY migration/cutover scenarios |
 | `npm run integration:onboarding-factor-engine` | Onboarding → Factor evidence/snapshots |
@@ -67,6 +82,8 @@ Startup валидирует контракт. Не включайте `x-forwar
 | `npm run integration:privacy-deletion-execution` | Подтверждённое удаление и session revocation |
 | `npm run integration:privacy-factor-export` | Owner export и Factor disclosure boundary |
 | `npm run integration:two-user-mvp` | Три полных бесплатных цикла двух пользователей |
+| `npm run integration:matching-atlas` | Aggregated matching social/race/security/Pair-transition suite на guarded `_test` DB |
+| `npm run verify:matching:release` | Matching preflight, migration verify, Atlas integrations и load smoke на guarded `_test` DB |
 | `npm run release:load-smoke` | Guarded synthetic load/query-plan smoke на `_test` DB |
 | `npm run release:preflight` | Read-only release/index/data invariants |
 | `npm run release:migrate-factor-engine` | Dry-run Factor NEW_ONLY migration |

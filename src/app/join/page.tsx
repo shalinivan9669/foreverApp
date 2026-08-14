@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { isApiClientError } from '@/client/api/errors';
 import { mvpOnboardingApi } from '@/client/api/mvpOnboarding.api';
 import { pairInvitesApi } from '@/client/api/pairInvites.api';
-import { usersApi } from '@/client/api/users.api';
+import {
+  bootstrapDiscordSession,
+  discordBootstrapMessage,
+} from '@/client/discord/bootstrap';
 import BackBar from '@/components/ui/BackBar';
 import LoadingView from '@/components/ui/LoadingView';
 
@@ -56,25 +58,7 @@ const resolveJoinPhase = async (
 };
 
 const authenticateWithDiscord = async (): Promise<void> => {
-  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-  const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
-  if (!clientId || !redirectUri) {
-    throw new Error('Discord authentication is not configured');
-  }
-
-  const sdk = new DiscordSDK(clientId);
-  await sdk.ready();
-  const { code } = await sdk.commands.authorize({
-    client_id: clientId,
-    response_type: 'code',
-    scope: ['identify'],
-    prompt: 'none',
-  });
-  const tokenData = await usersApi.exchangeDiscordCode({
-    code,
-    redirect_uri: redirectUri,
-  });
-  await sdk.commands.authenticate({ access_token: tokenData.access_token });
+  await bootstrapDiscordSession();
 };
 
 export default function JoinPairPage() {
@@ -154,9 +138,7 @@ export default function JoinPairPage() {
       if (shouldHideAsUnavailable(error)) {
         setPhase('unavailable');
       } else {
-        setActionError(
-          'Не удалось войти через Discord. Откройте ссылку внутри Discord и попробуйте ещё раз.'
-        );
+        setActionError(discordBootstrapMessage(caughtError));
       }
     } finally {
       setAccepting(false);
@@ -189,7 +171,7 @@ export default function JoinPairPage() {
       } else if (shouldHideAsUnavailable(error)) {
         setPhase('unavailable');
       } else if (attemptedDiscordAuth || isAuthRequired(error)) {
-        setActionError('Не удалось войти через Discord. Откройте ссылку внутри Discord и попробуйте ещё раз.');
+        setActionError(discordBootstrapMessage(caughtError));
       } else {
         setActionError('Не удалось присоединиться. Проверьте соединение и попробуйте ещё раз.');
       }

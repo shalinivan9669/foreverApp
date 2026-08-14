@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import MatchingProfilePage from "@/features/matching/MatchingProfilePage";
 
-export default function LegacyMatchCardRedirect() {
-  redirect('/invite');
+export default function MatchCardPage() {
+  return <MatchingProfilePage />;
 }

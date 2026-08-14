@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import MatchingInboxPage from "@/features/matching/MatchingInboxPage";
 
-export default function LegacyMatchInboxRedirect() {
-  redirect('/main-menu');
+export default function MatchInboxPage() {
+  return <MatchingInboxPage />;
 }

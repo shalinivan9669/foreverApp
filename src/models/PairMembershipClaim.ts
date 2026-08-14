@@ -3,7 +3,10 @@ import mongoose, { Schema, Types } from 'mongoose';
 export interface PairMembershipClaimType {
   userId: string;
   pairId: Types.ObjectId;
-  inviteId: Types.ObjectId;
+  /** Retained for backward compatibility with pre-matching invite claims. */
+  inviteId?: Types.ObjectId;
+  source?: 'PAIR_INVITE' | 'MATCHING_CONNECTION';
+  sourceId?: string;
   pairKey: string;
   createdAt: Date;
   updatedAt: Date;
@@ -13,7 +16,12 @@ const pairMembershipClaimSchema = new Schema<PairMembershipClaimType>(
   {
     userId: { type: String, required: true, trim: true },
     pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },
-    inviteId: { type: Schema.Types.ObjectId, ref: 'PairInvite', required: true },
+    inviteId: { type: Schema.Types.ObjectId, ref: 'PairInvite' },
+    source: {
+      type: String,
+      enum: ['PAIR_INVITE', 'MATCHING_CONNECTION'],
+    },
+    sourceId: { type: String, trim: true },
     pairKey: { type: String, required: true },
   },
   { collection: 'pair_membership_claims', timestamps: true }
@@ -25,6 +33,16 @@ pairMembershipClaimSchema.index(
 );
 pairMembershipClaimSchema.index({ pairId: 1 });
 pairMembershipClaimSchema.index({ inviteId: 1 });
+pairMembershipClaimSchema.index(
+  { source: 1, sourceId: 1, userId: 1 },
+  {
+    name: 'pair_membership_claim_source',
+    partialFilterExpression: {
+      source: { $type: 'string' },
+      sourceId: { $type: 'string' },
+    },
+  }
+);
 
 export const PairMembershipClaim =
   (mongoose.models.PairMembershipClaim as mongoose.Model<PairMembershipClaimType>) ||

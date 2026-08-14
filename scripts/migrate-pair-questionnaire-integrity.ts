@@ -1,15 +1,20 @@
 import mongoose from 'mongoose';
 import {
   applyPairQuestionnaireIntegrityIndexes,
+  formatPairQuestionnaireIntegrityFailure,
   inspectPairQuestionnaireIntegrity,
+  PairQuestionnaireIntegrityFailure,
 } from './lib/pair-questionnaire-integrity';
 
 const mongodbUri = process.env.MONGODB_URI?.trim();
-if (!mongodbUri) throw new Error('MONGODB_URI is required');
 
 const applyIndexes = process.argv.includes('--apply-additive-indexes');
 
 const main = async (): Promise<void> => {
+  if (!mongodbUri) {
+    throw new PairQuestionnaireIntegrityFailure('MONGODB_URI_REQUIRED');
+  }
+
   await mongoose.connect(mongodbUri, {
     autoIndex: false,
     maxPoolSize: 2,
@@ -24,15 +29,17 @@ const main = async (): Promise<void> => {
 
     if (
       report.duplicateActiveSessionGroups > 0 ||
-      report.duplicateAnswerGroups > 0 ||
-      report.conflictingCanonicalIndexes.length > 0
+      report.duplicateAnswerGroups > 0
     ) {
-      throw new Error('Questionnaire integrity preflight found blocking conflicts');
+      throw new PairQuestionnaireIntegrityFailure('DUPLICATE_SOURCE_ROWS');
+    }
+    if (report.conflictingCanonicalIndexes.length > 0) {
+      throw new PairQuestionnaireIntegrityFailure(
+        'CONFLICTING_CANONICAL_INDEX'
+      );
     }
     if (!applyIndexes && report.missingCanonicalIndexes.length > 0) {
-      throw new Error(
-        'Questionnaire integrity indexes are missing; rerun after review with --apply-additive-indexes'
-      );
+      throw new PairQuestionnaireIntegrityFailure('MISSING_CANONICAL_INDEX');
     }
   } finally {
     await mongoose.disconnect();
@@ -40,6 +47,6 @@ const main = async (): Promise<void> => {
 };
 
 void main().catch((error: Error) => {
-  console.error(error.message);
+  console.error(JSON.stringify(formatPairQuestionnaireIntegrityFailure(error)));
   process.exitCode = 1;
 });

@@ -45,7 +45,7 @@ export const MVP_DOMAINS: readonly DomainDefinition[] = [
   },
 ];
 
-export const MVP_DIMENSIONS: readonly DimensionDefinition[] = [
+export const MVP_DIMENSIONS_V6: readonly DimensionDefinition[] = [
   {
     id: 'dimension.communicationConflict',
     key: 'communication.conflict',
@@ -126,7 +126,7 @@ const weeklyStateFreshness = {
   expiresAfterDays: 28,
 } as const;
 
-export const MVP_FACTORS: readonly FactorDefinition[] = [
+export const MVP_FACTORS_V6: readonly FactorDefinition[] = [
   {
     id: 'factor.communicationConflictRepairSkill',
     key: 'communication.conflict.repairSkill',
@@ -483,7 +483,7 @@ export const MVP_FACTORS: readonly FactorDefinition[] = [
   },
 ];
 
-export const MVP_MEASUREMENTS: readonly MeasurementDefinition[] = [
+export const MVP_MEASUREMENTS_V6: readonly MeasurementDefinition[] = [
   {
     id: 'measurement.onboardingRepairSkill',
     key: 'onboarding.repairSkill.selfReport',
@@ -636,7 +636,7 @@ export const MVP_MEASUREMENTS: readonly MeasurementDefinition[] = [
   },
 ];
 
-export const MVP_INSTRUMENTS: readonly InstrumentDefinition[] = [
+export const MVP_INSTRUMENTS_V6: readonly InstrumentDefinition[] = [
   {
     id: 'instrument.onboardingMvp',
     key: 'onboarding.mvp',
@@ -755,12 +755,457 @@ export const MVP_ACTIONS: readonly ActionDefinition[] = [
   },
 ];
 
-export const MVP_FACTOR_REGISTRY_INPUT: UnhashedFactorRegistryRelease = {
+export const MVP_FACTOR_REGISTRY_V6_INPUT: UnhashedFactorRegistryRelease = {
   registryKey: 'foreverApp.factorEngine.mvp',
   registryVersion: 6,
   algorithmVersion: 4,
   snapshotVersion: 3,
   displayVersion: 3,
+  status: 'PUBLISHED',
+  domains: MVP_DOMAINS,
+  dimensions: MVP_DIMENSIONS_V6,
+  factors: MVP_FACTORS_V6,
+  measurements: MVP_MEASUREMENTS_V6,
+  instruments: MVP_INSTRUMENTS_V6,
+  actions: MVP_ACTIONS,
+};
+
+export const MVP_FACTOR_REGISTRY_V6 = createFactorRegistryRelease(
+  MVP_FACTOR_REGISTRY_V6_INPUT
+);
+
+const MATCHING_POLICY_INTERNAL = {
+  engineUse: 'INTERNAL_ONLY',
+  explanation: 'COARSE_ALLOWLISTED',
+} as const;
+
+const relationshipIntentFactor: FactorDefinition = {
+  id: 'factor.lifePlansRelationshipIntent',
+  key: 'lifePlans.relationship.intent',
+  domainKey: 'lifePlans',
+  dimensionKey: 'lifePlans.relationship',
+  title: 'Намерение строить отношения',
+  description: 'Текущее явно выбранное намерение знакомиться и развивать отношения.',
+  type: 'EXPECTATION',
+  valueSchema: {
+    type: 'ORDINAL',
+    levels: [
+      { value: 'GETTING_TO_KNOW', rank: 0, label: 'знакомиться без спешки' },
+      { value: 'OPEN_TO_RELATIONSHIP', rank: 1, label: 'открыт(а) отношениям' },
+      { value: 'LOOKING_FOR_LONG_TERM', rank: 2, label: 'ищу долгосрочные отношения' },
+    ],
+  },
+  semantics: {
+    kind: 'ORDERED',
+    lowPole: { key: 'exploration', label: 'знакомство без спешки' },
+    highPole: { key: 'long_term', label: 'долгосрочное намерение' },
+    labels: [
+      { key: 'GETTING_TO_KNOW', label: 'знакомиться без спешки' },
+      { key: 'OPEN_TO_RELATIONSHIP', label: 'открыт(а) отношениям' },
+      { key: 'LOOKING_FOR_LONG_TERM', label: 'ищу долгосрочные отношения' },
+    ],
+    interpretation: 'AVAILABILITY',
+  },
+  aggregationStrategy: { type: 'LATEST', minimumEvidence: 1 },
+  developmentPolicy: 'REFLECTION_ONLY',
+  pairStrategies: [
+    {
+      strategyVersion: 2,
+      directionality: 'SYMMETRIC',
+      context: 'DATING',
+      config: { type: 'SIMILARITY', maximumDistance: 2 },
+      minimumConfidence: 0.7,
+      actionability: 'AWARENESS',
+    },
+  ],
+  matchingPolicy: {
+    enabled: true,
+    effects: ['ELIGIBILITY', 'RANKING'],
+    strategy: { context: 'DATING', type: 'SIMILARITY', strategyVersion: 2 },
+    requiredData: 'BOTH_REQUIRED',
+    defaultImportance: 'HIGH',
+    rankingWeight: 0.9,
+    canBeHardConstraint: false,
+    privacy: MATCHING_POLICY_INTERNAL,
+  },
+  privacyClass: 'MATCHING_ONLY',
+  contexts: ['SELF', 'DATING'],
+  confidenceRequirements: {
+    minimumEvidenceReliability: 0.7,
+    minimumSnapshotConfidence: 0.7,
+    minimumPairConfidence: 0.7,
+  },
+  freshnessPolicy: { type: 'NON_EXPIRING' },
+  displayKeys: displayKeysFor('lifePlans.relationship.intent'),
+  definitionVersion: 1,
+};
+
+const socialActivityPreferenceFactor: FactorDefinition = {
+  id: 'factor.sharedLifeLifestyleSocialActivityPreference',
+  key: 'sharedLife.lifestyle.socialActivityPreference',
+  domainKey: 'sharedLife',
+  dimensionKey: 'sharedLife.lifestyle',
+  title: 'Ритм социальной активности',
+  description: 'Комфортный баланс между спокойным и насыщенным социальным ритмом.',
+  type: 'PREFERENCE_AXIS',
+  valueSchema: { type: 'SCALAR', min: -1, max: 1 },
+  semantics: {
+    kind: 'BIPOLAR',
+    lowPole: { key: 'quiet_rhythm', label: 'более спокойный ритм' },
+    midpointLabel: 'гибкий социальный ритм',
+    highPole: { key: 'active_rhythm', label: 'более активный ритм' },
+    interpretation: 'NON_EVALUATIVE',
+  },
+  aggregationStrategy: { type: 'LATEST', minimumEvidence: 1 },
+  developmentPolicy: 'NO_IMPROVEMENT',
+  pairStrategies: [
+    {
+      strategyVersion: 2,
+      directionality: 'SYMMETRIC',
+      context: 'DATING',
+      config: { type: 'BOUNDED_GAP', comfortableGap: 0.5, maximumGap: 1.5 },
+      minimumConfidence: 0.45,
+      actionability: 'NEGOTIATION',
+    },
+  ],
+  matchingPolicy: {
+    enabled: true,
+    effects: ['RANKING', 'EXPLANATION', 'POST_MATCH'],
+    strategy: { context: 'DATING', type: 'BOUNDED_GAP', strategyVersion: 2 },
+    requiredData: 'OPTIONAL',
+    defaultImportance: 'MEDIUM',
+    rankingWeight: 0.6,
+    canBeHardConstraint: false,
+    privacy: MATCHING_POLICY_INTERNAL,
+  },
+  privacyClass: 'NORMAL',
+  contexts: ['SELF', 'DATING'],
+  confidenceRequirements: {
+    minimumEvidenceReliability: 0.45,
+    minimumSnapshotConfidence: 0.45,
+    minimumPairConfidence: 0.45,
+  },
+  freshnessPolicy: { type: 'NON_EXPIRING' },
+  displayKeys: displayKeysFor('sharedLife.lifestyle.socialActivityPreference'),
+  definitionVersion: 1,
+};
+
+const cleaningRolePreferenceFactor: FactorDefinition = {
+  id: 'factor.sharedLifeRolesCleaningPreference',
+  key: 'sharedLife.roles.cleaningPreference',
+  domainKey: 'sharedLife',
+  dimensionKey: 'sharedLife.roles',
+  title: 'Предпочтение роли в уборке',
+  description: 'Личная готовность регулярно брать на себя задачи уборки без оценки человека.',
+  type: 'ROLE_PREFERENCE',
+  valueSchema: { type: 'SCALAR', min: 0, max: 1 },
+  semantics: {
+    kind: 'ORDERED',
+    lowPole: { key: 'avoid_cleaning', label: 'предпочитаю не брать эту роль' },
+    highPole: { key: 'ready_for_cleaning', label: 'готов(а) брать эту роль' },
+    labels: [],
+    interpretation: 'AVAILABILITY',
+  },
+  aggregationStrategy: { type: 'LATEST', minimumEvidence: 1 },
+  developmentPolicy: 'NEGOTIABLE',
+  pairStrategies: [
+    {
+      strategyVersion: 2,
+      directionality: 'SYMMETRIC',
+      context: 'DATING',
+      config: {
+        type: 'BOUNDED_COMPLEMENT',
+        minimumUsefulGap: 0.25,
+        idealGap: 0.75,
+        maximumGap: 1,
+      },
+      minimumConfidence: 0.45,
+      actionability: 'ROLE_REDISTRIBUTION',
+    },
+  ],
+  matchingPolicy: {
+    enabled: true,
+    effects: ['RANKING', 'EXPLANATION', 'POST_MATCH'],
+    strategy: {
+      context: 'DATING',
+      type: 'BOUNDED_COMPLEMENT',
+      strategyVersion: 2,
+    },
+    requiredData: 'OPTIONAL',
+    defaultImportance: 'MEDIUM',
+    rankingWeight: 0.55,
+    canBeHardConstraint: false,
+    privacy: MATCHING_POLICY_INTERNAL,
+  },
+  privacyClass: 'NORMAL',
+  contexts: ['SELF', 'DATING', 'COHABITATION'],
+  confidenceRequirements: {
+    minimumEvidenceReliability: 0.45,
+    minimumSnapshotConfidence: 0.45,
+    minimumPairConfidence: 0.45,
+  },
+  freshnessPolicy: { type: 'NON_EXPIRING' },
+  displayKeys: displayKeysFor('sharedLife.roles.cleaningPreference'),
+  definitionVersion: 1,
+};
+
+const relationshipPriorityFactor: FactorDefinition = {
+  id: 'factor.sharedLifeValuesRelationshipPriority',
+  key: 'sharedLife.values.relationshipPriority',
+  domainKey: 'sharedLife',
+  dimensionKey: 'sharedLife.values',
+  title: 'Место отношений среди приоритетов',
+  description: 'Текущая готовность выделять отношениям время и внимание наряду с другими сферами жизни.',
+  type: 'VALUE',
+  valueSchema: { type: 'SCALAR', min: 0, max: 1 },
+  semantics: {
+    kind: 'ORDERED',
+    lowPole: { key: 'limited_priority', label: 'сейчас мало места' },
+    highPole: { key: 'high_priority', label: 'готов(а) выделять место' },
+    labels: [],
+    interpretation: 'AVAILABILITY',
+  },
+  aggregationStrategy: { type: 'LATEST', minimumEvidence: 1 },
+  developmentPolicy: 'REFLECTION_ONLY',
+  pairStrategies: [
+    {
+      strategyVersion: 2,
+      directionality: 'SYMMETRIC',
+      context: 'DATING',
+      config: { type: 'SIMILARITY', maximumDistance: 0.8 },
+      minimumConfidence: 0.5,
+      actionability: 'AWARENESS',
+    },
+  ],
+  matchingPolicy: {
+    enabled: true,
+    effects: ['RANKING', 'EXPLANATION'],
+    strategy: { context: 'DATING', type: 'SIMILARITY', strategyVersion: 2 },
+    requiredData: 'OPTIONAL',
+    defaultImportance: 'HIGH',
+    rankingWeight: 0.7,
+    canBeHardConstraint: false,
+    privacy: MATCHING_POLICY_INTERNAL,
+  },
+  privacyClass: 'NORMAL',
+  contexts: ['SELF', 'DATING'],
+  confidenceRequirements: {
+    minimumEvidenceReliability: 0.5,
+    minimumSnapshotConfidence: 0.5,
+    minimumPairConfidence: 0.5,
+  },
+  freshnessPolicy: { type: 'NON_EXPIRING' },
+  displayKeys: displayKeysFor('sharedLife.values.relationshipPriority'),
+  definitionVersion: 1,
+};
+
+export const MVP_DIMENSIONS: readonly DimensionDefinition[] = [
+  ...MVP_DIMENSIONS_V6,
+  {
+    id: 'dimension.sharedLifeLifestyle',
+    key: 'sharedLife.lifestyle',
+    domainKey: 'sharedLife',
+    title: 'Ритм жизни',
+    description: 'Предпочитаемый ритм повседневной и социальной жизни.',
+    order: 30,
+    version: 1,
+  },
+  {
+    id: 'dimension.sharedLifeValues',
+    key: 'sharedLife.values',
+    domainKey: 'sharedLife',
+    title: 'Приоритеты отношений',
+    description: 'Явные, недиагностические приоритеты времени и внимания.',
+    order: 40,
+    version: 1,
+  },
+  {
+    id: 'dimension.lifePlansRelationship',
+    key: 'lifePlans.relationship',
+    domainKey: 'lifePlans',
+    title: 'Намерение отношений',
+    description: 'Текущее явно выбранное намерение знакомства и отношений.',
+    order: 20,
+    version: 1,
+  },
+];
+
+export const MVP_FACTORS: readonly FactorDefinition[] = [
+  ...MVP_FACTORS_V6.map((factor): FactorDefinition => {
+    if (factor.key === 'communication.conflict.repairSkill') {
+      return {
+        ...factor,
+        pairStrategies: [
+          ...factor.pairStrategies,
+          {
+            strategyVersion: 2,
+            directionality: 'SYMMETRIC',
+            context: 'DATING',
+            config: { type: 'MINIMUM_BOTH', minimum: 0.4 },
+            minimumConfidence: 0.35,
+            actionability: 'SKILL_BUILDING',
+          },
+        ],
+        matchingPolicy: {
+          enabled: true,
+          effects: ['RANKING', 'EXPLANATION', 'POST_MATCH'],
+          strategy: { context: 'DATING', type: 'MINIMUM_BOTH', strategyVersion: 2 },
+          requiredData: 'OPTIONAL',
+          defaultImportance: 'MEDIUM',
+          rankingWeight: 0.65,
+          canBeHardConstraint: false,
+          privacy: MATCHING_POLICY_INTERNAL,
+        },
+        definitionVersion: 3,
+      };
+    }
+    if (factor.key === 'sharedLife.planning.structurePreference') {
+      return {
+        ...factor,
+        pairStrategies: [
+          ...factor.pairStrategies,
+          {
+            strategyVersion: 2,
+            directionality: 'SYMMETRIC',
+            context: 'DATING',
+            config: { type: 'BOUNDED_GAP', comfortableGap: 0.4, maximumGap: 1.2 },
+            minimumConfidence: 0.4,
+            actionability: 'NEGOTIATION',
+          },
+        ],
+        matchingPolicy: {
+          enabled: true,
+          effects: ['RANKING', 'EXPLANATION', 'POST_MATCH'],
+          strategy: { context: 'DATING', type: 'BOUNDED_GAP', strategyVersion: 2 },
+          requiredData: 'OPTIONAL',
+          defaultImportance: 'HIGH',
+          rankingWeight: 0.75,
+          canBeHardConstraint: false,
+          privacy: MATCHING_POLICY_INTERNAL,
+        },
+        definitionVersion: 3,
+      };
+    }
+    if (factor.key === 'lifePlans.family.childrenIntent') {
+      return {
+        ...factor,
+        matchingPolicy: {
+          enabled: true,
+          effects: ['ELIGIBILITY', 'RANKING'],
+          strategy: { context: 'DATING', type: 'HARD_CONSTRAINT', strategyVersion: 2 },
+          requiredData: 'BOTH_REQUIRED',
+          defaultImportance: 'CRITICAL',
+          rankingWeight: 1,
+          canBeHardConstraint: true,
+          privacy: { engineUse: 'INTERNAL_ONLY', explanation: 'NONE' },
+        },
+        definitionVersion: 3,
+      };
+    }
+    return factor;
+  }),
+  relationshipIntentFactor,
+  socialActivityPreferenceFactor,
+  cleaningRolePreferenceFactor,
+  relationshipPriorityFactor,
+];
+
+const MATCHING_MEASUREMENTS: readonly MeasurementDefinition[] = [
+  {
+    id: 'measurement.matchingRepairSkill',
+    key: 'matching.repairSkill.selfReport',
+    factorKey: 'communication.conflict.repairSkill',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: masterySchema,
+    normalization: { type: 'IDENTITY' },
+    reliability: 0.72,
+    measurementVersion: 1,
+  },
+  {
+    id: 'measurement.matchingStructurePreference',
+    key: 'matching.structurePreference.direct',
+    factorKey: 'sharedLife.planning.structurePreference',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: { type: 'SCALAR', min: -1, max: 1 },
+    normalization: { type: 'IDENTITY' },
+    reliability: 0.9,
+    measurementVersion: 1,
+  },
+  {
+    id: 'measurement.matchingChildrenIntent',
+    key: 'matching.childrenIntent.direct',
+    factorKey: 'lifePlans.family.childrenIntent',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: { type: 'CONSTRAINT', allowedValues: ['YES', 'NO', 'UNSURE'] },
+    normalization: { type: 'IDENTITY' },
+    reliability: 1,
+    measurementVersion: 1,
+  },
+  {
+    id: 'measurement.matchingRelationshipIntent',
+    key: 'matching.relationshipIntent.direct',
+    factorKey: 'lifePlans.relationship.intent',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: relationshipIntentFactor.valueSchema,
+    normalization: { type: 'IDENTITY' },
+    reliability: 0.95,
+    measurementVersion: 1,
+  },
+  {
+    id: 'measurement.matchingSocialActivityPreference',
+    key: 'matching.socialActivityPreference.direct',
+    factorKey: 'sharedLife.lifestyle.socialActivityPreference',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: { type: 'SCALAR', min: -1, max: 1 },
+    normalization: { type: 'IDENTITY' },
+    reliability: 0.9,
+    measurementVersion: 1,
+  },
+  {
+    id: 'measurement.matchingCleaningPreference',
+    key: 'matching.cleaningPreference.direct',
+    factorKey: 'sharedLife.roles.cleaningPreference',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: { type: 'SCALAR', min: 0, max: 1 },
+    normalization: { type: 'IDENTITY' },
+    reliability: 0.9,
+    measurementVersion: 1,
+  },
+  {
+    id: 'measurement.matchingRelationshipPriority',
+    key: 'matching.relationshipPriority.direct',
+    factorKey: 'sharedLife.values.relationshipPriority',
+    sourceType: 'EXPLICIT_PROFILE',
+    valueSchema: { type: 'SCALAR', min: 0, max: 1 },
+    normalization: { type: 'IDENTITY' },
+    reliability: 0.9,
+    measurementVersion: 1,
+  },
+];
+
+export const MVP_MEASUREMENTS: readonly MeasurementDefinition[] = [
+  ...MVP_MEASUREMENTS_V6,
+  ...MATCHING_MEASUREMENTS,
+];
+
+export const MVP_INSTRUMENTS: readonly InstrumentDefinition[] = [
+  ...MVP_INSTRUMENTS_V6,
+  {
+    id: 'instrument.matchingProfileMvp',
+    key: 'matching.profile.mvp',
+    title: 'Профиль для знакомств',
+    context: 'DATING',
+    measurementKeys: MATCHING_MEASUREMENTS.map((measurement) => measurement.key),
+    instrumentVersion: 1,
+  },
+];
+
+export const MVP_FACTOR_REGISTRY_INPUT: UnhashedFactorRegistryRelease = {
+  registryKey: 'foreverApp.factorEngine.mvp',
+  registryVersion: 7,
+  algorithmVersion: 5,
+  snapshotVersion: 3,
+  displayVersion: 4,
   status: 'PUBLISHED',
   domains: MVP_DOMAINS,
   dimensions: MVP_DIMENSIONS,

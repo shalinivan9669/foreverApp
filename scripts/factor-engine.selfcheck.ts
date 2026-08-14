@@ -119,7 +119,12 @@ assert.equal(
 );
 assert.deepEqual(
   MVP_FACTOR_REGISTRY.instruments.map((item) => item.key).sort(),
-  ['activityReflection.mvp', 'onboarding.mvp', 'weekly.mvp']
+  [
+    'activityReflection.mvp',
+    'matching.profile.mvp',
+    'onboarding.mvp',
+    'weekly.mvp',
+  ]
 );
 const ordinalSchema = {
   type: 'ORDINAL',

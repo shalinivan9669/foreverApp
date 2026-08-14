@@ -292,6 +292,9 @@ const run = async () => {
   );
 
   const appPage = readProjectFile('src/app/page.tsx');
+  const discordBootstrap = readProjectFile(
+    'src/client/discord/bootstrap.ts',
+  );
   assert.equal(
     existsSync(new URL('../src/client/api/discord.api.ts', import.meta.url)),
     false,
@@ -313,9 +316,14 @@ const run = async () => {
     'client OAuth flow should not log raw errors that may contain token or request details',
   );
   assert.match(
-    appPage,
+    discordBootstrap,
     /Откройте приложение внутри Discord и повторите попытку/,
     'client OAuth failure should explain the embedded re-auth action in readable Russian',
+  );
+  assert.match(
+    appPage,
+    /setError\(discordBootstrapMessage\(caught\)\)/,
+    'client OAuth flow should render the centralized safe bootstrap error message',
   );
   assert.match(
     appPage,
@@ -808,7 +816,7 @@ const run = async () => {
     'package-lock should not include the removed next-auth dependency',
   );
 
-  for (const retiredMatchRoute of [
+  for (const activeMatchRoute of [
     'accept/route.ts',
     'card/route.ts',
     'card/[id]/route.ts',
@@ -822,10 +830,10 @@ const run = async () => {
   ]) {
     assert.equal(
       existsSync(
-        new URL(`../src/app/api/match/${retiredMatchRoute}`, import.meta.url),
+        new URL(`../src/app/api/match/${activeMatchRoute}`, import.meta.url),
       ),
-      false,
-      `retired invite-incompatible match route must be absent: ${retiredMatchRoute}`,
+      true,
+      `authenticated matching route must be present: ${activeMatchRoute}`,
     );
   }
 
@@ -902,6 +910,11 @@ const run = async () => {
       `${blockedAuditKey} should be removed by the audit metadata sanitizer`,
     );
   }
+  assert.match(
+    auditEmitter,
+    /input\.eventKey[\s\S]*EventLog\.findOneAndUpdate\([\s\S]*\$setOnInsert[\s\S]*upsert: true/,
+    'stable audit event identities must use an idempotent upsert for crash/retry delivery',
+  );
 
   assert.equal(
     existsSync(

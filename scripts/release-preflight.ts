@@ -17,6 +17,16 @@ import { Subscription } from '@/models/Subscription';
 import { BillingWebhookEvent } from '@/models/BillingWebhookEvent';
 import { PrivacyRequest } from '@/models/PrivacyRequest';
 import { Like } from '@/models/Like';
+import { CandidateDiscoveryProjection } from '@/models/CandidateDiscoveryProjection';
+import { CandidatePresentationGrant } from '@/models/CandidatePresentationGrant';
+import { MatchingBlock } from '@/models/MatchingBlock';
+import { MatchingConnection } from '@/models/MatchingConnection';
+import { MatchingEvaluationSnapshot } from '@/models/MatchingEvaluationSnapshot';
+import { MatchingFeedSession } from '@/models/MatchingFeedSession';
+import { MatchingProfile } from '@/models/MatchingProfile';
+import { MatchingSocialEffect } from '@/models/MatchingSocialEffect';
+import { MatchingUseGrant } from '@/models/MatchingUseGrant';
+import { PartnerPreferenceProfile } from '@/models/PartnerPreferenceProfile';
 import { ActivityTemplate } from '@/models/ActivityTemplate';
 import {
   Questionnaire,
@@ -40,6 +50,13 @@ import { PairFactorEvaluationSnapshot } from '@/models/PairFactorEvaluationSnaps
 import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
 import { SessionSubject } from '@/models/SessionSubject';
 import { runFactorEngineMigration } from './lib/factor-engine-migration';
+import {
+  type ReleaseCommandReasonCode,
+  ReleaseCommandFailure,
+  releaseReasonCounts,
+  writeReleaseCommandEvidence,
+  writeReleaseCommandFailure,
+} from './lib/release-command-output';
 
 type CountRow = { groups: number };
 type Finding = {
@@ -47,6 +64,55 @@ type Finding = {
   count: number;
   blocking: boolean;
 };
+
+const PREFLIGHT_FINDING_REASON_CODES: Readonly<
+  Record<string, ReleaseCommandReasonCode>
+> = {
+  'duplicate-active-membership': 'DUPLICATE_ACTIVE_MEMBERSHIP',
+  'malformed-pairs': 'MALFORMED_PAIRS',
+  'duplicate-active-invites': 'DUPLICATE_ACTIVE_INVITES',
+  'duplicate-membership-claims': 'DUPLICATE_MEMBERSHIP_CLAIMS',
+  'duplicate-pair-checkins': 'DUPLICATE_PAIR_CHECKINS',
+  'duplicate-weekly-cycles': 'DUPLICATE_WEEKLY_CYCLES',
+  'duplicate-pair-snapshots': 'DUPLICATE_PAIR_SNAPSHOTS',
+  'duplicate-like-creation-keys': 'DUPLICATE_LIKE_CREATION_KEYS',
+  'duplicate-offered-decisions': 'DUPLICATE_OFFERED_DECISIONS',
+  'duplicate-notification-dedupe': 'DUPLICATE_NOTIFICATION_DEDUPE',
+  'duplicate-billing-events': 'DUPLICATE_BILLING_EVENTS',
+  'duplicate-pair-provider-subscriptions':
+    'DUPLICATE_PAIR_PROVIDER_SUBSCRIPTIONS',
+  'duplicate-current-pair-provider-subscriptions':
+    'DUPLICATE_CURRENT_PAIR_PROVIDER_SUBSCRIPTIONS',
+  'ambiguous-legacy-pair-provider-subscriptions':
+    'AMBIGUOUS_LEGACY_PAIR_PROVIDER_SUBSCRIPTIONS',
+  'duplicate-pending-privacy-requests':
+    'DUPLICATE_PENDING_PRIVACY_REQUESTS',
+  'legacy-privacy-requests-v1': 'LEGACY_PRIVACY_REQUESTS_V1',
+  'weekly-string-pair-ids': 'WEEKLY_STRING_PAIR_IDS',
+  'pending-weekly-factor-replay': 'PENDING_WEEKLY_FACTOR_REPLAY',
+  'pending-onboarding-factor-replay': 'PENDING_ONBOARDING_FACTOR_REPLAY',
+  'stale-materialized-factor-markers':
+    'STALE_MATERIALIZED_FACTOR_MARKERS',
+  'canonical-factor-registry-missing-or-conflicting':
+    'CANONICAL_FACTOR_REGISTRY_MISSING_OR_CONFLICTING',
+  'legacy-activity-content-not-publishable':
+    'LEGACY_ACTIVITY_CONTENT_NOT_PUBLISHABLE',
+  'unpublished-activity-content': 'UNPUBLISHED_ACTIVITY_CONTENT',
+  'invalid-published-activity-content': 'INVALID_PUBLISHED_ACTIVITY_CONTENT',
+  'legacy-questionnaire-content-not-publishable':
+    'LEGACY_QUESTIONNAIRE_CONTENT_NOT_PUBLISHABLE',
+  'unpublished-questionnaire-content': 'UNPUBLISHED_QUESTIONNAIRE_CONTENT',
+  'invalid-published-questionnaire-content':
+    'INVALID_PUBLISHED_QUESTIONNAIRE_CONTENT',
+  'legacy-weekly-user-week-unique-index':
+    'LEGACY_WEEKLY_USER_WEEK_UNIQUE_INDEX',
+  'legacy-pair-key-unique-index': 'LEGACY_PAIR_KEY_UNIQUE_INDEX',
+};
+
+const findingReasonCode = (key: string): ReleaseCommandReasonCode =>
+  key.startsWith('duplicate-unique-index:')
+    ? 'DUPLICATE_UNIQUE_INDEX'
+    : (PREFLIGHT_FINDING_REASON_CODES[key] ?? 'UNCLASSIFIED_DATA_REASON');
 
 const LEGACY_WEEKLY_USER_INDEX = { userId: 1, weekKey: 1 };
 const LEGACY_PAIR_KEY_INDEX = { key: 1 };
@@ -64,14 +130,14 @@ const sameIndexKey = (actual: object, expected: object): boolean => {
 };
 
 const applyIndexes = process.argv.includes('--apply-additive-indexes');
-const mongodbUri = process.env.MONGODB_URI?.trim();
-if (!mongodbUri) {
-  throw new Error('MONGODB_URI is required');
-}
 
 const countGroups = (rows: CountRow[]): number => rows[0]?.groups ?? 0;
 
 const main = async (): Promise<void> => {
+const mongodbUri = process.env.MONGODB_URI?.trim();
+if (!mongodbUri) {
+  throw new ReleaseCommandFailure('MONGODB_URI_REQUIRED');
+}
 await mongoose.connect(mongodbUri, {
   autoIndex: false,
   maxPoolSize: 2,
@@ -450,6 +516,16 @@ try {
     RecommendationDecision,
     PairActivity,
     Like,
+    MatchingProfile,
+    PartnerPreferenceProfile,
+    MatchingUseGrant,
+    CandidateDiscoveryProjection,
+    CandidatePresentationGrant,
+    MatchingFeedSession,
+    MatchingEvaluationSnapshot,
+    MatchingConnection,
+    MatchingBlock,
+    MatchingSocialEffect,
     IdempotencyRecord,
     RateLimitBucket,
     EventLog,
@@ -478,6 +554,7 @@ try {
     SessionSubject,
   ];
 
+  const duplicateUniqueIndexNames: string[] = [];
   for (const model of models) {
     const uniqueIndexes = model.schema
       .indexes()
@@ -520,15 +597,19 @@ try {
                   field + '_' + String(direction)
               )
               .join('_');
+      const duplicateGroupCount = countGroups(duplicateRows);
       findings.push({
         key:
           'duplicate-unique-index:' +
           model.collection.collectionName +
           ':' +
           indexName,
-        count: countGroups(duplicateRows),
+        count: duplicateGroupCount,
         blocking: true,
       });
+      if (duplicateGroupCount > 0) {
+        duplicateUniqueIndexNames.push(indexName);
+      }
     }
   }
 
@@ -590,35 +671,92 @@ try {
     });
   }
 
-  const blockers = findings.filter((finding) => finding.blocking && finding.count > 0);
-  for (const finding of findings) {
-    if (finding.count > 0) {
-      console.log(`preflight ${finding.key}: ${finding.count}`);
-    }
-  }
+  const blockers = findings.filter(
+    (finding) => finding.blocking && finding.count > 0
+  );
+  const nonzeroFindings = findings.filter((finding) => finding.count > 0);
+  const blockingRows = blockers.reduce(
+    (total, finding) => total + finding.count,
+    0
+  );
+  const findingRows = nonzeroFindings.reduce(
+    (total, finding) => total + finding.count,
+    0
+  );
+  const missingIndexCount = indexDiffs.reduce(
+    (total, item) => total + item.missing,
+    0
+  );
+  const extraIndexCount = indexDiffs.reduce(
+    (total, item) => total + item.extra,
+    0
+  );
+  const inspectedIndexNames = [
+    ...duplicateUniqueIndexNames.filter((indexName) =>
+      [
+        'pair_contexts_by_member_key',
+        'userId_1_pairId_1_weekKey_1',
+        'pairId_1_weekKey_1',
+        'userId_1_weekKey_1',
+        'one_partner_signal_per_daily_checkin',
+        'expiresAt_1',
+        'privacy_request_one_confirmable_per_owner_v2',
+      ].includes(indexName)
+    ),
+    ...legacyWeeklyUniqueIndexes
+      .map((index) => index.name)
+      .filter(
+        (name): name is string => name === 'userId_1_weekKey_1'
+      ),
+    ...legacyPairUniqueIndexes
+      .map((index) => index.name)
+      .filter(
+        (name): name is string => name === 'pair_contexts_by_member_key'
+      ),
+  ];
+  const findingReasonCounts = nonzeroFindings.reduce<Record<string, number>>(
+    (result, finding) => {
+      const reasonCode = findingReasonCode(finding.key);
+      result[reasonCode] = (result[reasonCode] ?? 0) + finding.count;
+      return result;
+    },
+    {}
+  );
+  writeReleaseCommandEvidence({
+    counts: {
+      invariantChecks: findings.length,
+      nonzeroFindings: nonzeroFindings.length,
+      findingRows,
+      blockingFindings: blockers.length,
+      blockingRows,
+      missingIndexes: missingIndexCount,
+      extraIndexes: extraIndexCount,
+      applyIndexesRequested: Number(applyIndexes),
+    },
+    reasonCounts: releaseReasonCounts(findingReasonCounts, {
+      EXTRA_INDEXES_BLOCKED: extraIndexCount,
+      MISSING_INDEXES_BLOCKED: !applyIndexes ? missingIndexCount : 0,
+    }),
+    indexNames: inspectedIndexNames,
+  });
   if (blockers.length > 0) {
-    throw new Error(`Release preflight found ${blockers.length} blocking data invariant(s)`);
+    throw new ReleaseCommandFailure('DATA_INVARIANT_BLOCKED');
   }
-
-  const missingIndexCount = indexDiffs.reduce((total, item) => total + item.missing, 0);
-  const extraIndexCount = indexDiffs.reduce((total, item) => total + item.extra, 0);
-  console.log(`preflight data invariants: passed (${findings.length} checks)`);
-  console.log(`preflight indexes: missing=${missingIndexCount} extra=${extraIndexCount}`);
 
   if (extraIndexCount > 0) {
-    throw new Error(
-      'Undeclared indexes are present; release is blocked until every extra index is reviewed and reconciled'
-    );
+    throw new ReleaseCommandFailure('EXTRA_INDEXES_BLOCKED');
   }
   if (applyIndexes) {
     for (const model of models) {
       await model.createIndexes();
     }
-    console.log('preflight additive indexes: applied');
+    writeReleaseCommandEvidence({
+      counts: { indexesApplied: missingIndexCount },
+      reasonCounts: { INDEXES_READY: 1 },
+      indexNames: [],
+    });
   } else if (missingIndexCount > 0) {
-    throw new Error(
-      'Declared indexes are missing; rerun after review with --apply-additive-indexes'
-    );
+    throw new ReleaseCommandFailure('MISSING_INDEXES_BLOCKED');
   }
 } finally {
   await mongoose.disconnect();
@@ -626,6 +764,6 @@ try {
 };
 
 void main().catch((error: Error) => {
-  console.error(error.message);
+  writeReleaseCommandFailure(error);
   process.exitCode = 1;
 });

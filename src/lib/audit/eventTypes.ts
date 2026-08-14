@@ -8,6 +8,10 @@ export const AUDIT_EVENT_NAMES = [
   'MATCH_ACCEPTED',
   'MATCH_REJECTED',
   'MATCH_CONFIRMED',
+  'MATCH_PREFERENCES_UPDATED',
+  'MATCH_USER_BLOCKED',
+  'MATCH_USER_UNBLOCKED',
+  'MATCH_CONNECTION_CONFIRMATION_CHANGED',
   'ACTIVITY_ACCEPTED',
   'ACTIVITY_STARTED',
   'ACTIVITY_CANCELED',
@@ -74,21 +78,34 @@ export type AuditEventMetadataMap = {
   };
   MATCH_RESPONDED: {
     likeId: string;
-    status: Extract<LikeType['status'], 'awaiting_initiator'>;
+    status: Extract<LikeType['status'], 'awaiting_initiator' | 'RESPONDED'>;
   };
   MATCH_ACCEPTED: {
     likeId: string;
-    status: Extract<LikeType['status'], 'mutual_ready'>;
+    status: Extract<LikeType['status'], 'mutual_ready' | 'MATCHED'>;
   };
   MATCH_REJECTED: {
     likeId: string;
-    status: Extract<LikeType['status'], 'rejected'>;
+    status: Extract<LikeType['status'], 'rejected' | 'DECLINED'>;
     already?: true;
   };
   MATCH_CONFIRMED: {
-    likeId: string;
+    likeId?: string;
+    connectionId?: string;
     pairId: string;
     members: [string, string];
+  };
+  MATCH_PREFERENCES_UPDATED: {
+    revision: number;
+    factorCount: number;
+  };
+  MATCH_USER_BLOCKED: { blockedUserId: string };
+  MATCH_USER_UNBLOCKED: { unblockedUserId: string };
+  MATCH_CONNECTION_CONFIRMATION_CHANGED: {
+    connectionId: string;
+    action: 'REQUEST' | 'CONFIRM' | 'CANCEL';
+    stage: 'MATCHED' | 'TALKING' | 'DATING' | 'COUPLE_CONFIRMED';
+    pairFormed: boolean;
   };
   ACTIVITY_ACCEPTED: {
     activityId: string;
@@ -258,6 +275,8 @@ type _AssertAuditMapIsJson = {
 void (0 as unknown as _AssertAuditMapIsJson);
 
 export type EmitEventInput<E extends AuditEventName> = {
+  /** Stable, non-sensitive identity for retry-safe audit delivery. */
+  eventKey?: string;
   event: E;
   actor: AuditActor;
   request: AuditRequestContext;
@@ -279,6 +298,10 @@ export const EVENT_RETENTION_TIER: Record<AuditEventName, EventRetentionTier> = 
   MATCH_ACCEPTED: 'long',
   MATCH_REJECTED: 'long',
   MATCH_CONFIRMED: 'long',
+  MATCH_PREFERENCES_UPDATED: 'long',
+  MATCH_USER_BLOCKED: 'long',
+  MATCH_USER_UNBLOCKED: 'long',
+  MATCH_CONNECTION_CONFIRMATION_CHANGED: 'long',
   ACTIVITY_ACCEPTED: 'long',
   ACTIVITY_STARTED: 'long',
   ACTIVITY_CANCELED: 'long',

@@ -123,15 +123,18 @@ assert.ok(claimModel.includes('unique: true'));
 assert.ok(claimModel.includes('one_pair_membership_claim_per_user'));
 
 const service = source('src/domain/services/pairInvite.service.ts');
+const formationService = source('src/domain/services/pairFormation.service.ts');
 assert.ok(service.includes('randomBytes(PAIR_INVITE_TOKEN_BYTES)'));
 assert.ok(service.includes("createHash('sha256')"));
 assert.ok(service.includes('PAIR_INVITE_TTL_MS = 72 * 60 * 60 * 1000'));
-assert.ok(service.includes("status: { $in: ACTIVE_PAIR_STATUSES }"));
+assert.ok(service.includes('activePairForAnyMember'));
+assert.ok(formationService.includes("status: { $in: ACTIVE_PAIR_STATUSES }"));
 assert.ok(service.includes('mongoose.startSession()'));
-assert.ok(service.includes("type: 'PAIR_JOINED'"));
+assert.ok(formationService.includes("type: 'PAIR_JOINED'"));
 assert.ok(service.includes('session,'));
 assert.ok(service.includes('session.withTransaction'));
-assert.ok(service.includes('PairMembershipClaim.insertMany'));
+assert.ok(formationService.includes('PairMembershipClaim.insertMany'));
+assert.ok(service.includes("source: 'PAIR_INVITE'"));
 assert.ok(service.includes("source: 'pair_invite_accept'"));
 assert.ok(!service.includes('console.log'));
 assert.ok(!service.includes('console.warn'));
@@ -149,16 +152,17 @@ const activePairPreflightIndex = service.indexOf(
   'if (await activePairForAnyMember(members))',
   acceptMethodIndex
 );
-const claimInsertIndex = service.indexOf('PairMembershipClaim.insertMany', acceptMethodIndex);
-const pairCreateIndex = service.indexOf('Pair.create(', acceptMethodIndex);
-const acceptedUpdateIndex = service.indexOf("status: transition.next.status", pairCreateIndex);
+const formationCallIndex = service.indexOf('await formPairInSession({', acceptMethodIndex);
+const acceptedUpdateIndex = service.indexOf(
+  "status: transition.next.status",
+  formationCallIndex
+);
 const auditIndex = service.indexOf("event: 'PAIR_CREATED'", acceptedUpdateIndex);
 assert.ok(acceptMethodIndex >= 0);
 assert.ok(activePairPreflightIndex > acceptMethodIndex);
-assert.ok(activePairPreflightIndex < claimInsertIndex);
-assert.ok(claimInsertIndex > acceptMethodIndex);
-assert.ok(pairCreateIndex > claimInsertIndex);
-assert.ok(acceptedUpdateIndex > pairCreateIndex);
+assert.ok(activePairPreflightIndex < formationCallIndex);
+assert.ok(formationCallIndex > acceptMethodIndex);
+assert.ok(acceptedUpdateIndex > formationCallIndex);
 assert.ok(auditIndex > acceptedUpdateIndex);
 const auditBlock = service.slice(auditIndex, service.indexOf('return {', auditIndex));
 assert.ok(!auditBlock.includes('token'));

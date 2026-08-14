@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import MatchingFeedPage from "@/features/matching/MatchingFeedPage";
 
-export default function LegacySearchRedirect() {
-  redirect('/invite');
+export default function SearchPage() {
+  return <MatchingFeedPage />;
 }

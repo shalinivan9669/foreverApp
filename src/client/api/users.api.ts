@@ -23,8 +23,15 @@ const withSignalNoStore = (signal?: AbortSignal): HttpRequestOptions => ({
 });
 
 export const usersApi = {
-  exchangeDiscordCode: (payload: ExchangeCodeRequest): Promise<ExchangeCodeResponse> =>
-    http.post<ExchangeCodeResponse, ExchangeCodeRequest>('/api/exchange-code', payload),
+  exchangeDiscordCode: (
+    payload: ExchangeCodeRequest,
+    signal?: AbortSignal
+  ): Promise<ExchangeCodeResponse> =>
+    http.post<ExchangeCodeResponse, ExchangeCodeRequest>(
+      '/api/exchange-code',
+      payload,
+      withSignal(signal)
+    ),
 
   getCurrentUser: (signal?: AbortSignal): Promise<CurrentUserDTO> =>
     http.get<CurrentUserDTO>('/api/users/me', withSignal(signal)),

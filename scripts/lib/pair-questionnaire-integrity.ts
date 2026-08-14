@@ -1,4 +1,4 @@
-import mongoose, { Types } from 'mongoose';
+import mongoose from 'mongoose';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
 import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 
@@ -16,38 +16,69 @@ const ANSWER_IDENTITY_INDEX_KEY = {
   by: 1,
 } as const;
 
-type DuplicateSummary = { groups: number };
-type SessionDuplicateRow = {
-  _id: { pairId: Types.ObjectId; questionnaireId: string };
-  count: number;
-};
-type AnswerDuplicateRow = {
-  _id: { sessionId: Types.ObjectId; questionId: string; by: 'A' | 'B' };
-  count: number;
-};
-type DuplicateFacet<Row> = {
-  summary: DuplicateSummary[];
-  samples: Row[];
-};
+type DuplicateGroupCount = { groups: number };
 
 export type PairQuestionnaireIntegrityReport = {
   migrationVersion: typeof PAIR_QUESTIONNAIRE_INTEGRITY_VERSION;
   duplicateActiveSessionGroups: number;
   duplicateAnswerGroups: number;
-  sessionDuplicateSamples: Array<{
-    pairId: string;
-    questionnaireId: string;
-    count: number;
-  }>;
-  answerDuplicateSamples: Array<{
-    sessionId: string;
-    questionId: string;
-    by: 'A' | 'B';
-    count: number;
-  }>;
   missingCanonicalIndexes: string[];
   conflictingCanonicalIndexes: string[];
 };
+
+export const PAIR_QUESTIONNAIRE_INTEGRITY_FAILURE_CODES = [
+  'MONGODB_URI_REQUIRED',
+  'DUPLICATE_SOURCE_ROWS',
+  'CONFLICTING_CANONICAL_INDEX',
+  'MISSING_CANONICAL_INDEX',
+  'INDEX_APPLY_INCOMPLETE',
+  'MONGO_COMMAND_FAILED',
+] as const;
+
+export type PairQuestionnaireIntegrityFailureCode =
+  (typeof PAIR_QUESTIONNAIRE_INTEGRITY_FAILURE_CODES)[number];
+
+const FAILURE_MESSAGES: Record<
+  PairQuestionnaireIntegrityFailureCode,
+  string
+> = {
+  MONGODB_URI_REQUIRED: 'MongoDB target is not configured',
+  DUPLICATE_SOURCE_ROWS: 'Questionnaire integrity duplicate groups found',
+  CONFLICTING_CANONICAL_INDEX:
+    'Questionnaire integrity canonical index conflict found',
+  MISSING_CANONICAL_INDEX:
+    'Questionnaire integrity canonical indexes are missing',
+  INDEX_APPLY_INCOMPLETE:
+    'Questionnaire integrity canonical index application is incomplete',
+  MONGO_COMMAND_FAILED: 'Questionnaire integrity MongoDB command failed',
+};
+
+export class PairQuestionnaireIntegrityFailure extends Error {
+  readonly reasonCode: PairQuestionnaireIntegrityFailureCode;
+
+  constructor(reasonCode: PairQuestionnaireIntegrityFailureCode) {
+    super(FAILURE_MESSAGES[reasonCode]);
+    this.name = 'PairQuestionnaireIntegrityFailure';
+    this.reasonCode = reasonCode;
+  }
+}
+
+export type PairQuestionnaireIntegrityFailureReport = {
+  migrationVersion: typeof PAIR_QUESTIONNAIRE_INTEGRITY_VERSION;
+  ok: false;
+  reasonCode: PairQuestionnaireIntegrityFailureCode;
+};
+
+export const formatPairQuestionnaireIntegrityFailure = (
+  error: Error
+): PairQuestionnaireIntegrityFailureReport => ({
+  migrationVersion: PAIR_QUESTIONNAIRE_INTEGRITY_VERSION,
+  ok: false,
+  reasonCode:
+    error instanceof PairQuestionnaireIntegrityFailure
+      ? error.reasonCode
+      : 'MONGO_COMMAND_FAILED',
+});
 
 const sameIndexKey = (
   actual: mongoose.mongo.IndexDescriptionInfo['key'],
@@ -110,14 +141,18 @@ const answerIdentityIndexIsCanonical = (
   index.sparse !== true &&
   index.collation === undefined;
 
-const countGroups = (summary: DuplicateSummary[]): number =>
-  summary[0]?.groups ?? 0;
+const countGroups = (rows: DuplicateGroupCount[]): number =>
+  rows[0]?.groups ?? 0;
 
 export async function inspectPairQuestionnaireIntegrity(): Promise<PairQuestionnaireIntegrityReport> {
-  const [sessionFacets, answerFacets, sessionIndexes, answerIndexes] =
-    await Promise.all([
+  const [
+    sessionDuplicateGroups,
+    answerDuplicateGroups,
+    sessionIndexes,
+    answerIndexes,
+  ] = await Promise.all([
       PairQuestionnaireSession.collection
-        .aggregate<DuplicateFacet<SessionDuplicateRow>>([
+        .aggregate<DuplicateGroupCount>([
           { $match: { status: 'in_progress' } },
           {
             $group: {
@@ -126,16 +161,11 @@ export async function inspectPairQuestionnaireIntegrity(): Promise<PairQuestionn
             },
           },
           { $match: { count: { $gt: 1 } } },
-          {
-            $facet: {
-              summary: [{ $count: 'groups' }],
-              samples: [{ $sort: { count: -1 } }, { $limit: 10 }],
-            },
-          },
+          { $count: 'groups' },
         ])
         .toArray(),
       PairQuestionnaireAnswer.collection
-        .aggregate<DuplicateFacet<AnswerDuplicateRow>>([
+        .aggregate<DuplicateGroupCount>([
           {
             $group: {
               _id: {
@@ -147,20 +177,13 @@ export async function inspectPairQuestionnaireIntegrity(): Promise<PairQuestionn
             },
           },
           { $match: { count: { $gt: 1 } } },
-          {
-            $facet: {
-              summary: [{ $count: 'groups' }],
-              samples: [{ $sort: { count: -1 } }, { $limit: 10 }],
-            },
-          },
+          { $count: 'groups' },
         ])
         .toArray(),
       readIndexes(PairQuestionnaireSession.collection),
       readIndexes(PairQuestionnaireAnswer.collection),
-    ]);
+  ]);
 
-  const sessionFacet = sessionFacets[0] ?? { summary: [], samples: [] };
-  const answerFacet = answerFacets[0] ?? { summary: [], samples: [] };
   const canonicalSessionIndex = sessionIndexes.find(
     (index) => index.name === ACTIVE_SESSION_INDEX_NAME
   );
@@ -183,19 +206,8 @@ export async function inspectPairQuestionnaireIntegrity(): Promise<PairQuestionn
 
   return {
     migrationVersion: PAIR_QUESTIONNAIRE_INTEGRITY_VERSION,
-    duplicateActiveSessionGroups: countGroups(sessionFacet.summary),
-    duplicateAnswerGroups: countGroups(answerFacet.summary),
-    sessionDuplicateSamples: sessionFacet.samples.map((row) => ({
-      pairId: String(row._id.pairId),
-      questionnaireId: row._id.questionnaireId,
-      count: row.count,
-    })),
-    answerDuplicateSamples: answerFacet.samples.map((row) => ({
-      sessionId: String(row._id.sessionId),
-      questionId: row._id.questionId,
-      by: row._id.by,
-      count: row.count,
-    })),
+    duplicateActiveSessionGroups: countGroups(sessionDuplicateGroups),
+    duplicateAnswerGroups: countGroups(answerDuplicateGroups),
     missingCanonicalIndexes,
     conflictingCanonicalIndexes,
   };
@@ -206,16 +218,11 @@ const assertSafeToApply = (report: PairQuestionnaireIntegrityReport): void => {
     report.duplicateActiveSessionGroups > 0 ||
     report.duplicateAnswerGroups > 0
   ) {
-    throw new Error(
-      `Questionnaire integrity migration refused duplicate source rows: ` +
-        `activeSessionGroups=${report.duplicateActiveSessionGroups} ` +
-        `answerGroups=${report.duplicateAnswerGroups}`
-    );
+    throw new PairQuestionnaireIntegrityFailure('DUPLICATE_SOURCE_ROWS');
   }
   if (report.conflictingCanonicalIndexes.length > 0) {
-    throw new Error(
-      `Questionnaire integrity migration refused conflicting indexes: ` +
-        report.conflictingCanonicalIndexes.join(',')
+    throw new PairQuestionnaireIntegrityFailure(
+      'CONFLICTING_CANONICAL_INDEX'
     );
   }
 };
@@ -244,10 +251,7 @@ export async function applyPairQuestionnaireIntegrityIndexes(): Promise<PairQues
   const after = await inspectPairQuestionnaireIntegrity();
   assertSafeToApply(after);
   if (after.missingCanonicalIndexes.length > 0) {
-    throw new Error(
-      `Questionnaire integrity migration did not create indexes: ` +
-        after.missingCanonicalIndexes.join(',')
-    );
+    throw new PairQuestionnaireIntegrityFailure('INDEX_APPLY_INCOMPLETE');
   }
   return after;
 }

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, type UserType } from '@/models/User';
 import { DomainError } from '@/domain/errors';
@@ -5,6 +6,9 @@ import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import type { JsonValue } from '@/lib/api/response';
 import { toUserDTO, type UserDTO } from '@/lib/dto/user.dto';
+import { CandidateDiscoveryProjection } from '@/models/CandidateDiscoveryProjection';
+import { CandidatePresentationGrant } from '@/models/CandidatePresentationGrant';
+import { MatchingProfile } from '@/models/MatchingProfile';
 
 export type UserProfileUpsertPayload = {
   username?: UserType['username'];
@@ -12,13 +16,6 @@ export type UserProfileUpsertPayload = {
   personal?: UserType['personal'];
   preferences?: UserType['preferences'];
   location?: UserType['location'];
-};
-
-export type MatchCardPayload = {
-  requirements: [string, string, string];
-  give: [string, string, string];
-  questions: [string, string];
-  isActive: boolean;
 };
 
 const profileUpsertFields = [
@@ -38,6 +35,83 @@ const toUpdateFields = (payload: UserProfileUpsertPayload): Record<string, unkno
     }
   }
   return update;
+};
+
+const changesDiscoveryInputs = (fields: Record<string, unknown>): boolean =>
+  ['personal', 'preferences', 'location'].some((field) =>
+    Object.hasOwn(fields, field)
+  );
+
+const updateUserProfileDocument = async (input: {
+  userId: string;
+  fields: Record<string, unknown>;
+  upsert: boolean;
+}): Promise<UserType | null> => {
+  if (!changesDiscoveryInputs(input.fields)) {
+    return User.findOneAndUpdate(
+      { id: input.userId },
+      {
+        $set: input.fields,
+        ...(input.upsert ? { $setOnInsert: { id: input.userId } } : {}),
+      },
+      {
+        upsert: input.upsert,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: input.upsert,
+      }
+    ).lean<UserType | null>();
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    const result = await session.withTransaction(async () => {
+      const now = new Date();
+      const user = await User.findOneAndUpdate(
+        { id: input.userId },
+        {
+          $set: input.fields,
+          $inc: { pairMembershipRevision: 1 },
+          ...(input.upsert ? { $setOnInsert: { id: input.userId } } : {}),
+        },
+        {
+          upsert: input.upsert,
+          new: true,
+          runValidators: true,
+          setDefaultsOnInsert: input.upsert,
+          session,
+        }
+      ).lean<UserType | null>();
+      if (!user) return null;
+      await Promise.all([
+        MatchingProfile.updateOne(
+          { userId: input.userId },
+          { $set: { active: false } },
+          { session }
+        ),
+        CandidateDiscoveryProjection.updateOne(
+          { userId: input.userId },
+          { $set: { active: false } },
+          { session }
+        ),
+        CandidatePresentationGrant.updateMany(
+          {
+            $or: [
+              { requesterId: input.userId },
+              { candidateId: input.userId },
+            ],
+            revokedAt: { $exists: false },
+          },
+          { $set: { revokedAt: now } },
+          { session }
+        ),
+      ]);
+      return user;
+    });
+    return result ?? null;
+  } finally {
+    await session.endSession();
+  }
 };
 
 export const assertSelfUserTarget = (actorUserId: string, targetUserId: string): void => {
@@ -80,18 +154,11 @@ export const usersService = {
     await connectToDatabase();
 
     const updateFields = toUpdateFields(input.payload);
-    const doc = await User.findOneAndUpdate(
-      { id: input.currentUserId },
-      {
-        $set: updateFields,
-        $setOnInsert: { id: input.currentUserId },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }
-    ).lean<UserType | null>();
+    const doc = await updateUserProfileDocument({
+      userId: input.currentUserId,
+      fields: updateFields,
+      upsert: true,
+    });
 
     if (!doc) {
       throw new DomainError({
@@ -126,11 +193,11 @@ export const usersService = {
     await connectToDatabase();
 
     const updateFields = toUpdateFields(input.payload);
-    const doc = await User.findOneAndUpdate(
-      { id: input.currentUserId },
-      updateFields,
-      { new: true, runValidators: true }
-    ).lean<UserType | null>();
+    const doc = await updateUserProfileDocument({
+      userId: input.currentUserId,
+      fields: updateFields,
+      upsert: false,
+    });
 
     if (!doc) {
       throw new DomainError({
@@ -224,11 +291,11 @@ export const usersService = {
     await connectToDatabase();
 
     const updateFields = toUpdateFields(input.payload);
-    const doc = await User.findOneAndUpdate(
-      { id: input.targetUserId },
-      updateFields,
-      { new: true, runValidators: true }
-    ).lean<UserType | null>();
+    const doc = await updateUserProfileDocument({
+      userId: input.targetUserId,
+      fields: updateFields,
+      upsert: false,
+    });
 
     if (!doc) {
       throw new DomainError({
@@ -311,53 +378,4 @@ export const usersService = {
     return doc;
   },
 
-  async upsertCurrentUserMatchCard(input: {
-    currentUserId: string;
-    payload: MatchCardPayload;
-    auditRequest?: AuditRequestContext;
-  }): Promise<UserType> {
-    await connectToDatabase();
-
-    const doc = await User.findOneAndUpdate(
-      { id: input.currentUserId },
-      {
-        $set: {
-          'profile.matchCard': {
-            requirements: input.payload.requirements,
-            give: input.payload.give,
-            questions: input.payload.questions,
-            isActive: input.payload.isActive,
-            updatedAt: new Date(),
-          },
-        },
-      },
-      { new: true, runValidators: true }
-    ).lean<UserType | null>();
-
-    if (!doc) {
-      throw new DomainError({
-        code: 'USER_NOT_FOUND',
-        status: 404,
-        message: 'User not found',
-      });
-    }
-
-    await emitEvent({
-      event: 'MATCH_CARD_UPDATED',
-      actor: { userId: input.currentUserId },
-      request: input.auditRequest ?? { route: '/api/match/card', method: 'POST' },
-      target: {
-        type: 'user',
-        id: input.currentUserId,
-      },
-      metadata: {
-        userId: input.currentUserId,
-        isActive: input.payload.isActive,
-        requirementsCount: input.payload.requirements.length,
-        questionsCount: input.payload.questions.length,
-      },
-    });
-
-    return doc;
-  },
 };

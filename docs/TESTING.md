@@ -40,6 +40,16 @@ Important focused commands:
 - `npm run selfcheck:operational-events`, `selfcheck:release-readiness` — metrics/env/health/release script contracts.
 - `npm run selfcheck:entitlement-webhook` — isolated sandbox infrastructure only; passing it does not make billing a core dependency.
 
+### Factor Matching focused gates
+
+- `npm run verify:matching:code` — typecheck plus matching boundaries, Factor policy/golden cases, social lifecycle, API/UI/disclosure/migration, Discord bootstrap and pure intelligence integration. It does not run the database-target guard or Atlas/replica-set suites.
+- `npm run selfcheck:matching-boundaries`, `selfcheck:matching-factor-policy`, `selfcheck:matching-golden-cases` — separation from legacy scoring, explicit Factor-use policy and deterministic qualitative cases.
+- `npm run selfcheck:matching-social`, `selfcheck:matching-api-contract`, `selfcheck:matching-ui`, `selfcheck:matching-disclosure` — state/actor/idempotency, route/DTO, screen and negative-disclosure contracts.
+- `npm run selfcheck:matching-test-database`, `selfcheck:matching-migration`, `selfcheck:discord-bootstrap` — guarded target parsing, migration modes/legacy mapping and two-session bootstrap contract.
+- `npm run integration:matching-intelligence` — database-free port-backed actual/preference/evaluation integration.
+
+`npm run check:self` includes all matching selfchecks, including `selfcheck:matching-test-database`; `verify:matching:code` is the narrower matching aggregate described above.
+
 `npm run check:self` is database-free. It is necessary but cannot replace persistence, concurrency, privacy or migration integrations.
 
 ## MongoDB integrations
@@ -62,6 +72,11 @@ All integration databases must be disposable and end in `_test`; each script use
 | `npm run integration:privacy-factor-export` | Owner Factor export and pair-summary disclosure |
 | `npm run integration:two-user-mvp` | Two users, three complete free weekly/action cycles and history/privacy assertions |
 | `npm run integration:release-database` | Transaction/concurrency and notification/storage invariants |
+| `npm run integration:matching-social-flow` | MatchingProfile/feed grant, Like/response/connection/block qualitative social flow on a guarded test replica set |
+| `npm run integration:matching-idempotency-races` | Matching mutation replay, changed-body conflict and concurrent canonical-effect races |
+| `npm run integration:matching-security-privacy` | Session subject, grant binding, negative disclosure, export/deletion and cross-user denial |
+| `npm run integration:matching-pair-transition` | Two-party MatchingConnection confirmation, one Pair/two source-tagged claims and block/active-Pair races |
+| `npm run integration:matching-atlas` | Ordered aggregate of the four matching database suites above; accepts Atlas/sharded or local replica-set `_test` target |
 | `npm run selfcheck:reliability-reconciliation` | Failure/retry/lease/reconciliation on guarded local `foreverapp_rc` |
 | `npm run release:load-smoke` | Two comparable hot-pair concurrency/query-plan runs |
 
@@ -74,6 +89,14 @@ npm run integration:factor-engine-runtime
 ```
 
 Use a fresh database name per suite if scripts can overlap. The reliability command is the documented exception and requires exactly the guarded `foreverapp_rc` URI from its source/runbook.
+
+Matching database/release commands use command-scoped `MATCHING_TEST_MONGODB_URI` rather than the application runtime connection. This is not a new production environment contract: the guard requires a database name ending in `_test`, rejects production-like names and is intentionally unusable as production-mutation authority.
+
+```powershell
+$env:MATCHING_TEST_MONGODB_URI='mongodb://127.0.0.1:27018/foreverapp_matching_test?replicaSet=rs0&directConnection=true'
+npm run selfcheck:matching-test-database
+npm run integration:matching-atlas
+```
 
 ## Migration verification
 
@@ -88,6 +111,24 @@ npm run release:migrate-partner-signals
 npm run release:migrate-privacy-requests-v2
 npm run release:migrate-weekly-checkins
 ```
+
+Factor Matching migration uses exactly three modes:
+
+```powershell
+# Read-only plan; DRY_RUN is the default.
+npm run release:matching-migrate
+
+# Apply only on a reviewed disposable/restored _test target.
+$env:MATCHING_MIGRATION_CONFIRM='APPLY_ADDITIVE_MATCHING_MIGRATION'
+npm run release:matching-migrate -- --mode=APPLY_ADDITIVE
+
+# Require zero findings and zero pending rows/indexes.
+npm run release:matching-migrate -- --mode=VERIFY
+```
+
+`release:migrate-matching` is an exact alias. `release:matching-preflight` is read-only unless an explicitly reviewed additive-index flag is forwarded; `release:matching-load-smoke` is writeful synthetic test work and cleans run-scoped fixtures. All three require the guarded `MATCHING_TEST_MONGODB_URI`.
+
+`npm run verify:matching:release` runs matching preflight → migration `VERIFY` → `integration:matching-atlas` → matching load smoke. It never runs `APPLY_ADDITIVE`. Without `MATCHING_TEST_MONGODB_URI`, it must fail with `MATCHING_TEST_MONGODB_URI_REQUIRED` and cannot be recorded as Atlas validation.
 
 Apply modes require the exact flags/confirmation variables in [RELEASE_RUNBOOK.md](./RELEASE_RUNBOOK.md). Test apply on a restored disposable fixture, rerun dry-run and integration, and compare aggregate counts/index names only. Some utilities are deliberately local `_test`-only; they are evidence/harnesses, not authority to mutate production.
 

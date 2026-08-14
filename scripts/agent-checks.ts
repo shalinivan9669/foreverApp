@@ -267,8 +267,15 @@ const privateMutationWithoutSession = (filePath: string): boolean => {
   const hasMutation = /export\s+async\s+function\s+(POST|PATCH|PUT|DELETE)\b/.test(text);
   if (!hasMutation) return false;
   if (/requireSession\s*\(/.test(text)) return false;
-  if (/canGrant\s*\(|ADMIN_HEADER|ENTITLEMENTS_ADMIN_KEY/.test(text)) return false;
   const normalizedFilePath = filePath.replace(/\\/g, '/');
+  const usesCentralMatchingGuard =
+    normalizedFilePath.includes('/src/app/api/match/') &&
+    /import\s*\{[^}]*\bprepareMatchingRequest\b[^}]*\}\s*from\s*['"][^'"]*_shared['"]/.test(
+      text
+    ) &&
+    /await\s+prepareMatchingRequest\s*\(/.test(text);
+  if (usesCentralMatchingGuard) return false;
+  if (/canGrant\s*\(|ADMIN_HEADER|ENTITLEMENTS_ADMIN_KEY/.test(text)) return false;
   const isVerifiedSandboxWebhook =
     normalizedFilePath.endsWith('/src/app/api/billing/webhooks/sandbox/route.ts') &&
     /import\s*\{[^}]*\bverifySandboxWebhook\b[^}]*\}\s*from\s*['"]@\/lib\/billing\/sandboxWebhook['"]/.test(

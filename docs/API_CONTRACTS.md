@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: current public/participant boundary after the Factor NEW_ONLY and free-core cutover.
+Status: current public/participant boundary after the Factor NEW_ONLY/free-core cutover and Factor Matching integration. Updated 2026-08-13.
 
 ## Envelope and caching
 
@@ -47,6 +47,30 @@ No core endpoint returns `402`, `PAYMENT_REQUIRED` or `ENTITLEMENT_REQUIRED`. Ra
 
 Profile/user writes reject legacy vector/embedding/passport fields. There is no API for mutating a Factor snapshot directly.
 
+## Factor Matching
+
+All endpoints below require session auth and are free core. The session subject is the only actor/requester; supplied ids, candidate grants and cursors never override it. Every mutation requires the shared idempotency key and strict JSON body. Reads and writes are rate-limited, private and `no-store`.
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/match/card` | Returns the owner's standalone matching card/settings plus revision/readiness/missing required topics. Owner exact input is permitted; no peer Factor data is returned. |
+| `POST /api/match/card` | Idempotently creates/revises the owner's card (`requirements[3]`, `give[3]`, `questions[2]`), age/distance/active settings and strict reviewed actual inputs. Activation fails unless required Factor-backed data is ready. |
+| `GET /api/match/card/[id]` | Returns one candidate public card and qualitative fit only when `X-Candidate-Grant` is valid for the session requester, path candidate, evaluation, pinned revisions/versions and expiry. |
+| `GET /api/match/preferences` | Owner-only revisioned desired Factor targets plus use-grant state and current registry version. |
+| `PUT /api/match/preferences` | CAS/idempotent update with `{ revision, preferences[] }`; validates factor eligibility, target type, importance, flexibility, constraint mode and `useAllowed`. Hard constraint is definition/policy restricted. |
+| `GET /api/match/feed?cursor=&limit=` | Returns a bounded cursor page of `{ candidate, public card, qualitative fit, candidateGrant }` and `feedRevision`. A fresh read creates a hashed/expiring, max-200 `MatchingFeedSession`; stale actor/profile/preference/registry/algorithm cursors return conflict. |
+| `GET /api/match/inbox?cursor=&limit=` | Bounded/cursor-paginated incoming/outgoing Like summaries plus actor-visible connections and allowed actions. |
+| `GET /api/match/like/[id]` | Participant-only Like detail; role/state determine which card/questions/answers/actions are visible. Non-participants receive generic not-found behavior. |
+| `POST /api/match/like` | Requires `{ candidateId, candidateGrant, agreements: [true,true,true], answers: [string,string] }`. Grant and session actor are revalidated; retry/race converges on one directional active Like. |
+| `POST /api/match/respond` | Recipient-only `{ likeId, agreements: [true,true,true], answers: [string,string] }`; exact replay is a no-op and changed reuse conflicts. |
+| `POST /api/match/accept`, `POST /api/match/reject` | Role/state-guarded `{ likeId }` decision. Acceptance after response creates/links one canonical `MatchingConnection`; it does not create a Pair. |
+| `POST /api/match/block` | Directional `{ blockedUserId }`; closes eligible active Likes/unpaired connection work without disclosing the peer's state. |
+| `DELETE /api/match/block/[id]` | Revokes the caller's directional block. It never resurrects old Likes or connections. |
+| `GET /api/match/connections/[id]` | Participant-only qualitative connection/stage/confirmation/allowed-action DTO; no internal evaluation or peer private data. |
+| `POST /api/match/confirm` | `{ connectionId, action: "REQUEST" | "CONFIRM" | "CANCEL" }`. `REQUEST` confirms only its actor; `CONFIRM` must come from the other authenticated participant. The second confirmation transactionally creates one Pair and source-tagged membership claims. |
+
+Participant fit is limited to `PROMISING | WORKABLE | LOW_INFORMATION`, `LOW | MEDIUM | HIGH` confidence and at most three reviewed explanations. Numeric score/fit/ranking/contribution, raw Factor values, peer preferences, evidence/hashes and internal hard-constraint reasons are never returned.
+
 ## Pair invitation and lifecycle
 
 | Endpoint | Contract |
@@ -59,7 +83,7 @@ Profile/user writes reject legacy vector/embedding/passport fields. There is no 
 | `POST /api/pairs/[id]/pause`, `/resume` | Member-only lifecycle transitions. |
 | `POST /api/pairs/[id]/end` | Requires idempotency and `{ confirmation: "END_PAIR" }`. Ends the context and closes/revokes active pair-scoped work; returns `endedAt`. |
 
-`POST /api/pairs/create` is a guarded compatibility seam: it cannot activate a Pair and returns `409 PAIR_INVITE_REQUIRED`. The old `/api/match/**` routes are removed. A new connection after end must use a new invite and receives a new Pair id. Ended pair ids do not authorize new reads/writes.
+`POST /api/pairs/create` is a guarded compatibility seam: it cannot activate a Pair and returns `409 PAIR_INVITE_REQUIRED`. Pair formation is allowed only through accepted invite or two-party-confirmed `MatchingConnection`; both write the same one-claim-per-user invariant with source provenance. A new connection after end uses a new invite or new matching connection and receives a new Pair id. Ended pair ids do not authorize new reads/writes.
 
 ## Weekly cycle and Pair Summary
 
@@ -117,7 +141,7 @@ Recommendation/activity participant DTOs omit SafetyGate state, template/interna
 
 - `GET /api/health/live` reports only liveness; `GET /api/health/ready` performs bounded config/Mongo checks without environment detail.
 - `POST /api/billing/webhooks/sandbox` and `POST /api/entitlements/grant` remain protected, disabled/isolated infrastructure. Their state never determines access to the public core flow.
-- Legacy matching endpoints are absent from the active runtime. Any retained legacy match data is not an authorization, Pair-activation or compatibility-scoring source.
+- The current `/api/match/**` routes expose Factor Matching only. Retained legacy status/card data may be migration input, but legacy `matchScore`/vector data is never authorization, candidate intelligence, Pair-activation evidence or participant output.
 
 ## References
 

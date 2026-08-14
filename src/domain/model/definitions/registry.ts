@@ -37,6 +37,11 @@ export type RegistryValidationReasonCode =
   | 'DISPLAY_KEYS_INVALID'
   | 'PAIR_STRATEGY_INVALID'
   | 'PAIR_STRATEGY_CONFIDENCE_BELOW_FACTOR_MINIMUM'
+  | 'MATCHING_POLICY_INVALID'
+  | 'MATCHING_POLICY_STRATEGY_MISSING'
+  | 'MATCHING_POLICY_STRATEGY_MISMATCH'
+  | 'MATCHING_POLICY_HARD_CONSTRAINT_INVALID'
+  | 'MATCHING_POLICY_REGISTRY_VERSION_INVALID'
   | 'ACTION_SKILL_REFERENCE_INVALID';
 
 export type RegistryValidationResult =
@@ -179,6 +184,26 @@ const encodePairConfig = (config: PairStrategyConfig): string => {
   }
 };
 
+const encodeMatchingPolicy = (
+  policy: FactorRegistryDefinitionSet['factors'][number]['matchingPolicy']
+): string => {
+  if (!policy) return 'MATCHING_POLICY:NONE';
+  return [
+    'MATCHING_POLICY',
+    policy.enabled ? 'ENABLED' : 'DISABLED',
+    encodeStrings(policy.effects),
+    policy.strategy.context,
+    policy.strategy.type,
+    policy.strategy.strategyVersion,
+    policy.requiredData,
+    policy.defaultImportance,
+    encodeNumber(policy.rankingWeight),
+    policy.canBeHardConstraint ? 'HARD_ALLOWED' : 'HARD_FORBIDDEN',
+    policy.privacy.engineUse,
+    policy.privacy.explanation,
+  ].join(':');
+};
+
 const encodeNormalization = (normalization: NormalizationRule): string => {
   switch (normalization.type) {
     case 'IDENTITY':
@@ -265,6 +290,9 @@ export function canonicalizeFactorRegistry(
         encodeAggregation(factor.aggregationStrategy),
         factor.developmentPolicy,
         pairStrategies,
+        ...(release.registryVersion >= 7
+          ? [encodeMatchingPolicy(factor.matchingPolicy)]
+          : []),
         factor.privacyClass,
         encodeStrings(factor.contexts),
         factor.confidenceRequirements.minimumEvidenceReliability,
@@ -453,6 +481,95 @@ const validateAggregation = (strategy: AggregationStrategy): boolean => {
   }
 };
 
+const validateMatchingPolicy = (
+  factor: FactorRegistryDefinitionSet['factors'][number]
+): readonly RegistryValidationReasonCode[] => {
+  const policy = factor.matchingPolicy;
+  if (!policy) return [];
+  const reasons: RegistryValidationReasonCode[] = [];
+  const effects = new Set(policy.effects);
+  if (
+    typeof policy.enabled !== 'boolean' ||
+    (policy.enabled && effects.size === 0) ||
+    effects.size !== policy.effects.length ||
+    !policy.effects.every((effect) =>
+      ['ELIGIBILITY', 'RANKING', 'EXPLANATION', 'POST_MATCH'].includes(effect)
+    ) ||
+    !['OPTIONAL', 'REQUESTER_REQUIRED', 'BOTH_REQUIRED'].includes(
+      policy.requiredData
+    ) ||
+    !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(
+      policy.defaultImportance
+    ) ||
+    !Number.isFinite(policy.rankingWeight) ||
+    policy.rankingWeight < 0 ||
+    policy.rankingWeight > 1 ||
+    (policy.enabled && factor.privacyClass === 'PRIVATE') ||
+    policy.privacy.engineUse !== 'INTERNAL_ONLY' ||
+    !['NONE', 'COARSE_ALLOWLISTED'].includes(policy.privacy.explanation) ||
+    policy.strategy.context !== 'DATING' ||
+    !Number.isInteger(policy.strategy.strategyVersion) ||
+    policy.strategy.strategyVersion < 1
+  ) {
+    reasons.push('MATCHING_POLICY_INVALID');
+  }
+  const strategy = factor.pairStrategies.find(
+    (candidate) =>
+      candidate.context === 'DATING' &&
+      candidate.config.type === policy.strategy.type &&
+      candidate.strategyVersion === policy.strategy.strategyVersion
+  );
+  if (!strategy) {
+    reasons.push('MATCHING_POLICY_STRATEGY_MISSING');
+  } else if (
+    strategy.context !== policy.strategy.context ||
+    (policy.strategy.type === 'DIRECTIONAL_EXPECTATION') !==
+      (strategy.directionality === 'DIRECTIONAL')
+  ) {
+    reasons.push('MATCHING_POLICY_STRATEGY_MISMATCH');
+  } else {
+    const numericSchema = [
+      'SCALAR',
+      'RANGE',
+      'MASTERY',
+      'ORDINAL',
+      'BOOLEAN',
+    ].includes(factor.valueSchema.type);
+    const compatible = (() => {
+      switch (policy.strategy.type) {
+        case 'SIMILARITY':
+        case 'BOUNDED_GAP':
+        case 'TARGET_RANGE':
+        case 'COMPLEMENT':
+        case 'BOUNDED_COMPLEMENT':
+        case 'MINIMUM_BOTH':
+        case 'DIRECTIONAL_EXPECTATION':
+          return numericSchema;
+        case 'ROLE_COVERAGE':
+          return (
+            (factor.type === 'ROLE_PREFERENCE' ||
+              factor.type === 'ROLE_CAPABILITY') &&
+            factor.valueSchema.type === 'SCALAR'
+          );
+        case 'CUSTOM_MATRIX':
+          return factor.valueSchema.type !== 'TEXT';
+        case 'HARD_CONSTRAINT':
+          return factor.valueSchema.type === 'CONSTRAINT';
+      }
+    })();
+    if (!compatible) reasons.push('MATCHING_POLICY_STRATEGY_MISMATCH');
+  }
+  if (
+    policy.canBeHardConstraint &&
+    (factor.valueSchema.type !== 'CONSTRAINT' ||
+      policy.strategy.type !== 'HARD_CONSTRAINT' ||
+      !policy.effects.includes('ELIGIBILITY'))
+  ) {
+    reasons.push('MATCHING_POLICY_HARD_CONSTRAINT_INVALID');
+  }
+  return [...new Set(reasons)];
+};
+
 const collectDuplicates = (values: readonly string[]): readonly string[] => {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
@@ -548,6 +665,12 @@ export function validateFactorRegistry(
       ) {
         add('PAIR_STRATEGY_CONFIDENCE_BELOW_FACTOR_MINIMUM', factor.key);
       }
+    }
+    for (const reasonCode of validateMatchingPolicy(factor)) {
+      add(reasonCode, factor.key);
+    }
+    if (factor.matchingPolicy && release.registryVersion < 7) {
+      add('MATCHING_POLICY_REGISTRY_VERSION_INVALID', factor.key);
     }
   }
   for (const measurement of release.measurements) {

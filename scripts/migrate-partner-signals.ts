@@ -1,5 +1,11 @@
 import type { AnyBulkWriteOperation } from 'mongodb';
 import mongoose, { Types } from 'mongoose';
+import {
+  ReleaseCommandFailure,
+  releaseReasonCounts,
+  writeReleaseCommandEvidence,
+  writeReleaseCommandFailure,
+} from './lib/release-command-output';
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const UNIQUE_INDEX_NAME = 'one_partner_signal_per_daily_checkin';
@@ -26,37 +32,35 @@ type DuplicatePlan = {
   duplicates: LegacyPartnerSignal[];
 };
 
-const mongodbUri = process.env.MONGODB_URI?.trim();
-if (!mongodbUri) throw new Error('MONGODB_URI is required');
+type PartnerSignalBlockerReason =
+  | 'INVALID_PAIR_ID'
+  | 'INVALID_SOURCE_CHECKIN_ID'
+  | 'INVALID_EXPIRY_DATE'
+  | 'MISSING_EXPIRY_SOURCE_DATE'
+  | 'DUPLICATE_GROUP_WITHOUT_CONFIRMED_SIGNAL'
+  | 'DUPLICATE_GROUP_WITH_INVALID_DATE';
 
-const assertSafeTestUri = (uri: string): string => {
-  const parsed = new URL(uri);
+const assertSafeTestUri = (uri: string): void => {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    throw new ReleaseCommandFailure('TARGET_URI_INVALID');
+  }
   const databaseName = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
   if (parsed.protocol !== 'mongodb:') {
-    throw new Error('Migration requires a mongodb:// URI');
+    throw new ReleaseCommandFailure('TARGET_URI_INVALID');
   }
   if (parsed.hostname !== '127.0.0.1' || parsed.port !== '27018') {
-    throw new Error('Migration is restricted to 127.0.0.1:27018');
+    throw new ReleaseCommandFailure('TARGET_GUARD_FAILED');
   }
   if (!databaseName.endsWith('_test')) {
-    throw new Error('Migration requires a database ending in _test');
+    throw new ReleaseCommandFailure('TARGET_GUARD_FAILED');
   }
   if (parsed.searchParams.get('directConnection') !== 'true') {
-    throw new Error('Migration requires directConnection=true');
+    throw new ReleaseCommandFailure('TARGET_GUARD_FAILED');
   }
-  return databaseName;
 };
-
-const databaseName = assertSafeTestUri(mongodbUri);
-const applyMode = process.argv.includes('--apply');
-if (
-  applyMode &&
-  process.env.PARTNER_SIGNAL_MIGRATION_CONFIRM !== APPLY_CONFIRMATION
-) {
-  throw new Error(
-    `Apply mode requires PARTNER_SIGNAL_MIGRATION_CONFIRM=${APPLY_CONFIRMATION}`
-  );
-}
 
 const objectIdHex = (
   value: string | Types.ObjectId | null | undefined
@@ -84,7 +88,7 @@ const deterministicOrder = (
 
 const buildDuplicatePlans = (
   rows: LegacyPartnerSignal[],
-  blockers: string[]
+  blockers: PartnerSignalBlockerReason[]
 ): DuplicatePlan[] => {
   const groups = new Map<string, LegacyPartnerSignal[]>();
   for (const row of rows) {
@@ -102,15 +106,11 @@ const buildDuplicatePlans = (
       (row) => confirmedStatuses.has(row.status ?? '') && validDate(row.createdAt)
     );
     if (confirmed.length === 0) {
-      blockers.push(
-        'duplicate sourceCheckInId group has no confirmed signal with valid createdAt'
-      );
+      blockers.push('DUPLICATE_GROUP_WITHOUT_CONFIRMED_SIGNAL');
       continue;
     }
     if (group.some((row) => !validDate(row.createdAt))) {
-      blockers.push(
-        'duplicate sourceCheckInId group contains a signal without valid createdAt'
-      );
+      blockers.push('DUPLICATE_GROUP_WITH_INVALID_DATE');
       continue;
     }
     confirmed.sort(deterministicOrder);
@@ -126,6 +126,18 @@ const buildDuplicatePlans = (
 };
 
 const main = async (): Promise<void> => {
+  const mongodbUri = process.env.MONGODB_URI?.trim();
+  if (!mongodbUri) {
+    throw new ReleaseCommandFailure('MONGODB_URI_REQUIRED');
+  }
+  assertSafeTestUri(mongodbUri);
+  const applyMode = process.argv.includes('--apply');
+  if (
+    applyMode &&
+    process.env.PARTNER_SIGNAL_MIGRATION_CONFIRM !== APPLY_CONFIRMATION
+  ) {
+    throw new ReleaseCommandFailure('APPLY_CONFIRMATION_REQUIRED');
+  }
   await mongoose.connect(mongodbUri, {
     autoIndex: false,
     maxPoolSize: 5,
@@ -134,7 +146,9 @@ const main = async (): Promise<void> => {
 
   try {
     const database = mongoose.connection.db;
-    if (!database) throw new Error('DATABASE_NOT_CONNECTED');
+    if (!database) {
+      throw new ReleaseCommandFailure('DATABASE_NOT_CONNECTED');
+    }
     const collection = database.collection<LegacyPartnerSignal>('partner_signals');
     const collectionExists = Boolean(
       await database.listCollections({ name: 'partner_signals' }).hasNext()
@@ -156,7 +170,7 @@ const main = async (): Promise<void> => {
       ? await collection.listIndexes().toArray()
       : [];
 
-    const blockers: string[] = [];
+    const blockers: PartnerSignalBlockerReason[] = [];
     let pairIdStrings = 0;
     let sourceCheckInIdStrings = 0;
     let missingExpiresAt = 0;
@@ -176,19 +190,19 @@ const main = async (): Promise<void> => {
       if (row.expiresAt === null || row.expiresAt === undefined) {
         missingExpiresAt += 1;
         if (!validDate(row.createdAt)) {
-          blockers.push('signal missing expiresAt also has no valid createdAt');
+          blockers.push('MISSING_EXPIRY_SOURCE_DATE');
         }
       } else if (!validDate(row.expiresAt)) {
         invalidExpiryDates += 1;
       }
     }
 
-    if (invalidPairIds > 0) blockers.push(`${invalidPairIds} invalid pairId value(s)`);
+    if (invalidPairIds > 0) blockers.push('INVALID_PAIR_ID');
     if (invalidSourceCheckInIds > 0) {
-      blockers.push(`${invalidSourceCheckInIds} invalid sourceCheckInId value(s)`);
+      blockers.push('INVALID_SOURCE_CHECKIN_ID');
     }
     if (invalidExpiryDates > 0) {
-      blockers.push(`${invalidExpiryDates} invalid expiresAt value(s)`);
+      blockers.push('INVALID_EXPIRY_DATE');
     }
 
     const duplicatePlans = buildDuplicatePlans(rows, blockers);
@@ -204,33 +218,57 @@ const main = async (): Promise<void> => {
       (index) => Object.keys(index.key).length === 1 && index.key.expiresAt === 1
     );
 
-    const report = {
-      mode: applyMode ? 'apply' : 'dry-run',
-      database: databaseName,
+    const counts = {
       scanned: rows.length,
       normalizePairIds: pairIdStrings,
       normalizeSourceCheckInIds: sourceCheckInIdStrings,
       setExpiresAt: missingExpiresAt,
       duplicateGroups: duplicatePlans.length,
       deleteDuplicateDocuments: duplicateDocuments,
-      sourceIndexes: sourceIndexes.map((index) => ({
-        name: index.name,
-        unique: index.unique === true,
-      })),
-      expiryIndexes: expiryIndexes.map((index) => ({
-        name: index.name,
-        expireAfterSeconds: index.expireAfterSeconds,
-      })),
-      blockers,
+      sourceIndexesBefore: sourceIndexes.length,
+      canonicalSourceIndexesBefore: sourceIndexes.filter(
+        (index) => index.name === UNIQUE_INDEX_NAME && index.unique === true
+      ).length,
+      expiryIndexesBefore: expiryIndexes.length,
+      canonicalExpiryIndexesBefore: expiryIndexes.filter(
+        (index) =>
+          index.name === TTL_INDEX_NAME && index.expireAfterSeconds === 0
+      ).length,
+      invalidPairIds,
+      invalidSourceCheckInIds,
+      invalidExpiryDates,
     };
+    const blockerCounts = blockers.reduce<Record<string, number>>(
+      (result, reasonCode) => ({
+        ...result,
+        [reasonCode]: (result[reasonCode] ?? 0) + 1,
+      }),
+      {}
+    );
+    const inspectedIndexNames = [
+      ...(sourceIndexes.some((index) => index.name === UNIQUE_INDEX_NAME)
+        ? [UNIQUE_INDEX_NAME]
+        : []),
+      ...(expiryIndexes.some((index) => index.name === TTL_INDEX_NAME)
+        ? [TTL_INDEX_NAME]
+        : []),
+    ];
 
     if (!applyMode) {
-      console.log(JSON.stringify(report));
+      writeReleaseCommandEvidence({
+        counts,
+        reasonCounts: releaseReasonCounts(blockerCounts),
+        indexNames: inspectedIndexNames,
+      });
       return;
     }
     if (blockers.length > 0) {
-      console.error(JSON.stringify(report));
-      throw new Error('PartnerSignal migration blocked by invalid legacy data');
+      writeReleaseCommandEvidence({
+        counts,
+        reasonCounts: releaseReasonCounts(blockerCounts),
+        indexNames: inspectedIndexNames,
+      });
+      throw new ReleaseCommandFailure('MIGRATION_DATA_BLOCKED');
     }
 
     const duplicateIds = duplicatePlans.flatMap((plan) =>
@@ -297,21 +335,22 @@ const main = async (): Promise<void> => {
       { expireAfterSeconds: 0, name: TTL_INDEX_NAME }
     );
 
-    console.log(
-      JSON.stringify({
-        ...report,
-        blockers: [],
+    writeReleaseCommandEvidence({
+      counts: {
+        ...counts,
         updatedDocuments: updates.length,
         deletedDocuments: duplicateIds.length,
-        indexesApplied: [UNIQUE_INDEX_NAME, TTL_INDEX_NAME],
-      })
-    );
+        indexesApplied: 2,
+      },
+      reasonCounts: {},
+      indexNames: [UNIQUE_INDEX_NAME, TTL_INDEX_NAME],
+    });
   } finally {
     await mongoose.disconnect();
   }
 };
 
 void main().catch((error: Error) => {
-  console.error(error.message);
+  writeReleaseCommandFailure(error);
   process.exitCode = 1;
 });

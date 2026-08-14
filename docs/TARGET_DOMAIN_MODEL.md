@@ -1,6 +1,6 @@
 # ForeverApp / «Вместе»: semantic Factor domain model
 
-Status: active, implemented contract. Updated 2026-08-11.
+Status: active, implemented contract. Updated 2026-08-13.
 
 Privacy, safety, versioning, storage and scaling rules continue in [TARGET_DOMAIN_OPERATIONS.md](./TARGET_DOMAIN_OPERATIONS.md).
 
@@ -141,9 +141,23 @@ The pure recommendation layer combines available Factor snapshots, pair evaluati
 
 Activity feedback is separate for each member. It creates `TASK_RESULT`/`PAIR_ACTIVITY` evidence and new immutable snapshots. Reported change is evidence, not proof that the activity caused an outcome.
 
+## 9A. Factor Matching model
+
+Matching is a separate projection over the same semantic Factors, not a return to a mutable vector profile:
+
+- `MatchingProfile` owns the public card, activation/discovery settings and pointers to actual/preference/card revisions. It is standalone from `User`, the owner semantic profile and any Pair.
+- Matching actual input is built from current, unpaired `IndividualFactorSnapshot` rows only when the latest `MatchingUseGrant` for that owner/factor is active. A grant revision and consent revision are pinned into the projection.
+- `PartnerPreferenceProfile` is a separate immutable revision containing typed targets, importance, flexibility and constraint mode. Allowed targets are scalar range, categorical set, constraint set and role target; hard constraints require an eligible definition and non-negotiable preference.
+- `CandidateDiscoveryProjection` is a coarse, indexed eligibility projection. It intentionally carries no full Factor profile or desired-profile graph.
+- `MatchingFeedSession` pins a bounded ordered candidate set to requester/profile/preference/registry/algorithm versions. `CandidatePresentationGrant` binds one requester/candidate/evaluation and both sides' profile/card/preference revisions behind an opaque hashed token and expiry.
+- `MatchingEvaluationSnapshot` is the immutable internal evaluation record. It may persist numeric fit/ranking inputs for deterministic ordering and auditability, but these values are never a compatibility score or participant output.
+- Candidate projection is strictly qualitative: `PROMISING | WORKABLE | LOW_INFORMATION`, a `LOW | MEDIUM | HIGH` confidence band and up to three reviewed explanations. Raw Factor values, peer preferences, contribution/rank numbers and internal hard-conflict reasons remain undisclosed.
+- `Like` owns `SENT → VIEWED → RESPONDED → MATCHED` plus declined/expired/blocked terminal outcomes. `MatchingConnection` owns the two-person social link and `MATCHED | TALKING | DATING | COUPLE_CONFIRMED` stage; `MatchingBlock` is directional; `MatchingSocialEffect` makes side effects canonical.
+- `MatchingConnection` is not a Pair. One participant's `REQUEST` counts only as that participant's confirmation; a distinct participant must `CONFIRM`. Only then may the transaction create one Pair and generalized `PairMembershipClaim` rows with source `MATCHING_CONNECTION`.
+
 ## 10. NEW_ONLY migration policy
 
-The production runtime has no feature flag, dual-read or fallback to six-axis artifacts. The guarded migration:
+The production Factor runtime has no feature flag, Factor-data dual-read or fallback to six-axis artifacts. The guarded migration:
 
 1. validates/seeds the published registry;
 2. validates Factor indexes and rejects duplicate canonical identities;
@@ -153,3 +167,5 @@ The production runtime has no feature flag, dual-read or fallback to six-axis ar
 6. is dry-run by default and idempotent when applied in `NEW_ONLY` mode.
 
 PairEvent has its own NEW_ONLY migration: safe semantic events receive registry/action target binding; diagnostic, raw-weekly or invalid legacy events are scrubbed or retired, never converted into Factor evidence.
+
+The matching additive migration canonicalizes legacy social rows without reading `matchScore` into Factor intelligence. During the rollback window the original Like state may be retained in `legacyStatus` so an approved rollback artifact can be dual-readable; this compatibility field does not authorize numeric scoring or a legacy Factor fallback.

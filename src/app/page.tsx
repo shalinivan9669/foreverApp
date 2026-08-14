@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
 import Spinner from '@/components/ui/Spinner';
 import { mvpOnboardingApi } from '@/client/api/mvpOnboarding.api';
 import { usersApi } from '@/client/api/users.api';
+import {
+  bootstrapDiscordSession,
+  discordBootstrapMessage,
+} from '@/client/discord/bootstrap';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
@@ -32,31 +35,10 @@ export default function DiscordActivityPage() {
     setDiscordUser(null);
 
     try {
-      const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-      const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
-      if (!clientId || !redirectUri) throw new Error('DISCORD_NOT_CONFIGURED');
-
-      const sdk = new DiscordSDK(clientId);
-      await sdk.ready();
-
-      const { code } = await sdk.commands.authorize({
-        client_id: clientId,
-        response_type: 'code',
-        scope: ['identify'],
-        prompt: 'none',
-      });
-
-      const tokenData = await usersApi.exchangeDiscordCode({
-        code,
-        redirect_uri: redirectUri,
-      });
-
-      await sdk.commands.authenticate({ access_token: tokenData.access_token });
+      const tokenData = await bootstrapDiscordSession();
       setDiscordUser(tokenData.user);
-    } catch {
-      setError(
-        'Не удалось подключить профиль. Откройте приложение внутри Discord и повторите попытку.'
-      );
+    } catch (caught) {
+      setError(discordBootstrapMessage(caught));
     } finally {
       setConnecting(false);
     }

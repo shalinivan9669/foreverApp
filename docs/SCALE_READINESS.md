@@ -1,6 +1,6 @@
 # Scale readiness
 
-Status: local modular-monolith baseline for the NEW_ONLY public-free MVP. Measurements below are local synthetic evidence, not production capacity proof.
+Status: local modular-monolith baseline for the NEW_ONLY public-free MVP. Measurements below predate the Factor Matching master change unless explicitly stated; no matching p95/capacity result is claimed yet. Updated 2026-08-13.
 
 ## Targets
 
@@ -9,6 +9,8 @@ Status: local modular-monolith baseline for the NEW_ONLY public-free MVP. Measur
 | Pair dashboard / Pair Summary | p95 < 500 ms | no raw joins/cross-pair reads |
 | Pair history | p95 < 500 ms | bounded cursor projection |
 | Recommendation mutation | p95 < 1,500 ms | one canonical decision/activity |
+| Matching feed/evaluation | establish after guarded matching load evidence | bounded candidate set, no stale/cross-actor grant use |
+| Matching Like/connection/Pair transition | establish after guarded matching load evidence | one canonical Like/connection/Pair/effect under races |
 | Other transactional mutations | observe; investigate sustained p95 > 1,500 ms | no lost/duplicate committed effects |
 | All paths | unexpected 5xx < 1% | zero privacy failures and duplicate canonical artifacts |
 
@@ -23,6 +25,16 @@ These are pre-pilot engineering gates. Production SLOs require real traffic, top
 - Recommendation uses a per-Pair single-flight acquired only after membership authorization. This removes redundant same-Pair concurrent computation without serializing cross-Pair traffic or leaking resource existence.
 - Runtime index creation is disabled; preflight/migration explicitly owns index application.
 - No Redis, queue, microservice, vector database or AI is required for this load profile.
+- Matching discovery first filters a coarse indexed `CandidateDiscoveryProjection`, then evaluates a bounded pool; participant reads never scan raw Factor evidence or preference graphs.
+- Matching feed/grant cursors are actor/version pinned and expiring. CAS, unique identities, transactions and `MatchingSocialEffect` dedupe keep Like/connection/Pair side effects canonical.
+
+## Factor Matching capacity bounds and open evidence
+
+- A `MatchingFeedSession` pins at most 200 candidate ids and expires after 15 minutes; list API pages are limited to 50.
+- `CandidatePresentationGrant` expires after 10 minutes and pins requester/candidate plus both profile/card/preference revisions and registry/algorithm versions.
+- Internal `MatchingEvaluationSnapshot` expires after 24 hours; social effects have bounded 90-day retention where issued with expiry.
+- Matching profile/preference/grant, discovery, feed, evaluation, active Like/connection, block/effect and generalized membership-claim indexes are declared; production runtime uses `autoIndex: false`, so target preflight/additive application must prove them present.
+- `release:matching-load-smoke` currently runs the existing guarded synthetic Pair/load suite against the matching `_test` target. It detects regressions after matching schema/index rollout but does **not** by itself establish feed/evaluation/Like p95. Matching-specific p50/p95/p99, pool saturation, candidate-density and geospatial selectivity remain open pilot evidence.
 
 ## Final comparable load runs
 
@@ -88,6 +100,7 @@ Required dashboards:
 - duplicate canonical identity alarms;
 - backup age/restore drill outcome;
 - privacy/security incident channel.
+- matching route latency/error by low-cardinality endpoint group, stale feed/grant reason counts, eligible-pool/page size, evaluation cache hit/expiry, idempotency conflict and Pair-transition outcomes; never candidate/user ids or preference/Factor content.
 
 Provisional alerts: critical read p95 > 500 ms for 15 minutes; critical mutation p95 > 1,500 ms for 15 minutes; 5xx > 1% for 5 minutes; generic work older than twice its lease; any duplicate canonical artifact or disclosure/cross-pair failure immediately.
 

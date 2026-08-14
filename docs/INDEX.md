@@ -4,11 +4,11 @@
 
 - `README.md` — setup, environment and command overview.
 - `AGENTS.md` — repository operating rules.
-- `docs/PRODUCT_SPEC.md` — public-free product direction and exclusions.
+- `docs/PRODUCT_SPEC.md` — public-free Pair loop and Factor Matching product direction/exclusions.
 - `docs/MVP_SPEC.md` — canonical MVP scope and release gates.
 - `docs/MVP_FLOWS.md` — detailed acceptance behavior.
 - `docs/ARCHITECTURE.md` — current code boundaries and NEW_ONLY runtime.
-- `docs/TARGET_DOMAIN_MODEL.md` — implemented semantic Factor model.
+- `docs/TARGET_DOMAIN_MODEL.md` — implemented semantic Factor and Factor Matching model.
 - `docs/TARGET_DOMAIN_OPERATIONS.md` — privacy, versioning, storage and safety invariants.
 - `docs/API_CONTRACTS.md` — current HTTP/DTO contracts.
 - `docs/SECURITY.md` — auth, authorization, disclosure, deletion and logging rules.
@@ -17,6 +17,7 @@
 - `docs/PUBLIC_FREE_MVP_EXECUTION.md` — execution ledger for the 2026-08-11 cutover.
 - `docs/SCALE_READINESS.md` — measured local performance and remaining capacity risks.
 - `docs/RELEASE_RUNBOOK.md` — preflight, migration, rollout, rollback and incidents.
+- `docs/SAFETY_RETENTION_EXTERNAL_REVIEW.md` — draft technical packet for named safety, legal/privacy and operations reviewers; not an approval.
 - `docs/P0_CAPABILITY_MATRIX.md` — compact implementation/evidence matrix.
 - `docs/P0_TWO_USER_E2E.md` — mandatory real two-session acceptance checklist.
 - `docs/03-state-machines.md` — current lifecycle transition reference.
@@ -31,6 +32,7 @@
 | --- | --- | --- |
 | Product/MVP | `PRODUCT_SPEC.md`, `MVP_SPEC.md` | `MVP_FLOWS.md`, current status/ledger |
 | Factor/domain | `TARGET_DOMAIN_MODEL.md`, `TARGET_DOMAIN_OPERATIONS.md` | `src/domain/model`, persistence/runtime services |
+| Factor Matching | `PRODUCT_SPEC.md`, `TARGET_DOMAIN_MODEL.md`, `API_CONTRACTS.md`, `SECURITY.md` | `src/domain/model/matching`, `src/domain/services/matching`, matching models/routes/scripts |
 | API route | `API_CONTRACTS.md`, `SECURITY.md` | route, domain service, DTO |
 | Frontend | `ARCHITECTURE.md` | `src/features`, `src/components`, `src/client` |
 | Auth/privacy | `SECURITY.md`, `TARGET_DOMAIN_OPERATIONS.md` | guards, DTO/disclosure, audit, deletion/session services |

@@ -670,3 +670,29 @@ Summary:
 - Added one canonical `in_progress` session per pair/questionnaire, immutable unique member answers, terminal `closed` sessions on Pair end, and conflict-safe convergence for concurrent requests using different idempotency keys.
 - Added a fail-closed duplicate preflight/additive-index migration plus database-free and deterministic replica-set coverage; legacy duplicates are reported and never silently selected, deleted or rewritten.
 Files: src/models/PairQuestionnaireSession.ts, src/models/PairQuestionnaireAnswer.ts, src/domain/services/questionnaires.service.ts, src/domain/services/pairs.service.ts, scripts/lib/pair-questionnaire-integrity.ts, scripts/migrate-pair-questionnaire-integrity.ts, scripts/pair-questionnaire-integrity.selfcheck.ts, scripts/pair-questionnaire-concurrency.integration.ts, package.json, docs/API_CONTRACTS.md, docs/TESTING.md, docs/RELEASE_RUNBOOK.md, docs/MVP_RELEASE_STATUS.md, docs/CHANGELOG.md
+
+Date: 2026-08-13
+Summary:
+- Removed Pair/session/questionnaire duplicate samples from the Pair questionnaire release preflight; it now emits only aggregate group counts, migration version and canonical index names.
+- Replaced raw report/error output across all seven target preflight/migration entrypoints with a shared `counts`/allowlisted `reasonCounts`/`indexNames` contract; import-time PairEvent validation is now inside the sanitized command boundary.
+- Added regression and runtime probes proving missing env, invalid arguments and synthetic connection errors cannot disclose URI/database names, duplicate-key values, stack frames or local paths.
+- Prepared a clearly non-approved external review packet containing the exact `help-ru-v1` copy, implemented retention/deletion inventory, reviewer decision templates and the precise jurisdiction/reviewer/operations blockers.
+- Kept real Discord, authenticated/physical mobile, production target/restore, external content/legal approval and deployment authorization gates open; no production write or deploy was performed.
+- Re-ran current-working-tree lint, TypeScript, the full selfcheck chain, agent checks, diff validation and production dependency audit after the security fix, then built and smoked a byte-matched isolated production snapshot; all locally available checks passed and the audit reported zero vulnerabilities. The deliberate unavailable-test-DB readiness result was `503`, so target readiness and an immutable deploy artifact remain open.
+Files: scripts/lib/release-command-output.ts, scripts/lib/pair-questionnaire-integrity.ts, scripts/migrate-factor-engine.ts, scripts/migrate-pair-context-index.ts, scripts/migrate-pair-events-new-only.ts, scripts/migrate-pair-questionnaire-integrity.ts, scripts/migrate-partner-signals.ts, scripts/migrate-privacy-requests-v2.ts, scripts/migrate-weekly-checkins-pair-scope.ts, scripts/pair-questionnaire-integrity.selfcheck.ts, scripts/pair-questionnaire-concurrency.integration.ts, scripts/release-preflight.ts, scripts/release-readiness.selfcheck.ts, docs/SAFETY_RETENTION_EXTERNAL_REVIEW.md, docs/INDEX.md, docs/PUBLIC_FREE_MVP_EXECUTION.md, docs/MVP_RELEASE_STATUS.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md
+
+Date: 2026-08-13
+Summary:
+- Promoted Factor Matching to the documented free core: standalone `MatchingProfile`, separate Factor-use grants and partner preferences, bounded discovery/feed/presentation grants, qualitative candidate fit, Like/connection/block lifecycle and two-party-confirmed Pair formation.
+- Documented that the authenticated session remains the actor, candidate grants are scoped presentation capabilities, numeric fit/raw Factor/preference/evidence data stays internal, and one participant cannot create a Pair alone.
+- Added exact matching code/database/release command coverage and the guarded `DRY_RUN`/`APPLY_ADDITIVE`/`VERIFY` migration procedure, including production `autoIndex=false` preflight and dual-readable `legacyStatus` rollback constraints.
+- Kept release claims conservative: after local verification `CODE_COMPLETE=NO` because transaction-capable DB integrations remain unrun, `ATLAS_VALIDATED=NOT RUN` without `MATCHING_TEST_MONGODB_URI`, `DISCORD_VALIDATED=NOT RUN` without two real accounts and `PUBLIC_READY=NO`.
+Files: README.md, docs/PRODUCT_SPEC.md, docs/MVP_SPEC.md, docs/MVP_FLOWS.md, docs/ARCHITECTURE.md, docs/TARGET_DOMAIN_MODEL.md, docs/TARGET_DOMAIN_OPERATIONS.md, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/TESTING.md, docs/MVP_RELEASE_STATUS.md, docs/SCALE_READINESS.md, docs/RELEASE_RUNBOOK.md, docs/PROJECT_MAP.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-08-13
+Summary:
+- Closed the final matching concurrency/privacy review findings: fenced feed/card disclosure, bidirectional grant revocation on block, serialized Mongo session operations, survivor-owned Pair history preservation, and owner-complete/non-leaking matching export.
+- Made matching social audit and notifications transactionally idempotent, hardened migration verification for legacy payloads/orphans/unknown states, and required real Atlas topology evidence before `atlasValidated:true`.
+- Replaced the generic load wrapper with a dedicated 10,000-projection Factor Matching smoke covering discovery explain, bounded batching, pagination, disclosure, latency budgets and cleanup.
+- Passed code verification, the full selfcheck chain, lint, production build, agent checks and dependency audit; Atlas/Discord release evidence remains `NOT RUN`, so `PUBLIC_READY=NO`.
+Files: src/domain/services/matching/**, src/domain/state/matching/**, src/domain/services/accountDeletion.service.ts, src/domain/services/privacyExport.service.ts, src/domain/services/pairFormation.service.ts, src/lib/audit/**, src/models/EventLog.ts, scripts/matching-*.ts, scripts/migrate-matching.ts, scripts/verify-matching-release.ts, scripts/agent-checks.ts, package.json, docs/ARCHITECTURE.md, docs/SECURITY.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md

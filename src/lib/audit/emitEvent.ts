@@ -61,6 +61,12 @@ const SENSITIVE_METADATA_KEYS = new Set([
   'deltas',
   'axissteps',
   'matchscore',
+  'candidategrant',
+  'candidategranttoken',
+  'candidategranthash',
+  'preferences',
+  'partnerpreferences',
+  'factorvalues',
   'evidencecount',
   'factorevidencecount',
   'evidenceids',
@@ -226,7 +232,8 @@ export async function emitEvent<E extends AuditEventName>(
 
   try {
     await connectToDatabase();
-    const doc = await EventLog.create({
+    const eventDocument = {
+      ...(input.eventKey ? { eventKey: input.eventKey } : {}),
       event: input.event,
       ts,
       actor: {
@@ -238,7 +245,15 @@ export async function emitEvent<E extends AuditEventName>(
       metadata: toStoredMetadata(sanitizeAuditMetadata(input.metadata as JsonValue)),
       retentionTier,
       expiresAt,
-    });
+    };
+    const doc = input.eventKey
+      ? await EventLog.findOneAndUpdate(
+          { eventKey: input.eventKey },
+          { $setOnInsert: eventDocument },
+          { upsert: true, new: true }
+        )
+      : await EventLog.create(eventDocument);
+    if (!doc) return null;
 
     return {
       id: String(doc._id),

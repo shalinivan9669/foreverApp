@@ -1,45 +1,54 @@
-import { DomainError } from '@/domain/errors';
-import { disclosePairEvaluation } from '@/domain/model/privacy/disclosure';
-import type {
-  PairFactorEvaluationSnapshot as DomainPairFactorEvaluationSnapshot,
-} from '@/domain/model/snapshots/snapshots';
-import type { FactorValue } from '@/domain/model/values/factorValue';
-import { emitEvent } from '@/lib/audit/emitEvent';
-import type { AuditRequestContext } from '@/lib/audit/eventTypes';
-import { toUserDTO, type UserDTO } from '@/lib/dto/user.dto';
-import { connectToDatabase } from '@/lib/mongodb';
-import { Like } from '@/models/Like';
-import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
-import { Notification } from '@/models/Notification';
-import { Pair } from '@/models/Pair';
-import { PairActivity, type PairActivityType } from '@/models/PairActivity';
-import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
-import { PairStateSnapshot } from '@/models/PairStateSnapshot';
-import { PartnerSignal } from '@/models/PartnerSignal';
-import { PersonalDailyCheckIn } from '@/models/PersonalDailyCheckIn';
-import { PersonalQuestionnaireSubmission } from '@/models/PersonalQuestionnaireSubmission';
-import { SafetyGate } from '@/models/SafetyGate';
+import { DomainError } from "@/domain/errors";
+import { disclosePairEvaluation } from "@/domain/model/privacy/disclosure";
+import type { PairFactorEvaluationSnapshot as DomainPairFactorEvaluationSnapshot } from "@/domain/model/snapshots/snapshots";
+import type { FactorValue } from "@/domain/model/values/factorValue";
+import { emitEvent } from "@/lib/audit/emitEvent";
+import type { AuditRequestContext } from "@/lib/audit/eventTypes";
+import { toUserDTO, type UserDTO } from "@/lib/dto/user.dto";
+import { connectToDatabase } from "@/lib/mongodb";
+import { Like } from "@/models/Like";
+import { MatchingBlock, type MatchingBlockType } from "@/models/MatchingBlock";
 import {
-  User,
-  type UserType,
-} from '@/models/User';
-import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
+  MatchingConnection,
+  type MatchingConnectionType,
+} from "@/models/MatchingConnection";
 import {
-  EvidenceEvent,
-  type EvidenceEventType,
-} from '@/models/EvidenceEvent';
+  MatchingProfile,
+  type MatchingProfileType,
+} from "@/models/MatchingProfile";
+import {
+  MatchingUseGrant,
+  type MatchingUseGrantType,
+} from "@/models/MatchingUseGrant";
+import { MvpOnboardingSession } from "@/models/MvpOnboardingSession";
+import { Notification } from "@/models/Notification";
+import { Pair } from "@/models/Pair";
+import { PairActivity, type PairActivityType } from "@/models/PairActivity";
+import { PairQuestionnaireAnswer } from "@/models/PairQuestionnaireAnswer";
+import { PairStateSnapshot } from "@/models/PairStateSnapshot";
+import {
+  PartnerPreferenceProfile,
+  type PartnerPreferenceProfileType,
+} from "@/models/PartnerPreferenceProfile";
+import { PartnerSignal } from "@/models/PartnerSignal";
+import { PersonalDailyCheckIn } from "@/models/PersonalDailyCheckIn";
+import { PersonalQuestionnaireSubmission } from "@/models/PersonalQuestionnaireSubmission";
+import { SafetyGate } from "@/models/SafetyGate";
+import { User, type UserType } from "@/models/User";
+import { WeeklyCheckIn } from "@/models/WeeklyCheckIn";
+import { EvidenceEvent, type EvidenceEventType } from "@/models/EvidenceEvent";
 import {
   IndividualFactorSnapshot,
   type IndividualFactorSnapshotType,
-} from '@/models/IndividualFactorSnapshot';
+} from "@/models/IndividualFactorSnapshot";
 import {
   PairFactorEvaluationSnapshot,
   type PairFactorEvaluationSnapshotType,
-} from '@/models/PairFactorEvaluationSnapshot';
+} from "@/models/PairFactorEvaluationSnapshot";
 import {
   fromStoredFactorValue,
   type StoredFactorValue,
-} from '@/models/factorEngineSchemas';
+} from "@/models/factorEngineSchemas";
 
 const EXPORT_LIMITS = {
   onboardingSessions: 10,
@@ -52,6 +61,10 @@ const EXPORT_LIMITS = {
   pairQuestionnaireAnswers: 500,
   partnerSignals: 500,
   matchInteractions: 250,
+  matchingPreferenceRevisions: 50,
+  matchingUseGrantRevisions: 250,
+  matchingConnections: 100,
+  matchingBlocks: 100,
   safetySettings: 100,
   notifications: 250,
   factorEvidenceEvents: 250,
@@ -74,71 +87,68 @@ const MAX_EXPORT_TEXT_CHARS = 4_000;
 const MAX_EXPORT_ID_CHARS = 256;
 
 const FACTOR_ENGINE_EXPORT_MANIFEST = {
-  manifestVersion: 'factor-engine-privacy-manifest-v1',
-  projectionVersion: 'factor-engine-owner-export-v1',
-  disclosurePolicyVersion: 'central-factor-disclosure-v1',
-  ownerEvidenceScope: 'SELF_SUBJECT_AND_ACTOR_ONLY',
-  ownerEvidenceProvenance: 'SOURCE_AND_POLICY_METADATA_INCLUDED',
-  ownerSnapshotScope: 'SELF_SUBJECT_ONLY',
-  pairEvaluationScope: 'CENTRAL_PAIR_MEMBER_SUMMARY_ONLY',
+  manifestVersion: "factor-engine-privacy-manifest-v1",
+  projectionVersion: "factor-engine-owner-export-v1",
+  disclosurePolicyVersion: "central-factor-disclosure-v1",
+  ownerEvidenceScope: "SELF_SUBJECT_AND_ACTOR_ONLY",
+  ownerEvidenceProvenance: "SOURCE_AND_POLICY_METADATA_INCLUDED",
+  ownerSnapshotScope: "SELF_SUBJECT_ONLY",
+  pairEvaluationScope: "CENTRAL_PAIR_MEMBER_SUMMARY_ONLY",
   bounds: {
     evidenceEvents: EXPORT_LIMITS.factorEvidenceEvents,
     individualFactorSnapshots: EXPORT_LIMITS.individualFactorSnapshots,
     pairEvaluationSummaries: EXPORT_LIMITS.pairFactorEvaluationSummaries,
     pairContexts: EXPORT_LIMITS.pairMemberships,
-    evidenceIdsPerSnapshot:
-      NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
+    evidenceIdsPerSnapshot: NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
     setValuesPerFactorValue: NESTED_EXPORT_LIMITS.factorValueSetItems,
     maxTextChars: MAX_EXPORT_TEXT_CHARS,
     maxIdentifierChars: MAX_EXPORT_ID_CHARS,
   },
   excluded: [
-    'partner and observer evidence',
-    'partner individual factor snapshots and raw values',
-    'pair member and source snapshot identifiers',
-    'pair raw values, exact confidence, fit metrics, evidence links, and hashes',
+    "partner and observer evidence",
+    "partner individual factor snapshots and raw values",
+    "pair member and source snapshot identifiers",
+    "pair raw values, exact confidence, fit metrics, evidence links, and hashes",
   ],
 } as const;
 
 const boundedText = (
   value: string | null | undefined,
-  limit = MAX_EXPORT_TEXT_CHARS
-): string => String(value ?? '').slice(0, limit);
+  limit = MAX_EXPORT_TEXT_CHARS,
+): string => String(value ?? "").slice(0, limit);
 
 const boundedTextArray = (
   values: readonly string[],
   itemLimit: number,
-  itemCharLimit = MAX_EXPORT_TEXT_CHARS
+  itemCharLimit = MAX_EXPORT_TEXT_CHARS,
 ): string[] =>
-  values
-    .slice(0, itemLimit)
-    .map((value) => boundedText(value, itemCharLimit));
+  values.slice(0, itemLimit).map((value) => boundedText(value, itemCharLimit));
 
 const boundedFactorValue = (stored: StoredFactorValue): FactorValue => {
   const value = fromStoredFactorValue(stored);
   switch (value.kind) {
-    case 'CATEGORY':
-    case 'CONSTRAINT':
+    case "CATEGORY":
+    case "CONSTRAINT":
       return {
         kind: value.kind,
         value: boundedText(value.value, MAX_EXPORT_ID_CHARS),
       };
-    case 'ORDINAL':
+    case "ORDINAL":
       return {
         kind: value.kind,
         value: boundedText(value.value, MAX_EXPORT_ID_CHARS),
         rank: value.rank,
       };
-    case 'SET':
+    case "SET":
       return {
         kind: value.kind,
         values: boundedTextArray(
           value.values,
           NESTED_EXPORT_LIMITS.factorValueSetItems,
-          MAX_EXPORT_ID_CHARS
+          MAX_EXPORT_ID_CHARS,
         ),
       };
-    case 'TEXT':
+    case "TEXT":
       return { kind: value.kind, value: boundedText(value.value) };
     default:
       return value;
@@ -146,7 +156,7 @@ const boundedFactorValue = (stored: StoredFactorValue): FactorValue => {
 };
 
 const toDomainPairEvaluationSnapshot = (
-  row: PairFactorEvaluationSnapshotType
+  row: PairFactorEvaluationSnapshotType,
 ): DomainPairFactorEvaluationSnapshot => ({
   snapshotId: row.snapshotId,
   pairId: row.pairId,
@@ -216,8 +226,8 @@ const requiredIso = (value: Date): string => value.toISOString();
 
 type PairMembershipExport = {
   pairId: string;
-  role: 'A' | 'B';
-  status: 'active' | 'paused' | 'ended';
+  role: "A" | "B";
+  status: "active" | "paused" | "ended";
   createdAt?: string;
   updatedAt?: string;
 };
@@ -228,7 +238,7 @@ type FactorEvidenceEventExport = {
   factorKey: string;
   measurementKey: string;
   instrumentKey: string;
-  sourceType: EvidenceEventType['sourceType'];
+  sourceType: EvidenceEventType["sourceType"];
   sourceRef: string;
   sourceRevision: string;
   sourceHash: string;
@@ -237,42 +247,42 @@ type FactorEvidenceEventExport = {
   reliability: number;
   observedAt: string;
   recordedAt: string;
-  context: EvidenceEventType['context'];
-  purpose: EvidenceEventType['purpose'];
-  privacyClass: EvidenceEventType['privacyClass'];
-  captureMode: EvidenceEventType['captureMode'];
+  context: EvidenceEventType["context"];
+  purpose: EvidenceEventType["purpose"];
+  privacyClass: EvidenceEventType["privacyClass"];
+  captureMode: EvidenceEventType["captureMode"];
   policyVersion: string;
   consentRevision: string;
-  retentionClass: EvidenceEventType['retentionClass'];
-  versions: EvidenceEventType['versions'];
-  status: EvidenceEventType['status'];
-  rejectionCode?: EvidenceEventType['rejectionCode'];
+  retentionClass: EvidenceEventType["retentionClass"];
+  versions: EvidenceEventType["versions"];
+  status: EvidenceEventType["status"];
+  rejectionCode?: EvidenceEventType["rejectionCode"];
 };
 
 type IndividualFactorSnapshotExport = {
   snapshotId: string;
   contextPairId?: string;
-  projectionPurpose: IndividualFactorSnapshotType['projectionPurpose'];
+  projectionPurpose: IndividualFactorSnapshotType["projectionPurpose"];
   factorKey: string;
   revision: number;
-  status: IndividualFactorSnapshotType['status'];
+  status: IndividualFactorSnapshotType["status"];
   value: FactorValue;
-  metrics: IndividualFactorSnapshotType['metrics'];
+  metrics: IndividualFactorSnapshotType["metrics"];
   evidenceIds: string[];
   evidenceIdsTruncated: boolean;
   evidenceIdsLimit: number;
-  versions: IndividualFactorSnapshotType['versions'];
+  versions: IndividualFactorSnapshotType["versions"];
   calculatedAt: string;
 };
 
 type PairFactorEvaluationSummaryExport = {
   pairId: string;
-  disclosure: 'SUMMARY_ONLY';
+  disclosure: "SUMMARY_ONLY";
   factorKey: string;
-  status: PairFactorEvaluationSnapshotType['evaluation']['status'];
-  confidenceBand: 'LOW' | 'MEDIUM' | 'HIGH';
-  actionability: PairFactorEvaluationSnapshotType['evaluation']['actionability'];
-  reasonCode: 'PAIR_EVALUATION_SAFE_SUMMARY';
+  status: PairFactorEvaluationSnapshotType["evaluation"]["status"];
+  confidenceBand: "LOW" | "MEDIUM" | "HIGH";
+  actionability: PairFactorEvaluationSnapshotType["evaluation"]["actionability"];
+  reasonCode: "PAIR_EVALUATION_SAFE_SUMMARY";
   calculatedAt: string;
 };
 
@@ -284,11 +294,11 @@ type FactorEnginePrivacyExport = {
 };
 
 type OwnerPrivacyExportDTO = {
-  exportVersion: 'owner-export-v1';
+  exportVersion: "owner-export-v1";
   generatedAt: string;
   scope: {
     ownerOnlyRawData: true;
-    sharedDataPolicy: 'ALREADY_DISCLOSED_PAIR_PROJECTIONS_ONLY';
+    sharedDataPolicy: "ALREADY_DISCLOSED_PAIR_PROJECTIONS_ONLY";
     bounds: {
       sectionCountsAreHardLimited: true;
       textMayBeTruncated: true;
@@ -298,10 +308,10 @@ type OwnerPrivacyExportDTO = {
     excluded: string[];
   };
   account: UserDTO & {
-    relationshipLens?: NonNullable<UserType['profile']>['relationshipLens'];
+    relationshipLens?: NonNullable<UserType["profile"]>["relationshipLens"];
   };
   onboardingSessions: ExportSection<{
-    status: 'in_progress' | 'completed';
+    status: "in_progress" | "completed";
     contentRevision: string;
     policyVersion: string;
     consent: {
@@ -317,9 +327,9 @@ type OwnerPrivacyExportDTO = {
       questionId: string;
       questionRevision: string;
       answerRevision: number;
-      capturePolicy: 'PRIVATE' | 'PAIR_MODEL_ONLY' | 'SHARED';
+      capturePolicy: "PRIVATE" | "PAIR_MODEL_ONLY" | "SHARED";
       value: {
-        kind: 'single' | 'multi' | 'boolean' | 'skipped';
+        kind: "single" | "multi" | "boolean" | "skipped";
         optionId?: string;
         optionIds?: string[];
         booleanValue?: boolean;
@@ -335,11 +345,19 @@ type OwnerPrivacyExportDTO = {
     dateKey: string;
     timezoneOffsetMin?: number;
     lens: {
-      type: 'feminine' | 'masculine' | 'balanced' | 'custom';
-      source: 'gender_default' | 'user_setting';
+      type: "feminine" | "masculine" | "balanced" | "custom";
+      source: "gender_default" | "user_setting";
     };
     answers: {
-      mood: 'calm' | 'warm' | 'tired' | 'anxious' | 'sad' | 'irritated' | 'closed' | 'open';
+      mood:
+        | "calm"
+        | "warm"
+        | "tired"
+        | "anxious"
+        | "sad"
+        | "irritated"
+        | "closed"
+        | "open";
       energy: number;
       stress: number;
       closenessNeed: number;
@@ -349,13 +367,13 @@ type OwnerPrivacyExportDTO = {
       conversationReadiness: number;
     };
     context?: {
-      sleep?: 'good' | 'medium' | 'bad';
-      workload?: 'low' | 'medium' | 'high';
+      sleep?: "good" | "medium" | "bad";
+      workload?: "low" | "medium" | "high";
       body?: {
         enabled: boolean;
-        type?: 'cycle' | 'pain' | 'fatigue' | 'health' | 'other';
+        type?: "cycle" | "pain" | "fatigue" | "health" | "other";
         note?: string;
-        visibility: 'private';
+        visibility: "private";
       };
       customTags?: string[];
     };
@@ -364,11 +382,11 @@ type OwnerPrivacyExportDTO = {
       partnerSignal: {
         enabled: boolean;
         text?: string;
-        status: 'none' | 'draft' | 'sent' | 'hidden';
+        status: "none" | "draft" | "sent" | "hidden";
         sentSignalId?: string;
         sentAt?: string;
       };
-      pairMap: { enabled: boolean; visibility: 'none' | 'aggregate_only' };
+      pairMap: { enabled: boolean; visibility: "none" | "aggregate_only" };
     };
     createdAt: string;
     updatedAt: string;
@@ -392,7 +410,7 @@ type OwnerPrivacyExportDTO = {
     submissionId: string;
     questionnaireId: string;
     questionnaireVersion: number;
-    questionnaireContentModel: 'SEMANTIC_V1';
+    questionnaireContentModel: "SEMANTIC_V1";
     answersTruncated: boolean;
     answersLimit: number;
     answers: Array<{
@@ -400,9 +418,9 @@ type OwnerPrivacyExportDTO = {
       ui: number;
       contentRevision: string;
     }>;
-    captureMode: 'PRIVATE';
-    retentionClass: 'OWNER_CONTROLLED';
-    semanticStatus: 'UNMAPPED';
+    captureMode: "PRIVATE";
+    retentionClass: "OWNER_CONTROLLED";
+    semanticStatus: "UNMAPPED";
     submittedAt: string;
     createdAt: string;
   }>;
@@ -411,7 +429,7 @@ type OwnerPrivacyExportDTO = {
     pairId: string;
     cycleKey: string;
     revision: number;
-    memberCompletion: Array<{ member: 'owner' | 'partner'; status: string }>;
+    memberCompletion: Array<{ member: "owner" | "partner"; status: string }>;
     dataStatus: string;
     reasonCodes: string[];
     signals: Array<{
@@ -431,13 +449,13 @@ type OwnerPrivacyExportDTO = {
     lifecycleVersion?: string;
     feedbackSchemaVersion?: string;
     resultSummary?: {
-      dataStatus: 'PARTIAL' | 'ENOUGH';
+      dataStatus: "PARTIAL" | "ENOUGH";
       bothSubmitted: boolean;
-      status: NonNullable<PairActivityType['resultSummary']>['status'];
+      status: NonNullable<PairActivityType["resultSummary"]>["status"];
       completedAt?: string;
       resultVersion: NonNullable<
-        PairActivityType['resultSummary']
-      >['resultVersion'];
+        PairActivityType["resultSummary"]
+      >["resultVersion"];
     };
     offeredAt: string;
     acceptedAt?: string;
@@ -449,13 +467,13 @@ type OwnerPrivacyExportDTO = {
     pairId: string;
     questionnaireId: string;
     questionId: string;
-    role: 'A' | 'B';
+    role: "A" | "B";
     ui: number;
     answeredAt: string;
   }>;
   partnerSignals: ExportSection<{
     pairId: string;
-    direction: 'sent' | 'received';
+    direction: "sent" | "received";
     dateKey: string;
     text: string;
     tone: string;
@@ -465,12 +483,17 @@ type OwnerPrivacyExportDTO = {
   }>;
   matchInteractions: ExportSection<{
     id: string;
-    role: 'initiator' | 'recipient';
+    role: "initiator" | "recipient";
     status: string;
     ownCardSnapshot?: {
       requirements: [string, string, string];
+      give?: [string, string, string];
       questions: [string, string];
       updatedAt?: string;
+    };
+    ownInitiatorSubmission?: {
+      agreements: [boolean, boolean, boolean];
+      answers: [string, string];
     };
     ownResponse?: {
       agreements: [boolean, boolean, boolean];
@@ -481,17 +504,66 @@ type OwnerPrivacyExportDTO = {
     createdAt?: string;
     updatedAt?: string;
   }>;
+  matching: {
+    profile?: {
+      card: MatchingProfileType["card"];
+      discoveryRequested: boolean;
+      active: boolean;
+      requiredDataReady: boolean;
+      desiredAgeRange: MatchingProfileType["desiredAgeRange"];
+      maxDistanceKm: number;
+      publicCardRevision: number;
+      actualProfileRevision: number;
+      preferenceRevision: number;
+      registryVersion: number;
+      algorithmVersion: number;
+      createdAt: string;
+      updatedAt: string;
+    };
+    preferenceRevisions: ExportSection<{
+      revision: number;
+      registryKey: string;
+      registryVersion: number;
+      preferences: PartnerPreferenceProfileType["preferences"];
+      createdAt: string;
+    }>;
+    useGrantRevisions: ExportSection<{
+      factorKey: string;
+      revision: number;
+      allowed: boolean;
+      consentRevision: string;
+      grantedAt: string;
+      revokedAt?: string;
+    }>;
+    connections: ExportSection<{
+      id: string;
+      participantId: string;
+      stage: MatchingConnectionType["stage"];
+      status: MatchingConnectionType["status"];
+      confirmationState: "NONE" | "PENDING" | "CONFIRMED";
+      pairId?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    blocks: ExportSection<{
+      blockedUserId: string;
+      status: MatchingBlockType["status"];
+      blockedAt: string;
+      revokedAt?: string;
+    }>;
+  };
   safetySettings: ExportSection<{
     pairId: string;
     enabled: boolean;
-    retentionClass: 'UNTIL_REVOKED_OR_PAIR_END';
+    retentionClass: "UNTIL_REVOKED_OR_PAIR_END";
     revokedAt?: string;
     createdAt: string;
     updatedAt: string;
   }>;
   notifications: ExportSection<{
     id: string;
-    pairId: string;
+    pairId?: string;
+    resourceId?: string;
     type: string;
     readAt?: string;
     createdAt: string;
@@ -508,9 +580,9 @@ export const privacyExportService = {
     const ownerUserId = params.ownerUserId.trim();
     if (!ownerUserId || ownerUserId.length > 128) {
       throw new DomainError({
-        code: 'AUTH_INVALID_SESSION',
+        code: "AUTH_INVALID_SESSION",
         status: 401,
-        message: 'unauthorized',
+        message: "unauthorized",
       });
     }
 
@@ -523,6 +595,11 @@ export const privacyExportService = {
       pairRows,
       signalRows,
       likeRows,
+      matchingProfile,
+      matchingPreferenceRows,
+      matchingUseGrantRows,
+      matchingConnectionRows,
+      matchingBlockRows,
       safetyRows,
       notificationRows,
       factorEvidenceRows,
@@ -568,7 +645,13 @@ export const privacyExportService = {
         .sort({ dateKey: -1 })
         .limit(EXPORT_LIMITS.personalDailyCheckIns + 1),
       WeeklyCheckIn.find({ userId: ownerUserId })
-        .select({ pairId: 1, weekKey: 1, answers: 1, createdAt: 1, updatedAt: 1 })
+        .select({
+          pairId: 1,
+          weekKey: 1,
+          answers: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
         .sort({ weekKey: -1 })
         .limit(EXPORT_LIMITS.weeklyCheckIns + 1),
       PersonalQuestionnaireSubmission.find({ userId: ownerUserId })
@@ -595,7 +678,7 @@ export const privacyExportService = {
           { fromUserId: ownerUserId },
           {
             toUserId: ownerUserId,
-            status: { $in: ['sent', 'read', 'dismissed_by_receiver'] },
+            status: { $in: ["sent", "read", "dismissed_by_receiver"] },
           },
         ],
       })
@@ -616,6 +699,8 @@ export const privacyExportService = {
           fromId: 1,
           toId: 1,
           fromCardSnapshot: 1,
+          agreements: 1,
+          answers: 1,
           recipientResponse: 1,
           recipientDecision: 1,
           initiatorDecision: 1,
@@ -625,8 +710,52 @@ export const privacyExportService = {
         })
         .sort({ createdAt: -1 })
         .limit(EXPORT_LIMITS.matchInteractions + 1),
+      MatchingProfile.findOne({ userId: ownerUserId })
+        .select({
+          userId: 1,
+          card: 1,
+          discoveryRequested: 1,
+          active: 1,
+          requiredDataReady: 1,
+          desiredAgeRange: 1,
+          maxDistanceKm: 1,
+          publicCardRevision: 1,
+          actualProfileRevision: 1,
+          preferenceRevision: 1,
+          registryVersion: 1,
+          algorithmVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
+        .lean<MatchingProfileType | null>(),
+      PartnerPreferenceProfile.find({ ownerId: ownerUserId })
+        .sort({ revision: -1 })
+        .limit(EXPORT_LIMITS.matchingPreferenceRevisions + 1)
+        .lean<PartnerPreferenceProfileType[]>(),
+      MatchingUseGrant.find({ ownerId: ownerUserId })
+        .sort({ grantedAt: -1, factorKey: 1, revision: -1 })
+        .limit(EXPORT_LIMITS.matchingUseGrantRevisions + 1)
+        .lean<MatchingUseGrantType[]>(),
+      MatchingConnection.find({ participantIds: ownerUserId })
+        .sort({ updatedAt: -1, _id: -1 })
+        .limit(EXPORT_LIMITS.matchingConnections + 1)
+        .lean<
+          Array<MatchingConnectionType & { _id: { toString(): string } }>
+        >(),
+      MatchingBlock.find({ blockerId: ownerUserId })
+        .select({ blockedId: 1, status: 1, createdAt: 1, revokedAt: 1 })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(EXPORT_LIMITS.matchingBlocks + 1)
+        .lean<MatchingBlockType[]>(),
       SafetyGate.find({ ownerUserId })
-        .select({ pairId: 1, enabled: 1, retentionClass: 1, revokedAt: 1, createdAt: 1, updatedAt: 1 })
+        .select({
+          pairId: 1,
+          enabled: 1,
+          retentionClass: 1,
+          revokedAt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        })
         .sort({ updatedAt: -1 })
         .limit(EXPORT_LIMITS.safetySettings + 1),
       Notification.find({ userId: ownerUserId })
@@ -635,9 +764,9 @@ export const privacyExportService = {
         .limit(EXPORT_LIMITS.notifications + 1),
       EvidenceEvent.find({
         actorId: ownerUserId,
-        subjectKind: 'INDIVIDUAL',
+        subjectKind: "INDIVIDUAL",
         subjectId: ownerUserId,
-        observationScope: 'SELF',
+        observationScope: "SELF",
         $or: [
           { observedSubjectId: { $exists: false } },
           { observedSubjectId: ownerUserId },
@@ -691,9 +820,9 @@ export const privacyExportService = {
 
     if (!user) {
       throw new DomainError({
-        code: 'USER_NOT_FOUND',
+        code: "USER_NOT_FOUND",
         status: 404,
-        message: 'user not found',
+        message: "user not found",
       });
     }
 
@@ -703,7 +832,7 @@ export const privacyExportService = {
     const ownedPairIds = new Set(pairIdStrings);
     const questionnaireOwnerClauses = pairRowsBounded.map((pair) => ({
       pairId: pair._id,
-      by: pair.members[0] === ownerUserId ? ('A' as const) : ('B' as const),
+      by: pair.members[0] === ownerUserId ? ("A" as const) : ("B" as const),
     }));
     const pairFactorOwnerClauses = pairRowsBounded.flatMap((pair) => {
       const pairId = pair._id.toString();
@@ -730,17 +859,17 @@ export const privacyExportService = {
             })
             .sort({ generatedAt: -1 })
             .limit(EXPORT_LIMITS.pairStateSummaries + 1),
-          PairActivity.find({ pairId: { $in: pairIds }, visibility: 'both' })
+          PairActivity.find({ pairId: { $in: pairIds }, visibility: "both" })
             .select({
               pairId: 1,
               title: 1,
               status: 1,
               lifecycleVersion: 1,
               feedbackSchemaVersion: 1,
-              'resultSummary.bothSubmitted': 1,
-              'resultSummary.status': 1,
-              'resultSummary.completedAt': 1,
-              'resultSummary.resultVersion': 1,
+              "resultSummary.bothSubmitted": 1,
+              "resultSummary.status": 1,
+              "resultSummary.completedAt": 1,
+              "resultSummary.resultVersion": 1,
               offeredAt: 1,
               acceptedAt: 1,
               startedAt: 1,
@@ -772,11 +901,11 @@ export const privacyExportService = {
       : [];
 
     const account = toUserDTO(user, {
-      scope: 'private',
+      scope: "private",
       includeOnboarding: true,
       includeMatchCard: true,
       includeLocation: true,
-    }) as OwnerPrivacyExportDTO['account'];
+    }) as OwnerPrivacyExportDTO["account"];
     account.id = boundedText(account.id, 128);
     account.username = boundedText(account.username, MAX_EXPORT_ID_CHARS);
     account.avatar = boundedText(account.avatar, 2_048);
@@ -791,7 +920,7 @@ export const privacyExportService = {
       seeking.valuedQualities = boundedTextArray(
         seeking.valuedQualities,
         3,
-        MAX_EXPORT_ID_CHARS
+        MAX_EXPORT_ID_CHARS,
       );
       seeking.dealBreakers = boundedText(seeking.dealBreakers);
     }
@@ -816,14 +945,15 @@ export const privacyExportService = {
       account.relationshipLens = user.profile.relationshipLens;
     }
 
-    const pairFactorEvaluationSummaries: PairFactorEvaluationSummaryExport[] = [];
+    const pairFactorEvaluationSummaries: PairFactorEvaluationSummaryExport[] =
+      [];
     for (const row of pairFactorEvaluationRows) {
       const disclosure = disclosePairEvaluation(
         toDomainPairEvaluationSnapshot(row),
-        'PAIR_MEMBER',
-        true
+        "PAIR_MEMBER",
+        true,
       );
-      if (disclosure.disclosure !== 'SUMMARY_ONLY') continue;
+      if (disclosure.disclosure !== "SUMMARY_ONLY") continue;
       pairFactorEvaluationSummaries.push({
         pairId: boundedText(row.pairId, MAX_EXPORT_ID_CHARS),
         ...disclosure,
@@ -833,11 +963,11 @@ export const privacyExportService = {
     }
 
     const exportDto: OwnerPrivacyExportDTO = {
-      exportVersion: 'owner-export-v1',
+      exportVersion: "owner-export-v1",
       generatedAt: new Date().toISOString(),
       scope: {
         ownerOnlyRawData: true,
-        sharedDataPolicy: 'ALREADY_DISCLOSED_PAIR_PROJECTIONS_ONLY',
+        sharedDataPolicy: "ALREADY_DISCLOSED_PAIR_PROJECTIONS_ONLY",
         bounds: {
           sectionCountsAreHardLimited: true,
           textMayBeTruncated: true,
@@ -845,12 +975,12 @@ export const privacyExportService = {
           maxIdentifierChars: MAX_EXPORT_ID_CHARS,
         },
         excluded: [
-          'partner raw answers and private notes',
-          'system-only safety vetoes owned by another user',
-          'exact compatibility scores',
-          'partner Factor Engine evidence, values, snapshots, and identifiers',
-          'pair Factor Engine raw values, exact confidence or fit, hashes, and evidence links',
-          'tokens, cookies, secrets, and internal abuse-control records',
+          "partner raw answers and private notes",
+          "system-only safety vetoes owned by another user",
+          "exact compatibility scores",
+          "partner Factor Engine evidence, values, snapshots, and identifiers",
+          "pair Factor Engine raw values, exact confidence or fit, hashes, and evidence links",
+          "tokens, cookies, secrets, and internal abuse-control records",
         ],
       },
       account,
@@ -859,7 +989,7 @@ export const privacyExportService = {
           status: row.status,
           contentRevision: boundedText(
             row.contentRevision,
-            MAX_EXPORT_ID_CHARS
+            MAX_EXPORT_ID_CHARS,
           ),
           policyVersion: boundedText(row.policyVersion, MAX_EXPORT_ID_CHARS),
           consent: {
@@ -877,13 +1007,10 @@ export const privacyExportService = {
           answers: row.answers
             .slice(0, NESTED_EXPORT_LIMITS.onboardingAnswersPerSession)
             .map((answer) => ({
-              questionId: boundedText(
-                answer.questionId,
-                MAX_EXPORT_ID_CHARS
-              ),
+              questionId: boundedText(answer.questionId, MAX_EXPORT_ID_CHARS),
               questionRevision: boundedText(
                 answer.questionRevision,
-                MAX_EXPORT_ID_CHARS
+                MAX_EXPORT_ID_CHARS,
               ),
               answerRevision: answer.answerRevision,
               capturePolicy: answer.capturePolicy,
@@ -893,7 +1020,7 @@ export const privacyExportService = {
                   ? {
                       optionId: boundedText(
                         answer.value.optionId,
-                        MAX_EXPORT_ID_CHARS
+                        MAX_EXPORT_ID_CHARS,
                       ),
                     }
                   : {}),
@@ -902,7 +1029,7 @@ export const privacyExportService = {
                       optionIds: boundedTextArray(
                         answer.value.optionIds,
                         NESTED_EXPORT_LIMITS.onboardingMultiSelectOptions,
-                        MAX_EXPORT_ID_CHARS
+                        MAX_EXPORT_ID_CHARS,
                       ),
                     }
                   : {}),
@@ -917,7 +1044,7 @@ export const privacyExportService = {
             ? { completedAt: requiredIso(row.completedAt) }
             : {}),
         })),
-        EXPORT_LIMITS.onboardingSessions
+        EXPORT_LIMITS.onboardingSessions,
       ),
       personalDailyCheckIns: bounded(
         dailyRows.map((row) => ({
@@ -958,7 +1085,7 @@ export const privacyExportService = {
                           ...(row.context.body.note
                             ? { note: boundedText(row.context.body.note) }
                             : {}),
-                          visibility: 'private' as const,
+                          visibility: "private" as const,
                         },
                       }
                     : {}),
@@ -967,7 +1094,7 @@ export const privacyExportService = {
                         customTags: boundedTextArray(
                           row.context.customTags,
                           NESTED_EXPORT_LIMITS.dailyCustomTags,
-                          MAX_EXPORT_ID_CHARS
+                          MAX_EXPORT_ID_CHARS,
                         ),
                       }
                     : {}),
@@ -1011,7 +1138,7 @@ export const privacyExportService = {
           createdAt: requiredIso(row.createdAt),
           updatedAt: requiredIso(row.updatedAt),
         })),
-        EXPORT_LIMITS.personalDailyCheckIns
+        EXPORT_LIMITS.personalDailyCheckIns,
       ),
       weeklyCheckIns: bounded(
         weeklyRows.map((row) => ({
@@ -1031,33 +1158,29 @@ export const privacyExportService = {
           createdAt: requiredIso(row.createdAt),
           updatedAt: requiredIso(row.updatedAt),
         })),
-        EXPORT_LIMITS.weeklyCheckIns
+        EXPORT_LIMITS.weeklyCheckIns,
       ),
       personalQuestionnaireSubmissions: bounded(
         personalQuestionnaireRows.map((row) => ({
           submissionId: boundedText(row.submissionId, MAX_EXPORT_ID_CHARS),
           questionnaireId: boundedText(
             row.questionnaireId,
-            MAX_EXPORT_ID_CHARS
+            MAX_EXPORT_ID_CHARS,
           ),
           questionnaireVersion: row.questionnaireVersion,
           questionnaireContentModel: row.questionnaireContentModel,
           answersTruncated:
             row.answers.length >
             NESTED_EXPORT_LIMITS.questionnaireAnswersPerSubmission,
-          answersLimit:
-            NESTED_EXPORT_LIMITS.questionnaireAnswersPerSubmission,
+          answersLimit: NESTED_EXPORT_LIMITS.questionnaireAnswersPerSubmission,
           answers: row.answers
             .slice(0, NESTED_EXPORT_LIMITS.questionnaireAnswersPerSubmission)
             .map((answer) => ({
-              questionId: boundedText(
-                answer.questionId,
-                MAX_EXPORT_ID_CHARS
-              ),
+              questionId: boundedText(answer.questionId, MAX_EXPORT_ID_CHARS),
               ui: answer.ui,
               contentRevision: boundedText(
                 answer.contentRevision,
-                MAX_EXPORT_ID_CHARS
+                MAX_EXPORT_ID_CHARS,
               ),
             })),
           captureMode: row.captureMode,
@@ -1066,17 +1189,17 @@ export const privacyExportService = {
           submittedAt: requiredIso(row.submittedAt),
           createdAt: requiredIso(row.createdAt),
         })),
-        EXPORT_LIMITS.personalQuestionnaireSubmissions
+        EXPORT_LIMITS.personalQuestionnaireSubmissions,
       ),
       pairMemberships: bounded(
         pairRows.map((pair): PairMembershipExport => ({
           pairId: pair._id.toString(),
-          role: pair.members[0] === ownerUserId ? 'A' : 'B',
+          role: pair.members[0] === ownerUserId ? "A" : "B",
           status: pair.status,
           ...(pair.createdAt ? { createdAt: requiredIso(pair.createdAt) } : {}),
           ...(pair.updatedAt ? { updatedAt: requiredIso(pair.updatedAt) } : {}),
         })),
-        EXPORT_LIMITS.pairMemberships
+        EXPORT_LIMITS.pairMemberships,
       ),
       pairStateSummaries: bounded(
         summaryRows.map((row) => {
@@ -1087,15 +1210,15 @@ export const privacyExportService = {
             memberCompletion: row.memberCompletion.map((member) => ({
               member:
                 member.userId === ownerUserId
-                  ? ('owner' as const)
-                  : ('partner' as const),
+                  ? ("owner" as const)
+                  : ("partner" as const),
               status: member.status,
             })),
             dataStatus: row.dataStatus,
             reasonCodes: boundedTextArray(
               row.reasonCodes,
               NESTED_EXPORT_LIMITS.snapshotReasonCodes,
-              MAX_EXPORT_ID_CHARS
+              MAX_EXPORT_ID_CHARS,
             ),
             signals: row.signals
               .slice(0, NESTED_EXPORT_LIMITS.snapshotSignals)
@@ -1107,12 +1230,12 @@ export const privacyExportService = {
               })),
             displayVersion: boundedText(
               row.displayVersion,
-              MAX_EXPORT_ID_CHARS
+              MAX_EXPORT_ID_CHARS,
             ),
             generatedAt: requiredIso(row.generatedAt),
           };
         }),
-        EXPORT_LIMITS.pairStateSummaries
+        EXPORT_LIMITS.pairStateSummaries,
       ),
       sharedActivities: bounded(
         activityRows.map((row) => ({
@@ -1133,15 +1256,13 @@ export const privacyExportService = {
             ? {
                 resultSummary: {
                   dataStatus: row.resultSummary.bothSubmitted
-                    ? ('ENOUGH' as const)
-                    : ('PARTIAL' as const),
+                    ? ("ENOUGH" as const)
+                    : ("PARTIAL" as const),
                   bothSubmitted: row.resultSummary.bothSubmitted,
                   status: row.resultSummary.status,
                   ...(row.resultSummary.completedAt
                     ? {
-                        completedAt: requiredIso(
-                          row.resultSummary.completedAt
-                        ),
+                        completedAt: requiredIso(row.resultSummary.completedAt),
                       }
                     : {}),
                   resultVersion: row.resultSummary.resultVersion,
@@ -1149,42 +1270,44 @@ export const privacyExportService = {
               }
             : {}),
           offeredAt: requiredIso(row.offeredAt),
-          ...(row.acceptedAt ? { acceptedAt: requiredIso(row.acceptedAt) } : {}),
+          ...(row.acceptedAt
+            ? { acceptedAt: requiredIso(row.acceptedAt) }
+            : {}),
           ...(row.startedAt ? { startedAt: requiredIso(row.startedAt) } : {}),
           ...(row.createdAt ? { createdAt: requiredIso(row.createdAt) } : {}),
           ...(row.updatedAt ? { updatedAt: requiredIso(row.updatedAt) } : {}),
         })),
-        EXPORT_LIMITS.sharedActivities
+        EXPORT_LIMITS.sharedActivities,
       ),
       pairQuestionnaireAnswers: bounded(
         questionnaireRows.map((row) => ({
           pairId: row.pairId.toString(),
           questionnaireId: boundedText(
             row.questionnaireId,
-            MAX_EXPORT_ID_CHARS
+            MAX_EXPORT_ID_CHARS,
           ),
           questionId: boundedText(row.questionId, MAX_EXPORT_ID_CHARS),
           role: row.by,
           ui: row.ui,
           answeredAt: requiredIso(row.at),
         })),
-        EXPORT_LIMITS.pairQuestionnaireAnswers
+        EXPORT_LIMITS.pairQuestionnaireAnswers,
       ),
       partnerSignals: bounded(
         signalRows.map((row) => ({
           pairId: row.pairId.toString(),
           direction:
             row.fromUserId === ownerUserId
-              ? ('sent' as const)
-              : ('received' as const),
+              ? ("sent" as const)
+              : ("received" as const),
           dateKey: boundedText(row.dateKey, 10),
           text: boundedText(row.text),
-          tone: row.fromUserId === ownerUserId ? row.tone : 'neutral',
+          tone: row.fromUserId === ownerUserId ? row.tone : "neutral",
           status: row.status,
           createdAt: requiredIso(row.createdAt),
           updatedAt: requiredIso(row.updatedAt),
         })),
-        EXPORT_LIMITS.partnerSignals
+        EXPORT_LIMITS.partnerSignals,
       ),
       matchInteractions: bounded(
         likeRows.map((row) => {
@@ -1194,9 +1317,7 @@ export const privacyExportService = {
             : row.recipientDecision;
           return {
             id: row._id.toString(),
-            role: isInitiator
-              ? ('initiator' as const)
-              : ('recipient' as const),
+            role: isInitiator ? ("initiator" as const) : ("recipient" as const),
             status: row.status,
             ...(isInitiator && row.fromCardSnapshot
               ? {
@@ -1206,6 +1327,15 @@ export const privacyExportService = {
                       boundedText(row.fromCardSnapshot.requirements[1], 80),
                       boundedText(row.fromCardSnapshot.requirements[2], 80),
                     ],
+                    ...(row.fromCardSnapshot.give?.length === 3
+                      ? {
+                          give: [
+                            boundedText(row.fromCardSnapshot.give[0], 80),
+                            boundedText(row.fromCardSnapshot.give[1], 80),
+                            boundedText(row.fromCardSnapshot.give[2], 80),
+                          ] as [string, string, string],
+                        }
+                      : {}),
                     questions: [
                       boundedText(row.fromCardSnapshot.questions[0], 120),
                       boundedText(row.fromCardSnapshot.questions[1], 120),
@@ -1213,10 +1343,21 @@ export const privacyExportService = {
                     ...(row.fromCardSnapshot.updatedAt
                       ? {
                           updatedAt: requiredIso(
-                            row.fromCardSnapshot.updatedAt
+                            row.fromCardSnapshot.updatedAt,
                           ),
                         }
                       : {}),
+                  },
+                }
+              : {}),
+            ...(isInitiator && row.agreements && row.answers
+              ? {
+                  ownInitiatorSubmission: {
+                    agreements: row.agreements,
+                    answers: [
+                      boundedText(row.answers[0]),
+                      boundedText(row.answers[1]),
+                    ] as [string, string],
                   },
                 }
               : {}),
@@ -1244,8 +1385,86 @@ export const privacyExportService = {
             ...(row.updatedAt ? { updatedAt: requiredIso(row.updatedAt) } : {}),
           };
         }),
-        EXPORT_LIMITS.matchInteractions
+        EXPORT_LIMITS.matchInteractions,
       ),
+      matching: {
+        ...(matchingProfile
+          ? {
+              profile: {
+                card: matchingProfile.card,
+                discoveryRequested: matchingProfile.discoveryRequested,
+                active: matchingProfile.active,
+                requiredDataReady: matchingProfile.requiredDataReady,
+                desiredAgeRange: matchingProfile.desiredAgeRange,
+                maxDistanceKm: matchingProfile.maxDistanceKm,
+                publicCardRevision: matchingProfile.publicCardRevision,
+                actualProfileRevision: matchingProfile.actualProfileRevision,
+                preferenceRevision: matchingProfile.preferenceRevision,
+                registryVersion: matchingProfile.registryVersion,
+                algorithmVersion: matchingProfile.algorithmVersion,
+                createdAt: requiredIso(matchingProfile.createdAt),
+                updatedAt: requiredIso(matchingProfile.updatedAt),
+              },
+            }
+          : {}),
+        preferenceRevisions: bounded(
+          matchingPreferenceRows.map((row) => ({
+            revision: row.revision,
+            registryKey: boundedText(row.registryKey, MAX_EXPORT_ID_CHARS),
+            registryVersion: row.registryVersion,
+            preferences: row.preferences,
+            createdAt: requiredIso(row.createdAt),
+          })),
+          EXPORT_LIMITS.matchingPreferenceRevisions,
+        ),
+        useGrantRevisions: bounded(
+          matchingUseGrantRows.map((row) => ({
+            factorKey: boundedText(row.factorKey, MAX_EXPORT_ID_CHARS),
+            revision: row.revision,
+            allowed: row.allowed,
+            consentRevision: boundedText(
+              row.consentRevision,
+              MAX_EXPORT_ID_CHARS,
+            ),
+            grantedAt: requiredIso(row.grantedAt),
+            ...(row.revokedAt ? { revokedAt: requiredIso(row.revokedAt) } : {}),
+          })),
+          EXPORT_LIMITS.matchingUseGrantRevisions,
+        ),
+        connections: bounded(
+          matchingConnectionRows.map((row) => {
+            const participantId =
+              row.participantIds[0] === ownerUserId
+                ? row.participantIds[1]
+                : row.participantIds[0];
+            return {
+              id: row._id.toString(),
+              participantId: boundedText(participantId, MAX_EXPORT_ID_CHARS),
+              stage: row.stage,
+              status: row.status,
+              confirmationState:
+                row.stage === "COUPLE_CONFIRMED" || row.pairId
+                  ? ("CONFIRMED" as const)
+                  : row.coupleConfirmation.requestedBy
+                    ? ("PENDING" as const)
+                    : ("NONE" as const),
+              ...(row.pairId ? { pairId: row.pairId.toString() } : {}),
+              createdAt: requiredIso(row.createdAt),
+              updatedAt: requiredIso(row.updatedAt),
+            };
+          }),
+          EXPORT_LIMITS.matchingConnections,
+        ),
+        blocks: bounded(
+          matchingBlockRows.map((row) => ({
+            blockedUserId: boundedText(row.blockedId, MAX_EXPORT_ID_CHARS),
+            status: row.status,
+            blockedAt: requiredIso(row.createdAt),
+            ...(row.revokedAt ? { revokedAt: requiredIso(row.revokedAt) } : {}),
+          })),
+          EXPORT_LIMITS.matchingBlocks,
+        ),
+      },
       safetySettings: bounded(
         safetyRows.map((row) => ({
           pairId: row.pairId.toString(),
@@ -1255,17 +1474,18 @@ export const privacyExportService = {
           createdAt: requiredIso(row.createdAt),
           updatedAt: requiredIso(row.updatedAt),
         })),
-        EXPORT_LIMITS.safetySettings
+        EXPORT_LIMITS.safetySettings,
       ),
       notifications: bounded(
         notificationRows.map((row) => ({
           id: row._id.toString(),
-          pairId: row.pairId.toString(),
+          ...(row.pairId ? { pairId: row.pairId.toString() } : {}),
+          ...(row.resourceId ? { resourceId: row.resourceId } : {}),
           type: row.type,
           ...(row.readAt ? { readAt: requiredIso(row.readAt) } : {}),
           createdAt: requiredIso(row.createdAt),
         })),
-        EXPORT_LIMITS.notifications
+        EXPORT_LIMITS.notifications,
       ),
       factorEngine: {
         manifest: FACTOR_ENGINE_EXPORT_MANIFEST,
@@ -1274,30 +1494,24 @@ export const privacyExportService = {
             eventId: boundedText(row.eventId, MAX_EXPORT_ID_CHARS),
             ...(row.pairId && ownedPairIds.has(row.pairId)
               ? {
-                  contextPairId: boundedText(
-                    row.pairId,
-                    MAX_EXPORT_ID_CHARS
-                  ),
+                  contextPairId: boundedText(row.pairId, MAX_EXPORT_ID_CHARS),
                 }
               : {}),
             factorKey: boundedText(row.factorKey, MAX_EXPORT_ID_CHARS),
             measurementKey: boundedText(
               row.measurementKey,
-              MAX_EXPORT_ID_CHARS
+              MAX_EXPORT_ID_CHARS,
             ),
-            instrumentKey: boundedText(
-              row.instrumentKey,
-              MAX_EXPORT_ID_CHARS
-            ),
+            instrumentKey: boundedText(row.instrumentKey, MAX_EXPORT_ID_CHARS),
             sourceType: row.sourceType,
             sourceRef: boundedText(row.sourceRef, MAX_EXPORT_ID_CHARS),
             sourceRevision: boundedText(
               row.sourceRevision,
-              MAX_EXPORT_ID_CHARS
+              MAX_EXPORT_ID_CHARS,
             ),
             sourceHash: boundedText(row.sourceHash, MAX_EXPORT_ID_CHARS),
             submittedValue: boundedFactorValue(row.submittedValue),
-            ...(row.status === 'ACCEPTED' && row.normalizedValue
+            ...(row.status === "ACCEPTED" && row.normalizedValue
               ? {
                   normalizedValue: boundedFactorValue(row.normalizedValue),
                 }
@@ -1309,13 +1523,10 @@ export const privacyExportService = {
             purpose: row.purpose,
             privacyClass: row.privacyClass,
             captureMode: row.captureMode,
-            policyVersion: boundedText(
-              row.policyVersion,
-              MAX_EXPORT_ID_CHARS
-            ),
+            policyVersion: boundedText(row.policyVersion, MAX_EXPORT_ID_CHARS),
             consentRevision: boundedText(
               row.consentRevision,
-              MAX_EXPORT_ID_CHARS
+              MAX_EXPORT_ID_CHARS,
             ),
             retentionClass: row.retentionClass,
             versions: {
@@ -1326,84 +1537,77 @@ export const privacyExportService = {
               algorithmVersion: row.versions.algorithmVersion,
             },
             status: row.status,
-            ...(row.rejectionCode
-              ? { rejectionCode: row.rejectionCode }
-              : {}),
+            ...(row.rejectionCode ? { rejectionCode: row.rejectionCode } : {}),
           })),
-          EXPORT_LIMITS.factorEvidenceEvents
+          EXPORT_LIMITS.factorEvidenceEvents,
         ),
         individualFactorSnapshots: bounded(
-          individualFactorRows.map(
-            (row): IndividualFactorSnapshotExport => ({
-              snapshotId: boundedText(row.snapshotId, MAX_EXPORT_ID_CHARS),
-              ...(row.contextPairId && ownedPairIds.has(row.contextPairId)
-                ? {
-                    contextPairId: boundedText(
-                      row.contextPairId,
-                      MAX_EXPORT_ID_CHARS
-                    ),
-                  }
-                : {}),
-              projectionPurpose: row.projectionPurpose,
-              factorKey: boundedText(row.factorKey, MAX_EXPORT_ID_CHARS),
-              revision: row.revision,
-              status: row.status,
-              value: boundedFactorValue(row.value),
-              metrics: {
-                confidence: row.metrics.confidence,
-                coverage: row.metrics.coverage,
-                freshness: row.metrics.freshness,
-                consistency: row.metrics.consistency,
-                evidenceCount: row.metrics.evidenceCount,
-              },
-              evidenceIds: boundedTextArray(
-                row.evidenceIds,
-                NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
-                MAX_EXPORT_ID_CHARS
+          individualFactorRows.map((row): IndividualFactorSnapshotExport => ({
+            snapshotId: boundedText(row.snapshotId, MAX_EXPORT_ID_CHARS),
+            ...(row.contextPairId && ownedPairIds.has(row.contextPairId)
+              ? {
+                  contextPairId: boundedText(
+                    row.contextPairId,
+                    MAX_EXPORT_ID_CHARS,
+                  ),
+                }
+              : {}),
+            projectionPurpose: row.projectionPurpose,
+            factorKey: boundedText(row.factorKey, MAX_EXPORT_ID_CHARS),
+            revision: row.revision,
+            status: row.status,
+            value: boundedFactorValue(row.value),
+            metrics: {
+              confidence: row.metrics.confidence,
+              coverage: row.metrics.coverage,
+              freshness: row.metrics.freshness,
+              consistency: row.metrics.consistency,
+              evidenceCount: row.metrics.evidenceCount,
+            },
+            evidenceIds: boundedTextArray(
+              row.evidenceIds,
+              NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
+              MAX_EXPORT_ID_CHARS,
+            ),
+            evidenceIdsTruncated:
+              row.evidenceIds.length >
+              NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
+            evidenceIdsLimit: NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
+            versions: {
+              registryVersion: row.versions.registryVersion,
+              definitionVersion: row.versions.definitionVersion,
+              algorithmVersion: row.versions.algorithmVersion,
+              snapshotVersion: row.versions.snapshotVersion,
+              displayVersion: row.versions.displayVersion,
+              measurementRefs: row.versions.measurementRefs.map(
+                (reference) => ({
+                  key: boundedText(reference.key, MAX_EXPORT_ID_CHARS),
+                  version: reference.version,
+                }),
               ),
-              evidenceIdsTruncated:
-                row.evidenceIds.length >
-                NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
-              evidenceIdsLimit:
-                NESTED_EXPORT_LIMITS.factorSnapshotEvidenceIds,
-              versions: {
-                registryVersion: row.versions.registryVersion,
-                definitionVersion: row.versions.definitionVersion,
-                algorithmVersion: row.versions.algorithmVersion,
-                snapshotVersion: row.versions.snapshotVersion,
-                displayVersion: row.versions.displayVersion,
-                measurementRefs: row.versions.measurementRefs.map(
-                  (reference) => ({
-                    key: boundedText(reference.key, MAX_EXPORT_ID_CHARS),
-                    version: reference.version,
-                  })
-                ),
-                instrumentRefs: row.versions.instrumentRefs.map(
-                  (reference) => ({
-                    key: boundedText(reference.key, MAX_EXPORT_ID_CHARS),
-                    version: reference.version,
-                  })
-                ),
-              },
-              calculatedAt: requiredIso(row.calculatedAt),
-            })
-          ),
-          EXPORT_LIMITS.individualFactorSnapshots
+              instrumentRefs: row.versions.instrumentRefs.map((reference) => ({
+                key: boundedText(reference.key, MAX_EXPORT_ID_CHARS),
+                version: reference.version,
+              })),
+            },
+            calculatedAt: requiredIso(row.calculatedAt),
+          })),
+          EXPORT_LIMITS.individualFactorSnapshots,
         ),
         pairEvaluationSummaries: bounded(
           pairFactorEvaluationSummaries,
-          EXPORT_LIMITS.pairFactorEvaluationSummaries
+          EXPORT_LIMITS.pairFactorEvaluationSummaries,
         ),
       },
     };
 
     if (params.auditRequest) {
       await emitEvent({
-        event: 'PRIVACY_EXPORT_CREATED',
+        event: "PRIVACY_EXPORT_CREATED",
         actor: { userId: ownerUserId },
         request: params.auditRequest,
-        target: { type: 'user', id: ownerUserId },
-        metadata: { exportVersion: 'owner-export-v1' },
+        target: { type: "user", id: ownerUserId },
+        metadata: { exportVersion: "owner-export-v1" },
       });
     }
 

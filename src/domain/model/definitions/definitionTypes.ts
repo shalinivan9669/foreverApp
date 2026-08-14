@@ -1,5 +1,6 @@
 import type {
   PairStrategyDefinition,
+  PairStrategyType,
   RelationshipContext,
 } from '@/domain/model/pair/strategyTypes';
 import type {
@@ -72,6 +73,55 @@ export type FactorDisplayKeys = {
   titleKey: string;
   descriptionKey: string;
   explanationKey: string;
+};
+
+export const MATCHING_FACTOR_EFFECTS = [
+  'ELIGIBILITY',
+  'RANKING',
+  'EXPLANATION',
+  'POST_MATCH',
+] as const;
+
+export type MatchingFactorEffect =
+  (typeof MATCHING_FACTOR_EFFECTS)[number];
+
+export const MATCHING_REQUIRED_DATA = [
+  'OPTIONAL',
+  'REQUESTER_REQUIRED',
+  'BOTH_REQUIRED',
+] as const;
+
+export type MatchingRequiredData =
+  (typeof MATCHING_REQUIRED_DATA)[number];
+
+export const MATCHING_IMPORTANCE_LEVELS = [
+  'LOW',
+  'MEDIUM',
+  'HIGH',
+  'CRITICAL',
+] as const;
+
+export type MatchingImportance =
+  (typeof MATCHING_IMPORTANCE_LEVELS)[number];
+
+export type MatchingPrivacyPolicy = {
+  engineUse: 'INTERNAL_ONLY';
+  explanation: 'NONE' | 'COARSE_ALLOWLISTED';
+};
+
+export type MatchingPolicy = {
+  enabled: boolean;
+  effects: readonly MatchingFactorEffect[];
+  strategy: {
+    context: 'DATING';
+    type: PairStrategyType;
+    strategyVersion: number;
+  };
+  requiredData: MatchingRequiredData;
+  defaultImportance: MatchingImportance;
+  rankingWeight: number;
+  canBeHardConstraint: boolean;
+  privacy: MatchingPrivacyPolicy;
 };
 
 export type EvidenceSourceType =
@@ -153,6 +203,7 @@ export type FactorDefinition = {
   aggregationStrategy: AggregationStrategy;
   developmentPolicy: DevelopmentPolicy;
   pairStrategies: readonly PairStrategyDefinition[];
+  matchingPolicy?: MatchingPolicy;
   privacyClass: PrivacyClass;
   contexts: readonly RelationshipContext[];
   confidenceRequirements: ConfidenceRequirements;

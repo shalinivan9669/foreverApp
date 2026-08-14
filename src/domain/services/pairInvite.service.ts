@@ -2,20 +2,21 @@ import { createHash, randomBytes } from 'node:crypto';
 import mongoose, { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { DomainError } from '@/domain/errors';
-import { Pair, type PairType } from '@/models/Pair';
+import { Pair } from '@/models/Pair';
 import {
   PairInvite,
   type PairInviteStatus,
   type PairInviteType,
 } from '@/models/PairInvite';
-import {
-  PairMembershipClaim,
-  type PairMembershipClaimType,
-} from '@/models/PairMembershipClaim';
 import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
-import { User } from '@/models/User';
 import { pairInviteTransition } from '@/domain/state/pairInviteMachine';
-import { notificationService } from '@/domain/services/notification.service';
+import {
+  activePairForAnyMember,
+  canonicalPairKey,
+  canonicalPairMembers,
+  fencePairMembershipSlots,
+  formPairInSession,
+} from '@/domain/services/pairFormation.service';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
@@ -25,10 +26,7 @@ export const PAIR_INVITE_TOKEN_BYTES = 32;
 export const PAIR_INVITE_TTL_MS = 72 * 60 * 60 * 1000;
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const ACTIVE_PAIR_STATUSES: PairType['status'][] = ['active', 'paused'];
-
 type StoredPairInvite = PairInviteType & { _id: Types.ObjectId };
-type StoredMembershipClaim = PairMembershipClaimType & { _id: Types.ObjectId };
 
 export type PairInviteOwnerDTO = {
   id: string;
@@ -135,11 +133,8 @@ const isDuplicateKeyError = (error: unknown): error is { code: number } =>
   'code' in error &&
   (error as { code?: number }).code === 11000;
 
-const pairMembers = (left: string, right: string): [string, string] =>
-  [left, right].sort() as [string, string];
-
-const pairKey = (members: [string, string]): string =>
-  `${members[0]}|${members[1]}`;
+const pairMembers = canonicalPairMembers;
+const pairKey = canonicalPairKey;
 
 const toOwnerDTO = (invite: StoredPairInvite): PairInviteOwnerDTO => ({
   id: String(invite._id),
@@ -152,39 +147,6 @@ const toOwnerDTO = (invite: StoredPairInvite): PairInviteOwnerDTO => ({
   canCancel: invite.status === 'ACTIVE',
   canReissue: invite.status !== 'ACCEPTED',
 });
-
-const activePairForAnyMember = async (
-  userIds: string[],
-  session?: ClientSession
-): Promise<boolean> => {
-  const query = Pair.findOne({
-    members: { $in: userIds },
-    status: { $in: ACTIVE_PAIR_STATUSES },
-  })
-    .select({ _id: 1 })
-    .lean<{ _id: Types.ObjectId } | null>();
-  if (session) query.session(session);
-  return Boolean(await query);
-};
-
-const fencePairMembershipSlots = async (
-  userIds: readonly string[],
-  session: ClientSession
-): Promise<void> => {
-  const uniqueUserIds = [...new Set(userIds)];
-  const result = await User.updateMany(
-    { id: { $in: uniqueUserIds } },
-    { $inc: { pairMembershipRevision: 1 } },
-    { session }
-  );
-  if (result.matchedCount !== uniqueUserIds.length) {
-    throw new DomainError({
-      code: 'NOT_FOUND',
-      status: 404,
-      message: 'Pair member was not found',
-    });
-  }
-};
 
 const expireCreatorInvites = async (
   creatorUserId: string,
@@ -236,38 +198,6 @@ const refreshOwnerInvite = async (input: {
   }
 
   return invite;
-};
-
-const releaseEndedMembershipClaims = async (input: {
-  members: [string, string];
-  session: ClientSession;
-}): Promise<void> => {
-  const claims = await PairMembershipClaim.find({
-    userId: { $in: input.members },
-  })
-    .session(input.session)
-    .lean<StoredMembershipClaim[]>();
-  if (claims.length === 0) return;
-
-  const claimedPairIds = [...new Set(claims.map((claim) => String(claim.pairId)))];
-  const claimedPairs = await Pair.find({
-    _id: { $in: claimedPairIds.map((id) => new Types.ObjectId(id)) },
-  })
-    .select({ _id: 1, status: 1 })
-    .session(input.session)
-    .lean<Array<{ _id: Types.ObjectId; status: PairType['status'] }>>();
-  const statusByPairId = new Map(
-    claimedPairs.map((pair) => [String(pair._id), pair.status])
-  );
-
-  for (const claim of claims) {
-    if (statusByPairId.get(String(claim.pairId)) !== 'ended') unavailable();
-  }
-
-  await PairMembershipClaim.deleteMany(
-    { _id: { $in: claims.map((claim) => claim._id) } },
-    { session: input.session }
-  );
 };
 
 const existingAcceptedPairId = async (
@@ -655,35 +585,14 @@ export const pairInviteService = {
             };
           }
 
-          await fencePairMembershipSlots(liveMembers, session);
-          if (await activePairForAnyMember(liveMembers, session)) unavailable();
-          await releaseEndedMembershipClaims({ members: liveMembers, session });
-
-          const key = pairKey(liveMembers);
-          const targetPairId = new Types.ObjectId();
-
-          await PairMembershipClaim.insertMany(
-            liveMembers.map((userId) => ({
-              userId,
-              pairId: targetPairId,
-              inviteId: invite._id,
-              pairKey: key,
-            })),
-            { session }
-          );
-
-          await Pair.create(
-            [
-              {
-                _id: targetPairId,
-                members: liveMembers,
-                key,
-                status: 'active',
-                contextVersion: 'pair-context-v1',
-              },
-            ],
-            { session }
-          );
+          const formation = await formPairInSession({
+            source: 'PAIR_INVITE',
+            sourceId: String(invite._id),
+            members: liveMembers,
+            now,
+            session,
+          });
+          const targetPairId = new Types.ObjectId(formation.pairId);
 
           const accepted = await PairInvite.findOneAndUpdate(
             {
@@ -713,20 +622,11 @@ export const pairInviteService = {
             { session }
           );
 
-          await notificationService.create({
-            userIds: liveMembers,
-            pairId: String(targetPairId),
-            type: 'PAIR_JOINED',
-            sourceKey: `invite:${String(invite._id)}`,
-            now,
-            session,
-          });
-
           return {
             kind: 'accepted',
             pairId: String(targetPairId),
             members: liveMembers,
-            alreadyAccepted: false,
+            alreadyAccepted: formation.alreadyFormed,
           };
         }
       );

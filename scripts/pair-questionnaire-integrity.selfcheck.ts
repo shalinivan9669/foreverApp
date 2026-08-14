@@ -7,7 +7,9 @@ import { PairQuestionnaireSession } from '@/models/PairQuestionnaireSession';
 import {
   ACTIVE_SESSION_INDEX_NAME,
   ANSWER_IDENTITY_INDEX_NAME,
+  formatPairQuestionnaireIntegrityFailure,
   PAIR_QUESTIONNAIRE_INTEGRITY_VERSION,
+  PairQuestionnaireIntegrityFailure,
 } from './lib/pair-questionnaire-integrity';
 
 type EnumSchemaType = mongoose.SchemaType & {
@@ -63,6 +65,32 @@ for (const action of [
 assert.equal(
   PAIR_QUESTIONNAIRE_INTEGRITY_VERSION,
   'pair-questionnaire-integrity-v1'
+);
+
+const sentinelPairId = 'pair-id-that-must-not-appear';
+const unsafeMongoError = new Error(
+  `E11000 duplicate key { pairId: ${sentinelPairId}, questionnaireId: private-questionnaire }`
+);
+const safeUnknownFailure = JSON.stringify(
+  formatPairQuestionnaireIntegrityFailure(unsafeMongoError)
+);
+assert.equal(
+  safeUnknownFailure,
+  '{"migrationVersion":"pair-questionnaire-integrity-v1","ok":false,"reasonCode":"MONGO_COMMAND_FAILED"}'
+);
+assert.equal(safeUnknownFailure.includes(sentinelPairId), false);
+assert.equal(safeUnknownFailure.includes('private-questionnaire'), false);
+assert.equal(safeUnknownFailure.includes('dup key'), false);
+
+assert.deepEqual(
+  formatPairQuestionnaireIntegrityFailure(
+    new PairQuestionnaireIntegrityFailure('DUPLICATE_SOURCE_ROWS')
+  ),
+  {
+    migrationVersion: PAIR_QUESTIONNAIRE_INTEGRITY_VERSION,
+    ok: false,
+    reasonCode: 'DUPLICATE_SOURCE_ROWS',
+  }
 );
 
 console.log('pair questionnaire integrity selfcheck: passed');

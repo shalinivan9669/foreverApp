@@ -1,6 +1,6 @@
 # ForeverApp / «Вместе»: Factor operations and privacy boundaries
 
-Status: active operational contract. Updated 2026-08-11.
+Status: active operational contract. Updated 2026-08-13.
 
 ## 1. Capture and purpose
 
@@ -28,6 +28,15 @@ Participant surfaces — weekly, dashboard, profile, recommendation, activities,
 One-sided pair input emits no pair signal. Repeated edits/retries cannot be used as a binary-search oracle: canonical source identity, immutable snapshots, coarse qualitative projection and disclosure guards keep peer input non-reconstructable.
 
 Owner profile/export may include the owner's own permitted records. Pair evaluation entries in export still pass the central summary-only disclosure and omit peer snapshots/values/links/hashes.
+
+## 2A. Factor Matching purpose and disclosure
+
+- `MatchingUseGrant` is explicit, owner/factor/revision scoped permission for the matching engine to use an eligible current snapshot. It is not permission to disclose that value to a candidate or Pair partner; missing/revoked grants fail closed.
+- `PartnerPreferenceProfile` is owner-private. A candidate never receives its targets, importance, flexibility, constraint modes or hard-conflict reason.
+- `CandidateDiscoveryProjection` contains only the coarse fields needed for mutual eligibility. `MatchingFeedSession` pins a maximum of 200 candidate ids and versions; its raw token is returned only as an opaque cursor component and stored only as a hash.
+- `CandidatePresentationGrant` is opaque, hashed, expiring and revision/version bound. Candidate detail and Like creation require it, but authorization still derives actor/requester from the authenticated session. A client candidate id, grant or cursor can never supply `actorId`.
+- Candidate DTOs disclose only public card fields plus qualitative fit label/confidence/explanations. Numeric fit/rank/contribution, raw Factor values, peer preferences, evidence/provenance and internal constraint reasons remain matching-engine-only.
+- Active blocks and existing Pair membership are checked before social transition/candidate use. Pair creation from matching requires two distinct session-derived confirmations and one transactional membership claim per participant.
 
 ## 3. Safety and help
 
@@ -87,11 +96,20 @@ Registry, definition, measurement, instrument, algorithm, snapshot and display v
 
 - Mongoose runtime uses `autoIndex: false`; release scripts own production index application.
 - Canonical identities use unique indexes for registry releases, evidence source/idempotency, snapshot inputs/revisions, cycles, decisions, activities, notifications and membership claims.
+- Matching adds unique/canonical identities for owner profiles/preferences/grants, feed and presentation token hashes, evaluation inputs, active directional Likes, active connections, directional blocks and social effects; feed/grant/evaluation expiries use TTL indexes.
 - Evidence persistence validates a complete immutable document before its atomic insert-only upsert. `REJECTED` evidence stores provenance, the submitted value and rejection code without a normalized value; exact retries replay and changed reuse conflicts.
 - Multi-document lifecycle changes use Mongo transactions where atomicity is required.
 - Retryable mutations use transport idempotency or intrinsic deterministic identity plus request hashes.
 - Queries are projected, lean and bounded; list APIs use cursor pagination and hard limits.
 - Reconciliation repairs interrupted derived effects without creating a second canonical artifact.
+
+## 8A. Matching additive rollout and rollback
+
+The matching migration supports exactly `DRY_RUN`, `APPLY_ADDITIVE` and `VERIFY`. It refuses unknown source states, conflicting deterministic connections, duplicate canonical identities and unique-index blockers; apply requires explicit confirmation, creates canonical projections/social mappings/declared indexes, and unsets obsolete embedded `matching_profiles.actual` only after canonical snapshots/grants are available. It never drops extra indexes or uses a legacy numeric score as Factor input.
+
+Production runtime remains `autoIndex: false`. Index/data preflight owns the rollout; application startup must not create matching indexes opportunistically. The current matching release harness is guarded to a dedicated database ending in `_test`; it is verification evidence, not authority to bypass the guard or mutate production.
+
+`APPLY_ADDITIVE` may preserve an original Like status in `legacyStatus`. Keep the rollback artifact dual-readable for canonical status plus `legacyStatus` until the rollback window closes, and do not remove the compatibility field during the same rollout. This is social-schema compatibility only: legacy numeric match scores and vector artifacts stay unreadable by Factor Matching and absent from participant DTOs.
 
 ## 9. Logging, audit and observability
 
