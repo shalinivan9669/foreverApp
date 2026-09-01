@@ -7,6 +7,7 @@ import { getUserProfileStatus, toUserDTO } from '../src/lib/dto/user.dto';
 import { jsonOk } from '../src/lib/api/response';
 import { MAX_JSON_BODY_BYTES, parseJson } from '../src/lib/api/validate';
 import { requireTrustedUnsafeRequest } from '../src/lib/auth/requestSafety';
+import { normalizeDiscordAvatar } from '../src/lib/discord/avatar';
 import {
   auditContextFromRequest,
   clientIpFromRequest,
@@ -16,6 +17,7 @@ import {
   buildRateLimitIdentity,
   RATE_LIMIT_POLICIES,
 } from '../src/lib/abuse/rateLimit';
+import { User } from '../src/models/User';
 
 const readProjectFile = (path: string): string =>
   readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -48,6 +50,60 @@ const run = async () => {
     usersService,
     /code:\s*'ACCESS_DENIED'[\s\S]*status:\s*403[\s\S]*message:\s*'forbidden'/,
     'actor A must receive ACCESS_DENIED when attempting to update actor B',
+  );
+
+  const identityOnlyUpsert = extractBetween(
+    usersService,
+    'if (!changesDiscoveryInputs(input.fields)) {',
+    'const session = await mongoose.startSession();',
+  );
+  assert.match(
+    identityOnlyUpsert,
+    /setDefaultsOnInsert:\s*false/,
+    'minimal Discord identity upsert must not materialize incomplete onboarding defaults',
+  );
+  assert.equal(
+    countOccurrences(usersService, 'setDefaultsOnInsert: false'),
+    2,
+    'all new-user profile upsert paths must keep legacy defaults out of partial profiles',
+  );
+
+  const originalUserFindOneAndUpdate = User.collection.findOneAndUpdate;
+  let identityUpsertReachedCollection = false;
+  Object.defineProperty(User.collection, 'findOneAndUpdate', {
+    configurable: true,
+    value: async () => {
+      identityUpsertReachedCollection = true;
+      return null;
+    },
+  });
+  try {
+    await User.findOneAndUpdate(
+      { id: 'oauth-new-user' },
+      {
+        $set: {
+          username: 'oauth-user',
+          avatar: normalizeDiscordAvatar(null),
+        },
+        $setOnInsert: { id: 'oauth-new-user' },
+      },
+      {
+        upsert: true,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: false,
+      },
+    );
+  } finally {
+    Object.defineProperty(User.collection, 'findOneAndUpdate', {
+      configurable: true,
+      value: originalUserFindOneAndUpdate,
+    });
+  }
+  assert.equal(
+    identityUpsertReachedCollection,
+    true,
+    'minimal Discord identity must pass Mongoose validation without onboarding defaults',
   );
 
   const usersMeRoute = readProjectFile('src/app/api/users/me/route.ts');

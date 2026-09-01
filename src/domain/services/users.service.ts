@@ -58,7 +58,7 @@ const updateUserProfileDocument = async (input: {
         upsert: input.upsert,
         new: true,
         runValidators: true,
-        setDefaultsOnInsert: input.upsert,
+        setDefaultsOnInsert: false,
       }
     ).lean<UserType | null>();
   }
@@ -78,7 +78,7 @@ const updateUserProfileDocument = async (input: {
           upsert: input.upsert,
           new: true,
           runValidators: true,
-          setDefaultsOnInsert: input.upsert,
+          setDefaultsOnInsert: false,
           session,
         }
       ).lean<UserType | null>();
