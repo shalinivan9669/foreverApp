@@ -5,14 +5,14 @@ Status: active security boundary after the NEW_ONLY cutover and Factor Matching 
 ## Authentication and session revocation
 
 - Identity comes from the signed session cookie or signed in-memory bearer fallback accepted by `requireSession`.
-- Discord OAuth code exchange validates the configured redirect, uses the verified Discord identity server-side and returns `no-store`.
+- Discord OAuth code exchange validates the configured redirect marker, mirrors the Embedded SDK flow by omitting `redirect_uri` from the token request, uses the verified Discord identity server-side and returns `no-store`.
 - Embedded bearer tokens stay in memory and are sent only to internal API paths; tokens/cookies are never persisted by the client or logged.
 - Every issued session carries a server-side `SessionSubject` version. Logout and account-deletion confirmation rotate it, so previously signed cookies/bearers fail even before JWT expiry.
 - Production cookies are `Secure`, `HttpOnly` and use the embedded-compatible SameSite policy.
 
 ## Request boundary
 
-- Cookie-authenticated mutations pass centralized same-origin validation.
+- Cookie-authenticated mutations and OAuth exchange pass centralized origin validation. Direct same-origin requests and the exact configured `https://<clientId>.discordsays.com` Activity origin are accepted; sibling/wildcard Activity origins and explicit cross-site requests fail closed.
 - JSON mutations require a JSON media type and are bounded before parsing (shared 64 KiB; sandbox webhook 32 KiB).
 - Zod rejects extra/invalid fields on strict mutation bodies.
 - Private envelopes are `private, no-store` and vary on Cookie/Authorization.

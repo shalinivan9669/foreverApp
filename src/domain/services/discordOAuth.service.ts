@@ -128,7 +128,6 @@ export const discordOAuthService = {
           client_secret: process.env.DISCORD_CLIENT_SECRET ?? '',
           grant_type: 'authorization_code',
           code: input.code,
-          redirect_uri: expectedRedirectUri,
         }),
         signal: AbortSignal.timeout(DISCORD_REQUEST_TIMEOUT_MS),
       });

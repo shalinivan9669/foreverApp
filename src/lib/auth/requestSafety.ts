@@ -33,6 +33,26 @@ const headerOrigin = (value: string): string | null => {
   }
 };
 
+const configuredDiscordActivityOrigin = (): string | null => {
+  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID?.trim();
+  if (!clientId || !/^\d+$/.test(clientId)) return null;
+  return `https://${clientId}.discordsays.com`;
+};
+
+const isTrustedOrigin = (
+  suppliedOrigin: string,
+  expectedOrigin: string,
+): boolean => {
+  const normalizedOrigin = headerOrigin(suppliedOrigin);
+  if (!normalizedOrigin) return false;
+
+  const activityOrigin = configuredDiscordActivityOrigin();
+  return (
+    normalizedOrigin === expectedOrigin ||
+    (activityOrigin !== null && normalizedOrigin === activityOrigin)
+  );
+};
+
 export const requireTrustedUnsafeRequest = (
   req: Request | NextRequest,
   options: RequestSafetyOptions = {}
@@ -51,7 +71,9 @@ export const requireTrustedUnsafeRequest = (
 
   const suppliedOrigin = req.headers.get('origin')?.trim();
   if (suppliedOrigin) {
-    return headerOrigin(suppliedOrigin) === expectedOrigin ? { ok: true } : denied();
+    return isTrustedOrigin(suppliedOrigin, expectedOrigin)
+      ? { ok: true }
+      : denied();
   }
 
   return fetchSite === 'same-origin' ? { ok: true } : denied();

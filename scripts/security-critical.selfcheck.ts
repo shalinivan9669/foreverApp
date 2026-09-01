@@ -240,6 +240,16 @@ const run = async () => {
     /DISCORD_REDIRECT_URI_NOT_SET/,
     'OAuth exchange should fail closed when the expected redirect_uri is not configured',
   );
+  const tokenExchangeRequest = extractBetween(
+    discordOAuthService,
+    'tokenResponse = await fetch',
+    '} catch {',
+  );
+  assert.doesNotMatch(
+    tokenExchangeRequest,
+    /redirect_uri/,
+    'Embedded SDK token exchange must not add redirect_uri when authorize did not send one',
+  );
   assert.match(
     discordOAuthService,
     /metadata:\s*{\s*reason,\s*status,\s*}/,
@@ -365,6 +375,98 @@ const run = async () => {
     true,
     'same-origin cookie mutation should be accepted',
   );
+
+  const previousDiscordClientId =
+    process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+  process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID = '1367508484790157332';
+  try {
+    const activityCookieMutation = requireTrustedUnsafeRequest(
+      new Request('https://app.example/api/match/like', {
+        method: 'POST',
+        headers: {
+          cookie: 'session=test-token',
+          origin: 'https://1367508484790157332.discordsays.com',
+          'sec-fetch-site': 'same-origin',
+        },
+      }),
+    );
+    assert.equal(
+      activityCookieMutation.ok,
+      true,
+      'configured Discord Activity origin should be accepted for cookie mutations',
+    );
+
+    const activityLoginMutation = requireTrustedUnsafeRequest(
+      new Request('https://app.example/api/exchange-code', {
+        method: 'POST',
+        headers: {
+          origin: 'https://1367508484790157332.discordsays.com',
+          'sec-fetch-site': 'same-origin',
+        },
+      }),
+      { protectWithoutSessionCookie: true },
+    );
+    assert.equal(
+      activityLoginMutation.ok,
+      true,
+      'configured Discord Activity origin should be accepted for OAuth exchange',
+    );
+
+    const siblingActivityMutation = requireTrustedUnsafeRequest(
+      new Request('https://app.example/api/exchange-code', {
+        method: 'POST',
+        headers: {
+          origin: 'https://999999999999999999.discordsays.com',
+          'sec-fetch-site': 'same-origin',
+        },
+      }),
+      { protectWithoutSessionCookie: true },
+    );
+    assert.equal(
+      siblingActivityMutation.ok,
+      false,
+      'another Discord application origin must remain denied',
+    );
+
+    const activitySuffixMutation = requireTrustedUnsafeRequest(
+      new Request('https://app.example/api/exchange-code', {
+        method: 'POST',
+        headers: {
+          origin:
+            'https://1367508484790157332.discordsays.com.evil.example',
+          'sec-fetch-site': 'same-origin',
+        },
+      }),
+      { protectWithoutSessionCookie: true },
+    );
+    assert.equal(
+      activitySuffixMutation.ok,
+      false,
+      'Discord Activity origin matching must not allow attacker suffixes',
+    );
+
+    const activityCrossSiteMutation = requireTrustedUnsafeRequest(
+      new Request('https://app.example/api/exchange-code', {
+        method: 'POST',
+        headers: {
+          origin: 'https://1367508484790157332.discordsays.com',
+          'sec-fetch-site': 'cross-site',
+        },
+      }),
+      { protectWithoutSessionCookie: true },
+    );
+    assert.equal(
+      activityCrossSiteMutation.ok,
+      false,
+      'explicit cross-site requests must stay denied for the Activity origin',
+    );
+  } finally {
+    if (previousDiscordClientId === undefined) {
+      delete process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+    } else {
+      process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID = previousDiscordClientId;
+    }
+  }
 
   const crossOriginMutation = requireTrustedUnsafeRequest(
     new Request('https://app.example/api/match/like', {

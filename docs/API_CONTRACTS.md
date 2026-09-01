@@ -35,7 +35,7 @@ No core endpoint returns `402`, `PAYMENT_REQUIRED` or `ENTITLEMENT_REQUIRED`. Ra
 
 | Endpoint | Contract |
 | --- | --- |
-| `POST /api/exchange-code` | Validates `redirect_uri` against configured allowlist, exchanges Discord code server-side, upserts verified minimal identity, issues session cookie plus in-memory bearer fallback, and returns `no-store`. |
+| `POST /api/exchange-code` | Accepts only direct same-origin or the exact configured app-id `discordsays.com` Activity origin, validates `redirect_uri` against the configured marker, exchanges the Embedded SDK code server-side without adding `redirect_uri` to the Discord token request, upserts verified minimal identity, issues session cookie plus in-memory bearer fallback, and returns `no-store`. |
 | `POST /api/auth/logout` | Revokes all current server-side session versions for the authenticated subject and clears the session cookie. Replay of an old signed token fails. |
 | `GET /api/users/me` | Owner DTO with derived lifecycle/profile status. |
 | `GET /api/users/[id]` | Authenticated public-user DTO only. By-id writes are self-only. |
