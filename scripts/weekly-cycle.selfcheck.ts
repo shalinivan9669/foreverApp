@@ -9,6 +9,7 @@ import {
   WEEKLY_CYCLE_TIME_ZONE,
   WEEKLY_CYCLE_INPUT_DEFINITION_VERSION,
   buildPairStateProjection,
+  runWeeklyCycleReconciliationQuery,
   weeklyCycleKeyForDate,
   weeklyCycleWindow,
   type PairStateCheckInInput,
@@ -434,6 +435,19 @@ assert.match(
   reconciliationFinder,
   /\.hint\(WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX\)/
 );
+assert.match(
+  cycleService,
+  /const isMissingWeeklyCycleReconciliationIndexError/
+);
+assert.match(reconciliationFinder, /const execute = \(useHint: boolean\)/);
+assert.match(reconciliationFinder, /const executableQuery = useHint/);
+assert.match(
+  reconciliationFinder,
+  /query\.hint\(WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX\)/
+);
+assert.match(reconciliationFinder, /runWeeklyCycleReconciliationQuery/);
+assert.match(cycleService, /return input\.execute\(false\)/);
+assert.match(cycleService, /throw caughtError/);
 assert.doesNotMatch(reconciliationFinder, /aggregate|\$lookup/);
 assert.ok(
   cycleService.includes('$set: { expiredReconciliationCompletedAt: now }')
@@ -570,4 +584,85 @@ assert.ok(recommendationProvenanceModel.includes('snapshotId'));
 assert.ok(recommendationProvenanceModel.includes('activityContentHash'));
 assert.equal(recommendationProvenanceModel.includes('evidenceRevisionIds'), false);
 
-console.log('weekly-cycle selfcheck passed');
+const runReconciliationFallbackBehavior = async (): Promise<void> => {
+  const missingIndexMessage =
+    'planner returned error :: caused by :: hint provided does not correspond to an existing index';
+  const missingIndexError = Object.assign(new Error(missingIndexMessage), {
+    code: 2,
+    codeName: 'BadValue',
+  });
+  const attempts: boolean[] = [];
+  let fallbackEvents = 0;
+  const result = await runWeeklyCycleReconciliationQuery({
+    execute: async (useHint) => {
+      attempts.push(useHint);
+      if (useHint) throw missingIndexError;
+      return 'fallback-result';
+    },
+    onMissingIndexFallback: () => {
+      fallbackEvents += 1;
+    },
+  });
+  assert.equal(result, 'fallback-result');
+  assert.deepEqual(attempts, [true, false]);
+  assert.equal(fallbackEvents, 1);
+
+  const assertRejectedWithoutFallback = async (
+    rejection: Error | string
+  ): Promise<void> => {
+    const rejectedAttempts: boolean[] = [];
+    let rejectedFallbackEvents = 0;
+    await assert.rejects(
+      runWeeklyCycleReconciliationQuery({
+        execute: async (useHint) => {
+          rejectedAttempts.push(useHint);
+          throw rejection;
+        },
+        onMissingIndexFallback: () => {
+          rejectedFallbackEvents += 1;
+        },
+      }),
+      (caughtError) => caughtError === rejection
+    );
+    assert.deepEqual(rejectedAttempts, [true]);
+    assert.equal(rejectedFallbackEvents, 0);
+  };
+
+  await assertRejectedWithoutFallback(
+    Object.assign(new Error(missingIndexMessage), {
+      code: 13,
+      codeName: 'BadValue',
+    })
+  );
+  await assertRejectedWithoutFallback(
+    Object.assign(new Error(missingIndexMessage), {
+      code: 2,
+      codeName: 'Unauthorized',
+    })
+  );
+  await assertRejectedWithoutFallback(
+    Object.assign(new Error('another query planner error'), {
+      code: 2,
+      codeName: 'BadValue',
+    })
+  );
+  await assertRejectedWithoutFallback('non-error rejection');
+
+  const fallbackFailure = new Error('unhinted query failed');
+  const fallbackFailureAttempts: boolean[] = [];
+  await assert.rejects(
+    runWeeklyCycleReconciliationQuery({
+      execute: async (useHint) => {
+        fallbackFailureAttempts.push(useHint);
+        if (useHint) throw missingIndexError;
+        throw fallbackFailure;
+      },
+    }),
+    (caughtError) => caughtError === fallbackFailure
+  );
+  assert.deepEqual(fallbackFailureAttempts, [true, false]);
+};
+
+void runReconciliationFallbackBehavior().then(() => {
+  console.log('weekly-cycle selfcheck passed');
+});

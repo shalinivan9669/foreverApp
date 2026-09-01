@@ -102,9 +102,41 @@ export type WeeklyCycleReliabilityTestHooks = {
 };
 
 type DuplicateKeyError = Error & { code: number };
+type MongoQueryError = Error & { code?: number; codeName?: string };
 
 const isDuplicateKeyError = (error: Error): error is DuplicateKeyError =>
   'code' in error && (error as Error & { code?: number }).code === 11000;
+
+const isMissingWeeklyCycleReconciliationIndexError = (
+  error: Error
+): boolean => {
+  const queryError = error as MongoQueryError;
+  return (
+    queryError.code === 2 &&
+    queryError.codeName === 'BadValue' &&
+    error.message.includes(
+      'hint provided does not correspond to an existing index'
+    )
+  );
+};
+
+export const runWeeklyCycleReconciliationQuery = async <Result>(input: {
+  execute: (useHint: boolean) => Promise<Result>;
+  onMissingIndexFallback?: () => void;
+}): Promise<Result> => {
+  try {
+    return await input.execute(true);
+  } catch (caughtError) {
+    if (
+      !(caughtError instanceof Error) ||
+      !isMissingWeeklyCycleReconciliationIndexError(caughtError)
+    ) {
+      throw caughtError;
+    }
+    input.onMissingIndexFallback?.();
+    return input.execute(false);
+  }
+};
 
 const createOneShotHook = (
   hook: (() => Promise<void>) | undefined
@@ -1010,17 +1042,35 @@ type ExpiredCycleCandidate = {
 const findUnfinalizedExpiredCycles = async (input: {
   pairId: Types.ObjectId;
   now: Date;
-}): Promise<ExpiredCycleCandidate[]> =>
-  WeeklyCycle.find({
-    pairId: input.pairId,
-    endsAt: { $lte: input.now },
-    expiredReconciliationCompletedAt: null,
-  })
-    .sort({ endsAt: 1, cycleKey: 1 })
-    .limit(WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT)
-    .hint(WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX)
-    .select({ _id: 1, cycleKey: 1 })
-    .lean<ExpiredCycleCandidate[]>();
+}): Promise<ExpiredCycleCandidate[]> => {
+  const execute = (useHint: boolean): Promise<ExpiredCycleCandidate[]> => {
+    const query = WeeklyCycle.find({
+      pairId: input.pairId,
+      endsAt: { $lte: input.now },
+      expiredReconciliationCompletedAt: null,
+    })
+      .sort({ endsAt: 1, cycleKey: 1 })
+      .limit(WEEKLY_CYCLE_EXPIRED_RECONCILIATION_BATCH_LIMIT);
+    const executableQuery = useHint
+      ? query.hint(WEEKLY_CYCLE_PENDING_RECONCILIATION_INDEX)
+      : query;
+    return executableQuery
+      .select({ _id: 1, cycleKey: 1 })
+      .lean<ExpiredCycleCandidate[]>()
+      .exec();
+  };
+
+  return runWeeklyCycleReconciliationQuery({
+    execute,
+    onMissingIndexFallback: () =>
+      recordOperationalEvent({
+        name: 'retry_observed',
+        routeGroup: 'weekly_cycle',
+        outcome: 'retry',
+        code: 'RECONCILIATION_INDEX_FALLBACK',
+      }),
+  });
+};
 
 const finalizeExpiredPairCycles = async (input: {
   pair: PairDocument;

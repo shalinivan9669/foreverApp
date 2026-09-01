@@ -152,149 +152,214 @@ export default function MainMenuPage() {
   const currentPairStatus = activeSummary?.pair.status ?? pairMe?.pair?.status;
 
   return (
-    <main className="app-shell-dashboard py-4 sm:py-7">
-      <header className="app-panel app-panel-solid p-5 sm:p-7">
-        <div className="app-muted text-xs">Текущий цикл</div>
-        <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold">Сегодня</h1>
-            <p className="app-muted mt-2 max-w-2xl text-sm">
-              Один понятный следующий шаг для вашей пары — без общего рейтинга и
-              без раскрытия личных ответов.
-            </p>
-          </div>
-          {currentPairStatus && (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
-              {currentPairStatus === 'active'
-                ? 'Пара активна'
-                : currentPairStatus === 'paused'
-                  ? 'Пара на паузе'
-                  : 'Пара завершена'}
-            </span>
-          )}
-        </div>
-      </header>
-
+    <main className="app-shell-menu py-3 sm:py-5 lg:py-7">
       <NotificationPanel enabled={!pairLoading && !pairError} />
 
-      {pageLoading ? (
-        <div className="app-panel app-panel-solid mt-4 p-5 text-sm" role="status" aria-live="polite">
-          Загружаем состояние…
-        </div>
-      ) : error || pairError ? (
-        <div className="mt-4">
-          <ErrorView
-            error={error ?? pairError}
-            onRetry={() => {
-              if (pairId) {
-                void loadCycle(pairId);
-                return;
-              }
-              void refetchPair();
-            }}
-            onAuthRequired={() => router.push('/')}
-          />
-        </div>
-      ) : !pairId ? (
-        <section className="app-panel app-panel-solid mt-4 p-5 sm:p-6">
-          <h2 className="text-xl font-semibold">Пригласите партнёра</h2>
-          <p className="app-muted mt-2 text-sm">
-            Создайте одноразовую ссылку. Пара появится только после согласия второго
-            участника.
-          </p>
-          <Link href="/invite" className="app-btn-primary mt-4 inline-flex px-4 py-2 text-sm">
-            Создать приглашение
-          </Link>
-        </section>
-      ) : activeSummary && activeCycle ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-12">
-          <section className="app-panel app-panel-solid p-5 lg:col-span-7">
-            <div className="app-muted text-xs">Главное действие</div>
-            <h2 className="mt-1 text-2xl font-semibold">{primaryCopy.title}</h2>
-            <p className="app-muted mt-2 text-sm">{primaryCopy.description}</p>
-            <Link href={primaryHref} className="app-btn-primary mt-4 inline-flex px-4 py-2 text-sm">
-              {primaryCopy.label}
-            </Link>
+      <div className="app-menu-grid mt-4">
+        {pageLoading ? (
+          <section
+            className="app-tile app-tile-rose app-reveal app-menu-hero min-h-[13rem]"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="app-tile-content">
+              <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
+                Текущий цикл
+              </span>
+              <h1 className="app-tile-title mt-6">Загружаем состояние…</h1>
+              <p className="app-tile-description">
+                Остальные разделы уже доступны.
+              </p>
+            </div>
           </section>
-
-          <section className="app-panel app-panel-solid p-5 lg:col-span-5">
-            <div className="app-muted text-xs">Еженедельная отметка</div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <div className="rounded-lg border border-slate-100 p-3 text-sm">
-                <div className="font-medium">Вы</div>
-                <p className="app-muted mt-1">
-                  {activeCycle.currentUser.completionStatus === 'SKIPPED'
-                    ? 'Отметка пропущена'
-                    : activeCycle.currentUser.completionStatus === 'SUBMITTED'
-                      ? 'Отметка заполнена'
-                      : 'Ожидает заполнения'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-100 p-3 text-sm">
-                <div className="font-medium">Партнёр</div>
-                <p className="app-muted mt-1">
-                  {activeCycle.peer.completionStatus === 'SKIPPED'
-                    ? 'Отметка пропущена'
-                    : activeCycle.peer.completionStatus === 'SUBMITTED'
-                      ? 'Отметка заполнена'
-                      : 'Ответ ещё не готов'}
-                </p>
+        ) : error || pairError ? (
+          <section className="app-tile app-tile-rose app-reveal app-menu-hero min-h-[13rem]">
+            <div className="app-tile-content">
+              <div className="w-full">
+                <ErrorView
+                  error={error ?? pairError}
+                  onRetry={() => {
+                    if (pairId) {
+                      void loadCycle(pairId);
+                      return;
+                    }
+                    void refetchPair();
+                  }}
+                  onAuthRequired={() => router.push('/')}
+                />
               </div>
             </div>
           </section>
-
-          <section className="app-panel app-panel-solid p-5 lg:col-span-7">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="app-muted text-xs">Общая сводка</div>
-                <h2 className="mt-1 text-xl font-semibold">Сводка цикла</h2>
+        ) : !pairId ? (
+          <Link
+            href="/invite"
+            aria-label="Создать приглашение"
+            className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
+          >
+            <div className="app-tile-content">
+              <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
+                Начать вместе
+              </span>
+              <div className="mt-6">
+                <h1 className="app-tile-title">Пригласите партнёра</h1>
+                <p className="app-tile-description">
+                  Создайте одноразовую ссылку. Пара появится только после согласия
+                  второго участника.
+                </p>
+                <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
+                  Создать приглашение
+                </span>
               </div>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs">
-                {PAIR_DATA_STATUS_LABELS[activeCycle.pair.dataStatus]}
+            </div>
+          </Link>
+        ) : activeSummary && activeCycle ? (
+            <Link
+              href={primaryHref}
+              aria-label={primaryCopy.label}
+              className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
+            >
+              <div className="app-tile-content">
+                <div className="mb-auto flex flex-wrap items-center justify-between gap-2">
+                  <span className="rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
+                    Текущий цикл
+                  </span>
+                  {currentPairStatus && (
+                    <span className="rounded-full bg-white/65 px-3 py-1 text-xs">
+                      {currentPairStatus === 'active'
+                        ? 'Пара активна'
+                        : currentPairStatus === 'paused'
+                          ? 'Пара на паузе'
+                          : 'Пара завершена'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-6">
+                  <h1 className="app-tile-title">{primaryCopy.title}</h1>
+                  <p className="app-tile-description">{primaryCopy.description}</p>
+
+                  <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                    <div className="rounded-xl bg-white/50 px-3 py-2">
+                      <div className="font-medium">Вы</div>
+                      <div className="mt-0.5 opacity-75">
+                        {activeCycle.currentUser.completionStatus === 'SKIPPED'
+                          ? 'Отметка пропущена'
+                          : activeCycle.currentUser.completionStatus === 'SUBMITTED'
+                            ? 'Отметка заполнена'
+                            : 'Ожидает заполнения'}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-white/50 px-3 py-2">
+                      <div className="font-medium">Партнёр</div>
+                      <div className="mt-0.5 opacity-75">
+                        {activeCycle.peer.completionStatus === 'SKIPPED'
+                          ? 'Отметка пропущена'
+                          : activeCycle.peer.completionStatus === 'SUBMITTED'
+                            ? 'Отметка заполнена'
+                            : 'Ответ ещё не готов'}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-white/50 px-3 py-2">
+                      <div className="font-medium">Сводка</div>
+                      <div className="mt-0.5 opacity-75">
+                        {PAIR_DATA_STATUS_LABELS[activeCycle.pair.dataStatus]}
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeCycle?.pair.signals.length ? (
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      {activeCycle.pair.signals.map((signal) => (
+                        <span key={signal.key} className="rounded-full bg-white/45 px-2.5 py-1">
+                          {SIGNAL_LABELS[signal.key]}: {SIGNAL_STATUS[signal.status]}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
+                    {primaryCopy.label}
+                  </span>
+                </div>
+              </div>
+            </Link>
+        ) : (
+          <Link
+            href={`/pair/${pairId}`}
+            className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
+          >
+            <div className="app-tile-content">
+              <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
+                Пара
+              </span>
+              <h1 className="app-tile-title mt-6">Текущий цикл пока недоступен</h1>
+              <p className="app-tile-description">
+                Откройте профиль пары или воспользуйтесь другими разделами.
+              </p>
+              <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
+                Открыть пару
               </span>
             </div>
-            {activeCycle.pair.signals.length ? (
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {activeCycle.pair.signals.map((signal) => (
-                  <div key={signal.key} className="rounded-lg border border-slate-100 p-3 text-sm">
-                    <div className="font-medium">{SIGNAL_LABELS[signal.key]}</div>
-                    <p className="app-muted mt-1">{SIGNAL_STATUS[signal.status]}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="app-muted mt-3 text-sm">
-                Общая сводка появится только после ответов обоих участников.
-              </p>
-            )}
-          </section>
+          </Link>
+        )}
 
-          <section className="app-panel app-panel-solid p-5 lg:col-span-5">
-            <div className="app-muted text-xs">Активность</div>
-            <h2 className="mt-1 text-xl font-semibold">
-              {activeSummary.currentActivity?.title.ru ||
-                activeRecommendation?.activity.title.ru ||
-                'Нет активной активности'}
-            </h2>
-            <p className="app-muted mt-2 text-sm">
-              {activeSummary.currentActivity
-                ? 'Продолжите выбранный формат или завершите отдельную обратную связь.'
+        <Link
+          href="/profile"
+          className="app-tile app-tile-plum app-reveal app-menu-tile min-h-[11rem]"
+        >
+          <div className="app-tile-content">
+            <span className="app-tile-title">Мой профиль</span>
+            <span className="app-tile-description">
+              Личные ориентиры, состояние и настройки аккаунта.
+            </span>
+          </div>
+        </Link>
+
+        <Link
+          href="/questionnaires"
+          className="app-tile app-tile-mint app-reveal app-menu-tile min-h-[11rem]"
+        >
+          <div className="app-tile-content">
+            <span className="app-tile-title">Анкеты</span>
+            <span className="app-tile-description">
+              Короткие вопросы и ваш выбор приватности для каждого ответа.
+            </span>
+          </div>
+        </Link>
+
+        <Link
+          href="/search"
+          className="app-tile app-tile-spark app-reveal app-menu-tile min-h-[11rem]"
+        >
+          <div className="app-tile-content">
+            <span className="mb-auto w-fit rounded-full bg-white/20 px-3 py-1 text-sm text-white/95">
+              Factor Matching
+            </span>
+            <span className="app-tile-title mt-5">Знакомства</span>
+            <span className="app-tile-description text-white/90">
+              Лента, входящие и качественные подсказки без процентов.
+            </span>
+          </div>
+        </Link>
+
+        <Link
+          href="/couple-activity"
+          className="app-tile app-tile-aura app-reveal app-menu-tile min-h-[11rem]"
+        >
+          <div className="app-tile-content">
+            <span className="app-tile-title">Активности пары</span>
+            <span className="app-tile-description">
+              {activeSummary?.currentActivity
+                ? `Продолжить: ${activeSummary.currentActivity.title.ru}`
                 : activeRecommendation
-                  ? 'Открыта одна рекомендация: её можно принять, один раз заменить или пропустить без штрафа.'
-                : 'После еженедельной отметки система предложит один безопасный следующий шаг.'}
-            </p>
-            <Link href="/couple-activity" className="app-btn-secondary mt-4 inline-flex px-3 py-2 text-sm">
-              Открыть активности
-            </Link>
-          </section>
-        </div>
-      ) : (
-        <div className="app-alert app-alert-error mt-4 text-sm">
-          Текущий цикл пока недоступен.
-        </div>
-      )}
+                  ? `Рекомендация: ${activeRecommendation.activity.title.ru}`
+                  : 'Текущая активность, рекомендации и история ваших шагов.'}
+            </span>
+          </div>
+        </Link>
+      </div>
 
-      <nav className="mt-4 flex flex-wrap gap-2 text-sm">
+      <nav className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Дополнительные разделы">
         {pairId && (
           <Link href={`/pair/${pairId}`} className="app-btn-secondary px-3 py-2">
             О паре
@@ -305,14 +370,17 @@ export default function MainMenuPage() {
             История
           </Link>
         )}
-        <Link href="/profile" className="app-btn-secondary px-3 py-2">
-          Личный профиль
-        </Link>
         {pairId && (
           <Link href="/profile/safety" className="app-btn-secondary px-3 py-2">
             Приватная безопасность
           </Link>
         )}
+        <Link href="/match/inbox" className="app-btn-secondary px-3 py-2">
+          Входящие знакомств
+        </Link>
+        <Link href="/match-card/create" className="app-btn-secondary px-3 py-2">
+          Настройки знакомств
+        </Link>
       </nav>
     </main>
   );

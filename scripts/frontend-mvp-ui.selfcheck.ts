@@ -53,6 +53,37 @@ assert.match(globals, /safe-area-inset-bottom/);
 assert.match(globals, /\.app-shell-narrow/);
 assert.match(globals, /overflow-wrap:\s*anywhere/);
 
+const mainMenu = read('src/app/main-menu/page.tsx');
+assert.match(mainMenu, /app-shell-menu/);
+assert.match(mainMenu, /app-menu-grid/);
+assert.match(mainMenu, /app-menu-hero/);
+assert.equal(
+  (mainMenu.match(/app-menu-tile/g) ?? []).length,
+  4,
+  'main menu must keep the restored hero plus four-tile composition'
+);
+assert.match(mainMenu, /href="\/search"/);
+assert.match(mainMenu, /href="\/questionnaires"/);
+assert.match(mainMenu, /href="\/couple-activity"/);
+assert.match(mainMenu, /href="\/profile"/);
+assert.match(mainMenu, /href="\/profile\/history"/);
+assert.match(mainMenu, /href="\/profile\/safety"/);
+assert.match(mainMenu, /href="\/match\/inbox"/);
+assert.match(mainMenu, /href="\/match-card\/create"/);
+assert.match(mainMenu, /<NotificationPanel/);
+assert.match(
+  mainMenu,
+  /\)\}\s*<Link\s+href="\/profile"/,
+  'static menu tiles must remain outside the dynamic hero state branch'
+);
+assert.match(
+  mainMenu,
+  /<\/div>\s*<nav className=/,
+  'utility navigation must remain outside the menu-grid state branch'
+);
+assert.doesNotMatch(mainMenu, /app-shell-dashboard/);
+assert.doesNotMatch(mainMenu, /lootbox|\/lootboxes/i);
+
 const modal = read('src/components/activities/CheckInModal.tsx');
 assert.match(modal, /role="dialog"/);
 assert.match(modal, /aria-modal="true"/);

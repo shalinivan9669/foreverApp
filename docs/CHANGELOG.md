@@ -6,7 +6,9 @@ Summary:
 - Aligned the server-side Discord token request with the Embedded SDK authorization flow by omitting the unused `redirect_uri`, without changing the client API or environment contract.
 - Added focused security regressions for OAuth exchange and later cookie-authenticated Activity mutations.
 - Fixed first-login user persistence by keeping invalid legacy onboarding defaults out of partial Discord identity upserts while retaining Mongoose validators.
-Files: src/lib/auth/requestSafety.ts, src/domain/services/discordOAuth.service.ts, src/domain/services/users.service.ts, scripts/security-critical.selfcheck.ts, docs/SECURITY.md, docs/API_CONTRACTS.md, docs/CHANGELOG.md
+- Restored the five-tile main-menu presentation while retaining the current cycle, recommendation, notification, retry and Factor Matching flows.
+- Kept expired weekly-cycle reconciliation available when a deployment is temporarily missing its named performance index: the indexed path remains primary and only the exact Mongo missing-hint error retries without the hint.
+Files: src/lib/auth/requestSafety.ts, src/domain/services/discordOAuth.service.ts, src/domain/services/users.service.ts, src/app/main-menu/page.tsx, src/domain/services/weeklyCycle.service.ts, scripts/security-critical.selfcheck.ts, scripts/frontend-mvp-ui.selfcheck.ts, scripts/weekly-cycle.selfcheck.ts, docs/SECURITY.md, docs/API_CONTRACTS.md, docs/CHANGELOG.md
 
 Date: 2026-08-11
 Summary:
