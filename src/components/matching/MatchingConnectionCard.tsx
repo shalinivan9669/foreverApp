@@ -49,7 +49,7 @@ export default function MatchingConnectionCard({
         </div>
       </div>
 
-      {!connection.pairId && <Link className="app-btn-secondary mt-4" href={`/match/connections/${encodeURIComponent(connection.id)}`}>Темы и готовность</Link>}
+      {!connection.pairId && ["ACTIVE", "PAUSED"].includes(connection.status) && <Link className="app-btn-secondary mt-4" href={`/match/connections/${encodeURIComponent(connection.id)}`}>Темы и готовность</Link>}
       <div className="app-panel-soft mt-4 p-3">
         <p className="font-semibold">{confirmation.title}</p>
         <p className="app-muted mt-1 text-sm">{confirmation.description}</p>

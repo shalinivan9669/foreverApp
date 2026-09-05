@@ -21,6 +21,7 @@ type CoupleActivityViewProps = {
   active: ActivityCardVM | null;
   history: ActivityCardVM[];
   hasPair: boolean;
+  pairStatus?: 'active' | 'paused' | 'ended' | null;
   onRetry: () => void;
   onAuthRequired: () => void;
   onSetTab: (tab: Tab) => void;
@@ -74,6 +75,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     onRetryComplete,
     onSubmitCheckIn,
   } = props;
+  const pairActive = props.pairStatus === undefined || props.pairStatus === 'active';
+  const partial = history.find((item) => item.status === 'completed_partial' && item.resultSummary?.bothSubmitted === false);
+  const completed = history.find((item) => item.resultSummary?.bothSubmitted);
 
   if (!hasPair && (loading || error)) {
     return (
@@ -107,6 +111,9 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
     <main className="app-shell-dashboard app-page-stack pb-4 pt-3 sm:pb-6 sm:pt-5 lg:pt-7">
       <BackBar title="Активности пары" fallbackHref="/main-menu" />
       <h1 className="app-page-title font-bold text-slate-900">Активности пары</h1>
+      <div className="flex flex-wrap gap-3"><button type="button" className="app-btn-secondary px-3 py-2" disabled={loading || checkInSubmitting || pendingCompleteInFlight || Boolean(checkInFor)} onClick={onRetry}>Обновить состояние и отзывы</button><Link href="/development" className="app-btn-secondary px-3 py-2">Личное развитие</Link></div>
+      {!pairActive && <section className="app-panel p-4"><h2 className="font-semibold">{props.pairStatus === 'paused' ? 'Пара на паузе' : 'Совместные действия недоступны'}</h2><p className="app-muted mt-2 text-sm">Личные занятия доступны отдельно. Для продолжения совместного шага проверьте текущее состояние пары.</p><Link href="/pair" className="mt-3 inline-block underline">Открыть состояние пары</Link></section>}
+      {pairActive && !active && !loading && (partial || completed) && <section className="app-panel p-4" role="status"><h2 className="font-semibold">{partial ? 'Частичный итог — ожидаем второй отзыв' : 'Совместный шаг завершён'}</h2><p className="app-muted mt-2 text-sm">{partial ? 'Первый личный результат уже сохранён. В истории можно добавить недостающий отзыв; после ответа партнёра обновите состояние, чтобы увидеть общий итог.' : 'Получены оба отзыва. Общий итог доступен в истории; следующий вариант — в рекомендациях или библиотеке.'}</p><button className="app-btn-secondary mt-3 px-3 py-2" onClick={() => onSetTab('history')}>{partial ? 'Открыть частичный итог' : 'Посмотреть завершение'}</button><Link href="/development" className="app-btn-primary ml-2 mt-3 px-3 py-2">Выбрать следующий шаг</Link></section>}
       {recommendationPanel}
 
       <div className="app-panel-soft flex flex-wrap gap-2 p-1.5" role="tablist" aria-label="Разделы активностей">
@@ -144,7 +151,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
         </div>
       )}
 
-      {!loading && tab === 'active' && (
+      {pairActive && !loading && tab === 'active' && (
         <div
           id="activities-panel-active"
           role="tabpanel"
@@ -206,7 +213,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
         </div>
       )}
 
-      {!loading && tab === 'history' && (
+      {pairActive && !loading && tab === 'history' && (
         <div
           id="activities-panel-history"
           role="tabpanel"
@@ -229,7 +236,7 @@ export default function CoupleActivityView(props: CoupleActivityViewProps) {
         </div>
       )}
 
-      {checkInFor && (
+      {pairActive && checkInFor && (
         <CheckInModal
           activity={checkInFor}
           locale={locale}

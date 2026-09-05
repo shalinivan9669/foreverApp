@@ -2,6 +2,18 @@
 
 Status: active verification matrix. Run checks by blast radius; database commands require an isolated local replica set.
 
+## Continuation and published versions, 2026-09-05
+
+`npm run integration:two-user-acceptance` runs six focused entry/matching/invite/workspace/lifecycle suites sequentially. It requires `MATCHING_TEST_MONGODB_URI` with an explicit loopback replica set and a disposable `_test` database name, assigns a fresh database per suite/run, and creates command-local synthetic JWT secrets. It never reads `.env`, falls back to the application DB, starts an HTTP authentication bypass, or drops a database. Each suite cleans only its synthetic fixtures. Economy and pair-event-settings remain separate commands: their existing stricter guard requires the dedicated `127.0.0.1:27029/vmeste_economy_product_test?replicaSet=vmesteTest` target. See [exact commands, current results and Discord checklist](TWO_USER_ACCEPTANCE.md).
+
+The updated workspace integration creates a version-1 run, injects an append-only test publication of version 2 through the typed repository, then reads/completes/replays version 1 and creates a version-2 run. The production catalogue still publishes the original content; the test does not edit it or reinterpret old completions. `selfcheck:product-workspace` also pins a digest of published v1 and checks immutable questions/options, exact/latest lookup and duplicate-revision rejection.
+
+`selfcheck:continuation-ui` joins `check:self` as the 47th suite. It exercises the actual `useDevelopment` and `useSharedLife` hooks with a minimal React adapter: late success/failure, a changed run/Pair, latest loading/error state, explicit refresh and access denial. Pure view-model checks cover unfinished runs, program order, partial/final/paused/closed copy; a focus/visibility adapter checks visible-only refresh, 15-second cooldown and no overlapping automatic request. It also verifies key page links and draft-revision wiring. These checks do not claim rendered browser coverage.
+
+Browser return/refresh, private draft handling and navigation checks remain distinct from actual Discord OAuth, iframe and two-account interaction. Passing local route handlers with genuine synthetic sessions does not certify the external host.
+
+The architecture checker now recognizes the existing `requireEconomyOwner` wrapper only for direct economy subroutes importing `../shared` and actually awaiting it, while also checking that the helper calls `requireSession(req)`. This resolves three pre-existing false positives without allowlist entries or production authentication changes.
+
 ## Product expansion verification, 2026-09-05
 
 See [current evidence and manual Discord scenarios](PRODUCT_IMPLEMENTATION.md). `check:self` now includes `selfcheck:entry-pairing`, `selfcheck:matching-product`, `selfcheck:economy` and `selfcheck:product-workspace` in addition to the existing checks.

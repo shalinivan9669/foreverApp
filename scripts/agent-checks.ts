@@ -275,6 +275,12 @@ const privateMutationWithoutSession = (filePath: string): boolean => {
     ) &&
     /await\s+prepareMatchingRequest\s*\(/.test(text);
   if (usesCentralMatchingGuard) return false;
+  const usesCentralEconomyGuard =
+    /\/src\/app\/api\/economy\/[^/]+\/route\.ts$/.test(normalizedFilePath) &&
+    /import\s*\{[^}]*\brequireEconomyOwner\b[^}]*\}\s*from\s*['"]\.\.\/shared['"]/.test(text) &&
+    /await\s+requireEconomyOwner\s*\(\s*req\s*\)/.test(text) &&
+    /requireSession\s*\(\s*req\s*\)/.test(readText(path.resolve(path.dirname(filePath), '../shared.ts')));
+  if (usesCentralEconomyGuard) return false;
   if (/canGrant\s*\(|ADMIN_HEADER|ENTITLEMENTS_ADMIN_KEY/.test(text)) return false;
   const isVerifiedSandboxWebhook =
     normalizedFilePath.endsWith('/src/app/api/billing/webhooks/sandbox/route.ts') &&

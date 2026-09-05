@@ -5,6 +5,7 @@ import {
   type MatchingInboxDTO,
 } from "@/client/api/match.api";
 import { useApi } from "./useApi";
+import { ApiClientError } from "@/client/api/errors";
 
 const mergePage = (
   current: MatchingInboxDTO | null,
@@ -49,7 +50,13 @@ export function useInbox() {
       const controller = new AbortController();
       abortRef.current = controller;
       const page = await runLoadSafe(
-        () => matchApi.getInbox(cursor, 20, controller.signal),
+        async () => {
+          try { return await matchApi.getInbox(cursor, 20, controller.signal); }
+          catch (error) {
+            if (requestVersion === requestVersionRef.current && error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || error.code === "MATCHING_BLOCKED")) setData(null);
+            throw error;
+          }
+        },
         { suppressGlobalError: true },
       );
       if (!page || requestVersion !== requestVersionRef.current) return false;
@@ -65,7 +72,13 @@ export function useInbox() {
       action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
     ): Promise<boolean> => {
       const updated = await runActionSafe(
-        () => matchApi.confirmConnection(connectionId, action),
+        async () => {
+          try { return await matchApi.confirmConnection(connectionId, action); }
+          catch (error) {
+            if (error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || error.code === "MATCHING_BLOCKED")) setData(null);
+            throw error;
+          }
+        },
         { suppressGlobalError: true },
       );
       if (!updated) return false;
@@ -109,10 +122,10 @@ export function useInbox() {
   }, [load]);
 
   return {
-    data,
-    incoming: data?.incoming ?? [],
-    outgoing: data?.outgoing ?? [],
-    connections: data?.connections ?? [],
+    data: loadError ? null : data,
+    incoming: loadError ? [] : data?.incoming ?? [],
+    outgoing: loadError ? [] : data?.outgoing ?? [],
+    connections: loadError ? [] : data?.connections ?? [],
     nextCursor: data?.nextCursor,
     loading: loadLoading || (data === null && loadError === null),
     actionLoading,

@@ -39,24 +39,30 @@ export default function MatchingConnectionPage({ connectionId }: { connectionId:
     return true;
   };
   const canWrite = Boolean(conversation?.canWrite && currentConnection?.status === "ACTIVE" && !currentConnection.pairId);
+  const nextTopic = canWrite ? conversation?.topics.find((topic) => !topic.ownAnswer && topic.partnerSubmitted) ?? conversation?.topics.find((topic) => !topic.ownAnswer) : null;
+  const waitingCount = conversation?.topics.filter((topic) => topic.ownAnswer && !topic.revealed).length ?? 0;
+  const refresh = async () => { await Promise.all([load(), connection.refetch()]); };
+  const accessLost = api.error && ([401, 403, 404].includes(api.error.status) || api.error.code === "MATCHING_BLOCKED");
+  const accessibleConversation = currentConnection && ["ACTIVE", "PAUSED"].includes(currentConnection.status) && !currentConnection.pairId && !accessLost ? conversation : null;
   return <main className="app-shell-narrow space-y-5 py-6">
-    <header className="flex items-center justify-between gap-3"><Link className="app-btn-secondary" href="/match/inbox">← К знакомствам</Link><button className="app-btn-secondary" disabled={api.loading} onClick={() => void load()}>Обновить ответы</button></header>
+    <header className="flex items-center justify-between gap-3"><Link className="app-btn-secondary" href="/match/inbox">← К знакомствам</Link><button className="app-btn-secondary" disabled={api.loading || connection.loading || connection.actionLoading} onClick={() => void refresh()}>Обновить состояние и ответы</button></header>
     <h1 className="text-2xl font-semibold">Узнаём друг друга</h1>
-    <MatchingErrorPanel error={api.error ?? connection.error} />
+    <MatchingErrorPanel error={api.error ?? connection.error} onRetry={() => void refresh()} />
     {currentConnection && <MatchingConnectionCard connection={currentConnection} loading={connection.actionLoading} onAction={async (action) => { const ok = await connection.confirm(action); if (ok) await load(); return ok; }} />}
-    {conversation && <>
+    {accessibleConversation && conversation && <>
+      <section className="app-panel p-4" aria-label="Продолжение знакомства"><h2 className="font-semibold">{canWrite ? nextTopic ? `Следующая тема: ${nextTopic.title}` : waitingCount ? "Ваши ответы сохранены" : "Все текущие темы раскрыты" : "Знакомство на паузе"}</h2><p className="app-muted mt-2 text-sm">{canWrite ? nextTopic ? nextTopic.partnerSubmitted ? "Партнёр уже ответил. Сохраните свой независимый ответ, чтобы оба текста открылись." : "Можно начать тему независимо; ответы откроются после второго участника." : waitingCount ? `Ожидаем партнёра в ${waitingCount} темах. После его ответа нажмите «Обновить состояние и ответы».` : "Обсудите ответы. Можно начать новый раунд или предложить стать парой, когда оба готовы." : "Сохранённые темы можно просмотреть. Возобновите знакомство, чтобы отвечать дальше."}</p>{nextTopic && <a href={`#topic-${nextTopic.topicKey}`} className="app-btn-primary mt-3">Продолжить тему</a>}<Link href="/development" className="app-btn-secondary ml-2 mt-3">Личное развитие</Link></section>
       <section className="app-panel p-4"><h2 className="text-lg font-semibold">Готовность к следующему шагу</h2><p className="app-muted mt-2 text-sm">Это подсказки для разговора. Здесь нет баллов, оценки человека или обязательного порога для предложения пары. «Обсудили» не означает «согласны».</p><ul className="mt-3 space-y-2">{conversation.checklist.map((item) => <li key={item.key}>{item.complete ? "✓" : "○"} {item.label}</li>)}</ul></section>
       <section className="app-panel p-4"><h2 className="font-semibold">Темы для независимых ответов</h2><p className="app-muted mt-2 text-sm">Сначала каждый отвечает отдельно. После второго ответа оба текста откроются одновременно. До раскрытия свой ответ можно отозвать; после раскрытия изменения создают новый раунд. Ответы не используются для подбора или личной аналитики.</p></section>
-      {conversation.topics.map((topic) => <Topic key={`${topic.topicKey}:${topic.round}:${topic.revealed}:${topic.ownAnswer ?? ""}`} topic={topic} loading={api.loading} canWrite={canWrite} mutate={mutate} />)}
+      {conversation.topics.map((topic) => <Topic key={`${topic.topicKey}:${topic.round}:${topic.revealed}:${topic.ownAnswer ?? ""}`} topic={topic} initiallyOpen={topic.topicKey === nextTopic?.topicKey} loading={api.loading || connection.actionLoading} canWrite={canWrite} mutate={mutate} />)}
       <section className="app-panel p-4"><h2 className="font-semibold">Продолжить в Discord</h2><p className="app-muted mt-2 text-sm">После обсуждения границ и интереса можно добровольно перейти в Discord. Эта кнопка не даёт приложению доступ к переписке.</p>{conversation.discordAvailable && canWrite ? <><label className="mt-3 flex gap-2"><input type="checkbox" checked={conversation.discordConsent} disabled={api.loading} onChange={(event) => void mutate({ action: "DISCORD_CONSENT", discordConsent: event.target.checked })} />Хочу открыть профиль человека в Discord</label>{conversation.discordUrl && <a className="app-btn-primary mt-3" href={conversation.discordUrl} target="_blank" rel="noreferrer">Открыть Discord</a>}</> : <p className="mt-3 text-sm">Сначала обменяйтесь ответами о границах и взаимном интересе.</p>}</section>
     </>}
   </main>;
 }
 
-function Topic({ topic, canWrite, loading, mutate }: { topic: MatchingConversationRoundDTO; canWrite: boolean; loading: boolean; mutate: (command: ConversationCommand) => Promise<boolean> }) {
+function Topic({ topic, canWrite, loading, mutate, initiallyOpen }: { topic: MatchingConversationRoundDTO; canWrite: boolean; loading: boolean; mutate: (command: ConversationCommand) => Promise<boolean>; initiallyOpen: boolean }) {
   const [text, setText] = useState("");
   const [consent, setConsent] = useState(false);
-  return <details className="app-panel p-4"><summary className="cursor-pointer font-semibold">{topic.title} · раунд {topic.round} · {topic.revealed ? "Ответы открыты" : topic.ownAnswer ? "Ожидаем партнёра" : topic.partnerSubmitted ? "Партнёр ответил" : "Можно начать"}</summary><p className="mt-3">{topic.prompt}</p>
+  return <details id={`topic-${topic.topicKey}`} open={initiallyOpen || undefined} className="app-panel scroll-mt-4 p-4"><summary className="cursor-pointer font-semibold">{topic.title} · раунд {topic.round} · {topic.revealed ? "Ответы открыты" : topic.ownAnswer ? "Ожидаем партнёра" : topic.partnerSubmitted ? "Партнёр ответил" : "Можно начать"}</summary><p className="mt-3">{topic.prompt}</p>
     {topic.ownAnswer && <div className="app-panel-soft mt-3 p-3"><strong>Мой ответ</strong><p className="whitespace-pre-wrap">{topic.ownAnswer}</p></div>}
     {topic.revealed && topic.partnerAnswer && <div className="app-panel-soft mt-3 p-3"><strong>Ответ партнёра</strong><p className="whitespace-pre-wrap">{topic.partnerAnswer}</p></div>}
     {!topic.revealed && topic.ownAnswer && canWrite && <button className="app-btn-secondary mt-3" disabled={loading} onClick={() => void mutate({ action: "WITHDRAW", topicKey: topic.topicKey, round: topic.round })}>Отозвать мой ответ до раскрытия</button>}

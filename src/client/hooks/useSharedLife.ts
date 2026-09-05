@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sharedLifeApi } from "@/client/api/sharedLife.api";
 import type { SharedLifeCommand } from "@/lib/contracts/sharedLife";
 import type { SharedLifeDTO } from "@/lib/dto/sharedLife.dto";
@@ -10,18 +10,22 @@ export function useSharedLife(pairId: string | null) {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<UiErrorState | null>(null);
+  const requestVersion = useRef(0);
+  const mutationInFlight = useRef(false);
   const load = useCallback(
     async (signal?: AbortSignal) => {
       if (!pairId) return;
+      if (mutationInFlight.current) return;
+      const version = ++requestVersion.current;
       setLoading(true);
       try {
         const data = await sharedLifeApi.get(pairId, signal);
-        if (!signal?.aborted) {
+        if (!signal?.aborted && version === requestVersion.current) {
           setSnapshot(data);
           setError(null);
         }
       } catch (e) {
-        if (!signal?.aborted) {
+        if (!signal?.aborted && version === requestVersion.current) {
           const normalized = toUiErrorState(
             e instanceof Error
               ? e
@@ -31,7 +35,7 @@ export function useSharedLife(pairId: string | null) {
           if ([401, 403, 404].includes(normalized.status)) setSnapshot(null);
         }
       } finally {
-        if (!signal?.aborted) setLoading(false);
+        if (!signal?.aborted && version === requestVersion.current) setLoading(false);
       }
     },
     [pairId],
@@ -39,18 +43,28 @@ export function useSharedLife(pairId: string | null) {
   useEffect(() => {
     const controller = new AbortController();
     queueMicrotask(() => {
-      if (!controller.signal.aborted) void load(controller.signal);
+      if (!controller.signal.aborted) {
+        setBusy(false);
+        if (!pairId) { setLoading(false); setError(null); setSnapshot(null); }
+        else void load(controller.signal);
+      }
     });
-    return () => controller.abort();
-  }, [load]);
+    return () => { controller.abort(); requestVersion.current += 1; mutationInFlight.current = false; };
+  }, [load, pairId]);
   const update = async (command: SharedLifeCommand): Promise<boolean> => {
-    if (!pairId) return false;
+    if (!pairId || mutationInFlight.current) return false;
+    mutationInFlight.current = true;
+    const version = ++requestVersion.current;
     setBusy(true);
+    setLoading(false);
     setError(null);
     try {
-      setSnapshot(await sharedLifeApi.update(pairId, command));
+      const next = await sharedLifeApi.update(pairId, command);
+      if (version !== requestVersion.current) return false;
+      setSnapshot(next);
       return true;
     } catch (e) {
+      if (version !== requestVersion.current) return false;
       const normalized = toUiErrorState(
         e instanceof Error ? e : new Error("Не удалось сохранить запись."),
       );
@@ -58,7 +72,10 @@ export function useSharedLife(pairId: string | null) {
       if ([401, 403, 404].includes(normalized.status)) setSnapshot(null);
       return false;
     } finally {
-      setBusy(false);
+      if (version === requestVersion.current) {
+        mutationInFlight.current = false;
+        setBusy(false);
+      }
     }
   };
   return {

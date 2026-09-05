@@ -6,6 +6,7 @@ import type { UiErrorState } from '@/client/api/errors';
 import type { ActivityCompleteResponse } from '@/client/api/types';
 import { useActivityOffers } from '@/client/hooks/useActivityOffers';
 import { usePair } from '@/client/hooks/usePair';
+import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
 import { toActivityCardVM, type ActivityCardVM } from '@/client/viewmodels';
 import RecommendationDecisionPanel from '@/components/activities/RecommendationDecisionPanel';
 import CoupleActivityView from '@/features/activities/CoupleActivityView';
@@ -50,6 +51,7 @@ export default function CoupleActivityPage() {
 
   const {
     pairId,
+    pairMe,
     loading: pairLoading,
     error: pairError,
     refetch: refetchPair,
@@ -69,9 +71,19 @@ export default function CoupleActivityPage() {
     pairId,
     enabled: Boolean(pairId),
   });
+  const refreshState = useCallback(async () => {
+    await Promise.all([refetchPair(), refetch()]);
+  }, [refetchPair, refetch]);
+  useRefreshOnReturn(refreshState, !pairLoading && !loading && !checkInFor && !checkInSubmitting && !retryCompleteSubmitting);
 
   const activeVm = useMemo(() => (active ? toActivityCardVM(active) : null), [active]);
   const historyVm = useMemo(() => history.map(toActivityCardVM), [history]);
+  const accessDenied = [pairError, error].some((failure) =>
+    failure !== null && [401, 403, 404].includes(failure.status)
+  );
+  const checkInStillAccessible = checkInFor && (
+    activeVm?._id === checkInFor._id || historyVm.some((item) => item._id === checkInFor._id)
+  );
   const pendingCompleteMessage = useMemo(
     () => toCompleteRetryMessage(pendingComplete?.error ?? null),
     [pendingComplete]
@@ -209,10 +221,11 @@ export default function CoupleActivityPage() {
       loading={pairLoading || loading}
       error={pairError ?? error}
       locale={locale}
-      active={activeVm}
-      history={historyVm}
+      active={accessDenied ? null : activeVm}
+      history={accessDenied ? [] : historyVm}
       hasPair={Boolean(pairId)}
-      onRetry={() => void (pairError ? refetchPair() : refetch())}
+      pairStatus={accessDenied ? null : pairMe?.pair?.status ?? null}
+      onRetry={() => void refreshState()}
       onAuthRequired={() => router.push('/')}
       onSetTab={setTab}
       onCancel={(id) => {
@@ -223,18 +236,18 @@ export default function CoupleActivityPage() {
       }}
       onStart={(id) => void startActivity(id)}
       onOpenCheckIn={setCheckInFor}
-      checkInFor={checkInFor}
+      checkInFor={accessDenied || pairLoading || loading || !checkInStillAccessible ? null : checkInFor}
       onCloseCheckIn={() => {
         if (checkInSubmitting || retryCompleteSubmitting) return;
         setCheckInFor(null);
       }}
       checkInSubmitting={checkInSubmitting}
-      pendingCompleteActivityId={pendingComplete?.activityId ?? null}
+      pendingCompleteActivityId={accessDenied ? null : pendingComplete?.activityId ?? null}
       pendingCompleteMessage={pendingCompleteMessage}
       pendingCompleteInFlight={retryCompleteSubmitting}
       activityFlowMessage={activityFlowMessage}
       recommendationPanel={
-        pairId ? (
+        pairId && pairMe?.pair?.status === 'active' && !pairError && !accessDenied ? (
           <RecommendationDecisionPanel
             pairId={pairId}
             onActivityChanged={() => void refetch()}

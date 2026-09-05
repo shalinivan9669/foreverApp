@@ -544,10 +544,24 @@ const runAcceptance = async (
       currentUserId: memberA,
     });
     assert.match(issued.token, /^[A-Za-z0-9_-]{43}$/);
+    const creatorPublicId = await ensurePublicPairingId(memberA);
+    const availableByCode = await pairInviteService.resolve({ currentUserId: memberB, partnerCode: creatorPublicId });
+    const availableByLink = await pairInviteService.resolve({ currentUserId: memberB, token: issued.token });
+    assert.equal(availableByCode.state, 'AVAILABLE');
+    assert.deepEqual(availableByCode, availableByLink, 'code and link resolve the same invite identity');
+    assert.equal(availableByCode.partner?.publicId, creatorPublicId);
 
     const claimed = await pairInviteService.accept({ currentUserId: memberB, token: issued.token, auditRequest });
     assert.equal(claimed.status, 'AWAITING_PARTNER_CONFIRMATION');
     assert.equal(await Pair.countDocuments({ key: pairKey }), 0, 'recipient confirmation alone created a Pair');
+    assert.equal(await PairMembershipClaim.countDocuments({ userId: { $in: memberIds } }), 0, 'pending invitation must not reserve Pair membership');
+    const waitingAfterReload = await pairInviteService.resolve({ currentUserId: memberB, token: issued.token });
+    assert.equal(waitingAfterReload.state, 'WAITING_CONFIRMATION');
+    assert.equal(waitingAfterReload.canAccept, false);
+    assert.equal(waitingAfterReload.pairId, undefined);
+    const acceptRetry = await pairInviteService.accept({ currentUserId: memberB, partnerCode: creatorPublicId, auditRequest });
+    assert.equal(acceptRetry.status, 'AWAITING_PARTNER_CONFIRMATION');
+    assert.equal(acceptRetry.alreadyAccepted, true, 'retry after a lost recipient response remains pending');
     const partnerPublicId = await ensurePublicPairingId(memberB);
 
     const concurrentAttempts = 4;
@@ -596,6 +610,9 @@ const runAcceptance = async (
       auditRequest,
     });
     assert.equal(retry.alreadyAccepted, true, 'invite retry was not idempotent');
+    const acceptedAfterReload = await pairInviteService.resolve({ currentUserId: memberB, token: issued.token });
+    assert.equal(acceptedAfterReload.state, 'ACCEPTED');
+    assert.equal(acceptedAfterReload.pairId, retry.pairId, 'recipient sees owner confirmation after reload');
     assert.equal(
       new Set([...accepted.map((outcome) => outcome.pairId), retry.pairId]).size,
       1,

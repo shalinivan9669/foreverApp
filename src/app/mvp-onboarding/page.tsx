@@ -533,12 +533,19 @@ export default function MvpOnboardingPage() {
             Сохранено ответов: {payload.session.answers.length}. Точные ответы не становятся
             общими автоматически и используются согласно выбранному правилу для каждого ответа.
           </p>
+          {returnHref === '/profile' && <p className="app-muted mt-3 text-sm">
+            Теперь можно выбрать личную практику или программу. Поиск партнёра настраивается отдельно, когда вы будете готовы.
+          </p>}
           <Link
-            href={returnHref}
+            href={returnHref === '/profile' ? '/development' : returnHref}
             className="app-btn-primary mt-5 inline-flex w-full justify-center px-4 py-3 text-sm sm:w-auto"
           >
-            {returnHref.startsWith('/join') ? 'Вернуться к приглашению' : returnHref === '/invite' ? 'Связать аккаунт партнёра' : 'Открыть «Вместе»'}
+            {returnHref.startsWith('/join') ? 'Вернуться к приглашению' : returnHref === '/invite' ? 'Связать аккаунт партнёра' : returnHref === '/profile' ? 'Продолжить личное развитие' : 'Открыть «Вместе»'}
           </Link>
+          {returnHref === '/profile' && <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/match-card/create" className="app-btn-secondary px-4 py-3 text-sm">Настроить поиск партнёра</Link>
+            <Link href="/profile" className="app-btn-secondary px-4 py-3 text-sm">Мой профиль</Link>
+          </div>}
         </section>
       )}
     </main>

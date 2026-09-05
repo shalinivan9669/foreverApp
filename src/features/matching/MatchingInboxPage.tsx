@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { MatchLikeSummaryDTO } from "@/client/api/match.api";
 import { useInbox } from "@/client/hooks/useInbox";
+import { useRefreshOnReturn } from "@/client/hooks/useRefreshOnReturn";
 import { matchingLikeStatusLabel } from "@/client/viewmodels/matching";
 import MatchingAvatar from "@/components/matching/MatchingAvatar";
 import MatchingConnectionCard from "@/components/matching/MatchingConnectionCard";
@@ -16,6 +17,7 @@ export default function MatchingInboxPage() {
   const inbox = useInbox();
   const [tab, setTab] = useState<InboxTab>("incoming");
   const items = tab === "incoming" ? inbox.incoming : inbox.outgoing;
+  useRefreshOnReturn(async () => { await inbox.refetch(); }, !inbox.loading && !inbox.actionLoading);
 
   return (
     <main className="app-shell-compact py-4 sm:py-6">
@@ -32,6 +34,7 @@ export default function MatchingInboxPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button className="app-btn-secondary" disabled={inbox.loading || inbox.actionLoading} onClick={() => void inbox.refetch()}>Обновить знакомства</button>
             <Link className="app-btn-secondary" href="/search">
               К ленте
             </Link>
@@ -103,7 +106,7 @@ export default function MatchingInboxPage() {
               Взаимных знакомств пока нет
             </h2>
             <p className="app-muted mt-2 text-sm">
-              Связь появится после ответа и явного принятия инициатором.
+              Знакомство появится после ответа и явного принятия получателем интереса.
             </p>
           </div>
         )}

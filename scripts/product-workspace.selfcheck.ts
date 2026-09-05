@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   DEVELOPMENT_CATALOG,
   DEVELOPMENT_DOMAINS,
   DEVELOPMENT_PROGRAMS,
 } from "@/domain/model/development/catalog";
+import { createDevelopmentContentRepository } from "@/domain/model/development/publications";
+import {
+  DEVELOPMENT_CONTENT_V1,
+  REFLECTION_OPTIONS_V1,
+} from "@/domain/model/development/published/v1";
 import {
   developmentPeriod,
   validateDevelopmentAnswers,
@@ -66,6 +72,99 @@ assert.equal(
     reflection.prompts.map((_, question) => ({ question, value: null })),
   ).length,
   3,
+);
+// Published wording is immutable across releases: add v2, do not rewrite v1.
+const v1Publications = DEVELOPMENT_CONTENT_V1.map((content) => ({
+  content,
+  responseOptions: REFLECTION_OPTIONS_V1,
+}));
+assert.equal(
+  createHash("sha256").update(JSON.stringify(v1Publications)).digest("hex"),
+  "1d17f7011033d75d4e0e35c90c040e2d4696b236781b676ac5eb6d8149e4aad4",
+  "Published development v1 content and response options must stay unchanged",
+);
+const v1 = createDevelopmentContentRepository(v1Publications);
+const oldPublication = v1.findLatest(reflection.key)!;
+const revisedPrompts = [
+  ...reflection.prompts,
+  "Новый пункт следующей редакции",
+];
+const revisedOptions: string[] = [...REFLECTION_OPTIONS_V1];
+const v2Publication = {
+  content: { ...reflection, revision: 2, prompts: revisedPrompts },
+  responseOptions: revisedOptions,
+};
+const v2 = createDevelopmentContentRepository([
+  v2Publication,
+  ...v1Publications,
+]);
+assert.equal(v1.findLatest(reflection.key)?.content.revision, 1);
+assert.equal(v2.findLatest(reflection.key)?.content.revision, 2);
+assert.deepEqual(v2.findRevision(reflection.key, 1), oldPublication);
+assert.equal(v2.findRevision(reflection.key, 99), undefined);
+assert.equal(v2.findRevision("missing-material", 1), undefined);
+assert.equal(
+  v2.listLatest().filter((item) => item.content.key === reflection.key).length,
+  1,
+);
+const pinnedAnswers = oldPublication.content.prompts.map((_, question) => ({
+  question,
+  value: null,
+}));
+assert.equal(
+  validateDevelopmentAnswers(
+    v2.findRevision(reflection.key, 1)!.content,
+    pinnedAnswers,
+  ).length,
+  3,
+);
+assert.throws(() =>
+  validateDevelopmentAnswers(
+    v2.findLatest(reflection.key)!.content,
+    pinnedAnswers,
+  ),
+);
+revisedPrompts[0] = "Caller mutation";
+revisedOptions[0] = "Caller mutation";
+assert.equal(
+  v2.findLatest(reflection.key)?.content.prompts[0],
+  reflection.prompts[0],
+);
+assert.equal(
+  v2.findLatest(reflection.key)?.responseOptions[0],
+  REFLECTION_OPTIONS_V1[0],
+);
+for (const value of [
+  v2,
+  v2.listLatest(),
+  oldPublication,
+  oldPublication.content,
+  oldPublication.content.prompts,
+  oldPublication.content.steps,
+  oldPublication.responseOptions,
+])
+  assert.ok(Object.isFrozen(value));
+assert.throws(() =>
+  Object.defineProperty(oldPublication.content, "title", { value: "Changed" }),
+);
+assert.throws(
+  () =>
+    createDevelopmentContentRepository([...v1Publications, v1Publications[0]]),
+  /DUPLICATE_DEVELOPMENT_PUBLICATION/,
+);
+assert.throws(
+  () =>
+    createDevelopmentContentRepository([
+      { ...oldPublication, content: { ...reflection, revision: 0 } },
+    ]),
+  /INVALID_DEVELOPMENT_PUBLICATION_IDENTITY/,
+);
+assert.throws(
+  () =>
+    createDevelopmentContentRepository([
+      { ...oldPublication, responseOptions: [] },
+    ]),
+  /INVALID_DEVELOPMENT_RESPONSE_OPTIONS/,
 );
 assert.equal(developmentPeriod(new Date("2026-09-06T23:59:59Z")), "2026-08-31");
 assert.equal(developmentPeriod(new Date("2026-09-07T00:00:00Z")), "2026-09-07");
@@ -213,5 +312,5 @@ assert.equal(run.myCompletion, false);
 assert.equal(run.partnerCompleted, true);
 assert.ok(!JSON.stringify(run).includes("peer"));
 console.log(
-  "product-workspace selfcheck PASS: content coverage, calendar edges, explicit skips, strict input, currencies, DTO privacy.",
+  "product-workspace selfcheck PASS: immutable v1 publication, exact/latest revisions, pinned validation, content coverage, calendar edges, explicit skips, strict input, currencies, DTO privacy.",
 );

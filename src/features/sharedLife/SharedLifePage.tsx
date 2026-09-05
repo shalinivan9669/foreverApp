@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePair } from "@/client/hooks/usePair";
 import { useSharedLife } from "@/client/hooks/useSharedLife";
+import { useRefreshOnReturn } from "@/client/hooks/useRefreshOnReturn";
 import type {
   SharedLifeEntryInput,
   SharedLifeSettings,
@@ -15,19 +16,25 @@ export default function SharedLifePage() {
   const pair = usePair();
   const flow = useSharedLife(pair.pairId);
   const [filter, setFilter] = useState<SharedLifeEntryInput["kind"]>("EVENT");
-  const [editing, setEditing] = useState<{
+  const [draft, setEditing] = useState<{
     id: string;
+    pairId: string;
     entry?: SharedLifeEntryDTO;
+    revision: number;
   } | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const data = flow.data;
+  const editing = draft?.pairId === pair.pairId ? draft : null;
+  const [deleteSelection, setDeleteSelection] = useState<{ id: string; pairId: string } | null>(null);
+  const deleteId = deleteSelection?.pairId === pair.pairId ? deleteSelection.id : null;
+  const setDeleteId = (id: string | null) => setDeleteSelection(id && pair.pairId ? { id, pairId: pair.pairId } : null);
+  const pairAccessLost = pair.error && [401, 403, 404].includes(pair.error.status);
+  const data = pairAccessLost ? null : flow.data;
   const roleLabel = (role: string) =>
     role === "BOTH" ? "вместе" : role === data?.myRole ? "я" : "партнёр";
   const save = (entryId: string, next: SharedLifeEntryInput) =>
     data
       ? flow.update({
           action: "SAVE",
-          expectedRevision: data.revision,
+          expectedRevision: editing?.id === entryId ? editing.revision : data.revision,
           entryId,
           data: next,
         })
@@ -43,6 +50,8 @@ export default function SharedLifePage() {
     new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(
       minor / 100,
     );
+  const refresh = async () => { await Promise.all([pair.refetch(), flow.reload()]); };
+  useRefreshOnReturn(refresh, !flow.busy && !flow.loading && !editing && !deleteId);
   return (
     <main className="app-shell py-5">
       <nav className="mb-5 flex flex-wrap gap-3">
@@ -67,6 +76,8 @@ export default function SharedLifePage() {
           Даты, забота о доме, желания и планы. Оба участника могут изменять
           общие записи; личные ответы из тестов сюда не попадают.
         </p>
+        <button className="app-btn-secondary mt-3 px-3 py-2" disabled={flow.busy || flow.loading} onClick={() => void refresh()}>Обновить общие записи</button>
+        <p className="app-muted mt-2 text-sm">После действия партнёра обновите записи. Открытый черновик сохранится на этом экране; при конфликте сначала сравните версии.</p>
       </section>
       {(pair.loading || flow.loading) && (
         <p role="status" className="mt-4">
@@ -78,7 +89,7 @@ export default function SharedLifePage() {
           <ErrorView
             error={pair.error ?? flow.error}
             onRetry={() => {
-              void Promise.all([pair.refetch(), flow.reload()]);
+              void refresh();
             }}
           />
         </div>
@@ -234,18 +245,24 @@ export default function SharedLifePage() {
           <button
             className="app-btn-primary mt-4 px-4 py-2"
             disabled={data.readOnly || flow.busy || !!editing}
-            onClick={() => setEditing({ id: crypto.randomUUID() })}
+            onClick={() => setEditing({ id: crypto.randomUUID(), pairId: data.pairId, revision: data.revision })}
           >
             Добавить запись
           </button>
-          {editing && (
+          {editing && editing.revision !== data.revision && <section className="app-alert mt-4 p-4" role="status">
+            <p>Общие записи изменились после открытия черновика. Актуальная версия показана ниже; черновик ещё не сохранён.</p>
+            <button className="app-btn-secondary mt-3 px-3 py-2" disabled={flow.busy || data.readOnly} onClick={() => setEditing({ ...editing, revision: data.revision })}>Я сравнил(а) версии — сохранить свой вариант следующим действием</button>
+            <button className="ml-3 mt-3 underline" onClick={() => setEditing(null)}>Закрыть черновик и оставить актуальную запись</button>
+          </section>}
+          {editing && !data.readOnly && (
             <SharedLifeEntryForm
-              key={editing.id}
+              key={`${editing.pairId}:${editing.id}`}
               entry={editing.entry}
               initialKind={editing.entry?.data.kind ?? filter}
               myRole={data.myRole}
               currency={data.settings.defaultCurrency}
               busy={flow.busy}
+              saveDisabled={editing.revision !== data.revision}
               onClose={() => setEditing(null)}
               onSave={(next) => save(editing.id, next)}
             />
@@ -428,7 +445,7 @@ export default function SharedLifePage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           disabled={flow.busy || !!editing}
-                          onClick={() => setEditing({ id: entry.id, entry })}
+                          onClick={() => setEditing({ id: entry.id, pairId: data.pairId, entry, revision: data.revision })}
                           className="app-btn-secondary px-3 py-2 text-sm"
                         >
                           Изменить

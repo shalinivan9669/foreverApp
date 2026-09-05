@@ -15,6 +15,8 @@ import {
 } from '@/client/api/pairHistory.api';
 import { pairsApi } from '@/client/api/pairs.api';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
+import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
+import ContinuationPanel from '@/components/profile/today/ContinuationPanel';
 import type { PairSummaryDTO } from '@/client/viewmodels/pair.viewmodels';
 import { toDiscordAvatarUrl } from '@/lib/discord/avatar';
 
@@ -314,6 +316,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
       setBusy(null);
     }
   };
+  useRefreshOnReturn(async () => { if (pairId) await load(pairId); }, Boolean(data) && !loading && busy === null && !confirmEnd);
 
   if (resolvingPair) {
     return (
@@ -424,11 +427,12 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
               </div>
 
               <div className="flex flex-wrap gap-2 sm:ml-auto sm:justify-end">
+                <button type="button" onClick={() => void load(pairId)} disabled={loading || busy !== null} className="app-btn-secondary px-3 py-2 text-sm">Обновить состояние пары</button>
                 {data.pair.status === 'active' && (
                   <button
                     type="button"
                     onClick={onPause}
-                    disabled={busy === 'pause'}
+                    disabled={loading || busy !== null}
                     className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60"
                   >
                     Пауза
@@ -438,7 +442,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
                   <button
                     type="button"
                     onClick={onResume}
-                    disabled={busy === 'resume'}
+                    disabled={loading || busy !== null}
                     className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60"
                   >
                     Возобновить
@@ -448,11 +452,11 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
                   <Link href="/invite" className="app-btn-primary px-3 py-2 text-sm">
                     Новое подключение
                   </Link>
-                ) : (
+                ) : data.pair.status === 'active' ? (
                   <Link href="/couple-activity" className="app-btn-primary px-3 py-2 text-sm">
                     Активности
                   </Link>
-                )}
+                ) : null}
                 <Link href="/profile/history" className="app-btn-secondary px-3 py-2 text-sm">
                   История
                 </Link>
@@ -514,18 +518,18 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
             <div className="app-muted text-xs">Что нам делать дальше?</div>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
               <div className="min-w-0 flex-1">
-                <h2 className="text-xl font-semibold">{data.nextStep.title}</h2>
-                <p className="app-muted mt-2 text-sm">{data.nextStep.description}</p>
+                <h2 className="text-xl font-semibold">{pairStatus === 'paused' ? 'Пара на паузе' : pairStatus === 'ended' ? 'Общий контекст закрыт' : data.nextStep.title}</h2>
+                <p className="app-muted mt-2 text-sm">{pairStatus === 'paused' ? 'Возобновите пару, чтобы продолжить совместные действия. Личное развитие остаётся доступным.' : pairStatus === 'ended' ? 'Можно продолжить личное развитие. Новое соединение создаёт отдельную пару.' : data.nextStep.description}</p>
               </div>
               <ActionLink
-                href={data.nextStep.href}
-                label={data.nextStep.ctaLabel}
+                href={pairStatus === 'active' ? data.nextStep.href : '/development'}
+                label={pairStatus === 'active' ? data.nextStep.ctaLabel : 'Личное развитие'}
                 className="app-btn-primary inline-flex shrink-0 px-4 py-2 text-sm"
               />
             </div>
           </section>
 
-          <section className="app-panel app-panel-solid app-reveal app-grid-narrow p-4 sm:p-6">
+          {pairStatus === 'active' && <section className="app-panel app-panel-solid app-reveal app-grid-narrow p-4 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="app-muted text-xs">Текущая активность</div>
@@ -562,12 +566,14 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
             <div className="app-muted mt-3 text-sm">
               В предложенных сейчас: <b>{data.suggestedCount}</b>
             </div>
-          </section>
+          </section>}
 
           <section className="app-panel app-panel-solid app-grid-wide p-4">
             <h2 className="text-lg font-semibold">Планы и время вместе</h2>
             <div className="mt-3 flex flex-wrap gap-3"><Link href="/shared-life" className="app-btn-secondary px-3 py-2">Даты, дела и желания</Link><Link href="/development" className="app-btn-secondary px-3 py-2">Практики, темы и отдых</Link><Link href="/store" className="app-btn-secondary px-3 py-2">Коллекция и магазин</Link></div>
           </section>
+
+          <div className="app-grid-wide"><ContinuationPanel pairId={pairId} pairStatus={pairStatus} /></div>
           <div className="app-grid-wide"><PairEventsPanel pairId={pairId} pairStatus={data.pair.status} /></div>
           <section id="weekly-checkin" className="app-reveal app-grid-wide scroll-mt-4">
             <PairWeeklyCheckInPanel

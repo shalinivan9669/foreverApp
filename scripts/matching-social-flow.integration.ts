@@ -26,6 +26,9 @@ import { POST as respondToLike } from "@/app/api/match/respond/route";
 import { GET as getOwnPair } from "@/app/api/pairs/me/route";
 import { POST as createPairInvite } from "@/app/api/pair-invites/route";
 import { sessionRevocationService } from "@/domain/services/sessionRevocation.service";
+import { entryProfileService } from "@/domain/services/entryProfile.service";
+import { usersService } from "@/domain/services/users.service";
+import { mvpOnboardingService, MVP_ONBOARDING_QUESTIONS, MVP_ONBOARDING_CONTENT_REVISION, MVP_ONBOARDING_POLICY_VERSION } from "@/domain/services/mvpOnboarding.service";
 import { signJwt } from "@/lib/jwt";
 import { connectToDatabase } from "@/lib/mongodb";
 import { privacySubjectHash } from "@/lib/privacy/subjectHash";
@@ -33,6 +36,8 @@ import { CandidateDiscoveryProjection } from "@/models/CandidateDiscoveryProject
 import { CandidatePresentationGrant } from "@/models/CandidatePresentationGrant";
 import { EvidenceEvent } from "@/models/EvidenceEvent";
 import { EventLog } from "@/models/EventLog";
+import { EconomyWallet } from "@/models/EconomyWallet";
+import { EconomyLedger } from "@/models/EconomyLedger";
 import { IdempotencyRecord } from "@/models/IdempotencyRecord";
 import { IndividualFactorSnapshot } from "@/models/IndividualFactorSnapshot";
 import { Like } from "@/models/Like";
@@ -194,68 +199,6 @@ const mutationRequest = (
   body?: JsonValue,
   idempotencyKey = randomUUID(),
 ): NextRequest => requestFor({ actor, path, method, body, idempotencyKey });
-
-const userFixture = (
-  userId: string,
-  label: string,
-  longitudeOffset: number,
-): JsonObject => ({
-  id: userId,
-  username: `matching-${label}`,
-  avatar: "matching-http-integration-avatar",
-  pairMembershipRevision: 0,
-  personal: {
-    gender: label === "b" ? "male" : "female",
-    age: 30,
-    city: "Qyzylorda",
-    relationshipStatus: "seeking",
-  },
-  preferences: {
-    desiredAgeRange: { min: 18, max: 99 },
-    maxDistanceKm: 100,
-  },
-  profile: {
-    onboarding: {
-      seeking: {
-        valuedQualities: ["kindness", "honesty", "respect"],
-        relationshipPriority: "emotional_intimacy",
-        minExperience: "none",
-        dealBreakers: "none",
-        firstDateSetting: "cafe",
-        weeklyTimeCommitment: "5-10h",
-      },
-    },
-  },
-  location: {
-    type: "Point",
-    coordinates: [65.5092 + longitudeOffset, 44.8488],
-  },
-});
-
-const onboardingFixture = (userId: string): JsonObject => {
-  const now = new Date();
-  return {
-    userId,
-    status: "completed",
-    contentRevision: `matching-http-${runId}`,
-    policyVersion: "matching-http-v1",
-    consent: {
-      adultConfirmed: true,
-      voluntaryParticipationConfirmed: true,
-      privacyAcknowledged: true,
-      confirmedAt: now.toISOString(),
-    },
-    cursor: 0,
-    answers: [],
-    factorEngine: {
-      status: "PENDING",
-      evidenceEventIds: [],
-      individualSnapshotIds: [],
-    },
-    startedAt: now.toISOString(),
-    completedAt: now.toISOString(),
-  };
-};
 
 const cardFor = (label: string): CardBody => ({
   requirements: [
@@ -490,6 +433,8 @@ const cleanup = async (): Promise<void> => {
       ],
     }),
     EventLog.deleteMany({ "actor.userId": { $in: allUserIds } }),
+    EconomyLedger.deleteMany({ userId: { $in: allUserIds } }),
+    EconomyWallet.deleteMany({ _id: { $in: allUserIds } }),
     MatchingSocialEffect.deleteMany({ participantIds: { $in: allUserIds } }),
     MatchingEvaluationSnapshot.deleteMany({
       $or: [
@@ -565,14 +510,41 @@ const cleanup = async (): Promise<void> => {
 };
 
 const seedParticipants = async (): Promise<void> => {
-  await User.create([
-    userFixture(userIds.a, "a", 0),
-    userFixture(userIds.b, "b", 0.002),
-    userFixture(userIds.attacker, "attacker", 0.004),
-  ]);
-  await MvpOnboardingSession.create(
-    allUserIds.map((userId) => onboardingFixture(userId)),
-  );
+  // Exercise the real SOLO entry and all onboarding answers before HTTP matching.
+  // No completed session or legacy profile is inserted to conceal flow gaps.
+  for (const [label, userId] of Object.entries(userIds)) {
+    await usersService.upsertCurrentUserProfile({ currentUserId: userId, payload: {
+      username: `matching-${label}`, avatar: "https://cdn.discordapp.com/embed/avatars/0.png",
+    } });
+    const entry = await entryProfileService.save({ currentUserId: userId, profile: {
+      cohort: "SOLO", age: 30, gender: label === "b" ? "male" : "female",
+      city: "Кызылорда", locationMode: "DEVICE", coordinates: [65.51, 44.85],
+    } });
+    assert.equal(entry.user.entryCohort, "SOLO");
+    assert.equal(entry.hasPair, false);
+    await mvpOnboardingService.mutate({ currentUserId: userId, mutation: {
+      action: "start", contentRevision: MVP_ONBOARDING_CONTENT_REVISION,
+      policyVersion: MVP_ONBOARDING_POLICY_VERSION,
+      consent: { adultConfirmed: true, voluntaryParticipationConfirmed: true, privacyAcknowledged: true },
+    } });
+    for (const question of MVP_ONBOARDING_QUESTIONS) {
+      const value = question.optional ? { kind: "skipped" as const }
+        : question.kind === "boolean" ? { kind: "boolean" as const, booleanValue: true }
+          : question.kind === "multi" ? { kind: "multi" as const, optionIds: question.choices?.slice(0, question.minSelections ?? 1).map((choice) => choice.id) ?? [] }
+            : { kind: "single" as const, optionId: question.choices?.[0]?.id };
+      await mvpOnboardingService.mutate({ currentUserId: userId, mutation: {
+        action: "answer", questionId: question.id, questionRevision: question.revision,
+        capturePolicy: question.optional ? "PRIVATE" : "PAIR_MODEL_ONLY", value,
+      } });
+    }
+    const complete = await mvpOnboardingService.mutate({ currentUserId: userId, mutation: { action: "complete" } });
+    assert.equal(complete.session?.status, "completed");
+    assert.equal(complete.session?.modelStatus, "MATERIALIZED");
+    const reload = await entryProfileService.get(userId);
+    assert.equal(reload.onboardingCompleted, true);
+    assert.equal(reload.user.publicId, entry.user.publicId);
+    assert.equal(await EconomyLedger.countDocuments({ userId, sourceKind: "ONBOARDING" }), 1);
+  }
 };
 
 const runSocialFlow = async (): Promise<void> => {
@@ -1114,7 +1086,7 @@ const main = async (): Promise<void> => {
       JSON.stringify({
         ok: true,
         runId,
-        flow: "card-preferences-feed-like-connection-pair",
+        flow: "solo-entry-onboarding-card-preferences-feed-like-connection-pair",
         security: [
           "actor-spoof-rejected",
           "foreign-grant-hidden",

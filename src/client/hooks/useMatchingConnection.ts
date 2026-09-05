@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { matchApi, type MatchingConnectionDTO } from "@/client/api/match.api";
 import { useApi } from "./useApi";
+import { ApiClientError } from "@/client/api/errors";
 
 export function useMatchingConnection(
   connectionId: string | null,
@@ -27,7 +28,13 @@ export function useMatchingConnection(
     const controller = new AbortController();
     abortRef.current = controller;
     const result = await runLoadSafe(
-      () => matchApi.getConnection(connectionId, controller.signal),
+      async () => {
+        try { return await matchApi.getConnection(connectionId, controller.signal); }
+        catch (error) {
+          if (!controller.signal.aborted && error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || error.code === "MATCHING_BLOCKED")) setConnection(null);
+          throw error;
+        }
+      },
       { suppressGlobalError: true },
     );
     if (!result || controller.signal.aborted) return false;
@@ -39,7 +46,13 @@ export function useMatchingConnection(
     async (action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE"): Promise<boolean> => {
       if (!connectionId) return false;
       const result = await runActionSafe(
-        () => matchApi.confirmConnection(connectionId, action),
+        async () => {
+          try { return await matchApi.confirmConnection(connectionId, action); }
+          catch (error) {
+            if (error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || error.code === "MATCHING_BLOCKED")) setConnection(null);
+            throw error;
+          }
+        },
         { suppressGlobalError: true },
       );
       if (!result) return false;
@@ -62,7 +75,7 @@ export function useMatchingConnection(
   }, [connectionId, initial?.id, refetch]);
 
   return {
-    connection,
+    connection: loadError && ([401, 403, 404].includes(loadError.status) || loadError.code === "MATCHING_BLOCKED") ? null : connection,
     loading:
       loadLoading ||
       (Boolean(connectionId) && connection === null && loadError === null),

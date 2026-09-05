@@ -13,6 +13,7 @@ import type {
 import WeeklyCheckInCard from '@/components/checkins/WeeklyCheckInCard';
 import { toUiErrorState, type UiErrorState } from '@/client/api/errors';
 import ErrorView from '@/components/ui/ErrorView';
+import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
 
 type PairWeeklyCheckInPanelProps = {
   pairId: string;
@@ -126,7 +127,11 @@ function PairWeeklyCheckInPanelSession({
             caughtError instanceof Error
               ? caughtError
               : new Error('Не удалось загрузить статус еженедельной отметки.');
-          if (!signal?.aborted) setError(toUiErrorState(normalized));
+          if (!signal?.aborted) {
+            const nextError = toUiErrorState(normalized);
+            setError(nextError);
+            if ([401, 403, 404].includes(nextError.status)) { setSummary(null); setCycle(null); }
+          }
         })
         .finally(() => {
           if (!signal?.aborted) setLoading(false);
@@ -163,6 +168,7 @@ function PairWeeklyCheckInPanelSession({
       Promise.resolve(onSummaryChanged?.()),
     ]);
   }, [loadSummary, onSummaryChanged]);
+  useRefreshOnReturn(async () => { await loadSummary(); }, !loading && Boolean(cycle?.currentUser.completionStatus === 'SUBMITTED' || cycle?.currentUser.completionStatus === 'SKIPPED'));
 
   const peerName = summary?.peer.username?.trim() || 'Партнёр';
   const pairDataStatus = cycle?.pair.dataStatus;
@@ -195,6 +201,7 @@ function PairWeeklyCheckInPanelSession({
               {statusLabel}
             </span>
           )}
+          <button type="button" disabled={loading} onClick={() => void loadSummary()} className="app-btn-secondary px-3 py-2 text-sm">Обновить ответы недели</button>
         </div>
 
         {loading && !summary && (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePair } from '@/client/hooks/usePair';
 import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { pairsApi, type PairSummaryDTO } from '@/client/api/pairs.api';
@@ -17,6 +17,8 @@ import {
 import NotificationPanel from '@/components/notifications/NotificationPanel';
 import { toUiErrorState, type UiErrorState } from '@/client/api/errors';
 import ErrorView from '@/components/ui/ErrorView';
+import ContinuationPanel from '@/components/profile/today/ContinuationPanel';
+import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
 
 const SIGNAL_LABELS: Record<
   CurrentWeeklyCycleDTO['pair']['signals'][number]['key'],
@@ -58,7 +60,8 @@ export default function MainMenuPage() {
     pairMe,
     loading: pairLoading,
     error: pairError,
-    refetch: refetchPair,
+    refetchPair,
+    refetchStatus,
   } = usePair();
   const [summary, setSummary] = useState<PairSummaryDTO | null>(null);
   const [cycle, setCycle] = useState<CurrentWeeklyCycleDTO | null>(null);
@@ -67,8 +70,10 @@ export default function MainMenuPage() {
   const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
   const [cycleLoading, setCycleLoading] = useState(false);
   const [error, setError] = useState<UiErrorState | null>(null);
+  const cycleRequest = useRef(0);
 
   const loadCycle = useCallback(async (activePairId: string, signal?: AbortSignal) => {
+    const request = ++cycleRequest.current;
     setCycleLoading(true);
     setError(null);
     try {
@@ -78,7 +83,7 @@ export default function MainMenuPage() {
         weeklyCyclesApi.getCurrent(activePairId, signal),
         recommendationsApi.getOverview(activePairId, signal),
       ]);
-      if (!signal?.aborted) {
+      if (!signal?.aborted && request === cycleRequest.current) {
         setSummary(pairSummary);
         setCycle(currentCycle);
         setRecommendation(recommendationOverview.current);
@@ -86,7 +91,10 @@ export default function MainMenuPage() {
         setError(null);
       }
     } catch (caughtError) {
-      if (!signal?.aborted) {
+      if (!signal?.aborted && request === cycleRequest.current) {
+        setSummary(null);
+        setCycle(null);
+        setRecommendation(null);
         const normalized =
           caughtError instanceof Error
             ? caughtError
@@ -95,7 +103,7 @@ export default function MainMenuPage() {
         setLoadedPairId(activePairId);
       }
     } finally {
-      if (!signal?.aborted) setCycleLoading(false);
+      if (!signal?.aborted && request === cycleRequest.current) setCycleLoading(false);
     }
   }, []);
 
@@ -108,14 +116,29 @@ export default function MainMenuPage() {
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
+      cycleRequest.current += 1;
     };
   }, [loadCycle, pairId]);
 
-  const activeSummary = loadedPairId === pairId ? summary : null;
-  const activeCycle = loadedPairId === pairId ? cycle : null;
-  const activeRecommendation = loadedPairId === pairId ? recommendation : null;
+  const refreshCurrent = useCallback(async () => {
+    cycleRequest.current += 1;
+    setSummary(null);
+    setCycle(null);
+    setRecommendation(null);
+    setCycleLoading(false);
+    setError(null);
+    const [freshPair] = await Promise.all([refetchPair(), refetchStatus()]);
+    if (freshPair?.pair) await loadCycle(freshPair.pair.id);
+  }, [loadCycle, refetchPair, refetchStatus]);
+  useRefreshOnReturn(refreshCurrent, !pairLoading && !cycleLoading);
+
+  const currentDataAvailable = loadedPairId === pairId && !error && !pairError;
+  const activeSummary = currentDataAvailable ? summary : null;
+  const activeCycle = currentDataAvailable ? cycle : null;
+  const activeRecommendation = currentDataAvailable ? recommendation : null;
 
   const primaryHref = (() => {
+    if (pairMe?.pair?.status === 'paused') return `/pair/${pairId}`;
     if (activeCycle?.currentUser.completionStatus === 'SKIPPED') return '/couple-activity';
     if (activeCycle?.pair.dataStatus === 'ENOUGH' && activeRecommendation) {
       return '/couple-activity';
@@ -126,6 +149,13 @@ export default function MainMenuPage() {
   })();
 
   const primaryCopy = (() => {
+    if (pairMe?.pair?.status === 'paused') {
+      return {
+        title: 'Пара на паузе',
+        description: 'Совместные действия приостановлены. Можно открыть состояние пары или продолжить личное развитие.',
+        label: 'Открыть состояние пары',
+      };
+    }
     if (activeCycle?.currentUser.completionStatus === 'SKIPPED') {
       return {
         title: 'Эта еженедельная отметка пропущена без штрафа',
@@ -157,6 +187,15 @@ export default function MainMenuPage() {
   return (
     <main className="app-shell-menu py-3 sm:py-5 lg:py-7">
       <NotificationPanel enabled={!pairLoading && !pairError} />
+      <div className="mt-4 flex justify-end">
+        <button type="button" onClick={() => void refreshCurrent()} disabled={pairLoading || cycleLoading} className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60">
+          {pairLoading || cycleLoading ? 'Обновляем…' : 'Обновить состояние'}
+        </button>
+      </div>
+
+      {!pairLoading && !pairError && <div className="mt-4">
+        <ContinuationPanel pairId={pairId} pairStatus={currentPairStatus} existingPartnerIntent={existingPartnerIntent} />
+      </div>}
 
       <div className="app-menu-grid mt-4">
         {pageLoading ? (
@@ -181,13 +220,7 @@ export default function MainMenuPage() {
               <div className="w-full">
                 <ErrorView
                   error={error ?? pairError}
-                  onRetry={() => {
-                    if (pairId) {
-                      void loadCycle(pairId);
-                      return;
-                    }
-                    void refetchPair();
-                  }}
+                  onRetry={() => void refreshCurrent()}
                   onAuthRequired={() => router.push('/')}
                 />
               </div>

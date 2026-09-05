@@ -6,7 +6,7 @@ The accepted product expansion adds owner entry/cohort/public pairing identity, 
 
 - [Entry and PairInvite contracts](ENTRY_AND_PAIRING_UPDATE.md): `GET|PUT /api/users/me/entry`, recipient claim, creator `POST /api/pair-invites/:id/confirm`.
 - [Matching contracts](MATCHING_PRODUCT_UPDATE.md): recipient response creates Connection; concrete statement reactions, `/withdraw`, pause/resume/close and independent conversation rounds.
-- [Development and shared-life contracts](PRODUCT_WORKSPACE_UPDATE.md): `/api/development/**`, `GET|POST /api/pairs/:id/shared-life`. Mutations cache receipt identifiers only; current private/shared state is read separately through guarded GET.
+- [Development and shared-life contracts](PRODUCT_WORKSPACE_UPDATE.md): `/api/development/**`, `GET|POST /api/pairs/:id/shared-life`. Mutations cache receipt identifiers only; current private/shared state is read separately through guarded GET. Development detail/completion resolves the run's exact published revision and response options. A missing publication returns `409 CONTENT_VERSION_UNAVAILABLE`; a newer latest revision no longer invalidates an existing run. Access denial takes precedence. Overview `recent` now includes up to 30 unfinished plus up to 30 completed accessible runs, with unchanged DTO fields.
 - [Economy contracts](ECONOMY_UPDATE.md): `/api/economy/**`, personal wallet/inventory and separate Pair collection. Prices/rewards/random outcomes are server-controlled; no reward-claim HTTP endpoint or real payments.
 
 All new private APIs derive the actor from the session. Replay authorization precedes cached results where applicable. Owner export adds `productWorkspace`, `economy` and own Matching conversation answers; peer-private reflection answers are excluded.

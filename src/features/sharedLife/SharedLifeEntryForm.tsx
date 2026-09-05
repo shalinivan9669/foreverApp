@@ -27,6 +27,7 @@ type Props = {
   myRole: "A" | "B";
   currency: string;
   busy: boolean;
+  saveDisabled?: boolean;
   onSave: (data: SharedLifeEntryInput) => Promise<boolean>;
   onClose: () => void;
 };
@@ -36,6 +37,7 @@ export default function SharedLifeEntryForm({
   myRole,
   currency,
   busy,
+  saveDisabled = false,
   onSave,
   onClose,
 }: Props) {
@@ -346,7 +348,7 @@ export default function SharedLifeEntryForm({
         </p>
       )}
       <div className="flex gap-3">
-        <button disabled={busy} className="app-btn-primary px-4 py-2">
+        <button disabled={busy || saveDisabled} className="app-btn-primary px-4 py-2">
           Сохранить
         </button>
         <button

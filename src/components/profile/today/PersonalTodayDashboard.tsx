@@ -8,6 +8,7 @@ import type {
 } from '@/client/api/types';
 import { usersApi } from '@/client/api/users.api';
 import { clampPercent } from '@/client/viewmodels/personalToday.viewmodels';
+import ContinuationPanel from './ContinuationPanel';
 
 type PersonalTodayDashboardProps = {
   today: PersonalTodayDTO;
@@ -737,6 +738,7 @@ export default function PersonalTodayDashboard({
   return (
     <section className="app-page-stack">
       <PersonalTodayHeader today={today} />
+      <ContinuationPanel pairId={today.pairContext.pairId} pairStatus={today.pairContext.status} />
       <PersonalPulseRing today={today} onRefresh={onRefresh} />
       <PersonalQuickCards today={today} />
       {today.incomingPartnerSignal && <IncomingPartnerSignalCard today={today} />}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { pairInvitesApi, type PairInviteOwnerDTO, type PairInviteStatus } from '@/client/api/pairInvites.api';
 import { entryApi } from '@/client/api/entry.api';
 import { useApi } from '@/client/hooks/useApi';
+import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
 import BackBar from '@/components/ui/BackBar';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
@@ -59,7 +60,7 @@ export default function PairInvitePage() {
     setNotice(null);
     setIdentityConfirmed(false);
     try {
-      const current = await run(() => pairInvitesApi.getCurrent(), {
+      const [current, entry] = await run(() => Promise.all([pairInvitesApi.getCurrent(), entryApi.get()]), {
         loadingKey: 'pair-invite-status',
       });
 
@@ -71,12 +72,18 @@ export default function PairInvitePage() {
         setRawToken(null);
       }
       setInvite(current);
+      setPublicId(entry.user.publicId);
+      setEntryAllowed(entry.user.entryCohort === 'EXISTING_PARTNER');
     } catch {
+      setInvite(null);
+      setRawToken(null);
+      setEntryAllowed(false);
       // useApi exposes a sanitized UI error.
     } finally {
       setLoaded(true);
     }
   }, [clearError, invite, run]);
+  useRefreshOnReturn(loadCurrent, loaded && !loading && !identityConfirmed && status === 'ACTIVE');
 
   useEffect(() => {
     let active = true;
@@ -94,6 +101,11 @@ export default function PairInvitePage() {
         setPublicId(entry.user.publicId);
         setEntryAllowed(entry.user.entryCohort === 'EXISTING_PARTNER');
       } catch {
+        if (active) {
+          setInvite(null);
+          setRawToken(null);
+          setEntryAllowed(false);
+        }
         // useApi exposes a sanitized UI error.
       } finally {
         if (active) setLoaded(true);

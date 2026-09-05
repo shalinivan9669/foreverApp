@@ -90,6 +90,14 @@ export const matchingConnectionStageLabel = (
 export const matchingConfirmationCopy = (
   connection: MatchingConnectionDTO,
 ): { title: string; description: string } => {
+  if (connection.status === "CLOSED" || connection.status === "BLOCKED") return {
+    title: "Знакомство завершено",
+    description: "Продолжение тем и создание пары здесь недоступны. Можно вернуться к личному развитию или другим знакомствам.",
+  };
+  if (connection.status === "PAUSED") return {
+    title: "Знакомство на паузе",
+    description: "Новые ответы и предложение пары доступны после возобновления. Пауза продолжает занимать одно из трёх мест.",
+  };
   if (connection.confirmation.state === "CONFIRMED") {
     return {
       title: "Отношения подтверждены",
