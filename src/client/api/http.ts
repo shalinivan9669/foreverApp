@@ -101,7 +101,8 @@ const parseEnvelope = <T>(payload: ApiJsonValue | null): Envelope<T> | null => {
 const parseJson = async (response: Response): Promise<ApiJsonValue | null> => {
   try {
     return (await response.json()) as ApiJsonValue;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
     return null;
   }
 };
@@ -148,6 +149,8 @@ const request = async <TResponse>(
       body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+    if (options?.signal?.aborted) throw Object.assign(new Error('Request aborted'), { name: 'AbortError' });
     const message = error instanceof Error ? error.message : 'Network request failed';
     throw new ApiClientError({
       status: 0,
@@ -157,6 +160,7 @@ const request = async <TResponse>(
   }
 
   const payload = await parseJson(response);
+  if (options?.signal?.aborted) throw Object.assign(new Error('Request aborted'), { name: 'AbortError' });
   const envelope = parseEnvelope<TResponse>(payload);
   if (!envelope) {
     throw new ApiClientError({

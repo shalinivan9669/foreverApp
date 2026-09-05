@@ -8,6 +8,7 @@ export const MATCHING_CONNECTION_STAGES = [
 ] as const;
 export const MATCHING_CONNECTION_STATUSES = [
   "ACTIVE",
+  "PAUSED",
   "CLOSED",
   "BLOCKED",
 ] as const;
@@ -26,6 +27,7 @@ export interface MatchingConnectionType {
     revision: number;
   };
   pairId?: Types.ObjectId;
+  discordConsentBy?: string[];
   revision: number;
   runId?: string;
   createdAt: Date;
@@ -84,6 +86,7 @@ const matchingConnectionSchema = new Schema<MatchingConnectionType>(
       default: () => ({ confirmedBy: [], revision: 0 }),
     },
     pairId: { type: Schema.Types.ObjectId, ref: "Pair" },
+    discordConsentBy: { type: [String], default: [] },
     revision: { type: Number, required: true, min: 0, default: 0 },
     runId: { type: String, trim: true, select: false },
   },

@@ -2,6 +2,11 @@
 
 ## Current source of truth
 
+- [Согласованный продукт: реализация и проверки 2026-09-05](PRODUCT_IMPLEMENTATION.md) — текущее расширение после первого аудита.
+- [Решения владельца](PRODUCT_DECISIONS.md) — ответы на 27 вопросов и явно отложенные функции.
+- [Вход и связывание](ENTRY_AND_PAIRING_UPDATE.md), [Matching и знакомство](MATCHING_PRODUCT_UPDATE.md), [библиотека/общая жизнь](PRODUCT_WORKSPACE_UPDATE.md), [экономика](ECONOMY_UPDATE.md) — новые контракты и сценарии.
+- [Настройки событий пары](PAIR_EVENT_SETTINGS_UPDATE.md) — общая дата отношений, праздники, история и конкурентные изменения.
+
 - `README.md` — setup, environment and command overview.
 - `AGENTS.md` — repository operating rules.
 - `docs/PRODUCT_SPEC.md` — public-free Pair loop and Factor Matching product direction/exclusions.
@@ -20,6 +25,7 @@
 - `docs/SAFETY_RETENTION_EXTERNAL_REVIEW.md` — draft technical packet for named safety, legal/privacy and operations reviewers; not an approval.
 - `docs/P0_CAPABILITY_MATRIX.md` — compact implementation/evidence matrix.
 - `docs/P0_TWO_USER_E2E.md` — mandatory real two-session acceptance checklist.
+- `docs/CURRENT_PILOT_HANDOFF.md` — historical pilot handoff before the 2026-09-05 implementation; current results are in `PRODUCT_IMPLEMENTATION.md`.
 - `docs/03-state-machines.md` — current lifecycle transition reference.
 - `docs/PROJECT_MAP.md` — current repository map.
 - `docs/CODE_REVIEW.md` — review checklist.
@@ -38,6 +44,7 @@
 | Auth/privacy | `SECURITY.md`, `TARGET_DOMAIN_OPERATIONS.md` | guards, DTO/disclosure, audit, deletion/session services |
 | Model/schema | `ARCHITECTURE.md`, `SECURITY.md` | model, indexes, migration, DTO consumers |
 | Release | `MVP_RELEASE_STATUS.md`, `RELEASE_RUNBOOK.md` | `TESTING.md`, `SCALE_READINESS.md`, execution ledger |
+| Current implementation / historical pilot | `PRODUCT_IMPLEMENTATION.md`, `CURRENT_PILOT_HANDOFF.md` | relevant active flow/security/release documents |
 | Documentation only | `INDEX.md`, `DOCS_STATUS.md` | affected active docs only |
 
 ## Historical material
@@ -56,3 +63,11 @@ They may describe six-axis vectors, diagnostics, paywalls or pre-cutover schemas
 - `docs/TASK_PACKS.md` — scoped read/check packs.
 - `docs/CONTEXT_BUDGET.md` — planning guidance.
 - `docs/AGENT_RETROSPECTIVE.md` — recurring mistakes and safeguards.
+
+## Target-product audit — 2026-09-05
+
+- [Product questions awaiting owner answers](PRODUCT_DECISIONS_PENDING.md) — 27 questions and an answer template for the full product contour; proposals remain unapproved, account-deletion work is owner-deferred.
+- [First audit baseline and product mapping](audits/2026-09-05-baseline.md) — revision, source integrity, 76-requirement coverage, decisions, discrepancies, executed checks and a historical next-task recommendation now deferred by the owner; does not certify release readiness.
+- [Analytics and Factor Matching evidence](audits/2026-09-05-analytics-matching.md) — real consumers, legacy boundaries, purpose/consent and connection gaps.
+- [Auth, onboarding and privacy evidence](audits/2026-09-05-auth-privacy.md) — fresh-user path, disclosure, export/deletion and recovery findings.
+- [Pair, content and economy evidence](audits/2026-09-05-pair-content-economy.md) — cycle, activity, events, history, rewards and roadmap boundaries.

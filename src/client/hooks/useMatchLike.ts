@@ -56,6 +56,8 @@ export function useMatchLike(likeId: string) {
     [likeId, runLikeMutation],
   );
 
+  const withdraw = useCallback((): Promise<boolean> => runLikeMutation(() => matchApi.withdraw(likeId)), [likeId, runLikeMutation]);
+
   const reject = useCallback(
     (): Promise<boolean> => runLikeMutation(() => matchApi.reject(likeId)),
     [likeId, runLikeMutation],
@@ -93,6 +95,7 @@ export function useMatchLike(likeId: string) {
     respond,
     accept,
     reject,
+    withdraw,
     block,
   };
 }

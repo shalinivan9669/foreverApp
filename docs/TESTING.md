@@ -2,6 +2,16 @@
 
 Status: active verification matrix. Run checks by blast radius; database commands require an isolated local replica set.
 
+## Product expansion verification, 2026-09-05
+
+See [current evidence and manual Discord scenarios](PRODUCT_IMPLEMENTATION.md). `check:self` now includes `selfcheck:entry-pairing`, `selfcheck:matching-product`, `selfcheck:economy` and `selfcheck:product-workspace` in addition to the existing checks.
+
+`selfcheck:client-request-race` reproduces the cancelled-request race found in the local browser smoke. It exercises the actual HTTP transport and `useApi` with a minimal hook adapter: cancel → newer successful request, stale failure, independent loading keys, body-read abort and genuine network failure. The original implementation fails the regression; cancelled/stale requests now leave the current error/loading state intact. Shared-life retry reloads both Pair context and workspace. This brings `check:self` to 46 suites.
+
+New database scripts: `integration:entry-onboarding`, `integration:economy`, `integration:product-workspace`, `integration:pair-event-settings`. They require an explicitly configured isolated local replica set with a database name ending in `_test`, and clean up their own synthetic records. Existing `integration:two-user-mvp`, `integration:pair-lifecycle-remaining`, `integration:matching-social-flow` and `integration:matching-pair-transition` have also passed against that local replica set. Native route-handler probes use genuine signed test sessions and check cache replay after access revocation; this is not a real Discord OAuth/iframe test. Pair-event settings tests hold the unrelated weekly evaluator at `NOT_READY` while exercising real models, guards, activity creation and concurrent transactions.
+
+The workspace suite exercises first-create races, immutable completions, exactly-once rewards, partial/final pair completion, hidden peer notes, paid content, canonical Pair ids, optimistic edits, stale content revision, receipt-only cache and pause/end access. Economy tests additionally cover concurrent purchases, capsule receipts and competing collection transfers. Entry tests cover a fresh minimal OAuth document, all 12 onboarding answers and one first coin. No test command uses the owner's Atlas database.
+
 ## Minimum checks by change
 
 | Change | Minimum | Add when relevant |

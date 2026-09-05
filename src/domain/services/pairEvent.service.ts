@@ -17,6 +17,9 @@ import {
   hasEligibleActivityFactorBinding,
 } from '@/domain/services/activityEligibility.service';
 import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
+import { PairWorkspace } from '@/models/PairWorkspace';
+import { DEFAULT_SHARED_LIFE_SETTINGS, localDateSchema, type SharedLifeSettings } from '@/lib/contracts/sharedLife';
+import { nextCalendarOccurrence } from '@/domain/model/sharedLife/calendar';
 
 type PairDoc = HydratedDocument<PairType>;
 type StoredEvent = PairEventTypeModel & { _id: Types.ObjectId };
@@ -40,7 +43,9 @@ export type PairEventWeeklyProjection = {
 export type PairEventRuleInput = {
   pairId: string;
   pairStatus: PairType['status'];
+  /** Legacy callers may provide it; event rules deliberately ignore app join time. */
   pairCreatedAt?: Date;
+  settings?: SharedLifeSettings;
   weekly?: PairEventWeeklyProjection;
   hasCurrentActivity: boolean;
   latestFinalActivity?: {
@@ -165,8 +170,10 @@ const addDays = (date: Date, days: number): Date =>
 const utcDate = (year: number, monthIndex: number, day: number): Date =>
   new Date(Date.UTC(year, monthIndex, day));
 
-const addUtcMonths = (date: Date, months: number): Date =>
-  utcDate(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate());
+const addUtcMonths = (date: Date, months: number): Date => {
+  const targetMonth = utcDate(date.getUTCFullYear(), date.getUTCMonth() + months, 1);
+  return new Date(`${nextCalendarOccurrence(dateKey(date), 'MONTHLY', dateKey(targetMonth))}T00:00:00.000Z`);
+};
 
 const dateKey = (date: Date): string => date.toISOString().slice(0, 10);
 
@@ -357,8 +364,10 @@ const calendarTexts: Record<
 };
 
 const relationshipMilestones = (input: PairEventRuleInput): PairEventCandidate[] => {
-  if (!input.pairCreatedAt) return [];
-  const createdAt = input.pairCreatedAt;
+  const start = localDateSchema.safeParse(input.settings?.relationshipStartDate);
+  if (!start.success) return [];
+  // Pair.createdAt records joining the app, never the start of a relationship.
+  const createdAt = new Date(`${start.data}T00:00:00.000Z`);
   const definitions: Array<{ type: 'first_month' | 'three_months' | 'six_months'; months: number }> = [
     { type: 'first_month', months: 1 },
     { type: 'three_months', months: 3 },
@@ -387,11 +396,7 @@ const relationshipMilestones = (input: PairEventRuleInput): PairEventCandidate[]
   const yearsTogether = input.now.getUTCFullYear() - createdAt.getUTCFullYear();
   const anniversaryYears = [yearsTogether, yearsTogether + 1].filter((year) => year >= 1);
   for (const year of anniversaryYears) {
-    const eventDate = utcDate(
-      createdAt.getUTCFullYear() + year,
-      createdAt.getUTCMonth(),
-      createdAt.getUTCDate()
-    );
+    const eventDate = new Date(`${nextCalendarOccurrence(start.data, 'YEARLY', `${createdAt.getUTCFullYear() + year}-01-01`)}T00:00:00.000Z`);
     items.push(
       baseEvent({
         pairId: input.pairId,
@@ -415,6 +420,7 @@ const relationshipMilestones = (input: PairEventRuleInput): PairEventCandidate[]
 };
 
 const calendarEvents = (input: PairEventRuleInput): PairEventCandidate[] => {
+  if (!(input.settings ?? DEFAULT_SHARED_LIFE_SETTINGS).holidaysEnabled) return [];
   const year = input.now.getUTCFullYear();
   // partner_birthday is reserved for a future privacy-reviewed birthday data model.
   const definitions = [
@@ -623,6 +629,38 @@ export const buildPairEventCandidates = (input: PairEventRuleInput): PairEventCa
   return Array.from(byKey.values());
 };
 
+export const isPairEventEnabledBySettings = (
+  event: Pick<PairEventTypeModel, 'category' | 'source'>,
+  settings: SharedLifeSettings
+): boolean => {
+  if (event.category === 'calendar_event') return settings.holidaysEnabled;
+  if (event.category !== 'relationship_milestone') return true;
+  const start = localDateSchema.safeParse(settings.relationshipStartDate);
+  return start.success && Boolean(event.source.date && dateKey(event.source.date) === start.data);
+};
+
+const loadEventSettings = async (pairId: Types.ObjectId, session?: ClientSession): Promise<SharedLifeSettings> => {
+  const workspace = await PairWorkspace.findById(String(pairId)).select({ settings: 1 })
+    .session(session ?? null).lean<{ settings: SharedLifeSettings } | null>();
+  return workspace?.settings ?? { ...DEFAULT_SHARED_LIFE_SETTINGS };
+};
+
+const expireDisabledProposals = async (pairId: Types.ObjectId, settings: SharedLifeSettings, session: ClientSession): Promise<void> => {
+  const pending = await PairEvent.find({ pairId, status: { $in: ACCEPTABLE_EVENT_STATUSES } })
+    .session(session).lean<StoredEvent[]>();
+  const disabledIds = pending.filter((event) => !isPairEventEnabledBySettings(event, settings)).map((event) => event._id);
+  if (disabledIds.length) await PairEvent.updateMany(
+    { _id: { $in: disabledIds }, status: { $in: ACCEPTABLE_EVENT_STATUSES } },
+    { $set: { status: 'expired' } }, { session }
+  );
+};
+
+const assertEventSettingsPermitMutation = async (event: StoredEvent, pairId: Types.ObjectId, session?: ClientSession): Promise<void> => {
+  if (!isPairEventEnabledBySettings(event, await loadEventSettings(pairId, session))) {
+    throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Настройки пары изменились. Обновите список событий.' });
+  }
+};
+
 const guardFailure = async (response: Response): Promise<DomainError> => {
   const payload = await response.clone().json().catch(() => null) as {
     error?: { code?: string; message?: string };
@@ -685,6 +723,8 @@ const upsertCandidates = async (input: {
     const existing = await PairEvent.findOne({ pairId: input.pairId, key: candidate.key })
       .session(input.session ?? null)
       .lean<StoredEvent | null>();
+    // The confirmed event is history: configuration changes must not rewrite it.
+    if (existing && TERMINAL_EVENT_STATUSES.includes(existing.status)) continue;
     const status = resolvePairEventStatus(candidate, existing, input.now);
     const setPayload: Partial<PairEventTypeModel> = {
       category: candidate.category,
@@ -793,7 +833,6 @@ const loadRuleInput = async (input: {
   return {
     pairId: String(pairId),
     pairStatus: input.pair.status,
-    pairCreatedAt: input.pair.createdAt,
     weekly: {
       cycleKey: currentWeekly.cycleKey,
       bothSubmitted: currentWeekly.pair.bothSubmitted,
@@ -1118,6 +1157,18 @@ const assertEventCanBeSnoozed = (event: StoredEvent, now: Date): void => {
 };
 
 export const pairEventService = {
+  async assertMutationAccess(input: PairEventMutationInput & { action: 'accept' | 'decline' | 'snooze' }): Promise<{ pairId: string; eventId: string }> {
+    const pair = await ensurePairMember(input.pairId, input.currentUserId);
+    if (input.action === 'accept' && pair.status !== 'active') {
+      throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Пара на паузе. Принять событие можно после возобновления.' });
+    }
+    const pairId = pair._id as Types.ObjectId;
+    const event = await findEventForMutation(pairId, input.eventId);
+    assertEventEligibleForPairProjection(event);
+    await assertEventSettingsPermitMutation(event, pairId);
+    return { pairId: String(pairId), eventId: String(event._id) };
+  },
+
   async refreshPairEvents(
     input: RefreshPairEventsInput,
     hooks: PairEventReliabilityTestHooks = {}
@@ -1128,22 +1179,24 @@ export const pairEventService = {
     const now = input.now ?? new Date();
 
     if (pair.status === 'ended') return [];
-    const candidates =
+    const ruleInput =
       pair.status === 'active'
-        ? buildPairEventCandidates(
-            await loadRuleInput({
+        ? await loadRuleInput({
               pair,
               currentUserId: input.currentUserId,
               now,
             })
-          )
-        : [];
+        : null;
+    // Preliminary count is only a reliability hook; actual settings are read
+    // after the Pair fence so concurrent workspace updates cannot revive offers.
+    const preliminaryCount = ruleInput ? buildPairEventCandidates(ruleInput).length : 0;
+    let settings = { ...DEFAULT_SHARED_LIFE_SETTINGS };
     let lifecycleFenced = false;
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
         lifecycleFenced = false;
-        await hooks.beforeTransactionalPairGuard?.(candidates.length);
+        await hooks.beforeTransactionalPairGuard?.(preliminaryCount);
         if (
           !(await fenceMutablePairForEventMutation({
             pairId,
@@ -1154,7 +1207,10 @@ export const pairEventService = {
         ) {
           return;
         }
-        if (pair.status === 'active') {
+        settings = await loadEventSettings(pairId, session);
+        await expireDisabledProposals(pairId, settings, session);
+        if (ruleInput) {
+          const candidates = buildPairEventCandidates({ ...ruleInput, settings });
           await upsertCandidates({ pairId, candidates, now, session });
         }
         await refreshExpiredAndCompleted(pairId, now, session);
@@ -1172,6 +1228,7 @@ export const pairEventService = {
     const events = await findVisibleEvents(pairId, input.include ?? 'active');
     return events
       .filter(eventEligibleForPairProjection)
+      .filter((event) => TERMINAL_EVENT_STATUSES.includes(event.status) || isPairEventEnabledBySettings(event, settings))
       .map(toPairEventDTO);
   },
 
@@ -1216,6 +1273,7 @@ export const pairEventService = {
         }
         const event = await findEventForMutation(pairId, input.eventId, session);
         assertEventEligibleForPairProjection(event);
+        await assertEventSettingsPermitMutation(event, pairId, session);
         assertEventCanBeAccepted(event, now);
 
         const accepted = await PairEvent.findOneAndUpdate(
@@ -1288,6 +1346,7 @@ export const pairEventService = {
         }
         const event = await findEventForMutation(pairId, input.eventId, session);
         assertEventEligibleForPairProjection(event);
+        await assertEventSettingsPermitMutation(event, pairId, session);
         assertEventCanBeDeclined(event, now);
         updated = await PairEvent.findOneAndUpdate(
           { _id: event._id, pairId, status: { $in: DECLINABLE_EVENT_STATUSES } },
@@ -1333,6 +1392,7 @@ export const pairEventService = {
         }
         const event = await findEventForMutation(pairId, input.eventId, session);
         assertEventEligibleForPairProjection(event);
+        await assertEventSettingsPermitMutation(event, pairId, session);
         assertEventCanBeSnoozed(event, now);
         const snoozedUntil = addDays(now, input.days ?? 3);
         if (event.expiresAt && snoozedUntil > event.expiresAt) {
@@ -1362,9 +1422,11 @@ export const pairEventService = {
     if (!Types.ObjectId.isValid(pairId)) return [];
     const pair = await Pair.findById(pairId).select({ _id: 1 }).lean<{ _id: Types.ObjectId } | null>();
     if (!pair) return [];
+    const settings = await loadEventSettings(pair._id);
     const events = await findVisibleEvents(pair._id as Types.ObjectId, 'all');
     return events
       .filter(eventEligibleForPairProjection)
+      .filter((event) => TERMINAL_EVENT_STATUSES.includes(event.status) || isPairEventEnabledBySettings(event, settings))
       .map(toPairEventDTO);
   },
 };

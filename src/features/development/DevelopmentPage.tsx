@@ -1,0 +1,373 @@
+"use client";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { usePair } from "@/client/hooks/usePair";
+import { useDevelopment } from "@/client/hooks/useDevelopment";
+import type {
+  DevelopmentCompleteInput,
+  DevelopmentDetailDTO,
+} from "@/lib/dto/development.dto";
+import ErrorView from "@/components/ui/ErrorView";
+
+const KIND_LABELS: Record<string, string> = {
+  REFLECTION: "Саморефлексия",
+  SOLO_PRACTICE: "Личная практика",
+  PAIR_PRACTICE: "Практика пары",
+  TOPIC: "Тема разговора",
+  LEISURE: "Идея отдыха",
+};
+function CompletionForm({
+  detail,
+  busy,
+  onComplete,
+}: {
+  detail: DevelopmentDetailDTO;
+  busy: boolean;
+  onComplete: (input: DevelopmentCompleteInput) => Promise<void>;
+}) {
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [feedback, setFeedback] = useState("");
+  const [note, setNote] = useState("");
+  return (
+    <form
+      className="mt-5 space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!["HELPFUL", "NEUTRAL", "NOT_FOR_ME"].includes(feedback)) return;
+        void onComplete({
+          runId: detail.run.id,
+          answers: detail.content.prompts.map((_, question) => ({
+            question,
+            value:
+              answers[question] === "skip" ? null : Number(answers[question]),
+          })),
+          feedback: feedback as DevelopmentCompleteInput["feedback"],
+          privateNote: note,
+        });
+      }}
+    >
+      {detail.content.prompts.map((prompt, i) => (
+        <label key={prompt} className="block text-sm">
+          {prompt}
+          <select
+            required
+            value={answers[i] ?? ""}
+            onChange={(event) =>
+              setAnswers({ ...answers, [i]: event.target.value })
+            }
+            className="app-input mt-2 w-full"
+          >
+            <option value="" disabled>
+              Выберите ответ
+            </option>
+            {detail.responseOptions.map((option, index) => (
+              <option key={option} value={index}>
+                {option}
+              </option>
+            ))}
+            <option value="skip">Пропустить этот вопрос</option>
+          </select>
+        </label>
+      ))}
+      <label className="block text-sm">
+        Как вам это занятие?
+        <select
+          required
+          className="app-input mt-2 w-full"
+          value={feedback}
+          onChange={(event) => setFeedback(event.target.value)}
+        >
+          <option value="" disabled>
+            Выберите впечатление
+          </option>
+          <option value="HELPFUL">Полезно</option>
+          <option value="NEUTRAL">Пока нейтрально</option>
+          <option value="NOT_FOR_ME">Мне не подошло</option>
+        </select>
+      </label>
+      <label className="block text-sm">
+        Заметка только для себя, необязательно
+        <textarea
+          maxLength={2000}
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          className="app-input mt-2 w-full"
+          rows={3}
+        />
+      </label>
+      <p className="app-muted text-sm">
+        Партнёр увидит только факт выполнения. Ответы и заметка остаются
+        личными. Любое впечатление даёт одинаковую награду; отказ и пропуск не
+        штрафуются.
+      </p>
+      <button disabled={busy} className="app-btn-primary px-4 py-3">
+        {busy ? "Сохраняем…" : "Сохранить результат"}
+      </button>
+    </form>
+  );
+}
+
+export default function DevelopmentPage() {
+  const flow = useDevelopment();
+  const searchParams = useSearchParams();
+  const highlightedKey = searchParams.get("content");
+  const { pairId } = usePair();
+  const [domain, setDomain] = useState("all");
+  const [kind, setKind] = useState("all");
+  const detail = flow.detail;
+  return (
+    <main className="app-shell py-5">
+      <nav className="mb-5 flex flex-wrap gap-3">
+        <Link href="/main-menu" className="app-btn-secondary px-3 py-2">
+          На главную
+        </Link>
+        <Link href="/profile" className="app-btn-secondary px-3 py-2">
+          Мои наблюдения
+        </Link>
+        <Link href="/store" className="app-btn-secondary px-3 py-2">
+          Монеты и магазин
+        </Link>
+      </nav>
+      <section className="app-panel app-panel-solid p-5">
+        <h1 className="text-2xl font-semibold">Развитие и время вместе</h1>
+        <p className="app-muted mt-2">
+          Шесть областей, личный темп и посильный следующий шаг. Это
+          демонстрационные материалы для саморефлексии; они не являются
+          психологическими тестами с подтверждённой валидностью.
+        </p>
+        <p className="app-muted mt-2 text-sm">
+          Количество прохождений показывает опыт занятий, а не уровень личности.
+          Результаты не меняют подбор партнёров автоматически.
+        </p>
+      </section>
+      {flow.error && (
+        <div className="mt-4">
+          <ErrorView error={flow.error} onRetry={() => void flow.reload()} />
+        </div>
+      )}
+      {flow.loading && (
+        <p role="status" className="mt-4">
+          Загружаем библиотеку…
+        </p>
+      )}
+      {detail ? (
+        <section className="app-panel app-panel-solid mt-5 p-5">
+          <button
+            className="app-btn-secondary mb-4 px-3 py-2"
+            disabled={flow.busy}
+            onClick={flow.close}
+          >
+            Назад к библиотеке
+          </button>
+          <p className="app-muted text-sm">
+            {KIND_LABELS[detail.content.kind]} ·{" "}
+            {detail.content.durationMinutes} мин
+          </p>
+          <h2 className="mt-2 text-xl font-semibold">{detail.content.title}</h2>
+          <p className="mt-3">{detail.content.purpose}</p>
+          <p className="app-muted mt-3 text-sm">{detail.content.conditions}</p>
+          <ol className="mt-4 list-decimal space-y-2 pl-5">
+            {detail.content.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          {detail.run.myCompletion ? (
+            <div className="mt-5">
+              <h3 className="font-semibold">Ваш результат сохранён</h3>
+              <p className="mt-2">
+                {detail.run.status === "PARTIAL"
+                  ? "Первый участник завершил занятие. Общий итог появится после отметки второго."
+                  : "Прохождение завершено. Повторная отправка не создаёт новую награду."}
+              </p>
+              {detail.ownResult?.answers.map((answer) => (
+                <p className="app-muted mt-2 text-sm" key={answer.question}>
+                  {detail.content.prompts[answer.question]} —{" "}
+                  {answer.value === null
+                    ? "пропущено"
+                    : detail.responseOptions[answer.value]}
+                </p>
+              ))}
+              {detail.ownResult?.privateNote && (
+                <p className="mt-3 whitespace-pre-wrap rounded-xl bg-white/50 p-3">
+                  {detail.ownResult.privateNote}
+                </p>
+              )}
+              <p className="app-muted mt-3 text-sm">
+                Можно выбрать практику в этой области. Следующее независимое
+                прохождение доступно с новой календарной недели UTC.
+              </p>
+              {detail.run.pairId && (
+                <button
+                  className="app-btn-secondary mt-3 px-3 py-2"
+                  disabled={flow.busy}
+                  onClick={() => void flow.refresh()}
+                >
+                  Обновить общий итог
+                </button>
+              )}
+            </div>
+          ) : (
+            <CompletionForm
+              key={detail.run.id}
+              detail={detail}
+              busy={flow.busy}
+              onComplete={flow.complete}
+            />
+          )}
+        </section>
+      ) : (
+        flow.overview && (
+          <>
+            <section className="app-panel app-panel-solid mt-5 p-5">
+              <p className="app-muted text-xs">Один следующий шаг</p>
+              <h2 className="mt-1 text-lg font-semibold">
+                {flow.overview.suggestion.title}
+              </h2>
+              <p className="app-muted mt-2 text-sm">
+                {flow.overview.suggestion.reason}
+              </p>
+              <button
+                className="app-btn-primary mt-3 px-4 py-2"
+                disabled={flow.busy}
+                onClick={() =>
+                  void flow.start(flow.overview!.suggestion.contentKey)
+                }
+              >
+                Попробовать
+              </button>
+            </section>
+            <section className="mt-5 grid gap-3 sm:grid-cols-3">
+              {flow.overview.programs.map((program) => (
+                <article
+                  className="app-panel app-panel-solid p-4"
+                  key={program.key}
+                >
+                  <h2 className="font-semibold">{program.title}</h2>
+                  <p className="app-muted mt-2 text-sm">
+                    Пройдено шагов: {program.completedSteps} из{" "}
+                    {program.contentKeys.length}. Можно идти в своём порядке.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {program.contentKeys.map((key, i) => {
+                      const card = flow.overview!.content.find(
+                        (item) => item.key === key,
+                      )!;
+                      const together = [
+                        "PAIR_PRACTICE",
+                        "TOPIC",
+                        "LEISURE",
+                      ].includes(card.kind);
+                      return (
+                        <button
+                          key={key}
+                          disabled={flow.busy || (together && !pairId)}
+                          className="block text-left text-sm underline disabled:opacity-40"
+                          onClick={() =>
+                            void flow.start(
+                              key,
+                              together ? (pairId ?? undefined) : undefined,
+                            )
+                          }
+                        >
+                          {i + 1}. {card.title}
+                          {card.completedCount ? " ✓" : ""}
+                          {together && !pairId ? " · нужна пара" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </article>
+              ))}
+            </section>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Область
+                <select
+                  className="app-input mt-1 w-full"
+                  value={domain}
+                  onChange={(event) => setDomain(event.target.value)}
+                >
+                  <option value="all">Все шесть областей</option>
+                  {flow.overview.domains.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Формат
+                <select
+                  className="app-input mt-1 w-full"
+                  value={kind}
+                  onChange={(event) => setKind(event.target.value)}
+                >
+                  <option value="all">Все форматы</option>
+                  {Object.entries(KIND_LABELS).map(([key, title]) => (
+                    <option key={key} value={key}>
+                      {title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {flow.overview.content
+                .filter(
+                  (card) =>
+                    (domain === "all" || card.domain === domain) &&
+                    (kind === "all" || card.kind === kind),
+                )
+                .map((card) => {
+                  const together = [
+                    "PAIR_PRACTICE",
+                    "TOPIC",
+                    "LEISURE",
+                  ].includes(card.kind);
+                  return (
+                    <article
+                      key={card.key}
+                      className={`app-panel app-panel-solid flex flex-col p-4 ${card.key === highlightedKey ? "ring-2 ring-rose-400" : ""}`}
+                    >
+                      <p className="app-muted text-xs">
+                        {KIND_LABELS[card.kind]} · {card.durationMinutes} мин
+                      </p>
+                      <h2 className="mt-2 font-semibold">{card.title}</h2>
+                      <p className="app-muted mt-2 text-sm">{card.purpose}</p>
+                      <p className="app-muted mb-4 mt-2 text-xs">
+                        Прохождений: {card.completedCount}
+                      </p>
+                      {card.locked ? (
+                        <Link
+                          href="/store"
+                          className="app-btn-secondary mt-auto px-3 py-2"
+                        >
+                          Дополнительный материал в магазине
+                        </Link>
+                      ) : (
+                        <button
+                          disabled={flow.busy || (together && !pairId)}
+                          className="app-btn-primary mt-auto px-3 py-2 disabled:opacity-40"
+                          onClick={() =>
+                            void flow.start(
+                              card.key,
+                              together ? (pairId ?? undefined) : undefined,
+                            )
+                          }
+                        >
+                          {together && !pairId
+                            ? "Доступно после создания пары"
+                            : "Открыть занятие"}
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+            </section>
+          </>
+        )
+      )}
+    </main>
+  );
+}

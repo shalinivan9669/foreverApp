@@ -1,3 +1,5 @@
+import { loadMatchingPeople, mutualMatchingGenderEligible } from "../matchingEligibility.service";
+import type { MatchingSocialCard } from "@/domain/model/matching/socialContract";
 import { createHash } from "node:crypto";
 import { Types } from "mongoose";
 import { DomainError } from "@/domain/errors";
@@ -30,12 +32,15 @@ const sameText = (left: readonly string[], right: readonly string[]): boolean =>
   left.every((value, index) => value === right[index]);
 
 const samePublicCard = (
-  stored: { requirements: string[]; give: string[]; questions: string[] },
+  stored: MatchingSocialCard,
   snapshot: CandidateGrantReservationInput["targetCardSnapshot"],
 ): boolean =>
   sameText(stored.requirements, snapshot.requirements) &&
-  sameText(stored.give, snapshot.give) &&
-  sameText(stored.questions, snapshot.questions);
+  sameText(stored.give ?? [], snapshot.give) &&
+  sameText(stored.questions, snapshot.questions) &&
+  sameText(stored.boundaries ?? [], snapshot.boundaries ?? []) &&
+  JSON.stringify(stored.boundaryDealbreakers ?? []) === JSON.stringify(snapshot.boundaryDealbreakers ?? []) &&
+  (stored.cardVersion ?? 1) === (snapshot.cardVersion ?? 1);
 
 type DiscoveryProjection = {
   userId: string;
@@ -87,12 +92,14 @@ export const mongoCandidateGrantValidationPort: CandidateGrantValidationPort = {
         algorithmVersion: 1,
         desiredAgeRange: 1,
         maxDistanceKm: 1,
+        soughtGender: 1,
       })
       .session(input.session)
       .lean<
         Array<{
           userId: string;
-          card: { requirements: string[]; give: string[]; questions: string[] };
+          card: MatchingSocialCard;
+          soughtGender?: "ANY" | "male" | "female";
           publicCardRevision: number;
           actualProfileRevision: number;
           preferenceRevision: number;
@@ -174,6 +181,9 @@ export const mongoCandidateGrantValidationPort: CandidateGrantValidationPort = {
       return grantUnavailable();
     }
 
+    const people = await loadMatchingPeople([input.requesterId, input.candidateId], input.session);
+    if (!mutualMatchingGenderEligible(people.get(input.requesterId), people.get(input.candidateId), senderProfile, targetProfile)) return grantUnavailable();
+
     const participantKey = [input.requesterId, input.candidateId]
       .sort()
       .join("|");
@@ -190,7 +200,7 @@ export const mongoCandidateGrantValidationPort: CandidateGrantValidationPort = {
 
     const activeConnection = await MatchingConnection.exists({
       participantKey,
-      status: "ACTIVE",
+      status: { $in: ["ACTIVE", "PAUSED"] },
     }).session(input.session);
     if (activeConnection) return grantUnavailable();
 

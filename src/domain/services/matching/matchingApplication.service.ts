@@ -1,3 +1,7 @@
+import { Pair } from "@/models/Pair";
+import { matchingConnectionTransition, matchingParticipantIds } from "@/domain/state/matching";
+import { assertMatchingSolo, loadMatchingPeople, mutualMatchingGenderEligible } from "./matchingEligibility.service";
+import { MATCHING_REQUEST_TTL_MS, type MatchingAnswers, type MatchingStatementReaction } from "@/domain/model/matching/socialContract";
 import { createHash, randomBytes } from "node:crypto";
 import mongoose, {
   Types,
@@ -91,25 +95,28 @@ const SAFE_MATCHING_FACTOR_LABELS: Readonly<Record<string, string>> = {
   "sharedLife.values.relationshipPriority": "Место отношений среди приоритетов",
 };
 
-type MatchUserDTO = { id: string; username: string; avatar: string };
+type MatchUserDTO = { id: string; username: string; avatar: string; age?: number; city?: string };
 type MatchPublicCardDTO = {
   requirements: [string, string, string];
   give?: [string, string, string];
-  questions: [string, string];
+  questions: MatchingAnswers;
+  boundaries?: [string, string, string];
+  boundaryDealbreakers?: [boolean, boolean, boolean];
+  cardVersion?: 1 | 2;
 };
 type MatchFitDTO = {
   label: "PROMISING" | "WORKABLE" | "LOW_INFORMATION";
   confidence: "LOW" | "MEDIUM" | "HIGH";
   explanations: string[];
 };
-type MatchAction = "RESPOND" | "ACCEPT" | "DECLINE" | "BLOCK";
-type ConnectionAction = "REQUEST" | "CONFIRM" | "CANCEL";
+type MatchAction = "RESPOND" | "ACCEPT" | "DECLINE" | "BLOCK" | "WITHDRAW";
+type ConnectionAction = "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE";
 
 export type MatchingConnectionDTO = {
   id: string;
   participant: MatchUserDTO;
   stage: "MATCHED" | "TALKING" | "DATING" | "COUPLE_CONFIRMED";
-  status: "ACTIVE" | "CLOSED" | "BLOCKED";
+  status: "ACTIVE" | "PAUSED" | "CLOSED" | "BLOCKED";
   confirmation: {
     state: "NONE" | "PENDING" | "CONFIRMED";
     requestedByMe: boolean;
@@ -127,6 +134,7 @@ export type MatchLikeSummaryDTO = {
     | "VIEWED"
     | "RESPONDED"
     | "DECLINED"
+    | "WITHDRAWN"
     | "EXPIRED"
     | "BLOCKED"
     | "MATCHED";
@@ -139,9 +147,13 @@ export type MatchLikeSummaryDTO = {
 
 export type MatchLikeDetailDTO = MatchLikeSummaryDTO & {
   card?: MatchPublicCardDTO;
-  questions?: [string, string];
-  initiatorAnswers?: [string, string];
-  responseAnswers?: [string, string];
+  questions?: MatchingAnswers;
+  initiatorAnswers?: MatchingAnswers;
+  initiatorReactions?: MatchingStatementReaction[];
+  responseReactions?: MatchingStatementReaction[];
+  initiatorCard?: MatchPublicCardDTO;
+  targetCard?: MatchPublicCardDTO;
+  responseAnswers?: MatchingAnswers;
   connection?: MatchingConnectionDTO;
 };
 
@@ -165,6 +177,7 @@ export type MatchingPreferenceTransport = {
 };
 
 export type MatchingCardTransport = MatchingCard & {
+  soughtGender?: "ANY" | "male" | "female";
   ageRange: { min: number; max: number };
   maxDistanceKm: number;
   active: boolean;
@@ -219,43 +232,51 @@ const asTuple3 = (values: readonly string[]): [string, string, string] => {
   return [values[0], values[1], values[2]];
 };
 
-const asTuple2 = (values: readonly string[]): [string, string] => {
-  if (values.length !== 2)
+const asTuple2 = (values: readonly string[]): MatchingAnswers => {
+  if (values.length !== 2 && values.length !== 3)
     return error(
       "MATCHING_DATA_INVALID",
       500,
       "Stored matching answers are invalid",
     );
-  return [values[0], values[1]];
+  return [...values] as MatchingAnswers;
 };
 
 const publicCard = (
-  card: Pick<MatchingCard, "requirements" | "give" | "questions">,
+  card: MatchingCard,
 ): MatchPublicCardDTO => ({
   requirements: asTuple3(card.requirements),
   give: asTuple3(card.give),
   questions: asTuple2(card.questions),
+  ...(card.boundaries ? { boundaries: asTuple3(card.boundaries) } : {}),
+  ...(card.boundaryDealbreakers ? { boundaryDealbreakers: card.boundaryDealbreakers } : {}),
+  cardVersion: card.cardVersion ?? 1,
 });
 
 const snapshotCard = (snapshot: CardSnapshot): MatchPublicCardDTO => ({
   requirements: asTuple3(snapshot.requirements),
   ...(snapshot.give ? { give: asTuple3(snapshot.give) } : {}),
   questions: asTuple2(snapshot.questions),
+  ...(snapshot.boundaries ? { boundaries: asTuple3(snapshot.boundaries) } : {}),
+  ...(snapshot.boundaryDealbreakers ? { boundaryDealbreakers: snapshot.boundaryDealbreakers } : {}),
+  cardVersion: snapshot.cardVersion ?? 1,
 });
 
 const userDTO = (
-  user: Pick<UserType, "id" | "username" | "avatar">,
+  user: Pick<UserType, "id" | "username" | "avatar"> & Partial<Pick<UserType, "personal">>,
 ): MatchUserDTO => ({
   id: user.id,
   username: user.username,
   avatar: user.avatar,
+  ...(user.personal?.age && user.personal.age >= 18 ? { age: user.personal.age } : {}),
+  ...(user.personal?.city?.trim() ? { city: user.personal.city.trim().slice(0, 120) } : {}),
 });
 
 const findUsers = async (
   ids: readonly string[],
 ): Promise<Map<string, MatchUserDTO>> => {
   const rows = await User.find({ id: { $in: [...new Set(ids)] } })
-    .select({ id: 1, username: 1, avatar: 1 })
+    .select({ id: 1, username: 1, avatar: 1, "personal.age": 1, "personal.city": 1 })
     .lean<Array<Pick<UserType, "id" | "username" | "avatar">>>();
   return new Map(rows.map((row) => [row.id, userDTO(row)]));
 };
@@ -275,6 +296,7 @@ const statusCanonical = (
     status === "RESPONDED" ||
     status === "DECLINED" ||
     status === "EXPIRED" ||
+    status === "WITHDRAWN" ||
     status === "BLOCKED" ||
     status === "MATCHED"
   ) {
@@ -299,6 +321,7 @@ const likeActions = (
   if (role === "INITIATOR" && status === "RESPONDED") {
     return ["ACCEPT", "DECLINE", "BLOCK"];
   }
+  if (role === "INITIATOR" && (status === "SENT" || status === "VIEWED")) return ["WITHDRAW", "BLOCK"];
   return status === "MATCHED" ? ["BLOCK"] : [];
 };
 
@@ -309,11 +332,12 @@ const connectionActions = (
   >,
   currentUserId: string,
 ): ConnectionAction[] => {
-  if (connection.status !== "ACTIVE" || connection.pairId) return [];
-  if (connection.stage !== "MATCHED") return [];
+  if (connection.pairId) return [];
+  if (connection.status === "PAUSED") return ["RESUME", "CLOSE"];
+  if (connection.status !== "ACTIVE") return [];
   const requester = connection.coupleConfirmation.requestedBy;
-  if (!requester) return ["REQUEST"];
-  return requester === currentUserId ? ["CANCEL"] : ["CONFIRM", "CANCEL"];
+  if (!requester) return ["REQUEST", "PAUSE", "CLOSE"];
+  return requester === currentUserId ? ["CANCEL", "PAUSE", "CLOSE"] : ["CONFIRM", "CANCEL", "PAUSE", "CLOSE"];
 };
 
 const connectionDTO = async (
@@ -403,6 +427,7 @@ const likeDetail = async (
 ): Promise<MatchLikeDetailDTO> => {
   const users = await findUsers([like.fromId, like.toId]);
   const summary = toLikeSummary(like, currentUserId, users);
+  if (like.status === "BLOCKED" || await MatchingBlock.exists({ participantKey: [like.fromId, like.toId].sort().join("|"), status: "ACTIVE" })) return { ...summary, allowedActions: [] };
   const snapshot =
     summary.role === "RECIPIENT"
       ? like.fromCardSnapshot
@@ -416,6 +441,10 @@ const likeDetail = async (
     : null;
   return {
     ...summary,
+    ...(like.fromCardSnapshot ? { initiatorCard: snapshotCard(like.fromCardSnapshot) } : {}),
+    ...(like.targetCardSnapshot ? { targetCard: snapshotCard(like.targetCardSnapshot) } : {}),
+    ...(like.reactions ? { initiatorReactions: like.reactions } : {}),
+    ...(like.recipientResponse?.reactions ? { responseReactions: like.recipientResponse.reactions } : {}),
     ...(card ? { card, questions: card.questions } : {}),
     ...(like.answers ? { initiatorAnswers: asTuple2(like.answers) } : {}),
     ...(like.recipientResponse?.answers
@@ -965,7 +994,7 @@ const grantCandidates = async (
         .lean<Array<{ userId: string }>>();
       const connections = await MatchingConnection.find({
         participantKey: { $in: participantKeys },
-        status: "ACTIVE",
+        status: { $in: ["ACTIVE", "PAUSED"] },
       })
         .select({ participantKey: 1 })
         .session(session)
@@ -1179,7 +1208,7 @@ const candidateGrantLookup = async (input: {
   }).session(input.session ?? null);
   const connected = await MatchingConnection.exists({
     participantKey,
-    status: "ACTIVE",
+    status: { $in: ["ACTIVE", "PAUSED"] },
   }).session(input.session ?? null);
   const declined = await Like.exists({
     $or: [
@@ -1197,7 +1226,9 @@ const candidateGrantLookup = async (input: {
   const candidate = byId.get(input.candidateId);
   const requesterProjection = projectionById.get(input.currentUserId);
   const candidateProjection = projectionById.get(input.candidateId);
+  const people = await loadMatchingPeople([input.currentUserId, input.candidateId], input.session);
   const mutuallyEligible = Boolean(
+    mutualMatchingGenderEligible(people.get(input.currentUserId), people.get(input.candidateId), requester, candidate) &&
     requester &&
     candidate &&
     requesterProjection?.location &&
@@ -1257,6 +1288,7 @@ export async function getOwnMatchingCard(input: { currentUserId: string }) {
   return {
     card: {
       ...publicCard(profile.card),
+      soughtGender: profile.soughtGender ?? "ANY",
       ageRange: profile.desiredAgeRange,
       maxDistanceKm: profile.maxDistanceKm,
       active: profile.active,
@@ -1280,8 +1312,12 @@ export async function saveOwnMatchingCard(input: {
       requirements: input.card.requirements,
       give: input.card.give,
       questions: input.card.questions,
+      boundaries: input.card.boundaries,
+      boundaryDealbreakers: input.card.boundaryDealbreakers,
+      cardVersion: 2,
     },
     actual: input.card.actual,
+    soughtGender: input.card.soughtGender ?? "ANY",
     desiredAgeRange: input.card.ageRange,
     maxDistanceKm: input.card.maxDistanceKm,
     discoveryRequested: input.card.active,
@@ -1303,7 +1339,7 @@ export async function saveOwnMatchingCard(input: {
       userId: input.currentUserId,
       isActive: saved.profile.active,
       requirementsCount: 3,
-      questionsCount: 2,
+      questionsCount: 3,
     },
   });
   return getOwnMatchingCard({ currentUserId: input.currentUserId });
@@ -1446,6 +1482,8 @@ export async function getMatchingFeed(input: {
   limit: number;
 }) {
   await connectToDatabase();
+  await expireMatchingRequests(input.currentUserId);
+  await assertMatchingSolo([input.currentUserId]);
   const now = new Date();
   const requester = await MatchingProfile.findOne({
     userId: input.currentUserId,
@@ -1533,12 +1571,12 @@ export async function getMatchingFeed(input: {
       active: true,
       requiredDataReady: true,
     })
-      .select({ userId: 1, desiredAgeRange: 1, maxDistanceKm: 1 })
+      .select({ userId: 1, desiredAgeRange: 1, maxDistanceKm: 1, soughtGender: 1 })
       .lean<
         Array<
           Pick<
             MatchingProfileType,
-            "userId" | "desiredAgeRange" | "maxDistanceKm"
+            "userId" | "desiredAgeRange" | "maxDistanceKm" | "soughtGender"
           >
         >
       >();
@@ -1548,10 +1586,12 @@ export async function getMatchingFeed(input: {
     const projectionById = new Map(
       projections.map((projection) => [projection.userId, projection]),
     );
+    const people = await loadMatchingPeople([input.currentUserId, ...preliminaryIds]);
     const pool = preliminaryIds.filter((candidateId) => {
       const candidateProfile = candidateProfileById.get(candidateId);
       const projection = projectionById.get(candidateId);
       if (!candidateProfile || !projection?.location) return false;
+      if (!mutualMatchingGenderEligible(people.get(input.currentUserId), people.get(candidateId), requester, candidateProfile)) return false;
       if (
         requesterProjection.age < candidateProfile.desiredAgeRange.min ||
         requesterProjection.age > candidateProfile.desiredAgeRange.max
@@ -1597,7 +1637,7 @@ export async function getMatchingFeed(input: {
           .lean<Array<Pick<LikeType, "fromId" | "toId">>>(),
         MatchingConnection.find({
           participantIds: input.currentUserId,
-          status: "ACTIVE",
+          status: { $in: ["ACTIVE", "PAUSED"] },
         })
           .select({ participantIds: 1 })
           .lean<Array<{ participantIds: [string, string] }>>(),
@@ -1677,7 +1717,7 @@ export async function getMatchingFeed(input: {
         .lean<Array<{ userId: string }>>(),
       MatchingConnection.find({
         participantKey: { $in: pageParticipantKeys },
-        status: "ACTIVE",
+        status: { $in: ["ACTIVE", "PAUSED"] },
       })
         .select({ participantKey: 1 })
         .lean<Array<{ participantKey: string }>>(),
@@ -1742,10 +1782,12 @@ export async function getMatchingFeed(input: {
   const profileById = new Map(
     profiles.map((profile) => [profile.userId, profile]),
   );
+  const pagePeople = await loadMatchingPeople([input.currentUserId, ...eligiblePageIds]);
   const mutuallyEligiblePageIds = eligiblePageIds.filter((candidateId) => {
     const candidate = profileById.get(candidateId);
     const projection = pageProjectionById.get(candidateId);
     if (!candidate || !projection?.location) return false;
+    if (!mutualMatchingGenderEligible(pagePeople.get(input.currentUserId), pagePeople.get(candidateId), requester, candidate)) return false;
     if (
       projection.age < requester.desiredAgeRange.min ||
       projection.age > requester.desiredAgeRange.max ||
@@ -1858,7 +1900,7 @@ export async function getCandidateMatchingCard(input: {
         .session(session)
         .lean<MatchingProfileType | null>();
       const user = await User.findOne({ id: input.candidateId })
-        .select({ id: 1, username: 1, avatar: 1 })
+        .select({ id: 1, username: 1, avatar: 1, "personal.age": 1, "personal.city": 1 })
         .session(session)
         .lean<Pick<UserType, "id" | "username" | "avatar"> | null>();
       const evaluation = await matchingIntelligenceForSession(session).evaluate(
@@ -1893,7 +1935,8 @@ export async function createMatchingLike(input: {
   candidateId: string;
   candidateGrant: string;
   agreements: [true, true, true];
-  answers: [string, string];
+  answers: MatchingAnswers;
+  reactions?: MatchingStatementReaction[];
   idempotencyKey: string;
   auditRequest: AuditRequestContext;
 }) {
@@ -1920,6 +1963,9 @@ export async function createMatchingLike(input: {
       requirements: sender.card.requirements,
       give: sender.card.give,
       questions: sender.card.questions,
+      boundaries: sender.card.boundaries,
+      boundaryDealbreakers: sender.card.boundaryDealbreakers,
+      cardVersion: sender.card.cardVersion,
       updatedAt: sender.updatedAt,
     },
     senderCardRevision: sender.publicCardRevision,
@@ -1927,11 +1973,15 @@ export async function createMatchingLike(input: {
       requirements: target.card.requirements,
       give: target.card.give,
       questions: target.card.questions,
+      boundaries: target.card.boundaries,
+      boundaryDealbreakers: target.card.boundaryDealbreakers,
+      cardVersion: target.card.cardVersion,
       updatedAt: target.updatedAt,
     },
     targetCardRevision: target.publicCardRevision,
     agreements: input.agreements,
     answers: input.answers,
+    reactions: input.reactions,
     auditRequest: input.auditRequest,
   });
   return getMatchingLike({
@@ -1951,17 +2001,60 @@ const getLikeForActor = async (
     _id: new Types.ObjectId(likeId),
     $or: [{ fromId: currentUserId }, { toId: currentUserId }],
   })
-    .select("+agreements +answers")
+    .select("+agreements +answers +reactions")
     .lean<StoredLike | null>();
   if (!like) return error("NOT_FOUND", 404, "Matching resource was not found");
   return like;
 };
+
+const assertConnectionCurrentAccess = async (connection: StoredConnection, currentUserId: string): Promise<void> => {
+  if (connection.status === "BLOCKED" || await MatchingBlock.exists({ participantKey: connection.participantKey, status: "ACTIVE" })) return error("MATCHING_BLOCKED", 409, "Matching interaction is unavailable");
+  if (connection.pairId && !await Pair.exists({ _id: connection.pairId, members: currentUserId, status: { $in: ["active", "paused"] } })) return error("MATCHING_CONNECTION_STATE_CONFLICT", 409, "Pair is no longer active");
+};
+
+export async function authorizeCreateMatchingLikeMutation(input: { currentUserId: string; candidateId: string }): Promise<void> {
+  await connectToDatabase();
+  const ids = [...new Set([input.currentUserId, input.candidateId])];
+  if (await User.countDocuments({ id: { $in: ids } }) !== ids.length) return error("NOT_FOUND", 404, "Matching resource was not found");
+  if (await MatchingBlock.exists({ participantKey: [...ids].sort().join("|"), status: "ACTIVE" })) return error("MATCHING_BLOCKED", 409, "Matching interaction is unavailable");
+}
+
+export async function authorizeMatchingLikeMutation(input: { currentUserId: string; likeId: string }): Promise<void> {
+  await connectToDatabase();
+  const like = await getLikeForActor(input.currentUserId, input.likeId);
+  if (like.status === "BLOCKED" || await MatchingBlock.exists({ participantKey: [like.fromId, like.toId].sort().join("|"), status: "ACTIVE" })) return error("MATCHING_BLOCKED", 409, "Matching interaction is unavailable");
+  if (like.connectionId) {
+    const connection = await MatchingConnection.findOne({ _id: like.connectionId, participantIds: input.currentUserId }).lean<StoredConnection | null>();
+    if (!connection || (connection.status !== "ACTIVE" && connection.status !== "PAUSED")) return error("MATCHING_CONNECTION_STATE_CONFLICT", 409, "Connection is not active");
+    await assertConnectionCurrentAccess(connection, input.currentUserId);
+  }
+  if (like.status === "EXPIRED") return error("MATCHING_STATE_CONFLICT", 409, "Matching request expired");
+}
+
+export async function authorizeMatchingConnectionMutation(input: { currentUserId: string; connectionId: string; action: ConnectionAction }): Promise<void> {
+  await connectToDatabase();
+  if (!Types.ObjectId.isValid(input.connectionId)) return error("NOT_FOUND", 404, "Matching resource was not found");
+  const connection = await MatchingConnection.findOne({ _id: new Types.ObjectId(input.connectionId), participantIds: input.currentUserId }).lean<StoredConnection | null>();
+  if (!connection) return error("NOT_FOUND", 404, "Matching resource was not found");
+  await assertConnectionCurrentAccess(connection, input.currentUserId);
+  matchingConnectionTransition({ participantIds: matchingParticipantIds(...connection.participantIds), status: connection.status, stage: connection.stage, coupleConfirmation: connection.coupleConfirmation, revision: connection.revision, ...(connection.pairId ? { pairId: String(connection.pairId) } : {}) }, { type: input.action, at: new Date() }, input.currentUserId);
+}
+
+const expireMatchingRequests = async (actorId: string) => {
+  await Like.updateMany({ $or: [{ fromId: actorId }, { toId: actorId }], status: { $in: ["SENT", "VIEWED"] }, createdAt: { $lte: new Date(Date.now() - MATCHING_REQUEST_TTL_MS) } }, { $set: { status: "EXPIRED" }, $inc: { revision: 1 } });
+};
+
+export async function withdrawMatchingLike(input: { currentUserId: string; likeId: string; auditRequest: AuditRequestContext }) {
+  await socialService.withdrawLike({ actorId: input.currentUserId, likeId: input.likeId, auditRequest: input.auditRequest });
+  return getMatchingLike(input);
+}
 
 export async function getMatchingLike(input: {
   currentUserId: string;
   likeId: string;
 }) {
   await connectToDatabase();
+  await expireMatchingRequests(input.currentUserId);
   let like = await getLikeForActor(input.currentUserId, input.likeId);
   if (like.toId === input.currentUserId && like.status === "SENT") {
     await socialService.markLikeViewed({
@@ -1977,7 +2070,8 @@ export async function respondMatchingLike(input: {
   currentUserId: string;
   likeId: string;
   agreements: [true, true, true];
-  answers: [string, string];
+  answers: MatchingAnswers;
+  reactions?: MatchingStatementReaction[];
   auditRequest: AuditRequestContext;
 }) {
   await socialService.respondToLike({
@@ -1985,6 +2079,7 @@ export async function respondMatchingLike(input: {
     likeId: input.likeId,
     agreements: input.agreements,
     answers: input.answers,
+    reactions: input.reactions,
     auditRequest: input.auditRequest,
   });
   return getMatchingLike({
@@ -2088,6 +2183,7 @@ export async function getMatchingInbox(input: {
   limit: number;
 }) {
   await connectToDatabase();
+  await expireMatchingRequests(input.currentUserId);
   const cursor = decodeInboxCursor(input.cursor);
   const cursorFilter = cursor
     ? {
@@ -2152,7 +2248,7 @@ export async function getMatchingConnection(input: {
 export async function confirmMatchingConnection(input: {
   currentUserId: string;
   connectionId: string;
-  action: "REQUEST" | "CONFIRM" | "CANCEL";
+  action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE";
   auditRequest: AuditRequestContext;
 }) {
   const result = await socialService.confirmConnection({

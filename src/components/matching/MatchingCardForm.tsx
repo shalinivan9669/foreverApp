@@ -26,7 +26,10 @@ type OptionalActualKey =
 type FormState = {
   requirements: [string, string, string];
   give: [string, string, string];
-  questions: [string, string];
+  questions: [string, string, string];
+  boundaries: [string, string, string];
+  boundaryDealbreakers: [boolean, boolean, boolean];
+  soughtGender: "ANY" | "male" | "female";
   minAge: string;
   maxAge: string;
   maxDistanceKm: string;
@@ -39,7 +42,10 @@ type FormState = {
 const initialForm = (card: MatchingCardFields | null): FormState => ({
   requirements: card?.requirements ?? ["", "", ""],
   give: card?.give ?? ["", "", ""],
-  questions: card?.questions ?? ["", ""],
+  questions: [card?.questions[0] ?? "", card?.questions[1] ?? "", card?.questions[2] ?? ""],
+  boundaries: card?.boundaries ?? ["", "", ""],
+  boundaryDealbreakers: card?.boundaryDealbreakers ?? [false, false, false],
+  soughtGender: card?.soughtGender ?? "ANY",
   minAge: String(card?.ageRange.min ?? 18),
   maxAge: String(card?.ageRange.max ?? 99),
   maxDistanceKm: String(card?.maxDistanceKm ?? 50),
@@ -102,7 +108,7 @@ export default function MatchingCardForm({
     const maxAge = Number(form.maxAge);
     const distance = Number(form.maxDistanceKm);
     return (
-      [...form.requirements, ...form.give, ...form.questions].every(
+      [...form.requirements, ...form.give, ...form.boundaries, ...form.questions].every(
         (value) => value.trim().length > 0,
       ) &&
       Boolean(form.relationshipIntent) &&
@@ -119,13 +125,13 @@ export default function MatchingCardForm({
   }, [form]);
 
   const setTextTuple = (
-    key: "requirements" | "give" | "questions",
+    key: "requirements" | "give" | "questions" | "boundaries",
     index: number,
     value: string,
   ): void => {
     setForm((current) => {
       if (key === "questions") {
-        const next: [string, string] = [...current.questions];
+        const next: [string, string, string] = [...current.questions];
         next[index] = value;
         return { ...current, questions: next };
       }
@@ -159,7 +165,10 @@ export default function MatchingCardForm({
         string,
       ],
       give: form.give.map((item) => item.trim()) as [string, string, string],
-      questions: form.questions.map((item) => item.trim()) as [string, string],
+      questions: form.questions.map((item) => item.trim()) as [string, string, string],
+      boundaries: form.boundaries.map((item) => item.trim()) as [string, string, string],
+      boundaryDealbreakers: form.boundaryDealbreakers,
+      soughtGender: form.soughtGender,
       ageRange: { min: Number(form.minAge), max: Number(form.maxAge) },
       maxDistanceKm: Number(form.maxDistanceKm),
       active: form.active,
@@ -202,7 +211,7 @@ export default function MatchingCardForm({
 
       <div className="mt-5 grid gap-5">
         <fieldset>
-          <legend className="font-semibold">Что для меня важно</legend>
+          <legend className="font-semibold">Чего я ожидаю</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {form.requirements.map((value, index) => (
               <input
@@ -238,7 +247,18 @@ export default function MatchingCardForm({
         </fieldset>
 
         <fieldset>
-          <legend className="font-semibold">Два вопроса для знакомства</legend>
+          <legend className="font-semibold">Чего я не принимаю</legend>
+          <p className="app-muted text-sm">Отметьте непреодолимые границы: реакция «против» на такой пункт не позволит отправить интерес. Остальные различия можно обсудить.</p>
+          <div className="mt-2 grid gap-3">{form.boundaries.map((value, index) => <div key={index}>
+            <input aria-label={`Граница ${index + 1}`} maxLength={80} required value={value} onChange={(event) => setTextTuple("boundaries", index, event.target.value)} />
+            <label className="mt-1 flex gap-2 text-sm"><input type="checkbox" checked={form.boundaryDealbreakers[index]} onChange={(event) => { const checked = event.target.checked; setForm((current) => { const next: [boolean, boolean, boolean] = [...current.boundaryDealbreakers]; next[index] = checked; return { ...current, boundaryDealbreakers: next }; }); setDirty(true); }} />Непреодолимая граница</label>
+          </div>)}</div>
+        </fieldset>
+        <label className="grid gap-2">Кого хочу встретить
+          <select value={form.soughtGender} onChange={(event) => { setForm((current) => ({ ...current, soughtGender: event.target.value as FormState["soughtGender"] })); setDirty(true); }}><option value="ANY">Пол не важен</option><option value="male">Мужчину</option><option value="female">Женщину</option></select>
+        </label>
+        <fieldset>
+          <legend className="font-semibold">Три вопроса для знакомства</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {form.questions.map((value, index) => (
               <textarea

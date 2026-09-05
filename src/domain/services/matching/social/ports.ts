@@ -1,3 +1,4 @@
+import type { MatchingAnswers } from "@/domain/model/matching/socialContract";
 import type { ClientSession } from "mongoose";
 import type { MatchingParticipantIds } from "@/domain/state/matching";
 
@@ -26,7 +27,10 @@ export interface MatchingParticipantFencePort {
 export type MatchingCardSnapshot = {
   requirements: readonly [string, string, string];
   give: readonly [string, string, string];
-  questions: readonly [string, string];
+  questions: Readonly<MatchingAnswers>;
+  boundaries?: readonly [string, string, string];
+  boundaryDealbreakers?: readonly [boolean, boolean, boolean];
+  cardVersion?: 1 | 2;
   updatedAt?: Date;
 };
 

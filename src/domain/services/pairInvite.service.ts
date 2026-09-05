@@ -3,6 +3,8 @@ import mongoose, { Types, type ClientSession } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
 import { DomainError } from '@/domain/errors';
 import { Pair } from '@/models/Pair';
+import { User } from '@/models/User';
+import { ensurePublicPairingId, normalizePublicPairingId, PUBLIC_PAIRING_ID_PATTERN } from '@/domain/services/userPublicIdentity.service';
 import {
   PairInvite,
   type PairInviteStatus,
@@ -38,6 +40,8 @@ export type PairInviteOwnerDTO = {
   updatedAt: string;
   canCancel: boolean;
   canReissue: boolean;
+  awaitingOwnerConfirmation?: boolean;
+  partner?: { publicId: string; username: string };
 };
 
 export type PairInviteIssueDTO = {
@@ -46,12 +50,18 @@ export type PairInviteIssueDTO = {
 };
 
 export type PairInviteResolveDTO = {
-  state: 'AVAILABLE' | 'ACCEPTED' | 'UNAVAILABLE';
+  state: 'AVAILABLE' | 'WAITING_CONFIRMATION' | 'ACCEPTED' | 'UNAVAILABLE';
   canAccept: boolean;
   expiresAt?: string;
+  partner?: { publicId: string; username: string };
+  pairId?: string;
 };
 
 export type PairInviteAcceptDTO = {
+  status: 'AWAITING_PARTNER_CONFIRMATION';
+  inviteId: string;
+  alreadyAccepted: boolean;
+} | {
   status: 'ACCEPTED';
   pairId: string;
   alreadyAccepted: boolean;
@@ -119,6 +129,22 @@ const requireCompletedOnboarding = async (userId: string): Promise<void> => {
   }
 };
 
+const requireExistingPartnerPath = async (userId: string, session?: ClientSession): Promise<void> => {
+  const query = User.findOne({ id: userId }).select({ entryCohort: 1 }).lean<{ entryCohort?: string } | null>();
+  if (session) query.session(session);
+  const user = await query;
+  if (user?.entryCohort !== 'EXISTING_PARTNER') {
+    throw new DomainError({ code: 'PAIR_ENTRY_REQUIRED', status: 409, message: 'Choose the existing partner path before linking accounts' });
+  }
+};
+
+const partnerIdentity = async (userId: string) => {
+  const publicId = await ensurePublicPairingId(userId);
+  const user = await User.findOne({ id: userId }).select({ username: 1 }).lean<{ username: string } | null>();
+  if (!user) return unavailable();
+  return { publicId, username: user.username };
+};
+
 const assertTokenFormat = (token: string): string => {
   const normalized = token.trim();
   if (!TOKEN_PATTERN.test(normalized)) {
@@ -147,6 +173,24 @@ const toOwnerDTO = (invite: StoredPairInvite): PairInviteOwnerDTO => ({
   canCancel: invite.status === 'ACTIVE',
   canReissue: invite.status !== 'ACCEPTED',
 });
+
+const toOwnerDetails = async (invite: StoredPairInvite): Promise<PairInviteOwnerDTO> => ({
+  ...toOwnerDTO(invite),
+  ...(invite.status === 'ACTIVE' && invite.acceptedByUserId && invite.recipientConfirmedAt
+    ? { awaitingOwnerConfirmation: true, partner: await partnerIdentity(invite.acceptedByUserId) }
+    : {}),
+});
+
+export type PairInviteLookup = { token: string; partnerCode?: never } | { partnerCode: string; token?: never };
+
+const findInviteByLookup = async (input: PairInviteLookup): Promise<StoredPairInvite | null> => {
+  if (input.token !== undefined) return PairInvite.findOne({ tokenHash: hashPairInviteToken(assertTokenFormat(input.token)) }).lean<StoredPairInvite | null>();
+  const publicId = normalizePublicPairingId(input.partnerCode);
+  if (!PUBLIC_PAIRING_ID_PATTERN.test(publicId)) return null;
+  const owner = await User.findOne({ publicId }).select({ id: 1 }).lean<{ id: string } | null>();
+  if (!owner) return null;
+  return PairInvite.findOne({ creatorUserId: owner.id, status: { $in: ['ACTIVE', 'ACCEPTED'] } }).sort({ createdAt: -1 }).lean<StoredPairInvite | null>();
+};
 
 const expireCreatorInvites = async (
   creatorUserId: string,
@@ -263,7 +307,7 @@ export const pairInviteService = {
     })
       .sort({ createdAt: -1 })
       .lean<StoredPairInvite | null>();
-    return { invite: invite ? toOwnerDTO(invite) : null };
+    return { invite: invite ? await toOwnerDetails(invite) : null };
   },
 
   async create(input: {
@@ -272,6 +316,7 @@ export const pairInviteService = {
   }, hooks: PairInviteReliabilityTestHooks = {}): Promise<PairInviteIssueDTO> {
     await connectToDatabase();
     await requireCompletedOnboarding(input.currentUserId);
+    await requireExistingPartnerPath(input.currentUserId);
     const now = input.now ?? new Date();
     if (await activePairForAnyMember([input.currentUserId])) ownerHasPair();
 
@@ -281,6 +326,7 @@ export const pairInviteService = {
       issued = await session.withTransaction(async () => {
         await hooks.beforeCreateMembershipFence?.();
         await fencePairMembershipSlots([input.currentUserId], session);
+        await requireExistingPartnerPath(input.currentUserId, session);
         if (await activePairForAnyMember([input.currentUserId], session)) {
           ownerHasPair();
         }
@@ -331,7 +377,7 @@ export const pairInviteService = {
       currentUserId: input.currentUserId,
       now: input.now ?? new Date(),
     });
-    return toOwnerDTO(invite);
+    return toOwnerDetails(invite);
   },
 
   async cancel(input: {
@@ -393,6 +439,7 @@ export const pairInviteService = {
   }): Promise<PairInviteIssueDTO> {
     await connectToDatabase();
     await requireCompletedOnboarding(input.currentUserId);
+    await requireExistingPartnerPath(input.currentUserId);
     const now = input.now ?? new Date();
     if (await activePairForAnyMember([input.currentUserId])) ownerHasPair();
 
@@ -401,6 +448,7 @@ export const pairInviteService = {
     try {
       issued = await session.withTransaction(async () => {
         await fencePairMembershipSlots([input.currentUserId], session);
+        await requireExistingPartnerPath(input.currentUserId, session);
         if (await activePairForAnyMember([input.currentUserId], session)) ownerHasPair();
         if (!Types.ObjectId.isValid(input.inviteId)) return ownerInviteNotFound();
 
@@ -468,16 +516,13 @@ export const pairInviteService = {
     return { invite: toOwnerDTO(created), token: issued.token };
   },
 
-  async resolve(input: {
+  async resolve(input: PairInviteLookup & {
     currentUserId: string;
-    token: string;
     now?: Date;
   }): Promise<PairInviteResolveDTO> {
     await connectToDatabase();
-    const token = assertTokenFormat(input.token);
-    const tokenHash = hashPairInviteToken(token);
     const now = input.now ?? new Date();
-    let invite = await PairInvite.findOne({ tokenHash }).lean<StoredPairInvite | null>();
+    let invite = await findInviteByLookup(input);
     if (!invite) return { state: 'UNAVAILABLE', canAccept: false };
 
     if (invite.status === 'ACTIVE' && invite.expiresAt <= now) {
@@ -493,31 +538,71 @@ export const pairInviteService = {
       invite.status === 'ACCEPTED' &&
       invite.acceptedByUserId === input.currentUserId
     ) {
-      return { state: 'ACCEPTED', canAccept: false };
+      return { state: 'ACCEPTED', canAccept: false, pairId: await existingAcceptedPairId(invite, input.currentUserId) };
     }
     if (invite.status !== 'ACTIVE' || invite.creatorUserId === input.currentUserId) {
       return { state: 'UNAVAILABLE', canAccept: false };
     }
+    if (invite.acceptedByUserId && invite.acceptedByUserId !== input.currentUserId) return { state: 'UNAVAILABLE', canAccept: false };
+    if (await activePairForAnyMember([invite.creatorUserId, input.currentUserId])) return { state: 'UNAVAILABLE', canAccept: false };
     return {
-      state: 'AVAILABLE',
-      canAccept: true,
+      state: invite.recipientConfirmedAt ? 'WAITING_CONFIRMATION' : 'AVAILABLE',
+      canAccept: !invite.recipientConfirmedAt,
       expiresAt: invite.expiresAt.toISOString(),
+      partner: await partnerIdentity(invite.creatorUserId),
     };
   },
 
-  async accept(input: {
+  async accept(input: PairInviteLookup & {
     currentUserId: string;
-    token: string;
     auditRequest?: AuditRequestContext;
     now?: Date;
   }): Promise<PairInviteAcceptDTO> {
     await connectToDatabase();
     await requireCompletedOnboarding(input.currentUserId);
-    const token = assertTokenFormat(input.token);
-    const tokenHash = hashPairInviteToken(token);
+    await requireExistingPartnerPath(input.currentUserId);
+    const initial = await findInviteByLookup(input);
+    if (!initial || initial.creatorUserId === input.currentUserId) return unavailable();
     const now = input.now ?? new Date();
-    const initial = await PairInvite.findOne({ tokenHash }).lean<StoredPairInvite | null>();
-    if (!initial) return unavailable();
+    if (initial.status === 'ACCEPTED' && initial.acceptedByUserId === input.currentUserId) {
+      return { status: 'ACCEPTED', pairId: await existingAcceptedPairId(initial, input.currentUserId), alreadyAccepted: true };
+    }
+    if (initial.status !== 'ACTIVE' || initial.expiresAt <= now) return unavailable();
+    await ensurePublicPairingId(input.currentUserId);
+    const session = await mongoose.startSession();
+    try {
+      const claimed = await session.withTransaction(async () => {
+        const members = pairMembers(initial.creatorUserId, input.currentUserId);
+        await fencePairMembershipSlots(members, session);
+        await requireExistingPartnerPath(initial.creatorUserId, session);
+        await requireExistingPartnerPath(input.currentUserId, session);
+        if (await activePairForAnyMember(members, session)) return unavailable();
+        return PairInvite.findOneAndUpdate({
+          _id: initial._id, status: 'ACTIVE', expiresAt: { $gt: now },
+          $or: [{ acceptedByUserId: { $exists: false } }, { acceptedByUserId: input.currentUserId }],
+        }, { $set: { acceptedByUserId: input.currentUserId, recipientConfirmedAt: initial.recipientConfirmedAt ?? now } }, { new: true, session }).lean<StoredPairInvite | null>();
+      });
+      if (!claimed) return unavailable();
+      return { status: 'AWAITING_PARTNER_CONFIRMATION', inviteId: String(claimed._id), alreadyAccepted: Boolean(initial.recipientConfirmedAt) };
+    } finally { await session.endSession(); }
+  },
+
+  async confirm(input: {
+    currentUserId: string;
+    inviteId: string;
+    partnerPublicId: string;
+    auditRequest?: AuditRequestContext;
+    now?: Date;
+  }): Promise<Extract<PairInviteAcceptDTO, { status: 'ACCEPTED' }>> {
+    await connectToDatabase();
+    await requireCompletedOnboarding(input.currentUserId);
+    if (!Types.ObjectId.isValid(input.inviteId)) return ownerInviteNotFound();
+    const initial = await PairInvite.findOne({ _id: input.inviteId, creatorUserId: input.currentUserId }).lean<StoredPairInvite | null>();
+    if (!initial || !initial.acceptedByUserId || !initial.recipientConfirmedAt) return unavailable();
+    const recipientUserId = initial.acceptedByUserId;
+    const partner = await partnerIdentity(recipientUserId);
+    if (partner.publicId !== normalizePublicPairingId(input.partnerPublicId)) return unavailable();
+    const now = input.now ?? new Date();
 
     if (initial.status === 'ACTIVE' && initial.expiresAt <= now) {
       await PairInvite.updateOne(
@@ -534,17 +619,17 @@ export const pairInviteService = {
         acceptedByUserId: initial.acceptedByUserId,
       },
       { type: 'ACCEPT' },
-      { currentUserId: input.currentUserId, now }
+      { currentUserId: recipientUserId, now }
     );
     if (initialTransition.reason === 'INVITE_ACCEPT_NOOP') {
       return {
         status: 'ACCEPTED',
-        pairId: await existingAcceptedPairId(initial, input.currentUserId),
+        pairId: await existingAcceptedPairId(initial, recipientUserId),
         alreadyAccepted: true,
       };
     }
 
-    const members = pairMembers(initial.creatorUserId, input.currentUserId);
+    const members = pairMembers(initial.creatorUserId, recipientUserId);
     if (await activePairForAnyMember(members)) unavailable();
 
     const session = await mongoose.startSession();
@@ -556,6 +641,7 @@ export const pairInviteService = {
             .session(session)
             .lean<StoredPairInvite | null>();
           if (!invite) return { kind: 'unavailable' };
+          if (invite.creatorUserId !== input.currentUserId || invite.acceptedByUserId !== recipientUserId || !invite.recipientConfirmedAt) return { kind: 'unavailable' };
 
           if (invite.status === 'ACTIVE' && invite.expiresAt <= now) {
             await PairInvite.updateOne(
@@ -573,18 +659,22 @@ export const pairInviteService = {
               acceptedByUserId: invite.acceptedByUserId,
             },
             { type: 'ACCEPT' },
-            { currentUserId: input.currentUserId, now }
+            { currentUserId: recipientUserId, now }
           );
-          const liveMembers = pairMembers(invite.creatorUserId, input.currentUserId);
+          const liveMembers = pairMembers(invite.creatorUserId, recipientUserId);
           if (transition.reason === 'INVITE_ACCEPT_NOOP') {
             return {
               kind: 'accepted',
-              pairId: await existingAcceptedPairId(invite, input.currentUserId, session),
+              pairId: await existingAcceptedPairId(invite, recipientUserId, session),
               members: liveMembers,
               alreadyAccepted: true,
             };
           }
 
+          // Formation writes both User fences, so a concurrent cohort change
+          // after these reads forces a retry of this transaction.
+          await requireExistingPartnerPath(invite.creatorUserId, session);
+          await requireExistingPartnerPath(recipientUserId, session);
           const formation = await formPairInSession({
             source: 'PAIR_INVITE',
             sourceId: String(invite._id),
@@ -603,7 +693,8 @@ export const pairInviteService = {
             {
               $set: {
                 status: transition.next.status,
-                acceptedByUserId: input.currentUserId,
+                acceptedByUserId: recipientUserId,
+                creatorConfirmedAt: now,
                 acceptedAt: transition.next.acceptedAt ?? now,
                 pairId: targetPairId,
               },
@@ -644,7 +735,7 @@ export const pairInviteService = {
         event: 'PAIR_CREATED',
         actor: { userId: input.currentUserId },
         request: input.auditRequest ?? {
-          route: '/api/pair-invites/accept',
+          route: '/api/pair-invites/[id]/confirm',
           method: 'POST',
         },
         context: { pairId: result.pairId },

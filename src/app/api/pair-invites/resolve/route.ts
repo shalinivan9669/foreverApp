@@ -1,17 +1,11 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
+import { pairInviteLookupSchema } from '../schemas';
 import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
 import { jsonError, jsonOk } from '@/lib/api/response';
 import { enforceRateLimit, RATE_LIMIT_POLICIES } from '@/lib/abuse/rateLimit';
 import { pairInviteService } from '@/domain/services/pairInvite.service';
 import { asError, toDomainError } from '@/domain/errors';
-
-const bodySchema = z
-  .object({
-    token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-  })
-  .strict();
 
 export async function POST(req: NextRequest) {
   const auth = await requireSession(req);
@@ -25,14 +19,14 @@ export async function POST(req: NextRequest) {
   });
   if (!rate.ok) return rate.response;
 
-  const body = await parseJson(req, bodySchema);
+  const body = await parseJson(req, pairInviteLookupSchema);
   if (!body.ok) return body.response;
 
   try {
     const response = jsonOk(
       await pairInviteService.resolve({
         currentUserId: auth.data.userId,
-        token: body.data.token,
+        ...body.data,
       })
     );
     response.headers.set('Cache-Control', 'private, no-store');

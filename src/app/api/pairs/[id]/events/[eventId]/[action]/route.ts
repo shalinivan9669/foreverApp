@@ -4,6 +4,7 @@ import { requireSession } from '@/lib/auth/guards';
 import { parseJson, parseParams } from '@/lib/api/validate';
 import { pairEventService } from '@/domain/services/pairEvent.service';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
+import { domainRoute } from '@/lib/api/domainResponse';
 
 interface Ctx {
   params: Promise<{ id: string; eventId: string; action: string }>;
@@ -32,8 +33,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       : { ok: true as const, data: {} };
   if (!body.ok) return body.response;
 
-  const route = `/api/pairs/${params.data.id}/events/${params.data.eventId}/${params.data.action}`;
-  return withIdempotency({
+  return domainRoute(async () => {
+    const context = await pairEventService.assertMutationAccess({ pairId: params.data.id, eventId: params.data.eventId, currentUserId: auth.data.userId, action: params.data.action });
+    const route = `/api/pairs/${context.pairId}/events/${context.eventId}/${params.data.action}`;
+    return withIdempotency({
     req,
     route,
     userId: auth.data.userId,
@@ -60,5 +63,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         days: body.data.days,
       });
     },
+    });
   });
 }

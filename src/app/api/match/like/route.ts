@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { createMatchingLike } from "@/domain/services/matching/matchingApplication.service";
+import { authorizeCreateMatchingLikeMutation, createMatchingLike } from "@/domain/services/matching/matchingApplication.service";
 import { parseJson } from "@/lib/api/validate";
 import { matchingMutationResponse, prepareMatchingRequest } from "../_shared";
 import { createLikeBodySchema } from "../schemas";
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     route: ROUTE,
     currentUserId: request.currentUserId,
     requestBody: body.data,
+    authorize: () => authorizeCreateMatchingLikeMutation({ currentUserId: request.currentUserId, candidateId: body.data.candidateId }),
     execute: ({ idempotencyKey }) =>
       createMatchingLike({
         currentUserId: request.currentUserId,

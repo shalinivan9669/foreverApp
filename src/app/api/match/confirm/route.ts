@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { confirmMatchingConnection } from "@/domain/services/matching/matchingApplication.service";
+import { authorizeMatchingConnectionMutation, confirmMatchingConnection } from "@/domain/services/matching/matchingApplication.service";
 import { parseJson } from "@/lib/api/validate";
 import { matchingMutationResponse, prepareMatchingRequest } from "../_shared";
 import { confirmationBodySchema } from "../schemas";
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     route: ROUTE,
     currentUserId: request.currentUserId,
     requestBody: body.data,
+    authorize: () => authorizeMatchingConnectionMutation({ currentUserId: request.currentUserId, ...body.data }),
     execute: () =>
       confirmMatchingConnection({
         currentUserId: request.currentUserId,

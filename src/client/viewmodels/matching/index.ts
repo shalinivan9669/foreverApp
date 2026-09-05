@@ -56,7 +56,8 @@ export const matchingLikeStatusLabel = (status: MatchLikeStatus): string => {
     VIEWED: "Интерес просмотрен",
     RESPONDED: "Получен ответ",
     DECLINED: "Знакомство завершено",
-    EXPIRED: "Срок ответа истёк",
+    WITHDRAWN: "Отозвано",
+  EXPIRED: "Срок ответа истёк",
     BLOCKED: "Контакт заблокирован",
     MATCHED: "Взаимный интерес",
   };
@@ -65,7 +66,8 @@ export const matchingLikeStatusLabel = (status: MatchLikeStatus): string => {
 
 export const matchingLikeActionLabel = (action: MatchLikeAction): string => {
   const labels: Record<MatchLikeAction, string> = {
-    RESPOND: "Ответить",
+    WITHDRAW: "Отозвать интерес",
+  RESPOND: "Ответить",
     ACCEPT: "Принять ответ",
     DECLINE: "Вежливо отказаться",
     BLOCK: "Заблокировать",

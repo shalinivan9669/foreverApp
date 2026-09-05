@@ -7,6 +7,7 @@ export const SOCIAL_LIKE_STATUSES = [
   "MATCHED",
   "DECLINED",
   "EXPIRED",
+  "WITHDRAWN",
   "BLOCKED",
 ] as const;
 
@@ -27,6 +28,7 @@ export type SocialLikeAction =
   | { type: "ACCEPT" }
   | { type: "DECLINE" }
   | { type: "EXPIRE" }
+  | { type: "WITHDRAW" }
   | { type: "BLOCK" };
 
 export type SocialLikeTransition = {
@@ -37,7 +39,7 @@ export type SocialLikeTransition = {
 };
 
 export const TERMINAL_SOCIAL_LIKE_STATUSES: ReadonlySet<SocialLikeStatus> =
-  new Set<SocialLikeStatus>(["MATCHED", "DECLINED", "EXPIRED", "BLOCKED"]);
+  new Set<SocialLikeStatus>(["MATCHED", "DECLINED", "EXPIRED", "BLOCKED", "WITHDRAWN"]);
 
 export const isTerminalSocialLikeStatus = (
   status: SocialLikeMachineStatus,
@@ -123,11 +125,11 @@ export const socialLikeTransition = (
       if (actorRole !== "RECIPIENT") {
         accessDenied(action, actorRole, "RECIPIENT");
       }
-      if (snapshot.status === "RESPONDED") return noop(snapshot, "RESPONDED");
+      if (snapshot.status === "MATCHED") return noop(snapshot, "MATCHED");
       if (snapshot.status !== "SENT" && snapshot.status !== "VIEWED") {
         return conflict(snapshot, action, actorRole);
       }
-      return applied(snapshot, "RESPONDED");
+      return applied(snapshot, "MATCHED");
 
     case "ACCEPT":
       if (actorRole !== "SENDER") accessDenied(action, actorRole, "SENDER");
@@ -153,6 +155,12 @@ export const socialLikeTransition = (
       }
       return applied(snapshot, "DECLINED");
     }
+
+    case "WITHDRAW":
+      if (actorRole !== "SENDER") accessDenied(action, actorRole, "SENDER");
+      if (snapshot.status === "WITHDRAWN") return noop(snapshot, "WITHDRAWN");
+      if (snapshot.status !== "SENT" && snapshot.status !== "VIEWED") return conflict(snapshot, action, actorRole);
+      return applied(snapshot, "WITHDRAWN");
 
     case "EXPIRE":
       if (actorRole !== "SYSTEM") accessDenied(action, actorRole, "SYSTEM");

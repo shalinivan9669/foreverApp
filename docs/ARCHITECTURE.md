@@ -2,6 +2,16 @@
 
 Status: current runtime architecture after the NEW_ONLY cutover and Factor Matching integration. Updated 2026-08-13.
 
+## Product expansion, 2026-09-05
+
+The current scope is the [owner-approved expansion](PRODUCT_DECISIONS.md), with [implementation and verification evidence](PRODUCT_IMPLEMENTATION.md). The existing Factor Engine remains the only analytical evidence pipeline. Six development areas are content taxonomy, not a replacement numerical scoring engine; demo self-reflection completions do not silently feed Factor Matching.
+
+- Entry separates `SOLO` and `EXISTING_PARTNER` intent from actual Pair membership. `User.publicId` is a stable pairing code, never authentication. Invite claim and creator confirmation are separate transactions. See [entry contracts](ENTRY_AND_PAIRING_UPDATE.md).
+- Matching preserves candidate disclosure grants and session actors. Sender reactions → recipient reactions and acceptance → Connection; no redundant third acceptance. Independent conversation rounds reveal only after both explicit submissions. Pair formation still requires both participants and closes other active/paused connections. See [matching contracts](MATCHING_PRODUCT_UPDATE.md).
+- `DevelopmentRun` stores context and completion state; `DevelopmentCompletion` stores only its owner's immutable answers/notes. `PairWorkspace` stores bounded shared practical records and settings under optimistic revision control. Both use the Pair lifecycle fence for transactional writes. Browser-safe Zod/wire contracts live in `src/lib/contracts`, separately from server services. See [workspace contracts](PRODUCT_WORKSPACE_UPDATE.md).
+- Earned currency uses a personal wallet, append-only ledger, inventory and a separate Pair collection. Rewards and purchases are transactional; real household budget records never enter the wallet. See [economy contracts](ECONOMY_UPDATE.md).
+- Sensitive workspace mutation idempotency stores receipts only. Authorization runs before cache replay; clients then fetch a current guarded DTO. Content revisions are checked before interpreting stored answers. No new external platform login, messenger or clinical inference engine is included.
+
 ## Layering
 
 1. Pages and feature UI: `src/app/**/page.tsx`, `src/features/**`, `src/components/**`.

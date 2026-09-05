@@ -15,6 +15,8 @@ export interface PairInviteType {
   status: PairInviteStatus;
   expiresAt: Date;
   acceptedByUserId?: string;
+  recipientConfirmedAt?: Date;
+  creatorConfirmedAt?: Date;
   acceptedAt?: Date;
   pairId?: Types.ObjectId;
   createdAt: Date;
@@ -33,6 +35,8 @@ const pairInviteSchema = new Schema<PairInviteType>(
     },
     expiresAt: { type: Date, required: true },
     acceptedByUserId: { type: String, required: false },
+    recipientConfirmedAt: { type: Date },
+    creatorConfirmedAt: { type: Date },
     acceptedAt: { type: Date, required: false },
     pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: false },
   },

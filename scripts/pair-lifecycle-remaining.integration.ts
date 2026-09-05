@@ -20,6 +20,7 @@ import {
   pairInviteService,
 } from '@/domain/services/pairInvite.service';
 import { pairsService } from '@/domain/services/pairs.service';
+import { ensurePublicPairingId } from '@/domain/services/userPublicIdentity.service';
 import { setOwnerSafetyGate } from '@/domain/services/safetyGate.service';
 import { SYSTEM_ACTIVITY_TEMPLATES } from '@/domain/services/pairActivityDecision.service';
 import { recommendationDecisionService } from '@/domain/services/recommendationDecision.service';
@@ -91,6 +92,7 @@ const auditRequest = {
 const userFixture = (id: string, username: string) => ({
   id,
   username,
+  entryCohort: 'EXISTING_PARTNER' as const,
   avatar: 'integration-avatar',
   personal: {
     gender: 'female' as const,
@@ -233,9 +235,18 @@ const exerciseInviteCleanup = async (now: Date): Promise<string> => {
     now: new Date(now.getTime() + 1),
   });
 
-  const accepted = await pairInviteService.accept({
+  const claimed = await pairInviteService.accept({
     currentUserId: inviteMemberB,
     token: inviteFromA.token,
+    auditRequest,
+    now: new Date(now.getTime() + 2),
+  });
+  assert.equal(claimed.status, 'AWAITING_PARTNER_CONFIRMATION');
+  assert.equal(await Pair.countDocuments({ members: inviteMemberA, status: 'active' }), 0);
+  const accepted = await pairInviteService.confirm({
+    currentUserId: inviteMemberA,
+    inviteId: inviteFromA.invite.id,
+    partnerPublicId: await ensurePublicPairingId(inviteMemberB),
     auditRequest,
     now: new Date(now.getTime() + 2),
   });
@@ -315,11 +326,18 @@ const exerciseInviteCleanup = async (now: Date): Promise<string> => {
     staleCreate,
     'pair invite create'
   );
-  let reconnected: Awaited<ReturnType<typeof pairInviteService.accept>>;
+  let reconnected: Awaited<ReturnType<typeof pairInviteService.confirm>>;
   try {
-    reconnected = await pairInviteService.accept({
+    await pairInviteService.accept({
       currentUserId: inviteMemberB,
       token: reconnectInvite.token,
+      auditRequest,
+      now: new Date(now.getTime() + 5),
+    });
+    reconnected = await pairInviteService.confirm({
+      currentUserId: inviteMemberA,
+      inviteId: reconnectInvite.invite.id,
+      partnerPublicId: await ensurePublicPairingId(inviteMemberB),
       auditRequest,
       now: new Date(now.getTime() + 5),
     });

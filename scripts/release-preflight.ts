@@ -49,6 +49,14 @@ import { IndividualFactorSnapshot } from '@/models/IndividualFactorSnapshot';
 import { PairFactorEvaluationSnapshot } from '@/models/PairFactorEvaluationSnapshot';
 import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
 import { SessionSubject } from '@/models/SessionSubject';
+import { DevelopmentRun } from '@/models/DevelopmentRun';
+import { DevelopmentCompletion } from '@/models/DevelopmentCompletion';
+import { PairWorkspace } from '@/models/PairWorkspace';
+import { EconomyWallet } from '@/models/EconomyWallet';
+import { EconomyLedger } from '@/models/EconomyLedger';
+import { EconomyInventory } from '@/models/EconomyInventory';
+import { EconomyPairCollection } from '@/models/EconomyPairCollection';
+import { MatchingConversationRound } from '@/models/MatchingConversationRound';
 import { runFactorEngineMigration } from './lib/factor-engine-migration';
 import {
   type ReleaseCommandReasonCode,
@@ -552,6 +560,14 @@ try {
     PairFactorSnapshot,
     PairFactorEvaluationSnapshot,
     SessionSubject,
+    DevelopmentRun,
+    DevelopmentCompletion,
+    PairWorkspace,
+    EconomyWallet,
+    EconomyLedger,
+    EconomyInventory,
+    EconomyPairCollection,
+    MatchingConversationRound,
   ];
 
   const duplicateUniqueIndexNames: string[] = [];

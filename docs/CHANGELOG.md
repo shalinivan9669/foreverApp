@@ -1,5 +1,13 @@
 # Changelog (Docs & Project Notes)
 
+Date: 2026-09-05
+Summary:
+- Added an active pilot handoff that separates the September fixes present on `main`, limited manual pilot observations, the audited as-is first-entry flow, and the agreed but not-yet-implemented relationship/seeking split.
+- Recorded explicitly that the requested beta user-data reset was not executed and documented the guarded backup/restore/full-linked-graph procedure required before the same Discord identities can start cleanly.
+- Added operational troubleshooting for the exact Discord Activity OAuth boundary, first-login partial upsert, narrow weekly missing-index fallback, and safe closed-beta reset boundary.
+- Refreshed active API/security document review metadata; no runtime, public contract, schema, environment, deployment, or database state changed in this documentation-only update.
+Files: docs/CURRENT_PILOT_HANDOFF.md, docs/INDEX.md, docs/DOCS_STATUS.md, docs/TROUBLESHOOTING.md, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/CHANGELOG.md
+
 Date: 2026-09-01
 Summary:
 - Allowed the exact configured Discord Activity proxy origin at the centralized unsafe-request boundary while preserving fail-closed rejection for sibling, suffix and explicit cross-site origins.
@@ -706,3 +714,35 @@ Summary:
 - Replaced the generic load wrapper with a dedicated 10,000-projection Factor Matching smoke covering discovery explain, bounded batching, pagination, disclosure, latency budgets and cleanup.
 - Passed code verification, the full selfcheck chain, lint, production build, agent checks and dependency audit; Atlas/Discord release evidence remains `NOT RUN`, so `PUBLIC_READY=NO`.
 Files: src/domain/services/matching/**, src/domain/state/matching/**, src/domain/services/accountDeletion.service.ts, src/domain/services/privacyExport.service.ts, src/domain/services/pairFormation.service.ts, src/lib/audit/**, src/models/EventLog.ts, scripts/matching-*.ts, scripts/migrate-matching.ts, scripts/verify-matching-release.ts, scripts/agent-checks.ts, package.json, docs/ARCHITECTURE.md, docs/SECURITY.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md
+
+Date: 2026-09-05
+Summary:
+- Completed a documentation-only first audit against the separately extracted vmeste-codex-context-v0.1 target package at revision 70ad6017109ba2d223fc1fd9bb1e5b735613806d; preserved the pre-existing pilot handoff and documentation changes.
+- Verified source hashes and the 76 requirements / 45 proposed acceptance scenarios / 25 decisions / 173 source-section index; mapped target concepts to actual code, consumers, evidence and release limits.
+- Recorded the existing NEW_ONLY Factor/Matching and Pair flows, remaining first-entry/connection/event/economy gaps, stale documentation and the statically identified failed-deletion recovery path; recommended one bounded recovery task without implementing it.
+- Passed lint, nonincremental TypeScript and 11 reviewed database-free selfchecks; no application, dependency, lockfile, configuration, database, migration, production or deployment changes. Live Discord/DB/E2E/release checks remain unrun for this audit.
+Files: docs/audits/2026-09-05-baseline.md, docs/audits/2026-09-05-analytics-matching.md, docs/audits/2026-09-05-auth-privacy.md, docs/audits/2026-09-05-pair-content-economy.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-09-05
+Summary:
+- Recorded the owner's explicit priority correction: account-deletion work is deferred; preserve G07 as an audit finding rather than the next implementation task.
+- Saved the already-sent 27-question product packet with stable numbering, proposed options and an empty answer template. All answers remain pending; no proposed product, API, schema, privacy or economic policy was accepted automatically.
+- Linked the pending decision packet from the index and updated all four audit recommendation sections. No application, dependency, configuration or data changes; selected modules will remain in the full agreed scope after the owner responds.
+Files: docs/PRODUCT_DECISIONS_PENDING.md, docs/audits/2026-09-05-baseline.md, docs/audits/2026-09-05-analytics-matching.md, docs/audits/2026-09-05-auth-privacy.md, docs/audits/2026-09-05-pair-content-economy.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-09-05
+Summary:
+- Implemented the owner's accepted 27-answer product scope after the audit: solo/existing-partner entry, stable internal pairing code with reciprocal confirmation, first-onboarding coin, structured matching reactions and independent conversation rounds with a three-connection limit.
+- Added six development areas and a demo library (8 reflections, 19 solo practices, 18 joint practices, 30 conversation topics, 30 leisure ideas, 3 programs), private immutable completion records, weekly runs and partial/final joint completion. Demo self-reflection does not alter Factor evidence or claim clinically validated progress.
+- Added versioned shared-life records for calendar/tasks/shopping/goals/manual budget/memories; aligned PairEvents to the actual relationship date and holiday settings. Added personal earned wallets, immutable reward/purchase ledger, inventory, transparent earned capsules and separate Pair collections; real household money remains separate.
+- Updated strict HTTP/DTO contracts, exports, cleanup inventory and additive-index preflight. Independent reviews corrected cache-replay access, canonical Pair identity, private data retained in mutation caches, stale UI and concurrent event settings. No new production dependencies, lockfile or environment contract changes; no allowlist additions, Atlas reset or deployment.
+- Verified lint, nonincremental TypeScript, production build, database-free selfchecks and eight bounded local MongoDB replica-set integration suites, including races, rollback, exactly-once rewards, reciprocal pairing and private disclosure. Target Discord iframe/Atlas checks remain separate; final evidence, implementation boundaries and owner smoke steps are in docs/PRODUCT_IMPLEMENTATION.md.
+Files: README.md, docs/PRODUCT_DECISIONS.md, docs/PRODUCT_DECISIONS_PENDING.md, docs/PRODUCT_IMPLEMENTATION.md, docs/ENTRY_AND_PAIRING_UPDATE.md, docs/MATCHING_PRODUCT_UPDATE.md, docs/PRODUCT_WORKSPACE_UPDATE.md, docs/ECONOMY_UPDATE.md, docs/PAIR_EVENT_SETTINGS_UPDATE.md, docs/INDEX.md, docs/PRODUCT_SPEC.md, docs/MVP_SPEC.md, docs/ARCHITECTURE.md, docs/API_CONTRACTS.md, docs/SECURITY.md, docs/TESTING.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md, package.json, next.config.ts, scripts/entry-*, scripts/matching-*, scripts/economy.*, scripts/product-workspace.*, scripts/pair-event-settings.integration.ts, scripts/selfcheck-pair-events.ts, scripts/pair-invite.selfcheck.ts, scripts/pair-lifecycle-remaining.integration.ts, scripts/two-user-mvp.integration.ts, scripts/release-preflight.ts, src/app/** (entry, onboarding, matching, development, shared-life, store and related API routes), src/client/**, src/components/matching/**, src/features/**, src/domain/model/**, src/domain/services/**, src/domain/state/matching/**, src/lib/api/domainResponse.ts, src/lib/contracts/**, src/lib/dto/**, src/models/**
+
+Date: 2026-09-05
+Summary:
+- Completed visual/browser smoke of entry, development, store and shared life on synthetic local accounts. Verified entry-to-onboarding navigation, practice completion, wallet 1→4→1 through reward/purchase, and shared-task load 0→20→0 minutes.
+- Fixed the cancelled-request race found in that smoke: preserve AbortError in HTTP, ignore stale hook errors/loading, and retry both Pair context and shared workspace. The regression fails on the original code and passes on the fix.
+- Final production build, full lint, nonincremental types, all 46 selfchecks and changed-file agent checks passed. Temporary UI server and MongoDB listener are stopped; UI fixture database and temporary authentication wrapper removed. No real Discord/Atlas/deployment claim.
+- Marked the pre-implementation pilot handoff and release snapshot as historical, corrected goal-stage responsibility documentation, and linked the current owner handoff and verification matrix. Existing user-authored documentation was preserved.
+Files: src/client/api/http.ts, src/client/hooks/useApi.ts, src/features/sharedLife/SharedLifePage.tsx, src/app/globals.css, scripts/client-request-race.selfcheck.ts, package.json, docs/TESTING.md, docs/PRODUCT_IMPLEMENTATION.md, docs/PRODUCT_WORKSPACE_UPDATE.md, docs/PRODUCT_DECISIONS.md, docs/CURRENT_PILOT_HANDOFF.md, docs/MVP_RELEASE_STATUS.md, docs/DOCS_STATUS.md, docs/INDEX.md, docs/CHANGELOG.md

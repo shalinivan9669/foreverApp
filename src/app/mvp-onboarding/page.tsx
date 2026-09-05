@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { entryApi } from '@/client/api/entry.api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
 import {
@@ -57,7 +59,7 @@ function ConsentScreen({
       <div className="app-muted text-xs">Перед началом</div>
       <h1 className="mt-1 text-2xl font-semibold">Короткое знакомство с форматом</h1>
       <p className="app-muted mt-2 max-w-2xl text-sm">
-        Здесь 10 закрытых вопросов без свободного текста. Чувствительные вопросы можно
+        Здесь {payload.definition.questions.length} закрытых вопросов без свободного текста. Чувствительные вопросы можно
         пропустить. Для каждого ответа вы отдельно выбираете, как его разрешено использовать.
       </p>
 
@@ -370,6 +372,7 @@ function QuestionScreen({
 }
 
 export default function MvpOnboardingPage() {
+  const router = useRouter();
   const [payload, setPayload] = useState<MvpOnboardingResponseDTO | null>(null);
   const [consent, setConsent] = useState<ConsentState>(EMPTY_CONSENT);
   const [loading, setLoading] = useState(true);
@@ -381,43 +384,40 @@ export default function MvpOnboardingPage() {
     setLoading(true);
     setError(null);
     try {
+      const entry = await entryApi.get();
+      if (!entry.user.entryCompletedAt || !entry.user.entryCohort) {
+        router.replace(`/entry${window.location.hash}`);
+        return;
+      }
+      if (new URLSearchParams(window.location.hash.slice(1)).get('return') !== 'join' && !entry.hasPair) {
+        setReturnHref(entry.user.entryCohort === 'EXISTING_PARTNER' ? '/invite' : '/profile');
+      }
       setPayload(await mvpOnboardingApi.getOwnerState());
     } catch {
       setError('Не удалось загрузить настройку. Проверьте вход и попробуйте ещё раз.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let active = true;
     const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const token = fragment.get('token')?.trim() ?? '';
-    if (fragment.get('return') === 'join' && /^[A-Za-z0-9_-]{43}$/.test(token)) {
-      const nextReturnHref = `/join#${new URLSearchParams({ token }).toString()}`;
+    const partnerCode = fragment.get('partnerCode')?.trim() ?? '';
+    if (fragment.get('return') === 'join' && (/^[A-Za-z0-9_-]{43}$/.test(token) || /^VM-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/.test(partnerCode))) {
+      const nextReturnHref = `/join#${new URLSearchParams(token ? { token } : { partnerCode }).toString()}`;
       void Promise.resolve().then(() => {
         if (active) setReturnHref(nextReturnHref);
       });
     }
 
-    void mvpOnboardingApi
-      .getOwnerState()
-      .then((nextPayload) => {
-        if (active) setPayload(nextPayload);
-      })
-      .catch(() => {
-        if (active) {
-          setError('Не удалось загрузить настройку. Проверьте вход и попробуйте ещё раз.');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    void Promise.resolve().then(() => { if (active) return load(); });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [load]);
 
   const start = async () => {
     if (!payload) return;
@@ -509,8 +509,8 @@ export default function MvpOnboardingPage() {
             <div className="app-muted text-xs">Все вопросы сохранены</div>
             <h1 className="mt-1 text-2xl font-semibold">Можно завершить настройку</h1>
             <p className="app-muted mt-2 text-sm">
-              Ответы сохранены с отдельными правилами использования. Позже их можно будет
-              пересмотреть в личных настройках приватности.
+              Ответы сохранены с отдельными правилами использования. После завершения
+              этой настройки изменить эти ответы здесь нельзя; они не станут общими автоматически.
             </p>
             <button
               type="button"
@@ -537,7 +537,7 @@ export default function MvpOnboardingPage() {
             href={returnHref}
             className="app-btn-primary mt-5 inline-flex w-full justify-center px-4 py-3 text-sm sm:w-auto"
           >
-            {returnHref.startsWith('/join') ? 'Вернуться к приглашению' : 'Открыть текущий цикл'}
+            {returnHref.startsWith('/join') ? 'Вернуться к приглашению' : returnHref === '/invite' ? 'Связать аккаунт партнёра' : 'Открыть «Вместе»'}
           </Link>
         </section>
       )}

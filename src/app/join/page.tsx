@@ -3,328 +3,126 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isApiClientError } from '@/client/api/errors';
-import { mvpOnboardingApi } from '@/client/api/mvpOnboarding.api';
-import { pairInvitesApi } from '@/client/api/pairInvites.api';
-import {
-  bootstrapDiscordSession,
-  discordBootstrapMessage,
-} from '@/client/discord/bootstrap';
+import { entryApi } from '@/client/api/entry.api';
+import { pairInvitesApi, type PairInviteAvailabilityDTO, type PairInviteLookup } from '@/client/api/pairInvites.api';
+import { bootstrapDiscordSession, discordBootstrapMessage } from '@/client/discord/bootstrap';
 import BackBar from '@/components/ui/BackBar';
 import LoadingView from '@/components/ui/LoadingView';
 
-type JoinPhase =
-  | 'checking'
-  | 'auth_required'
-  | 'onboarding_required'
-  | 'available'
-  | 'accepted'
-  | 'unavailable'
-  | 'check_failed';
+type JoinPhase = 'checking' | 'auth_required' | 'entry_required' | 'onboarding_required' |
+  'available' | 'waiting_confirmation' | 'accepted' | 'unavailable' | 'check_failed';
 
-const readTokenFromFragment = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  const fragment = window.location.hash.startsWith('#')
-    ? window.location.hash.slice(1)
-    : window.location.hash;
-  const token = new URLSearchParams(fragment).get('token')?.trim();
-  return token || null;
+const readLookupFromFragment = (): PairInviteLookup | null => {
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const token = fragment.get('token')?.trim();
+  if (token && /^[A-Za-z0-9_-]{43}$/.test(token)) return { token };
+  const partnerCode = fragment.get('partnerCode')?.trim().toUpperCase();
+  return partnerCode && /^VM-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/.test(partnerCode) ? { partnerCode } : null;
 };
 
-const isAuthRequired = (error: Error): boolean =>
-  isApiClientError(error) &&
-  (error.status === 401 || error.code === 'AUTH_REQUIRED' || error.code === 'AUTH_INVALID_SESSION');
-
-const shouldHideAsUnavailable = (error: Error): boolean =>
-  isApiClientError(error) &&
-  error.status >= 400 &&
-  error.status < 500 &&
-  error.status !== 401 &&
-  error.status !== 429;
-
-const isOnboardingRequired = (error: Error): boolean =>
-  isApiClientError(error) && error.code === 'ONBOARDING_REQUIRED';
-
-const resolveJoinPhase = async (
-  token: string,
-  signal?: AbortSignal
-): Promise<JoinPhase> => {
-  const invite = await pairInvitesApi.resolve(token, signal);
-  if (invite.availability === 'accepted') return 'accepted';
-  if (invite.availability !== 'available') return 'unavailable';
-  const onboarding = await mvpOnboardingApi.getOwnerState(signal);
-  return onboarding.session?.status === 'completed'
-    ? 'available'
-    : 'onboarding_required';
+const inspectInvite = async (lookup: PairInviteLookup, signal?: AbortSignal): Promise<{ phase: JoinPhase; invite: PairInviteAvailabilityDTO }> => {
+  const invite = await pairInvitesApi.resolve(lookup, signal);
+  if (invite.availability !== 'available') return { phase: invite.availability, invite };
+  const entry = await entryApi.get(signal);
+  if (!entry.user.entryCompletedAt || entry.user.entryCohort !== 'EXISTING_PARTNER') return { phase: 'entry_required', invite };
+  return { phase: entry.onboardingCompleted ? 'available' : 'onboarding_required', invite };
 };
 
-const authenticateWithDiscord = async (): Promise<void> => {
-  await bootstrapDiscordSession();
+const failurePhase = (error: Error): JoinPhase => {
+  if (isApiClientError(error)) {
+    if (error.status === 401) return 'auth_required';
+    if (error.code === 'ONBOARDING_REQUIRED') return 'onboarding_required';
+    if (error.code === 'PAIR_ENTRY_REQUIRED') return 'entry_required';
+    if (error.status >= 400 && error.status < 500 && error.status !== 429) return 'unavailable';
+  }
+  return 'check_failed';
 };
 
 export default function JoinPairPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<PairInviteLookup | null>(null);
   const [phase, setPhase] = useState<JoinPhase>('checking');
-  const [accepting, setAccepting] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const phaseHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const [invite, setInvite] = useState<PairInviteAvailabilityDTO | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
 
+  useEffect(() => { if (phase !== 'checking') headingRef.current?.focus(); }, [phase]);
   useEffect(() => {
-    if (phase !== 'checking') phaseHeadingRef.current?.focus();
-  }, [phase]);
-
-  useEffect(() => {
-    const fragmentToken = readTokenFromFragment();
     let active = true;
     const controller = new AbortController();
-    const phaseRequest = fragmentToken
-      ? resolveJoinPhase(fragmentToken, controller.signal)
-      : Promise.resolve<JoinPhase>('unavailable');
-
-    void phaseRequest
-      .then((nextPhase) => {
-        if (!active) return;
-        setToken(fragmentToken);
-        setPhase(nextPhase);
-      })
-      .catch((caughtError: Error) => {
-        if (!active) return;
-        setPhase(
-          isAuthRequired(caughtError)
-            ? 'auth_required'
-            : shouldHideAsUnavailable(caughtError)
-              ? 'unavailable'
-              : 'check_failed'
-        );
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
+    const fragmentLookup = readLookupFromFragment();
+    void Promise.resolve().then(async () => {
+      if (!active) return;
+      // Preserve the lookup even when the first request requires authentication.
+      setLookup(fragmentLookup);
+      if (!fragmentLookup) { setPhase('unavailable'); return; }
+      try {
+        const result = await inspectInvite(fragmentLookup, controller.signal);
+        if (active) { setInvite(result.invite); setPhase(result.phase); }
+      } catch (caughtError) {
+        if (active) setPhase(failurePhase(caughtError instanceof Error ? caughtError : new Error('Request failed')));
+      }
+    });
+    return () => { active = false; controller.abort(); };
   }, []);
 
-  const retryResolve = async () => {
-    if (!token) {
-      setPhase('unavailable');
-      return;
-    }
-
-    setPhase('checking');
-    setActionError(null);
+  const refresh = async (authenticate = false) => {
+    if (!lookup || busy) return;
+    setBusy(true); setError(null); setConfirmed(false);
     try {
-      setPhase(await resolveJoinPhase(token));
+      if (authenticate) await bootstrapDiscordSession();
+      const result = await inspectInvite(lookup);
+      setInvite(result.invite); setPhase(result.phase);
     } catch (caughtError) {
-      const error = caughtError instanceof Error ? caughtError : new Error('Request failed');
-      setPhase(
-        isAuthRequired(error)
-          ? 'auth_required'
-          : shouldHideAsUnavailable(error)
-            ? 'unavailable'
-            : 'check_failed'
-      );
-    }
-  };
-
-  const authenticateAndResolve = async () => {
-    if (!token || accepting) return;
-    setAccepting(true);
-    setActionError(null);
-    try {
-      await authenticateWithDiscord();
-      setPhase(await resolveJoinPhase(token));
-    } catch (caughtError) {
-      const error = caughtError instanceof Error ? caughtError : new Error('Request failed');
-      if (shouldHideAsUnavailable(error)) {
-        setPhase('unavailable');
-      } else {
-        setActionError(discordBootstrapMessage(caughtError));
-      }
-    } finally {
-      setAccepting(false);
-    }
+      const nextPhase = failurePhase(caughtError instanceof Error ? caughtError : new Error('Request failed'));
+      setPhase(nextPhase);
+      setError(authenticate ? discordBootstrapMessage(caughtError) : 'Не удалось проверить приглашение. Попробуйте ещё раз.');
+    } finally { setBusy(false); }
   };
 
   const acceptInvite = async () => {
-    if (!token || accepting) return;
-    setAccepting(true);
-    setActionError(null);
-    let attemptedDiscordAuth = false;
-
+    if (!lookup || !confirmed || busy) return;
+    setBusy(true); setError(null);
     try {
-      let accepted;
-      try {
-        accepted = await pairInvitesApi.accept(token);
-      } catch (caughtError) {
-        const error = caughtError instanceof Error ? caughtError : new Error('Request failed');
-        if (!isAuthRequired(error)) throw error;
-        attemptedDiscordAuth = true;
-        await authenticateWithDiscord();
-        accepted = await pairInvitesApi.accept(token);
-      }
-
-      router.replace(`/pair/${encodeURIComponent(accepted.pairId)}`);
+      const result = await pairInvitesApi.accept(lookup);
+      if (result.status === 'ACCEPTED' && result.pairId) router.replace(`/pair/${encodeURIComponent(result.pairId)}`);
+      else setPhase('waiting_confirmation');
     } catch (caughtError) {
-      const error = caughtError instanceof Error ? caughtError : new Error('Request failed');
-      if (isOnboardingRequired(error)) {
-        setPhase('onboarding_required');
-      } else if (shouldHideAsUnavailable(error)) {
-        setPhase('unavailable');
-      } else if (attemptedDiscordAuth || isAuthRequired(error)) {
-        setActionError(discordBootstrapMessage(caughtError));
-      } else {
-        setActionError('Не удалось присоединиться. Проверьте соединение и попробуйте ещё раз.');
-      }
-    } finally {
-      setAccepting(false);
-    }
+      setPhase(failurePhase(caughtError instanceof Error ? caughtError : new Error('Request failed')));
+      setError('Не удалось сохранить подтверждение. Проверьте приглашение и попробуйте ещё раз.');
+    } finally { setBusy(false); }
   };
 
-  if (phase === 'checking') {
-    return <LoadingView label="Проверяем приглашение..." />;
-  }
+  const continueSetup = () => {
+    if (!lookup) return;
+    const fragment = new URLSearchParams({ return: 'join', ...('token' in lookup ? { token: lookup.token } : { partnerCode: lookup.partnerCode }) });
+    router.push(`${phase === 'entry_required' ? '/entry' : '/mvp-onboarding'}#${fragment}`);
+  };
 
-  return (
-    <main className="app-shell-compact app-page-stack py-3 sm:py-5">
-      <BackBar title="Присоединение к паре" fallbackHref="/" />
+  if (phase === 'checking') return <LoadingView label="Проверяем приглашение..." />;
 
-      {phase === 'auth_required' && (
-        <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Войдите через Discord</h1>
-          <p className="app-muted mt-2 text-sm leading-relaxed">
-            Авторизация нужна, чтобы безопасно проверить приглашение. До входа мы не показываем
-            сведения о владельце или состоянии его пары.
-          </p>
-          {actionError && (
-            <div className="app-alert app-alert-error mt-4" role="alert">
-              {actionError}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => void authenticateAndResolve()}
-            disabled={accepting}
-            className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {accepting ? 'Подключаем...' : 'Войти через Discord'}
-          </button>
-        </section>
-      )}
+  const headings: Record<Exclude<JoinPhase, 'checking'>, string> = {
+    auth_required: 'Войдите через Discord', entry_required: 'Сначала — немного о вас',
+    onboarding_required: 'Завершите личную настройку', available: 'Это ваш партнёр?',
+    waiting_confirmation: 'Теперь подтверждает ваш партнёр', accepted: 'Ваша пара создана',
+    unavailable: 'Приглашение недоступно', check_failed: 'Не удалось проверить приглашение',
+  };
 
-      {phase === 'available' && (
-        <section className="app-panel app-reveal p-4 text-slate-900 sm:p-5">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-700">
-            <svg className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 20.35l-1.45-1.32C5.4 14.36 2 11.27 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09A5.98 5.98 0 0 1 16.5 2C19.58 2 22 4.42 22 7.5c0 3.77-3.4 6.86-8.55 11.54L12 20.35z" />
-            </svg>
-          </div>
-          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display mt-4 text-center text-2xl font-semibold outline-none">
-            Вас пригласили во «Вместе»
-          </h1>
-          <p className="app-muted mt-2 text-center text-sm leading-relaxed">
-            После входа вы сможете добровольно присоединиться к общей области пары и продолжить
-            личную настройку. Личные ответы не становятся общими автоматически.
-          </p>
-
-          <div className="app-panel-soft mt-4 p-3 text-sm leading-relaxed">
-            <p className="font-medium text-slate-900">Перед продолжением</p>
-            <ul className="app-muted mt-2 list-disc space-y-1 pl-5">
-              <li>используйте только собственный Discord-аккаунт;</li>
-              <li>присоединяйтесь только по своему добровольному решению;</li>
-              <li>не пересылайте эту ссылку другим людям.</li>
-            </ul>
-          </div>
-
-          {actionError && (
-            <div className="app-alert app-alert-error mt-4" role="alert">
-              {actionError}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => void acceptInvite()}
-            disabled={accepting}
-            className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {accepting ? 'Присоединяем...' : 'Присоединиться к паре'}
-          </button>
-          <p className="app-muted mt-3 text-center text-xs">
-            Владелец приглашения увидит только факт присоединения.
-          </p>
-        </section>
-      )}
-
-      {phase === 'onboarding_required' && token && (
-        <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Сначала личная настройка</h1>
-          <p className="app-muted mt-2 text-sm leading-relaxed">
-            Подтвердите добровольное участие и выберите правила использования личных ответов.
-            Ссылка останется только во фрагменте браузера и не попадёт в серверный URL.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              const fragment = new URLSearchParams({ return: 'join', token }).toString();
-              router.push(`/mvp-onboarding#${fragment}`);
-            }}
-            className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white"
-          >
-            Пройти личную настройку
-          </button>
-        </section>
-      )}
-
-      {phase === 'accepted' && (
-        <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Вы уже присоединились</h1>
-          <p className="app-muted mt-2 text-sm leading-relaxed">
-            Повторный вход безопасно восстановлен. Продолжите в общей области пары.
-          </p>
-          {actionError && (
-            <div className="app-alert app-alert-error mt-4" role="alert">
-              {actionError}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => void acceptInvite()}
-            disabled={accepting}
-            className="app-btn-primary mt-4 w-full px-4 py-2.5 text-white disabled:opacity-60"
-          >
-            {accepting ? 'Восстанавливаем…' : 'Открыть пару'}
-          </button>
-        </section>
-      )}
-
-      {phase === 'unavailable' && (
-        <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-xl">
-            i
-          </div>
-          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display mt-4 text-2xl font-semibold outline-none">Ссылка недоступна</h1>
-          <p className="app-muted mt-2 text-sm leading-relaxed">
-            Она могла истечь, быть отменена или уже использована. Попросите партнёра создать новую
-            ссылку.
-          </p>
-        </section>
-      )}
-
-      {phase === 'check_failed' && (
-        <section className="app-panel app-reveal p-4 text-center text-slate-900 sm:p-5">
-          <h1 ref={phaseHeadingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">Не удалось проверить ссылку</h1>
-          <p className="app-muted mt-2 text-sm">
-            Проверьте соединение и повторите попытку. Содержимое приглашения не было раскрыто.
-          </p>
-          <button
-            type="button"
-            onClick={() => void retryResolve()}
-            className="app-btn-secondary mt-4 px-4 py-2"
-          >
-            Повторить
-          </button>
-        </section>
-      )}
-    </main>
-  );
+  return <main className="app-shell-compact app-page-stack py-3 sm:py-5">
+    <BackBar title="Присоединение к паре" fallbackHref="/" />
+    <section className="app-panel app-reveal space-y-4 p-4 text-slate-900 sm:p-5">
+      <h1 ref={headingRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">{headings[phase]}</h1>
+      {phase === 'auth_required' && <><p className="app-muted text-sm">Вход нужен, чтобы безопасно проверить приглашение. Используйте собственный аккаунт.</p><button type="button" onClick={() => void refresh(true)} disabled={busy} className="app-btn-primary w-full px-4 py-2.5 disabled:opacity-60">{busy ? 'Подключаем...' : 'Войти через Discord'}</button></>}
+      {(phase === 'entry_required' || phase === 'onboarding_required') && <><p className="app-muted text-sm">Выберите путь «У меня есть партнёр» и завершите короткую личную настройку. После этого вы вернётесь к приглашению. Ваши личные ответы не открываются другому автоматически.</p><button type="button" onClick={continueSetup} className="app-btn-primary w-full px-4 py-2.5">Продолжить настройку</button></>}
+      {(phase === 'available' || phase === 'waiting_confirmation') && invite?.partner && <div className="app-panel-soft space-y-2 p-4"><p className="font-semibold">{invite.partner.username}</p><p className="break-all font-mono text-sm">{invite.partner.publicId}</p><p className="app-muted text-xs">Сверьте имя и код «Вместе» с человеком, с которым хотите связать аккаунты.</p></div>}
+      {phase === 'available' && <><label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />Это мой партнёр. Я добровольно подтверждаю, что хочу создать с ним пару.</label><p className="app-muted text-sm">Партнёр увидит ваше имя и код и тоже подтвердит вас. Только после этого появится общая область пары.</p><button type="button" disabled={!confirmed || busy || !invite?.partner} onClick={() => void acceptInvite()} className="app-btn-primary w-full px-4 py-2.5 disabled:opacity-60">{busy ? 'Сохраняем...' : 'Да, это мой партнёр'}</button></>}
+      {phase === 'waiting_confirmation' && <><p className="app-muted text-sm">Ваше подтверждение сохранено. Попросите партнёра открыть своё приглашение, сверить ваше имя и код и подтвердить вас.</p><button type="button" onClick={() => void refresh()} disabled={busy} className="app-btn-primary w-full px-4 py-2.5 disabled:opacity-60">Проверить подтверждение</button></>}
+      {phase === 'accepted' && <button type="button" onClick={() => router.replace(invite?.pairId ? `/pair/${encodeURIComponent(invite.pairId)}` : '/main-menu')} className="app-btn-primary w-full px-4 py-2.5">Открыть нашу пару</button>}
+      {phase === 'unavailable' && <><p className="app-muted text-sm">Приглашение могло истечь, быть отменено или уже использоваться. Попросите партнёра проверить его и прислать действующий код или ссылку.</p><button type="button" onClick={() => router.push('/invite')} className="app-btn-secondary w-full px-4 py-2.5">К приглашениям</button></>}
+      {phase === 'check_failed' && <button type="button" onClick={() => void refresh()} disabled={busy} className="app-btn-primary w-full px-4 py-2.5 disabled:opacity-60">Попробовать ещё раз</button>}
+      {error && <div role="alert" className="app-alert app-alert-error">{error}</div>}
+    </section>
+  </main>;
 }

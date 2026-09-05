@@ -16,6 +16,7 @@ import {
   type PairQuestionnaireSessionType,
 } from '@/models/PairQuestionnaireSession';
 import { PairQuestionnaireAnswer } from '@/models/PairQuestionnaireAnswer';
+import { economyService } from '@/domain/services/economy.service';
 import { Pair } from '@/models/Pair';
 import { User, type UserType } from '@/models/User';
 import { PersonalQuestionnaireSubmission } from '@/models/PersonalQuestionnaireSubmission';
@@ -334,6 +335,10 @@ export const questionnairesService = {
       });
     }
     const questionMap = buildQuestionMapFromQuestionnaire(questionnaire);
+    await economyService.assertContentAccess({
+      userId: input.currentUserId,
+      contentKey: input.questionnaireId,
+    });
     const canonicalAnswers = validateQuestionnaireAnswers(input.answers, questionMap, {
       requireComplete: true,
     });
@@ -376,6 +381,14 @@ export const questionnairesService = {
       });
       if (!existing) throw error;
     }
+
+    // One reward per questionnaire, independent of answer content and repeated
+    // submissions. Retrying a stored completion also repairs a missed reward.
+    await economyService.rewardCompletion({
+      userId: input.currentUserId,
+      sourceKind: 'QUESTIONNAIRE',
+      sourceId: `questionnaire:${input.questionnaireId}`,
+    });
 
     await emitEvent({
       event: 'ANSWERS_BULK_SUBMITTED',
@@ -769,6 +782,16 @@ export const questionnairesService = {
         status: 500,
         message: 'Questionnaire transaction did not return a result',
       });
+    }
+
+    if (committed.shouldComplete) {
+      for (const userId of pairData.pair.members) {
+        await economyService.rewardCompletion({
+          userId,
+          sourceKind: 'QUESTIONNAIRE',
+          sourceId: `pair-questionnaire:${input.questionnaireId}`,
+        });
+      }
     }
 
     await emitEvent({

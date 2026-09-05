@@ -1,5 +1,11 @@
 # MVP release status
 
+## Current local evidence, 2026-09-05
+
+The owner-approved expansion is implemented in the working tree; see [PRODUCT_IMPLEMENTATION.md](PRODUCT_IMPLEMENTATION.md) for the exact feature and test matrix. Current lint, nonincremental types, production build, 46 selfcheck suites and changed-file agent checks pass. Eight bounded integration suites now pass against a temporary local MongoDB replica set, including entry, matching social flow/Pair transition, economy, shared life and event settings. The earlier statement below that no local transaction database is available is historical.
+
+This evidence does not set `ATLAS_VALIDATED` or `DISCORD_VALIDATED` to passed. The complete older release integration matrix has not been rerun, a production target has not been checked, and no immutable deployment artifact has been assigned. `PUBLIC_READY=NO` remains until the relevant target and two-account checks are complete. The following tables retain the August release snapshot; use the linked current matrix for the expanded working tree.
+
 Status: Factor Matching implementation and all locally available same-tree code gates pass, but `CODE_COMPLETE=NO` because the mandatory transaction/race/security integrations require an unavailable guarded replica-set/Atlas test database. Earlier public-free NEW_ONLY baseline evidence remains recorded below; it does not certify the current Factor Matching tree. Updated 2026-08-13. Production/real-Discord deployment is not claimed, and no immutable release artifact is assigned from the dirty working tree.
 
 ## Factor Matching release gates

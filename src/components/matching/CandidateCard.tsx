@@ -24,7 +24,7 @@ export default function CandidateCard({
           <h2 className="truncate text-xl font-semibold">
             {candidate.candidate.username}
           </h2>
-          <p className="app-muted text-sm">Карточка знакомства</p>
+          <p className="app-muted text-sm">{[candidate.candidate.age ? `${candidate.candidate.age} лет` : "", candidate.candidate.city].filter(Boolean).join(" · ") || "Карточка знакомства"}</p>
         </div>
       </div>
 

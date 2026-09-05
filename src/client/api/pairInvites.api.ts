@@ -9,14 +9,23 @@ export type PairInviteOwnerDTO = {
   status: PairInviteStatus;
   expiresAt: string;
   token?: string;
+  awaitingOwnerConfirmation?: boolean;
+  partner?: PairingIdentityDTO;
+  pairId?: string;
 };
 
+export type PairingIdentityDTO = { publicId: string; username: string };
+export type PairInviteLookup = { token: string } | { partnerCode: string };
+
 export type PairInviteAvailabilityDTO = {
-  availability: 'available' | 'accepted' | 'unavailable';
+  availability: 'available' | 'waiting_confirmation' | 'accepted' | 'unavailable';
+  partner?: PairingIdentityDTO;
+  pairId?: string;
 };
 
 export type PairInviteAcceptDTO = {
-  pairId: string;
+  status: 'ACCEPTED' | 'AWAITING_PARTNER_CONFIRMATION';
+  pairId?: string;
 };
 
 const isObject = (value: ApiJsonValue | null): value is ApiJsonObject =>
@@ -28,6 +37,12 @@ const invalidPayload = (message: string): never => {
     code: 'INVALID_ENVELOPE',
     message,
   });
+};
+
+const normalizeIdentity = (value: ApiJsonValue | undefined): PairingIdentityDTO | undefined => {
+  if (value === undefined) return undefined;
+  if (!isObject(value) || typeof value.publicId !== 'string' || typeof value.username !== 'string') return invalidPayload('Invalid partner identity');
+  return { publicId: value.publicId, username: value.username };
 };
 
 const normalizeStatus = (value: ApiJsonValue | undefined): PairInviteStatus => {
@@ -64,6 +79,9 @@ const normalizeInvite = (value: ApiJsonValue | null): PairInviteOwnerDTO | null 
     id,
     status: normalizeStatus(value.status),
     expiresAt,
+    ...(value.awaitingOwnerConfirmation === true ? { awaitingOwnerConfirmation: true } : {}),
+    ...(value.partner ? { partner: normalizeIdentity(value.partner) } : {}),
+    ...(typeof value.pairId === 'string' ? { pairId: value.pairId } : {}),
     ...(typeof token === 'string' && token ? { token } : {}),
   };
 };
@@ -97,10 +115,12 @@ const normalizeAvailability = (payload: ApiJsonValue): PairInviteAvailabilityDTO
   }
 
   const rawState = payload.state;
+  const identity = { ...(payload.partner ? { partner: normalizeIdentity(payload.partner) } : {}), ...(typeof payload.pairId === 'string' ? { pairId: payload.pairId } : {}) };
   if (typeof rawState === 'string') {
     const state = rawState.toUpperCase();
-    if (state === 'AVAILABLE') return { availability: 'available' };
-    if (state === 'ACCEPTED') return { availability: 'accepted' };
+    if (state === 'AVAILABLE') return { availability: 'available', ...identity };
+    if (state === 'WAITING_CONFIRMATION') return { availability: 'waiting_confirmation', ...identity };
+    if (state === 'ACCEPTED') return { availability: 'accepted', ...identity };
     if (state === 'UNAVAILABLE') return { availability: 'unavailable' };
   }
 
@@ -108,10 +128,12 @@ const normalizeAvailability = (payload: ApiJsonValue): PairInviteAvailabilityDTO
 };
 
 const normalizeAccept = (payload: ApiJsonValue): PairInviteAcceptDTO => {
-  if (!isObject(payload) || typeof payload.pairId !== 'string' || !payload.pairId) {
+  if (!isObject(payload)) return invalidPayload('Invalid pair invite acceptance');
+  if (payload.status === 'AWAITING_PARTNER_CONFIRMATION') return { status: 'AWAITING_PARTNER_CONFIRMATION' };
+  if (typeof payload.pairId !== 'string' || !payload.pairId) {
     return invalidPayload('Invalid pair invite acceptance');
   }
-  return { pairId: payload.pairId };
+  return { status: 'ACCEPTED', pairId: payload.pairId };
 };
 
 const withSignalNoStore = (signal?: AbortSignal): HttpRequestOptions => ({
@@ -157,23 +179,30 @@ export const pairInvitesApi = {
   },
 
   resolve: async (
-    token: string,
+    lookup: string | PairInviteLookup,
     signal?: AbortSignal
   ): Promise<PairInviteAvailabilityDTO> =>
     normalizeAvailability(
-      await http.post<ApiJsonValue, { token: string }>(
+      await http.post<ApiJsonValue, PairInviteLookup>(
         '/api/pair-invites/resolve',
-        { token },
+        typeof lookup === 'string' ? { token: lookup } : lookup,
         signal ? { signal } : undefined
       )
     ),
 
-  accept: async (token: string): Promise<PairInviteAcceptDTO> =>
+  accept: async (lookup: string | PairInviteLookup): Promise<PairInviteAcceptDTO> =>
     normalizeAccept(
-      await http.post<ApiJsonValue, { token: string }>(
+      await http.post<ApiJsonValue, PairInviteLookup & { confirmation: 'THIS_IS_MY_PARTNER' }>(
         '/api/pair-invites/accept',
-        { token },
+        { ...(typeof lookup === 'string' ? { token: lookup } : lookup), confirmation: 'THIS_IS_MY_PARTNER' },
         { idempotency: true }
       )
     ),
+  confirm: async (inviteId: string, partnerPublicId: string): Promise<PairInviteAcceptDTO> => normalizeAccept(
+    await http.post<ApiJsonValue, { partnerPublicId: string; confirmation: 'THIS_IS_MY_PARTNER' }>(
+      `/api/pair-invites/${encodeURIComponent(inviteId)}/confirm`,
+      { partnerPublicId, confirmation: 'THIS_IS_MY_PARTNER' },
+      { idempotency: true },
+    ),
+  ),
 };

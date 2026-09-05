@@ -2,6 +2,10 @@ import mongoose, { Schema, Types } from 'mongoose';
 
 export interface UserType {
   id: string;
+  publicId?: string;
+  entryCohort?: 'SOLO' | 'EXISTING_PARTNER';
+  entryCompletedAt?: Date;
+  locationSource?: 'CITY_CATALOG' | 'DEVICE' | 'NONE';
   username: string;
   avatar: string;
   pairMembershipRevision?: number;
@@ -72,7 +76,7 @@ export interface UserType {
     matchCard?: {
       requirements: string[]; // 3 шт, ≤80
       give: string[];         // 3 шт, ≤80
-      questions: string[];    // 2 шт, ≤120
+      questions: string[];    // legacy 2 / canonical matching mirror 3, ≤120
       isActive: boolean;
       updatedAt?: Date;
     };
@@ -121,7 +125,7 @@ const matchCardSchema = new Schema(
       type: [String],
       default: ['', ''],
       validate: [
-        { validator: arrLen(2), msg: 'questions must have length 2' },
+        { validator: (items: string[]) => items.length === 2 || items.length === 3, msg: 'questions must have length 2 or 3' },
         {
           validator: (a: string[]) => a.every(strLimit(120)),
           msg: 'questions items must be 1..120 chars'
@@ -166,6 +170,10 @@ const relationshipLensSchema = new Schema(
 const userSchema = new Schema<UserType>(
   {
     id:       { type: String, required: true, unique: true },
+    publicId: { type: String, immutable: true },
+    entryCohort: { type: String, enum: ['SOLO', 'EXISTING_PARTNER'] },
+    entryCompletedAt: { type: Date },
+    locationSource: { type: String, enum: ['CITY_CATALOG', 'DEVICE', 'NONE'] },
     username: { type: String, required: true },
     avatar:   { type: String, required: true },
     pairMembershipRevision: {
@@ -239,6 +247,7 @@ const userSchema = new Schema<UserType>(
 );
 
 userSchema.index({ 'personal.city': 1 });
+userSchema.index({ publicId: 1 }, { unique: true, sparse: true, name: 'user_public_pairing_id' });
 userSchema.index({ 'personal.gender': 1, 'personal.relationshipStatus': 1 });
 userSchema.index({ location: '2dsphere' });
 

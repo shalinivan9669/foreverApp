@@ -6,6 +6,7 @@ import { DomainError } from '@/domain/errors';
 import { activitiesService } from '@/domain/services/activities.service';
 import { pairHistoryService } from '@/domain/services/pairHistory.service';
 import { pairInviteService } from '@/domain/services/pairInvite.service';
+import { ensurePublicPairingId } from '@/domain/services/userPublicIdentity.service';
 import {
   SYSTEM_ACTIVITY_TEMPLATES,
 } from '@/domain/services/pairActivityDecision.service';
@@ -38,6 +39,8 @@ import { PairStateSnapshot } from '@/models/PairStateSnapshot';
 import { RecommendationDecision } from '@/models/RecommendationDecision';
 import type { RecommendationProvenanceType } from '@/models/RecommendationProvenance';
 import { User } from '@/models/User';
+import { EconomyWallet } from '@/models/EconomyWallet';
+import { EconomyLedger } from '@/models/EconomyLedger';
 import { WeeklyCheckIn } from '@/models/WeeklyCheckIn';
 import { WeeklyCycle } from '@/models/WeeklyCycle';
 
@@ -220,6 +223,7 @@ const assertOmitsSecrets = (
 const userFixture = (id: string, username: string) => ({
   id,
   username,
+  entryCohort: 'EXISTING_PARTNER' as const,
   avatar: 'integration-avatar',
   personal: {
     gender: 'female' as const,
@@ -368,10 +372,9 @@ const assertSemanticWeeklyFactors = async (input: {
       (evaluation) =>
         evaluation.pairId === input.pairId &&
         evaluation.context === 'COMMITTED_RELATIONSHIP' &&
-        evaluation.individualSnapshotIds.length === 2 &&
-        evaluation.evaluation.status !== 'INSUFFICIENT_DATA'
+        evaluation.individualSnapshotIds.length === 2
     ),
-    `${input.weekKey} contains a non-semantic pair evaluation`
+    `${input.weekKey} contains a pair evaluation outside its semantic context`
   );
   const latestEvaluationByFactor = new Map<
     string,
@@ -383,6 +386,14 @@ const assertSemanticWeeklyFactors = async (input: {
       latestEvaluationByFactor.set(evaluation.factorKey, evaluation);
     }
   }
+  // After week one, A's first submit can retain an insufficient intermediate
+  // revision using B's stale previous-week snapshot. B's submit must supersede
+  // it; only the latest revisions are the canonical pair projection inputs.
+  assert.deepEqual([...latestEvaluationByFactor.keys()].sort(), [...weeklyFactorKeys].sort());
+  assert.ok(
+    [...latestEvaluationByFactor.values()].every((evaluation) => evaluation.evaluation.status !== 'INSUFFICIENT_DATA'),
+    `${input.weekKey} latest pair evaluations remain insufficient after both submissions`,
+  );
 
   return {
     factorEvidenceEvents: events.length,
@@ -407,6 +418,8 @@ const cleanupRunScope = async (): Promise<void> => {
       ],
     }),
     Notification.deleteMany({ userId: { $in: memberIds } }),
+    EconomyWallet.deleteMany({ _id: { $in: memberIds } }),
+    EconomyLedger.deleteMany({ userId: { $in: memberIds } }),
     RecommendationDecision.deleteMany({ pairId: { $in: pairIds } }),
     PairActivity.deleteMany({ pairId: { $in: pairIds } }),
     EvidenceEvent.deleteMany({
@@ -450,6 +463,8 @@ const cleanupRunScope = async (): Promise<void> => {
       ],
     }),
     Notification.countDocuments({ userId: { $in: memberIds } }),
+    EconomyWallet.countDocuments({ _id: { $in: memberIds } }),
+    EconomyLedger.countDocuments({ userId: { $in: memberIds } }),
     RecommendationDecision.countDocuments({ pairId: { $in: pairIds } }),
     PairActivity.countDocuments({ pairId: { $in: pairIds } }),
     EvidenceEvent.countDocuments({
@@ -490,6 +505,7 @@ const cleanupRunScope = async (): Promise<void> => {
 
 const ensureCriticalIndexes = async (): Promise<void> => {
   await Promise.all([
+    User.createIndexes(),
     Pair.createIndexes(),
     PairInvite.createIndexes(),
     PairMembershipClaim.createIndexes(),
@@ -529,13 +545,19 @@ const runAcceptance = async (
     });
     assert.match(issued.token, /^[A-Za-z0-9_-]{43}$/);
 
+    const claimed = await pairInviteService.accept({ currentUserId: memberB, token: issued.token, auditRequest });
+    assert.equal(claimed.status, 'AWAITING_PARTNER_CONFIRMATION');
+    assert.equal(await Pair.countDocuments({ key: pairKey }), 0, 'recipient confirmation alone created a Pair');
+    const partnerPublicId = await ensurePublicPairingId(memberB);
+
     const concurrentAttempts = 4;
     const outcomes = await Promise.all(
       Array.from({ length: concurrentAttempts }, async (): Promise<ConcurrentAcceptOutcome> => {
         try {
-          const result = await pairInviteService.accept({
-            currentUserId: memberB,
-            token: issued.token,
+          const result = await pairInviteService.confirm({
+            currentUserId: memberA,
+            inviteId: issued.invite.id,
+            partnerPublicId,
             auditRequest,
           });
           return {
@@ -567,9 +589,10 @@ const runAcceptance = async (
       'concurrent invite acceptance did not perform the initial transition'
     );
 
-    const retry = await pairInviteService.accept({
-      currentUserId: memberB,
-      token: issued.token,
+    const retry = await pairInviteService.confirm({
+      currentUserId: memberA,
+      inviteId: issued.invite.id,
+      partnerPublicId,
       auditRequest,
     });
     assert.equal(retry.alreadyAccepted, true, 'invite retry was not idempotent');
@@ -1507,7 +1530,7 @@ const runAcceptance = async (
         userIds: memberIds,
         pairId: inviteEvidence.pairId,
         type: 'PAIR_JOINED',
-        sourceKey: `invite:${inviteEvidence.inviteId}`,
+        sourceKey: `pair_invite:${inviteEvidence.inviteId}`,
       },
       ...cycleRuns.flatMap(
         (cycle): Array<{

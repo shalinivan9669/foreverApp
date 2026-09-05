@@ -1,3 +1,4 @@
+import { authorizeMatchingLikeMutation } from "@/domain/services/matching/matchingApplication.service";
 import type { NextRequest } from "next/server";
 import { respondMatchingLike } from "@/domain/services/matching/matchingApplication.service";
 import { parseJson } from "@/lib/api/validate";
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
     route: ROUTE,
     currentUserId: request.currentUserId,
     requestBody: body.data,
+    authorize: () => authorizeMatchingLikeMutation({ currentUserId: request.currentUserId, likeId: body.data.likeId }),
     execute: () =>
       respondMatchingLike({
         currentUserId: request.currentUserId,

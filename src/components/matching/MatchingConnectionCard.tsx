@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { MatchingConnectionDTO } from "@/client/api/match.api";
 import {
@@ -10,7 +12,7 @@ type MatchingConnectionCardProps = {
   connection: MatchingConnectionDTO;
   loading?: boolean;
   onAction: (
-    action: "REQUEST" | "CONFIRM" | "CANCEL",
+    action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
   ) => Promise<boolean> | void;
 };
 
@@ -18,6 +20,9 @@ const actionCopy = {
   REQUEST: "Предложить стать парой",
   CONFIRM: "Подтвердить отношения",
   CANCEL: "Отменить предложение",
+  PAUSE: "Поставить на паузу",
+  RESUME: "Продолжить знакомство",
+  CLOSE: "Завершить знакомство",
 } as const;
 
 export default function MatchingConnectionCard({
@@ -39,11 +44,12 @@ export default function MatchingConnectionCard({
             {connection.participant.username}
           </h3>
           <p className="app-muted text-sm">
-            {matchingConnectionStageLabel(connection.stage)}
+            {connection.status === "PAUSED" ? "На паузе (занимает место из трёх)" : matchingConnectionStageLabel(connection.stage)}
           </p>
         </div>
       </div>
 
+      {!connection.pairId && <Link className="app-btn-secondary mt-4" href={`/match/connections/${encodeURIComponent(connection.id)}`}>Темы и готовность</Link>}
       <div className="app-panel-soft mt-4 p-3">
         <p className="font-semibold">{confirmation.title}</p>
         <p className="app-muted mt-1 text-sm">{confirmation.description}</p>
@@ -68,7 +74,7 @@ export default function MatchingConnectionCard({
               type="button"
               key={action}
               disabled={loading}
-              onClick={() => void onAction(action)}
+              onClick={() => { if (action !== "CLOSE" || window.confirm("Завершить это знакомство? Продолжить его будет нельзя.")) void onAction(action); }}
             >
               {loading ? "Сохраняем…" : actionCopy[action]}
             </button>

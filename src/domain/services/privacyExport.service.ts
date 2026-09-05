@@ -1,4 +1,8 @@
+import { MatchingConversationRound, type MatchingConversationRoundType } from "@/models/MatchingConversationRound";
+import type { MatchingAnswers, MatchingStatementReaction } from "@/domain/model/matching/socialContract";
 import { DomainError } from "@/domain/errors";
+import { economyService } from "@/domain/services/economy.service";
+import { productWorkspacePrivacy } from "@/domain/services/productWorkspacePrivacy.service";
 import { disclosePairEvaluation } from "@/domain/model/privacy/disclosure";
 import type { PairFactorEvaluationSnapshot as DomainPairFactorEvaluationSnapshot } from "@/domain/model/snapshots/snapshots";
 import type { FactorValue } from "@/domain/model/values/factorValue";
@@ -294,6 +298,8 @@ type FactorEnginePrivacyExport = {
 };
 
 type OwnerPrivacyExportDTO = {
+  productWorkspace: Awaited<ReturnType<typeof productWorkspacePrivacy.exportOwnerData>>;
+  economy: Awaited<ReturnType<typeof economyService.exportOwnerData>>;
   exportVersion: "owner-export-v1";
   generatedAt: string;
   scope: {
@@ -488,16 +494,21 @@ type OwnerPrivacyExportDTO = {
     ownCardSnapshot?: {
       requirements: [string, string, string];
       give?: [string, string, string];
-      questions: [string, string];
+      questions: MatchingAnswers;
+      boundaries?: [string, string, string];
+      boundaryDealbreakers?: [boolean, boolean, boolean];
+      cardVersion?: 1 | 2;
       updatedAt?: string;
     };
     ownInitiatorSubmission?: {
       agreements: [boolean, boolean, boolean];
-      answers: [string, string];
+      answers: MatchingAnswers;
+      reactions?: MatchingStatementReaction[];
     };
     ownResponse?: {
       agreements: [boolean, boolean, boolean];
-      answers: [string, string];
+      answers: MatchingAnswers;
+      reactions?: MatchingStatementReaction[];
       at: string;
     };
     ownDecision?: { accepted: boolean; at: string };
@@ -505,6 +516,7 @@ type OwnerPrivacyExportDTO = {
     updatedAt?: string;
   }>;
   matching: {
+    conversationRounds: ExportSection<{ connectionId: string; topicKey: string; round: number; ownAnswer?: string; revealedAt?: string; createdAt: string }>;
     profile?: {
       card: MatchingProfileType["card"];
       discoveryRequested: boolean;
@@ -962,7 +974,10 @@ export const privacyExportService = {
       });
     }
 
+    const conversationRows = await MatchingConversationRound.find({ participantIds: ownerUserId }).sort({ createdAt: -1, _id: -1 }).limit(201).select("+answers").lean<MatchingConversationRoundType[]>();
     const exportDto: OwnerPrivacyExportDTO = {
+      productWorkspace: await productWorkspacePrivacy.exportOwnerData(ownerUserId),
+      economy: await economyService.exportOwnerData(ownerUserId),
       exportVersion: "owner-export-v1",
       generatedAt: new Date().toISOString(),
       scope: {
@@ -1336,10 +1351,10 @@ export const privacyExportService = {
                           ] as [string, string, string],
                         }
                       : {}),
-                    questions: [
-                      boundedText(row.fromCardSnapshot.questions[0], 120),
-                      boundedText(row.fromCardSnapshot.questions[1], 120),
-                    ],
+                    questions: row.fromCardSnapshot.questions.map((question) => boundedText(question, 120)) as MatchingAnswers,
+                    boundaries: row.fromCardSnapshot.boundaries,
+                    boundaryDealbreakers: row.fromCardSnapshot.boundaryDealbreakers,
+                    cardVersion: row.fromCardSnapshot.cardVersion,
                     ...(row.fromCardSnapshot.updatedAt
                       ? {
                           updatedAt: requiredIso(
@@ -1354,10 +1369,8 @@ export const privacyExportService = {
               ? {
                   ownInitiatorSubmission: {
                     agreements: row.agreements,
-                    answers: [
-                      boundedText(row.answers[0]),
-                      boundedText(row.answers[1]),
-                    ] as [string, string],
+                    answers: row.answers.map((answer) => boundedText(answer)) as MatchingAnswers,
+                    reactions: row.reactions,
                   },
                 }
               : {}),
@@ -1365,10 +1378,8 @@ export const privacyExportService = {
               ? {
                   ownResponse: {
                     agreements: row.recipientResponse.agreements,
-                    answers: [
-                      boundedText(row.recipientResponse.answers[0]),
-                      boundedText(row.recipientResponse.answers[1]),
-                    ],
+                    answers: row.recipientResponse.answers.map((answer) => boundedText(answer)) as MatchingAnswers,
+                    reactions: row.recipientResponse.reactions,
                     at: requiredIso(row.recipientResponse.at),
                   },
                 }
@@ -1388,6 +1399,7 @@ export const privacyExportService = {
         EXPORT_LIMITS.matchInteractions,
       ),
       matching: {
+        conversationRounds: bounded(conversationRows.map((row) => { const own = row.answers.find((answer) => answer.userId === ownerUserId); return { connectionId: row.connectionId.toString(), topicKey: row.topicKey, round: row.round, ...(own ? { ownAnswer: boundedText(own.text, 2000) } : {}), ...(row.revealedAt ? { revealedAt: requiredIso(row.revealedAt) } : {}), createdAt: requiredIso(row.createdAt) }; }), 200),
         ...(matchingProfile
           ? {
               profile: {

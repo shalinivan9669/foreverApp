@@ -62,7 +62,7 @@ export function useInbox() {
   const confirmConnection = useCallback(
     async (
       connectionId: string,
-      action: "REQUEST" | "CONFIRM" | "CANCEL",
+      action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
     ): Promise<boolean> => {
       const updated = await runActionSafe(
         () => matchApi.confirmConnection(connectionId, action),

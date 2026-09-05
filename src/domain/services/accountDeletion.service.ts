@@ -204,6 +204,7 @@ const executeDeletion = async (input: {
         },
         { session },
       );
+      await database.collection("matching_conversation_rounds").deleteMany({ participantIds: input.ownerUserId }, { session });
       await database
         .collection("matching_connections")
         .deleteMany({ participantIds: input.ownerUserId }, { session });
@@ -451,6 +452,20 @@ const executeDeletion = async (input: {
       await database
         .collection("users")
         .deleteOne({ id: input.ownerUserId }, { session });
+
+      // Personal earned currency belongs only to this owner. Account erasure is
+      // the privacy exception to the runtime append-only ledger policy.
+      await database.collection<{ _id: string }>("economy_wallets").deleteOne({ _id: input.ownerUserId }, { session });
+      await database.collection("economy_ledger").deleteMany({ userId: input.ownerUserId }, { session });
+      await database.collection("economy_inventory").deleteMany({ userId: input.ownerUserId }, { session });
+      await database.collection("economy_pair_collection").deleteMany({ userId: input.ownerUserId }, { session });
+
+      await database.collection("development_completions").deleteMany({ userId: input.ownerUserId }, { session });
+      await database.collection("development_runs").deleteMany({ participantIds: input.ownerUserId }, { session });
+      // A workspace is shared only inside its active Pair. No archive policy is
+      // introduced; erasure removes this inaccessible shared payload as a unit.
+      await database.collection<{ _id: string }>("pair_workspaces").deleteMany({ _id: { $in: pairIdStrings } }, { session });
+      await database.collection("idempotency_records").deleteMany({ route: { $in: pairIdStrings.map((pairId) => new RegExp(`^/api/pairs/${pairId}/shared-life$`, 'i')) } }, { session });
 
       await accountWriteBarrierService.markDeleted({
         subjectKey: input.barrier.subjectKey,

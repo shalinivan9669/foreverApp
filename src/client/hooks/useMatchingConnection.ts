@@ -36,7 +36,7 @@ export function useMatchingConnection(
   }, [connectionId, runLoadSafe]);
 
   const confirm = useCallback(
-    async (action: "REQUEST" | "CONFIRM" | "CANCEL"): Promise<boolean> => {
+    async (action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE"): Promise<boolean> => {
       if (!connectionId) return false;
       const result = await runActionSafe(
         () => matchApi.confirmConnection(connectionId, action),

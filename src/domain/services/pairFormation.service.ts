@@ -249,7 +249,7 @@ const closeConflictingMatchingState = async (input: {
   await MatchingConnection.updateMany(
     {
       participantIds: { $in: input.members },
-      status: 'ACTIVE',
+      status: { $in: ['ACTIVE', 'PAUSED'] },
       ...(sourceConnection ? { _id: { $ne: sourceConnection._id } } : {}),
     },
     {

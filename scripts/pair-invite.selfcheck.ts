@@ -148,20 +148,29 @@ assert.ok(!ownerDtoBlock.includes('tokenHash'));
 assert.ok(!ownerDtoBlock.includes('creatorUserId'));
 assert.ok(!ownerDtoBlock.includes('acceptedByUserId'));
 const acceptMethodIndex = service.indexOf('async accept(input:');
+const confirmMethodIndex = service.indexOf('async confirm(input:');
+const claimMethod = service.slice(acceptMethodIndex, confirmMethodIndex);
+assert.ok(claimMethod.includes('recipientConfirmedAt'));
+assert.ok(claimMethod.includes('fencePairMembershipSlots'));
+assert.ok(!claimMethod.includes('formPairInSession'));
+assert.ok(claimMethod.includes("status: 'AWAITING_PARTNER_CONFIRMATION'"));
 const activePairPreflightIndex = service.indexOf(
   'if (await activePairForAnyMember(members))',
-  acceptMethodIndex
+  confirmMethodIndex
 );
-const formationCallIndex = service.indexOf('await formPairInSession({', acceptMethodIndex);
+const formationCallIndex = service.indexOf('await formPairInSession({', confirmMethodIndex);
 const acceptedUpdateIndex = service.indexOf(
   "status: transition.next.status",
   formationCallIndex
 );
 const auditIndex = service.indexOf("event: 'PAIR_CREATED'", acceptedUpdateIndex);
 assert.ok(acceptMethodIndex >= 0);
-assert.ok(activePairPreflightIndex > acceptMethodIndex);
+assert.ok(activePairPreflightIndex > confirmMethodIndex);
 assert.ok(activePairPreflightIndex < formationCallIndex);
-assert.ok(formationCallIndex > acceptMethodIndex);
+assert.ok(formationCallIndex > confirmMethodIndex);
+assert.ok(service.slice(confirmMethodIndex, formationCallIndex).includes('creatorUserId: input.currentUserId'));
+assert.ok(service.slice(confirmMethodIndex, formationCallIndex).includes('partnerPublicId'));
+assert.ok(service.slice(confirmMethodIndex).includes('creatorConfirmedAt: now'));
 assert.ok(acceptedUpdateIndex > formationCallIndex);
 assert.ok(auditIndex > acceptedUpdateIndex);
 const auditBlock = service.slice(auditIndex, service.indexOf('return {', auditIndex));
@@ -175,6 +184,7 @@ const routePaths = [
   'src/app/api/pair-invites/[id]/reissue/route.ts',
   'src/app/api/pair-invites/resolve/route.ts',
   'src/app/api/pair-invites/accept/route.ts',
+  'src/app/api/pair-invites/[id]/confirm/route.ts',
 ];
 for (const routePath of routePaths) {
   const route = source(routePath);
@@ -195,12 +205,12 @@ assert.ok(!createRoute.includes('tokenHash'));
 
 const resolveRoute = source('src/app/api/pair-invites/resolve/route.ts');
 const acceptRoute = source('src/app/api/pair-invites/accept/route.ts');
-assert.ok(resolveRoute.includes('body.data.token'));
+assert.ok(resolveRoute.includes('pairInviteLookupSchema'));
 assert.ok(!resolveRoute.includes('searchParams'));
 assert.ok(acceptRoute.includes('body.data.token'));
 assert.ok(!acceptRoute.includes('searchParams'));
 assert.ok(acceptRoute.includes('withIdempotency'));
-assert.ok(acceptRoute.includes('requestBody: { tokenHash:'));
+assert.ok(acceptRoute.includes('requestBody: { lookupHash:'));
 assert.ok(!acceptRoute.includes('requestBody: { token:'));
 
 const legacyPairService = source('src/domain/services/pairs.service.ts');
@@ -220,7 +230,7 @@ assert.ok(auditTypes.includes("'pair_invite_accept'"));
 
 const inviteClient = source('src/client/api/pairInvites.api.ts');
 const joinPage = source('src/app/join/page.tsx');
-assert.ok(inviteClient.includes("availability: 'available' | 'accepted' | 'unavailable'"));
+assert.ok(inviteClient.includes("availability: 'available' | 'waiting_confirmation' | 'accepted' | 'unavailable'"));
 const createClientBlock = inviteClient.slice(
   inviteClient.indexOf('create: async'),
   inviteClient.indexOf('cancel: async')
@@ -232,6 +242,7 @@ const reissueClientBlock = inviteClient.slice(
 assert.doesNotMatch(createClientBlock, /idempotency:\s*true/);
 assert.doesNotMatch(reissueClientBlock, /idempotency:\s*true/);
 assert.ok(joinPage.includes("| 'accepted'"));
-assert.ok(joinPage.includes('Вы уже присоединились'));
+assert.ok(joinPage.includes('Ваша пара создана'));
+assert.ok(joinPage.includes('Это мой партнёр'));
 
 console.log('pair invite selfcheck passed');

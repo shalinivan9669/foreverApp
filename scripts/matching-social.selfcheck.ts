@@ -67,7 +67,9 @@ const matched = socialLikeTransition(
   "SENDER",
 );
 assert.equal(matched.nextStatus, "MATCHED");
-assert.equal(matched.nextRevision, 4);
+assert.equal(responded.nextStatus, "MATCHED");
+assert.equal(matched.outcome, "NOOP", "No third sender acceptance is required");
+assert.equal(matched.nextRevision, 3);
 assert.equal(
   socialLikeTransition(
     { status: "MATCHED", revision: 4 },

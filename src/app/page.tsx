@@ -59,6 +59,10 @@ export default function DiscordActivityPage() {
     try {
       const me = await refetchCurrentUser();
       if (!me) throw new Error('USER_NOT_FOUND');
+      if (!me.entryCompletedAt || !me.entryCohort) {
+        router.push('/entry');
+        return;
+      }
       const onboarding = await mvpOnboardingApi.getOwnerState();
       router.push(onboarding.session?.status === 'completed' ? '/main-menu' : '/mvp-onboarding');
     } catch {

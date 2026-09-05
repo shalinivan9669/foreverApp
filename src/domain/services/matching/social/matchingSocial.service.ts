@@ -1,3 +1,5 @@
+import { assertMatchingSolo } from "../matchingEligibility.service";
+import { assertMatchingConnectionCapacity, matchingRequestExpired, MATCHING_OCCUPIED_STATUSES, validateMatchingResponse, type MatchingAnswers, type MatchingStatementReaction } from "@/domain/model/matching/socialContract";
 import { createHash } from "node:crypto";
 import mongoose, { Types, type ClientSession } from "mongoose";
 import { DomainError } from "@/domain/errors";
@@ -74,7 +76,8 @@ export type CreateSocialLikeInput = {
   targetCardSnapshot: MatchingCardSnapshot;
   targetCardRevision: number;
   agreements: readonly [true, true, true];
-  answers: readonly [string, string];
+  answers: Readonly<MatchingAnswers>;
+  reactions?: MatchingStatementReaction[];
   auditRequest?: MatchingAuditRequest;
   now?: Date;
 };
@@ -97,7 +100,8 @@ export type RespondToSocialLikeInput = {
   actorId: string;
   likeId: string;
   agreements: readonly [true, true, true];
-  answers: readonly [string, string];
+  answers: Readonly<MatchingAnswers>;
+  reactions?: MatchingStatementReaction[];
   auditRequest?: MatchingAuditRequest;
   now?: Date;
 };
@@ -130,7 +134,7 @@ export type AcceptSocialLikeResult = SocialLikeMutationResult & {
 export type ConfirmMatchingConnectionInput = {
   actorId: string;
   connectionId: string;
-  action: "REQUEST" | "CONFIRM" | "CANCEL";
+  action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE";
   auditRequest?: MatchingAuditRequest;
   now?: Date;
 };
@@ -161,6 +165,7 @@ export interface MatchingSocialService {
     input: RespondToSocialLikeInput,
   ): Promise<SocialLikeMutationResult>;
   acceptLike(input: DecideSocialLikeInput): Promise<AcceptSocialLikeResult>;
+  withdrawLike(input: DecideSocialLikeInput): Promise<SocialLikeMutationResult>;
   declineLike(input: DecideSocialLikeInput): Promise<SocialLikeMutationResult>;
   blockParticipant(
     input: BlockMatchingParticipantInput,
@@ -267,7 +272,7 @@ const cloneCardSnapshot = (
   if (
     snapshot.requirements.length !== 3 ||
     snapshot.give.length !== 3 ||
-    snapshot.questions.length !== 2
+    (snapshot.questions.length !== 2 && snapshot.questions.length !== 3)
   ) {
     return invalidInput("Matching card snapshot is invalid");
   }
@@ -291,16 +296,18 @@ const cloneCardSnapshot = (
     questions: [
       normalizeText(snapshot.questions[0], 120),
       normalizeText(snapshot.questions[1], 120),
-    ],
+      ...(snapshot.questions.length === 3 ? [normalizeText(snapshot.questions[2], 120)] : []),
+    ] as MatchingAnswers,
+    ...(snapshot.boundaries ? { boundaries: [...snapshot.boundaries] as [string, string, string] } : {}),
+    ...(snapshot.boundaryDealbreakers ? { boundaryDealbreakers: [...snapshot.boundaryDealbreakers] as [boolean, boolean, boolean] } : {}),
+    cardVersion: snapshot.cardVersion ?? 1,
     ...(updatedAt ? { updatedAt } : {}),
   };
 };
 
-const normalizeAnswers = (
-  answers: readonly [string, string],
-): [string, string] => {
-  if (answers.length !== 2) return invalidInput("Matching answers are invalid");
-  return [normalizeText(answers[0], 280), normalizeText(answers[1], 280)];
+const normalizeAnswers = (answers: Readonly<MatchingAnswers>): MatchingAnswers => {
+  if (answers.length !== 2 && answers.length !== 3) return invalidInput("Matching answers are invalid");
+  return answers.map((answer) => normalizeText(answer, 280)) as MatchingAnswers;
 };
 
 const normalizeAgreements = (
@@ -388,7 +395,8 @@ const requestHashForLike = (input: {
   targetCardSnapshot: CardSnapshot;
   targetCardRevision: number;
   agreements: readonly [true, true, true];
-  answers: readonly [string, string];
+  answers: Readonly<MatchingAnswers>;
+  reactions?: MatchingStatementReaction[];
 }): string =>
   sha256(
     JSON.stringify({
@@ -402,6 +410,7 @@ const requestHashForLike = (input: {
       targetCardRevision: input.targetCardRevision,
       agreements: input.agreements,
       answers: input.answers,
+      reactions: input.reactions ?? [],
     }),
   );
 
@@ -483,8 +492,8 @@ const activePairMembershipExists = async (
 
 const sameAnswers = (
   left: readonly string[] | undefined,
-  right: readonly [string, string],
-): boolean => left?.[0] === right[0] && left?.[1] === right[1];
+  right: Readonly<MatchingAnswers>,
+): boolean => left?.length === right.length && left.every((value, index) => value === right[index]);
 
 const sameAgreements = (
   left: readonly boolean[] | undefined,
@@ -520,6 +529,7 @@ export const createMatchingSocialService = (
     const targetCardRevision = assertRevision(input.targetCardRevision);
     const agreements = normalizeAgreements(input.agreements);
     const answers = normalizeAnswers(input.answers);
+    validateMatchingResponse(targetCardSnapshot, answers, input.reactions);
     const creationKeyHash = sha256(
       JSON.stringify(["matching-like-key-v1", input.senderId, idempotencyKey]),
     );
@@ -531,6 +541,7 @@ export const createMatchingSocialService = (
       targetCardRevision,
       agreements,
       answers,
+      reactions: input.reactions ?? [],
     });
     const now = input.now ?? new Date();
 
@@ -619,6 +630,7 @@ export const createMatchingSocialService = (
             candidateGrantId: new Types.ObjectId(grant.grantId),
             agreements,
             answers,
+      reactions: input.reactions ?? [],
           },
         ],
         { session },
@@ -711,6 +723,66 @@ export const createMatchingSocialService = (
     });
   };
 
+  const linkMatchedConnection = async (like: StoredLike, session: ClientSession) => {
+      const participantIds = matchingParticipantIds(like.fromId, like.toId);
+      const participantKey = matchingParticipantKey(like.fromId, like.toId);
+      let connection = await MatchingConnection.findOne({
+        participantKey,
+        status: { $in: [...MATCHING_OCCUPIED_STATUSES] },
+      })
+        .session(session)
+        .lean<StoredConnection | null>();
+
+      if (!connection) {
+        const counts: number[] = [];
+        for (const id of participantIds) counts.push(await MatchingConnection.countDocuments({ participantIds: id, status: { $in: [...MATCHING_OCCUPIED_STATUSES] }, pairId: { $exists: false } }).session(session));
+        assertMatchingConnectionCapacity(counts);
+        const created = await MatchingConnection.create(
+          [
+            {
+              participantIds: [...participantIds],
+              participantKey,
+              sourceLikeIds: [String(like._id)],
+              stage: "MATCHED",
+              status: "ACTIVE",
+              coupleConfirmation: { confirmedBy: [], revision: 0 },
+              revision: 0,
+            },
+          ],
+          { session },
+        );
+        const createdConnection = created[0];
+        if (!createdConnection) {
+          throw new Error("Connection creation returned no document");
+        }
+        connection = createdConnection.toObject() as StoredConnection;
+
+      } else {
+        connection = await MatchingConnection.findOneAndUpdate(
+          { _id: connection._id, status: { $in: [...MATCHING_OCCUPIED_STATUSES] } },
+          { $addToSet: { sourceLikeIds: String(like._id) } },
+          { new: true, session },
+        ).lean<StoredConnection | null>();
+        if (!connection) return stateConflict("Matching connection changed");
+      }
+
+      const linked = await Like.findOneAndUpdate(
+        {
+          _id: like._id,
+          status: "MATCHED",
+          $or: [
+            { connectionId: { $exists: false } },
+            { connectionId: connection._id },
+          ],
+        },
+        { $set: { connectionId: connection._id } },
+        { new: true, session },
+      ).lean<StoredLike | null>();
+      if (!linked) return stateConflict("Like is linked to another connection");
+
+      return { connection, linked };
+  };
+
   const respondToLike = async (
     input: RespondToSocialLikeInput,
   ): Promise<SocialLikeMutationResult> => {
@@ -721,11 +793,15 @@ export const createMatchingSocialService = (
     return runTransaction(async (session) => {
       const like = await findLikeForActor(input.likeId, input.actorId, session);
       const role = likeRole(like, input.actorId);
+      if ((like.status === "SENT" || like.status === "VIEWED") && matchingRequestExpired(like.createdAt, now)) return stateConflict("Matching request expired");
+      if (!like.fromCardSnapshot) return stateConflict("Like sender snapshot is unavailable");
+      validateMatchingResponse(like.fromCardSnapshot, answers, input.reactions);
       const status = canonicalStatus(like.status);
       const participantIds = matchingParticipantIds(like.fromId, like.toId);
       const participantKey = matchingParticipantKey(like.fromId, like.toId);
       if (await activeBlockExists(participantKey, session)) return blocked();
       await dependencies.participantFence.fence({ participantIds, session });
+      await assertMatchingSolo(participantIds, session);
       if (await activePairMembershipExists(participantIds, session)) {
         return stateConflict("Matching is unavailable while a Pair is active");
       }
@@ -737,7 +813,8 @@ export const createMatchingSocialService = (
       if (transition.outcome === "NOOP") {
         if (
           !sameAnswers(like.recipientResponse?.answers, answers) ||
-          !sameAgreements(like.recipientResponse?.agreements, agreements)
+          !sameAgreements(like.recipientResponse?.agreements, agreements) ||
+          JSON.stringify(like.recipientResponse?.reactions ?? []) !== JSON.stringify(input.reactions ?? [])
         ) {
           return stateConflict("Like already has a different response");
         }
@@ -762,9 +839,11 @@ export const createMatchingSocialService = (
           $set: {
             status: transition.nextStatus,
             revision: transition.nextRevision,
+            recipientDecision: { accepted: true, at: now },
             recipientResponse: {
               agreements,
               answers,
+              reactions: input.reactions ?? [],
               initiatorCardSnapshot: like.fromCardSnapshot,
               at: now,
             },
@@ -775,6 +854,8 @@ export const createMatchingSocialService = (
       ).lean<StoredLike | null>();
       if (!updated)
         return stateConflict("Like changed while response was submitted");
+      const { connection } = await linkMatchedConnection(updated, session);
+      await effects.record({ effectKey: `matching-connection:${String(connection._id)}:created`, name: "CONNECTION_CREATED", actorId: input.actorId, participantIds, resourceId: String(connection._id), auditRequest: input.auditRequest, session, now });
       await effects.record({
         effectKey: `matching-like:${String(like._id)}:responded`,
         name: "LIKE_RESPONDED",
@@ -806,6 +887,7 @@ export const createMatchingSocialService = (
       const participantKey = matchingParticipantKey(like.fromId, like.toId);
       if (await activeBlockExists(participantKey, session)) return blocked();
       await dependencies.participantFence.fence({ participantIds, session });
+      await assertMatchingSolo(participantIds, session);
       if (await activePairMembershipExists(participantIds, session)) {
         return stateConflict("Matching is unavailable while a Pair is active");
       }
@@ -837,56 +919,7 @@ export const createMatchingSocialService = (
           return stateConflict("Like changed while it was accepted");
       }
 
-      let connection = await MatchingConnection.findOne({
-        participantKey,
-        status: "ACTIVE",
-      })
-        .session(session)
-        .lean<StoredConnection | null>();
-      let connectionCreated = false;
-      if (!connection) {
-        const created = await MatchingConnection.create(
-          [
-            {
-              participantIds: [...participantIds],
-              participantKey,
-              sourceLikeIds: [String(like._id)],
-              stage: "MATCHED",
-              status: "ACTIVE",
-              coupleConfirmation: { confirmedBy: [], revision: 0 },
-              revision: 0,
-            },
-          ],
-          { session },
-        );
-        const createdConnection = created[0];
-        if (!createdConnection) {
-          throw new Error("Connection creation returned no document");
-        }
-        connection = createdConnection.toObject() as StoredConnection;
-        connectionCreated = true;
-      } else {
-        connection = await MatchingConnection.findOneAndUpdate(
-          { _id: connection._id, status: "ACTIVE" },
-          { $addToSet: { sourceLikeIds: String(like._id) } },
-          { new: true, session },
-        ).lean<StoredConnection | null>();
-        if (!connection) return stateConflict("Matching connection changed");
-      }
-
-      const linked = await Like.findOneAndUpdate(
-        {
-          _id: like._id,
-          status: "MATCHED",
-          $or: [
-            { connectionId: { $exists: false } },
-            { connectionId: connection._id },
-          ],
-        },
-        { $set: { connectionId: connection._id } },
-        { new: true, session },
-      ).lean<StoredLike | null>();
-      if (!linked) return stateConflict("Like is linked to another connection");
+      const { connection, linked } = await linkMatchedConnection(like, session);
 
       await effects.record({
         effectKey: `matching-like:${String(like._id)}:accepted`,
@@ -898,7 +931,7 @@ export const createMatchingSocialService = (
         session,
         now,
       });
-      if (connectionCreated) {
+      if (transition.outcome === "APPLIED") {
         await effects.record({
           effectKey: `matching-connection:${participantKey}:created`,
           name: "CONNECTION_CREATED",
@@ -918,6 +951,18 @@ export const createMatchingSocialService = (
         connectionId: String(connection._id),
         participantKey,
       };
+    });
+  };
+
+  const withdrawLike = async (input: DecideSocialLikeInput): Promise<SocialLikeMutationResult> => {
+    await connectToDatabase();
+    return runTransaction(async (session) => {
+      const like = await findLikeForActor(input.likeId, input.actorId, session);
+      const transition = socialLikeTransition({ status: canonicalStatus(like.status), revision: likeRevision(like) }, { type: "WITHDRAW" }, likeRole(like, input.actorId));
+      if (transition.outcome === "NOOP") return { likeId: String(like._id), status: transition.nextStatus, revision: transition.nextRevision, noop: true };
+      const updated = await Like.findOneAndUpdate({ _id: like._id, fromId: input.actorId, status: { $in: ["SENT", "VIEWED"] }, revision: likeRevision(like) }, { $set: { status: "WITHDRAWN", revision: transition.nextRevision, updatedAt: input.now ?? new Date() } }, { new: true, session }).lean<StoredLike | null>();
+      if (!updated) return stateConflict("Matching request changed");
+      return { likeId: String(updated._id), status: "WITHDRAWN", revision: transition.nextRevision, noop: false };
     });
   };
 
@@ -1068,7 +1113,7 @@ export const createMatchingSocialService = (
       const connection = await MatchingConnection.findOne({
         participantKey,
         pairId: { $exists: false },
-        status: "ACTIVE",
+        status: { $in: [...MATCHING_OCCUPIED_STATUSES] },
       })
         .session(session)
         .lean<StoredConnection | null>();
@@ -1204,6 +1249,7 @@ export const createMatchingSocialService = (
       if (await activeBlockExists(connection.participantKey, session)) {
         return blocked();
       }
+      if (input.action === "REQUEST" || input.action === "CONFIRM") await assertMatchingSolo(connection.participantIds, session);
       const action = { type: input.action, at: now } as const;
       const transition = matchingConnectionTransition(
         connectionSnapshot(connection),
@@ -1237,7 +1283,9 @@ export const createMatchingSocialService = (
         return stateConflict("Matching connection changed during confirmation");
       }
       connection = transitionedConnection;
+      if (input.action === "CLOSE") await Like.updateMany({ connectionId: connection._id, status: "MATCHED" }, { $set: { status: "EXPIRED", updatedAt: now }, $inc: { revision: 1 } }, { session });
 
+      if (["REQUEST", "CONFIRM", "CANCEL"].includes(input.action)) {
       const effectName =
         input.action === "REQUEST"
           ? "COUPLE_CONFIRMATION_REQUESTED"
@@ -1257,6 +1305,8 @@ export const createMatchingSocialService = (
         session,
         now,
       });
+
+      }
 
       if (input.action !== "CONFIRM") {
         return connectionResult(connection, false);
@@ -1324,6 +1374,7 @@ export const createMatchingSocialService = (
     respondToLike,
     acceptLike,
     declineLike,
+    withdrawLike,
     blockParticipant,
     unblockParticipant,
     getConnection,

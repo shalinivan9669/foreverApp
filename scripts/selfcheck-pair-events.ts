@@ -8,12 +8,14 @@ import {
   eventCanBeDeclined,
   eventCanBeSnoozed,
   isPairEventFactorBindingEligible,
+  isPairEventEnabledBySettings,
   resolvePairEventStatus,
   type PairEventLifecycleSnapshot,
   type PairEventRuleInput,
   type PairEventWeeklyProjection,
 } from '../src/domain/services/pairEvent.service';
 import { MVP_FACTOR_REGISTRY } from '../src/domain/model/definitions/mvpDefinitions';
+import { DEFAULT_SHARED_LIFE_SETTINGS } from '../src/lib/contracts/sharedLife';
 import { toPairEventDTO } from '../src/lib/dto/pairEvent.dto';
 import { toPairEventCardVM } from '../src/client/viewmodels/pairEvent.viewmodels';
 import type { PairEventDTO } from '../src/client/api/types';
@@ -75,6 +77,7 @@ const base = (overrides: Partial<PairEventRuleInput> = {}): PairEventRuleInput =
   pairId: '64f000000000000000000001',
   pairStatus: 'active',
   pairCreatedAt: utc(2026, 1, 5),
+  settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2026-01-05' },
   weekly: weekly(),
   hasCurrentActivity: false,
   completedActivityCountLast14Days: 1,
@@ -128,28 +131,39 @@ const eventDto = (overrides: Partial<PairEventDTO> = {}): PairEventDTO => ({
 });
 
 assert.equal(
-  hasType(base({ pairCreatedAt: utc(2026, 1, 5), now: utc(2026, 2, 5) }), 'first_month'),
+  hasType(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2026-01-05' }, now: utc(2026, 2, 5) }), 'first_month'),
   true,
   'first_month candidate missing'
 );
 assert.equal(
-  hasType(base({ pairCreatedAt: utc(2025, 12, 5), now: utc(2026, 3, 5) }), 'three_months'),
+  hasType(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2025-12-05' }, now: utc(2026, 3, 5) }), 'three_months'),
   true,
   'three_months candidate missing'
 );
 assert.equal(
-  hasType(base({ pairCreatedAt: utc(2025, 9, 5), now: utc(2026, 3, 5) }), 'six_months'),
+  hasType(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2025-09-05' }, now: utc(2026, 3, 5) }), 'six_months'),
   true,
   'six_months candidate missing'
 );
 assert.equal(
-  hasType(base({ pairCreatedAt: utc(2025, 6, 5), now: utc(2026, 6, 5) }), 'anniversary'),
+  hasType(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2025-06-05' }, now: utc(2026, 6, 5) }), 'anniversary'),
   true,
   'anniversary candidate missing'
 );
 assert.equal(hasType(base({ now: utc(2026, 2, 14) }), 'valentines_day'), true);
 assert.equal(hasType(base({ now: utc(2026, 3, 8) }), 'march_8'), true);
 assert.equal(hasType(base({ now: utc(2026, 12, 31) }), 'new_year'), true);
+assert.equal(buildPairEventCandidates(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS } })).some((event) => event.category === 'relationship_milestone'), false, 'Pair.createdAt must not stand in for a relationship date');
+assert.equal(buildPairEventCandidates(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2026-02-30' } })).some((event) => event.category === 'relationship_milestone'), false, 'invalid manual date must fail closed');
+assert.equal(buildPairEventCandidates(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, holidaysEnabled: false } })).some((event) => event.category === 'calendar_event'), false, 'calendar holidays must obey the shared setting');
+const endOfMonth = candidatesOfType(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2026-01-31' }, now: utc(2026, 2, 28) }), 'first_month')[0];
+assert.equal(endOfMonth.eventDate?.toISOString().slice(0, 10), '2026-02-28');
+const leapAnniversary = candidatesOfType(base({ settings: { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2024-02-29' }, now: utc(2025, 2, 28) }), 'anniversary')[0];
+assert.equal(leapAnniversary.eventDate?.toISOString().slice(0, 10), '2025-02-28');
+assert.equal(isPairEventEnabledBySettings(endOfMonth, { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2026-01-31' }), true);
+assert.equal(isPairEventEnabledBySettings(endOfMonth, { ...DEFAULT_SHARED_LIFE_SETTINGS, relationshipStartDate: '2026-02-01' }), false, 'old milestone source must be invalidated after date edit');
+assert.equal(isPairEventEnabledBySettings(endOfMonth, DEFAULT_SHARED_LIFE_SETTINGS), false);
+assert.equal(isPairEventEnabledBySettings(candidatesOfType(base(), 'valentines_day')[0], { ...DEFAULT_SHARED_LIFE_SETTINGS, holidaysEnabled: false }), false);
 assert.equal(
   hasType(base({ completedActivityCountLast14Days: 0 }), 'inactive_pair'),
   true
@@ -486,5 +500,7 @@ assert.equal(eventServiceSource.includes('hasEligibleActivityFactorBinding'), tr
 assert.equal(eventServiceSource.includes('canonicalTemplateForEvent'), true);
 assert.equal(eventServiceSource.includes('actionDefinition: canonicalTemplate.actionDefinition'), true);
 assert.equal(eventServiceSource.includes('targetFactorKeys: canonicalTemplate.targetFactorKeys'), true);
+const eventRouteSource = readFileSync(join(process.cwd(), 'src/app/api/pairs/[id]/events/[eventId]/[action]/route.ts'), 'utf8');
+assert.ok(eventRouteSource.indexOf('pairEventService.assertMutationAccess(') < eventRouteSource.indexOf('return withIdempotency('), 'HTTP receipt replay must recheck current Pair and event settings');
 
 console.log('pair events selfcheck passed');

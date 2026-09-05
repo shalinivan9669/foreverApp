@@ -172,6 +172,7 @@ export default function MatchingFeedPage() {
                   )}
                 </div>
                 <LikeComposer
+                  card={publicCard}
                   questions={publicCard.questions}
                   loading={feed.actionLoading}
                   onSubmit={feed.createLike}

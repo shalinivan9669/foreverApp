@@ -9,6 +9,7 @@ import {
 } from '@/utils/activities';
 import { requireActivityMember } from '@/lib/auth/resourceGuards';
 import { DomainError } from '@/domain/errors';
+import { economyService } from '@/domain/services/economy.service';
 import { emitEvent } from '@/lib/audit/emitEvent';
 import type { AuditRequestContext } from '@/lib/audit/eventTypes';
 import {
@@ -705,6 +706,11 @@ export const activitiesService = {
         }
 
         await data.activity.save({ session });
+        if (updatesPreliminaryResult && result.bothSubmitted) {
+          for (const userId of data.pair.members) {
+            await economyService.rewardCompletion({ userId, sourceKind: 'PAIR_ACTIVITY', sourceId: String(data.activity._id), session });
+          }
+        }
         if (
           !result.bothSubmitted &&
           (data.activity.status === 'awaiting_feedback' ||
@@ -856,6 +862,11 @@ export const activitiesService = {
         }
 
         if (alreadyCompleted && resultSummary.factorEvidenceRecorded) {
+          if (resultSummary.bothSubmitted) {
+            for (const userId of data.pair.members) {
+              await economyService.rewardCompletion({ userId, sourceKind: 'PAIR_ACTIVITY', sourceId: String(data.activity._id), session });
+            }
+          }
           outcome.response = {
             status: resultSummary.status,
             resultSummary: toActivityResultSummaryDTO(resultSummary),
@@ -920,6 +931,11 @@ export const activitiesService = {
 
         data.activity.resultSummary = resultSummary;
         await data.activity.save({ session });
+        if (resultSummary.bothSubmitted) {
+          for (const userId of data.pair.members) {
+            await economyService.rewardCompletion({ userId, sourceKind: 'PAIR_ACTIVITY', sourceId: String(data.activity._id), session });
+          }
+        }
         outcome.response = {
           status: resultSummary.status,
           resultSummary: toActivityResultSummaryDTO(resultSummary),

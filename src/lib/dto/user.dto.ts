@@ -20,6 +20,10 @@ const toTuple2 = (items: string[] | undefined): [string, string] | null => {
 
 export const PUBLIC_USER_FIELDS = ['id', 'username', 'avatar'] as const;
 export const PRIVATE_USER_FIELDS = [
+  'publicId',
+  'entryCohort',
+  'entryCompletedAt',
+  'locationSource',
   'profileStatus',
   'personal',
   'preferences',
@@ -49,6 +53,10 @@ export type UserMatchCardDTO = {
 export type UserOnboardingDTO = NonNullable<NonNullable<UserType['profile']>['onboarding']>;
 
 export type UserDTO = PublicUserDTO & {
+  publicId?: string;
+  entryCohort?: UserType['entryCohort'];
+  entryCompletedAt?: string;
+  locationSource?: UserType['locationSource'];
   profileStatus?: UserProfileStatus;
   personal?: UserType['personal'];
   preferences?: UserType['preferences'];
@@ -65,7 +73,7 @@ type MatchCardSource = NonNullable<NonNullable<UserType['profile']>['matchCard']
 
 type UserSource = Pick<UserType, 'id' | 'username' | 'avatar'> &
   Partial<
-    Pick<UserType, 'personal' | 'preferences' | 'profile' | 'location' | 'createdAt' | 'updatedAt'>
+    Pick<UserType, 'personal' | 'preferences' | 'profile' | 'location' | 'createdAt' | 'updatedAt' | 'publicId' | 'entryCohort' | 'entryCompletedAt' | 'locationSource'>
   >;
 
 export type ToUserDtoOptions = {
@@ -117,6 +125,10 @@ export function toUserDTO(user: UserSource, opts: ToUserDtoOptions = {}): UserDT
   };
 
   if (scope === 'private') {
+    if (user.publicId) dto.publicId = user.publicId;
+    if (user.entryCohort) dto.entryCohort = user.entryCohort;
+    if (user.entryCompletedAt) dto.entryCompletedAt = toIso(user.entryCompletedAt);
+    if (user.locationSource) dto.locationSource = user.locationSource;
     dto.profileStatus = getUserProfileStatus(user);
     if (user.personal) dto.personal = user.personal;
     if (user.preferences) dto.preferences = user.preferences;

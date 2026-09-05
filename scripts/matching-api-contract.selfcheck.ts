@@ -16,7 +16,9 @@ const run = async (): Promise<void> => {
   const validCard = {
     requirements: ["Уважение", "Диалог", "Надёжность"],
     give: ["Поддержка", "Забота", "Честность"],
-    questions: ["Что помогает вам доверять?", "Как выглядит хороший выходной?"],
+    questions: ["Что помогает вам доверять?", "Как выглядит хороший выходной?", "Как обсуждать различия?"],
+    boundaries: ["Оскорбления", "Принуждение", "Обман"],
+    boundaryDealbreakers: [true, true, false],
     ageRange: { min: 24, max: 38 },
     maxDistanceKm: 75,
     active: true,

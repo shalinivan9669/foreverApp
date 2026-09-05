@@ -1,3 +1,4 @@
+import type { MatchingAnswers, MatchingStatementReaction } from "@/lib/contracts/matchingProduct";
 import { z } from "zod";
 import { ApiClientError } from "./errors";
 import { http, type HttpRequestOptions } from "./http";
@@ -5,16 +6,23 @@ import type { ApiJsonValue } from "./types";
 
 const textTuple3Schema = z.tuple([z.string(), z.string(), z.string()]);
 const textTuple2Schema = z.tuple([z.string(), z.string()]);
+const answerTupleSchema = z.union([textTuple3Schema, textTuple2Schema]);
+const reactionSchema = z.object({ section: z.enum(["give", "requirements", "boundaries"]), index: z.number().int().min(0).max(2), reaction: z.enum(["AGREE", "NEUTRAL", "AGAINST"]), note: z.string().optional() });
 const matchUserSchema = z.object({
   id: z.string().min(1),
   username: z.string().min(1),
   avatar: z.string(),
+  age: z.number().int().min(18).optional(),
+  city: z.string().optional(),
 });
 
 const publicCardSchema = z.object({
   requirements: textTuple3Schema,
   give: textTuple3Schema.optional(),
-  questions: textTuple2Schema,
+  questions: answerTupleSchema,
+  boundaries: textTuple3Schema.optional(),
+  boundaryDealbreakers: z.tuple([z.boolean(), z.boolean(), z.boolean()]).optional(),
+  cardVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 const relationshipIntentSchema = z.enum([
@@ -35,6 +43,7 @@ const matchingActualSchema = z.object({
 
 const matchingCardFieldsSchema = publicCardSchema.extend({
   give: textTuple3Schema,
+  soughtGender: z.enum(["ANY", "male", "female"]).optional(),
   ageRange: z.object({ min: z.number().int(), max: z.number().int() }),
   maxDistanceKm: z.number().int(),
   active: z.boolean(),
@@ -105,14 +114,14 @@ const candidateCardSchema = z.object({
   fit: matchFitSchema.optional(),
 });
 
-const matchActionSchema = z.enum(["RESPOND", "ACCEPT", "DECLINE", "BLOCK"]);
-const connectionActionSchema = z.enum(["REQUEST", "CONFIRM", "CANCEL"]);
+const matchActionSchema = z.enum(["RESPOND", "ACCEPT", "DECLINE", "BLOCK", "WITHDRAW"]);
+const connectionActionSchema = z.enum(["REQUEST", "CONFIRM", "CANCEL", "PAUSE", "RESUME", "CLOSE"]);
 
 const connectionSchema: z.ZodType<MatchingConnectionDTO> = z.object({
   id: z.string().min(1),
   participant: matchUserSchema,
   stage: z.enum(["MATCHED", "TALKING", "DATING", "COUPLE_CONFIRMED"]),
-  status: z.enum(["ACTIVE", "CLOSED", "BLOCKED"]),
+  status: z.enum(["ACTIVE", "PAUSED", "CLOSED", "BLOCKED"]),
   confirmation: z.object({
     state: z.enum(["NONE", "PENDING", "CONFIRMED"]),
     requestedByMe: z.boolean(),
@@ -128,6 +137,7 @@ const likeStatusSchema = z.enum([
   "VIEWED",
   "RESPONDED",
   "DECLINED",
+  "WITHDRAWN",
   "EXPIRED",
   "BLOCKED",
   "MATCHED",
@@ -145,9 +155,13 @@ const likeSummarySchema = z.object({
 
 const likeDetailSchema = likeSummarySchema.extend({
   card: publicCardSchema.optional(),
-  questions: textTuple2Schema.optional(),
-  initiatorAnswers: textTuple2Schema.optional(),
-  responseAnswers: textTuple2Schema.optional(),
+  questions: answerTupleSchema.optional(),
+  initiatorAnswers: answerTupleSchema.optional(),
+  initiatorCard: publicCardSchema.optional(),
+  targetCard: publicCardSchema.optional(),
+  initiatorReactions: z.array(reactionSchema).optional(),
+  responseReactions: z.array(reactionSchema).optional(),
+  responseAnswers: answerTupleSchema.optional(),
   connection: connectionSchema.optional(),
 });
 
@@ -185,7 +199,7 @@ export type MatchingConnectionDTO = {
   id: string;
   participant: MatchUserDTO;
   stage: "MATCHED" | "TALKING" | "DATING" | "COUPLE_CONFIRMED";
-  status: "ACTIVE" | "CLOSED" | "BLOCKED";
+  status: "ACTIVE" | "PAUSED" | "CLOSED" | "BLOCKED";
   confirmation: {
     state: "NONE" | "PENDING" | "CONFIRMED";
     requestedByMe: boolean;
@@ -193,10 +207,10 @@ export type MatchingConnectionDTO = {
     confirmedByPartner: boolean;
   };
   pairId?: string;
-  allowedActions: Array<"REQUEST" | "CONFIRM" | "CANCEL">;
+  allowedActions: Array<"REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE">;
 };
 
-export type SaveMatchingCardRequest = Omit<MatchingCardFields, "actual"> & {
+export type SaveMatchingCardRequest = Omit<MatchingCardFields, "actual" | "cardVersion"> & {
   actual: Omit<
     MatchingCardFields["actual"],
     "relationshipIntent" | "childrenIntent"
@@ -213,12 +227,14 @@ export type CreateMatchingLikeRequest = {
   candidateId: string;
   candidateGrant: string;
   agreements: [true, true, true];
-  answers: [string, string];
+  answers: MatchingAnswers;
+  reactions?: MatchingStatementReaction[];
 };
 export type RespondMatchingLikeRequest = {
   likeId: string;
   agreements: [true, true, true];
-  answers: [string, string];
+  answers: MatchingAnswers;
+  reactions?: MatchingStatementReaction[];
 };
 
 const invalidPayload = (context: string, error: z.ZodError): never => {
@@ -394,6 +410,16 @@ export const matchApi = {
     );
   },
 
+  async withdraw(likeId: string): Promise<MatchLikeDTO> {
+    return normalizeMatchingLike(
+      await http.post<ApiJsonValue, { likeId: string }>(
+        "/api/match/withdraw",
+        { likeId },
+        { idempotency: true },
+      ),
+    );
+  },
+
   async reject(likeId: string): Promise<MatchLikeDTO> {
     return normalizeMatchingLike(
       await http.post<ApiJsonValue, { likeId: string }>(
@@ -443,12 +469,12 @@ export const matchApi = {
 
   async confirmConnection(
     connectionId: string,
-    action: "REQUEST" | "CONFIRM" | "CANCEL",
+    action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
   ): Promise<MatchingConnectionDTO> {
     return normalizeMatchingConnection(
       await http.post<
         ApiJsonValue,
-        { connectionId: string; action: "REQUEST" | "CONFIRM" | "CANCEL" }
+        { connectionId: string; action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE" }
       >("/api/match/confirm", { connectionId, action }, { idempotency: true }),
     );
   },

@@ -70,6 +70,17 @@ export type PublicUserDTO = {
 };
 
 export type CurrentUserDTO = PublicUserDTO & {
+  publicId?: string;
+  entryCohort?: 'SOLO' | 'EXISTING_PARTNER';
+  entryCompletedAt?: string;
+  locationSource?: 'CITY_CATALOG' | 'DEVICE' | 'NONE';
+  personal?: {
+    gender: 'male' | 'female';
+    age: number;
+    city: string;
+    relationshipStatus: 'seeking' | 'in_relationship';
+  };
+  location?: { type: 'Point'; coordinates: [number, number] };
   profile?: {
     onboarding?: {
       seeking?: boolean;

@@ -1,3 +1,4 @@
+import { getMatchingLike } from "@/domain/services/matching/matchingApplication.service";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import mongoose, { Types } from "mongoose";
@@ -80,6 +81,7 @@ const createParticipant = async (
     username: input.label,
     avatar: "matching-pair-transition-fixture",
     pairMembershipRevision: 0,
+    profile: { onboarding: { seeking: { valuedQualities: ["kindness", "honesty", "respect"] } } },
     personal: {
       gender: "female",
       age: input.age,
@@ -317,18 +319,41 @@ const createActiveConnection = async (
   const like = await socialService.createLike(
     await createLikeInput(senderId, recipientId, label),
   );
-  await socialService.respondToLike({
+  const response = await socialService.respondToLike({
     actorId: recipientId,
     likeId: like.likeId,
     agreements: [true, true, true],
     answers: [`${label} response 1`, `${label} response 2`],
   });
-  const accepted = await socialService.acceptLike({
-    actorId: senderId,
-    likeId: like.likeId,
-  });
-  assert.equal(accepted.status, "MATCHED");
-  return { likeId: like.likeId, connectionId: accepted.connectionId };
+  assert.equal(response.status, "MATCHED");
+  const stored = await Like.findById(like.likeId).lean();
+  assert.ok(stored?.connectionId, "Response acceptance must atomically create a Connection");
+  return { likeId: like.likeId, connectionId: String(stored.connectionId) };
+};
+
+const exerciseConnectionCapacityAndPending = async (): Promise<void> => {
+  const [owner, b, c, d, e] = await Promise.all(["slots-owner", "slots-b", "slots-c", "slots-d", "slots-e"].map((label) => createParticipant({ label, age: 30, coordinates: [60, 45], desiredAgeRange: { min: 18, max: 99 }, maxDistanceKm: 500 })));
+  const first = await createActiveConnection(owner.userId, b.userId, "slots-first");
+  await createActiveConnection(owner.userId, c.userId, "slots-second");
+  await socialService.confirmConnection({ actorId: b.userId, connectionId: first.connectionId, action: "PAUSE" });
+  const pending = await Promise.all([d, e].map(async (peer) => ({ peer, like: await socialService.createLike(await createLikeInput(owner.userId, peer.userId, peer.userId)) })));
+  const respond = (item: typeof pending[number]) => socialService.respondToLike({ actorId: item.peer.userId, likeId: item.like.likeId, agreements: [true, true, true], answers: ["capacity answer one", "capacity answer two"] });
+  const race = await Promise.allSettled(pending.map(respond));
+  assert.equal(race.filter((item) => item.status === "fulfilled").length, 1, "Two acceptances racing for one slot must create only one connection");
+  const rejected = race.find((item) => item.status === "rejected");
+  assert.ok(rejected?.status === "rejected" && rejected.reason instanceof DomainError && rejected.reason.code === "MATCHING_CONNECTION_LIMIT");
+  assert.equal(await MatchingConnection.countDocuments({ participantIds: owner.userId, status: { $in: ["ACTIVE", "PAUSED"] } }), 3);
+  const loser = pending[race.findIndex((item) => item.status === "rejected")];
+  assert.equal((await Like.findById(loser.like.likeId).lean())?.status, "SENT", "A rejected acceptance must not partially persist the response");
+  await socialService.confirmConnection({ actorId: b.userId, connectionId: first.connectionId, action: "CLOSE" });
+  assert.equal((await respond(loser)).status, "MATCHED");
+  const withdrawn = await socialService.createLike(await createLikeInput(owner.userId, b.userId, "withdraw-pending"));
+  assert.equal((await socialService.withdrawLike({ actorId: owner.userId, likeId: withdrawn.likeId })).status, "WITHDRAWN");
+  assert.equal((await socialService.withdrawLike({ actorId: owner.userId, likeId: withdrawn.likeId })).noop, true);
+  const expired = await socialService.createLike(await createLikeInput(owner.userId, b.userId, "expire-pending"));
+  await Like.collection.updateOne({ _id: new Types.ObjectId(expired.likeId) }, { $set: { createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) } });
+  await assert.rejects(() => socialService.respondToLike({ actorId: b.userId, likeId: expired.likeId, agreements: [true, true, true], answers: ["too late one", "too late two"] }), (error: Error) => error instanceof DomainError && error.status === 409);
+  assert.equal((await getMatchingLike({ currentUserId: owner.userId, likeId: expired.likeId })).status, "EXPIRED");
 };
 
 const fulfilledResults = (
@@ -397,6 +422,12 @@ const exercisePairTransitionRace = async (): Promise<void> => {
       "race-extra-like",
     ),
   );
+
+  const extraResponse = await socialService.respondToLike({ actorId: extraCandidate.userId, likeId: extraLike.likeId, agreements: [true, true, true], answers: ["extra response one", "extra response two"] });
+  assert.equal(extraResponse.status, "MATCHED");
+  const extraStored = await Like.findById(extraLike.likeId).lean();
+  assert.ok(extraStored?.connectionId);
+  await socialService.confirmConnection({ actorId: extraCandidate.userId, connectionId: String(extraStored.connectionId), action: "PAUSE" });
 
   await Promise.all([
     socialService.confirmConnection({
@@ -497,6 +528,7 @@ const exercisePairTransitionRace = async (): Promise<void> => {
   assert.equal(statusByLikeId.get(winnerLikeId), "MATCHED");
   assert.equal(statusByLikeId.get(loserLikeId), "EXPIRED");
   assert.equal(statusByLikeId.get(extraLike.likeId), "EXPIRED");
+  assert.equal((await MatchingConnection.findById(extraStored.connectionId).lean())?.status, "CLOSED", "Pair formation also closes paused connections");
 
   const [winnerProfiles, winnerProjections, loserProfile, grants, users] =
     await Promise.all([
@@ -612,6 +644,7 @@ const main = async (): Promise<void> => {
   try {
     await ensureIndexes();
     await exerciseLiteralEligibilityBoundaries();
+    await exerciseConnectionCapacityAndPending();
     await exercisePairTransitionRace();
     console.log("matching-pair-transition.integration: ok");
   } finally {

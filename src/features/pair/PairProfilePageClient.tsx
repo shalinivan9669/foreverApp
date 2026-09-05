@@ -8,6 +8,7 @@ import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
 import PairWeeklyCheckInPanel from '@/components/checkins/PairWeeklyCheckInPanel';
+import PairEventsPanel from '@/components/events/PairEventsPanel';
 import {
   pairHistoryApi,
   type PairHistoryItemDTO,
@@ -563,6 +564,11 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
             </div>
           </section>
 
+          <section className="app-panel app-panel-solid app-grid-wide p-4">
+            <h2 className="text-lg font-semibold">Планы и время вместе</h2>
+            <div className="mt-3 flex flex-wrap gap-3"><Link href="/shared-life" className="app-btn-secondary px-3 py-2">Даты, дела и желания</Link><Link href="/development" className="app-btn-secondary px-3 py-2">Практики, темы и отдых</Link><Link href="/store" className="app-btn-secondary px-3 py-2">Коллекция и магазин</Link></div>
+          </section>
+          <div className="app-grid-wide"><PairEventsPanel pairId={pairId} pairStatus={data.pair.status} /></div>
           <section id="weekly-checkin" className="app-reveal app-grid-wide scroll-mt-4">
             <PairWeeklyCheckInPanel
               pairId={pairId}

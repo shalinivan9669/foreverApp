@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
+import { pairInviteAcceptSchema } from '../schemas';
 import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
 import { withIdempotency } from '@/lib/idempotency/withIdempotency';
@@ -9,12 +9,6 @@ import {
   hashPairInviteToken,
   pairInviteService,
 } from '@/domain/services/pairInvite.service';
-
-const bodySchema = z
-  .object({
-    token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-  })
-  .strict();
 
 export async function POST(req: NextRequest) {
   const auth = await requireSession(req);
@@ -28,7 +22,7 @@ export async function POST(req: NextRequest) {
   });
   if (!rate.ok) return rate.response;
 
-  const body = await parseJson(req, bodySchema);
+  const body = await parseJson(req, pairInviteAcceptSchema);
   if (!body.ok) return body.response;
   const route = '/api/pair-invites/accept';
 
@@ -36,11 +30,11 @@ export async function POST(req: NextRequest) {
     req,
     route,
     userId: auth.data.userId,
-    requestBody: { tokenHash: hashPairInviteToken(body.data.token) },
+    requestBody: { lookupHash: hashPairInviteToken('token' in body.data ? body.data.token : body.data.partnerCode), confirmation: body.data.confirmation },
     execute: () =>
       pairInviteService.accept({
         currentUserId: auth.data.userId,
-        token: body.data.token,
+        ...('token' in body.data ? { token: body.data.token } : { partnerCode: body.data.partnerCode }),
         auditRequest: auditContextFromRequest(req, route),
       }),
   });

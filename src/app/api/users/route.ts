@@ -55,8 +55,9 @@ export async function POST(request: Request) {
 
   const bodyResult = await parseJson(request, userUpdateSchema);
   if (!bodyResult.ok) return bodyResult.response;
-  const rawBody = bodyResult.data as UserProfileUpsertPayload & { avatar?: string | null };
-  const body: UserProfileUpsertPayload = {
+  type LegacyProfilePayload = Pick<UserProfileUpsertPayload, 'username' | 'avatar' | 'personal' | 'preferences' | 'location'>;
+  const rawBody = bodyResult.data as LegacyProfilePayload & { avatar?: string | null };
+  const body: LegacyProfilePayload = {
     ...rawBody,
     ...(rawBody.avatar !== undefined
       ? { avatar: normalizeDiscordAvatar(rawBody.avatar) }

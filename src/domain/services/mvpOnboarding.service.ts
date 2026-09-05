@@ -10,6 +10,7 @@ import {
 } from '@/models/MvpOnboardingSession';
 import { recordProductAnalyticsEvent } from '@/lib/observability/productAnalytics';
 import { materializeOnboardingFactorEvidence } from '@/domain/services/onboardingFactorEngine.service';
+import { economyService } from '@/domain/services/economy.service';
 
 export const MVP_ONBOARDING_CONTENT_REVISION = 'mvp-onboarding-v2';
 export const MVP_ONBOARDING_POLICY_VERSION = 'mvp-privacy-v1';
@@ -805,7 +806,11 @@ export const mvpOnboardingService = {
     const session = await MvpOnboardingSession.findOne(
       currentSessionFilter(input.currentUserId)
     ).lean<StoredSession | null>();
-    return responseDTO(session);
+    const response = responseDTO(session);
+    if (response.session?.status === 'completed' && response.session.modelStatus === 'MATERIALIZED') {
+      await economyService.rewardCompletion({ userId: input.currentUserId, sourceId: response.session.contentRevision, sourceKind: 'ONBOARDING' });
+    }
+    return response;
   },
 
   async mutate(input: {
@@ -822,6 +827,10 @@ export const mvpOnboardingService = {
         mutation: input.mutation,
       });
     }
-    return complete({ currentUserId: input.currentUserId });
+    const completed = await complete({ currentUserId: input.currentUserId });
+    if (completed.session?.modelStatus === 'MATERIALIZED') {
+      await economyService.rewardCompletion({ userId: input.currentUserId, sourceId: completed.session.contentRevision, sourceKind: 'ONBOARDING' });
+    }
+    return completed;
   },
 };

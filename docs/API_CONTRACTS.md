@@ -1,6 +1,17 @@
 # API Contracts
 
-Status: current public/participant boundary after the Factor NEW_ONLY/free-core cutover and Factor Matching integration. Updated 2026-08-13.
+## Product expansion — 2026-09-05
+
+The accepted product expansion adds owner entry/cohort/public pairing identity, two explicit PairInvite confirmations, three-block/three-question matching, independent Connection rounds, development runs, shared-life workspace and earned-only economy. These current contracts take precedence over earlier two-question/three-step descriptions below:
+
+- [Entry and PairInvite contracts](ENTRY_AND_PAIRING_UPDATE.md): `GET|PUT /api/users/me/entry`, recipient claim, creator `POST /api/pair-invites/:id/confirm`.
+- [Matching contracts](MATCHING_PRODUCT_UPDATE.md): recipient response creates Connection; concrete statement reactions, `/withdraw`, pause/resume/close and independent conversation rounds.
+- [Development and shared-life contracts](PRODUCT_WORKSPACE_UPDATE.md): `/api/development/**`, `GET|POST /api/pairs/:id/shared-life`. Mutations cache receipt identifiers only; current private/shared state is read separately through guarded GET.
+- [Economy contracts](ECONOMY_UPDATE.md): `/api/economy/**`, personal wallet/inventory and separate Pair collection. Prices/rewards/random outcomes are server-controlled; no reward-claim HTTP endpoint or real payments.
+
+All new private APIs derive the actor from the session. Replay authorization precedes cached results where applicable. Owner export adds `productWorkspace`, `economy` and own Matching conversation answers; peer-private reflection answers are excluded.
+
+Status: current public/participant boundary after the Factor NEW_ONLY/free-core cutover and Factor Matching integration. Reviewed 2026-09-05 after the Discord Activity OAuth stabilization.
 
 ## Envelope and caching
 

@@ -54,13 +54,21 @@ export const matchingReadResponse = async <T>(
   }
 };
 
-export const matchingMutationResponse = <T>(input: {
+export const matchingMutationResponse = async <T>(input: {
   req: NextRequest;
   route: string;
   currentUserId: string;
   requestBody: JsonValue;
+  authorize?: () => Promise<void>;
   execute: (context: { idempotencyKey: string }) => Promise<T>;
 }): Promise<Response> => {
+  // Cached responses may contain participant-only text. Re-authorize before replay.
+  try {
+    await input.authorize?.();
+  } catch (caughtError) {
+    const domainError = toDomainError(asError(caughtError));
+    return jsonError(domainError.status, domainError.code, domainError.message, domainError.details);
+  }
   const key = readIdempotencyKey(input.req);
   if (!key.ok) {
     return Promise.resolve(jsonError(key.status, key.code, key.message));

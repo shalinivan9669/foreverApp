@@ -2,6 +2,14 @@
 
 Status: active procedure for the public-free NEW_ONLY + Factor Matching artifact. Local evidence is not deployment authority. Updated 2026-08-13.
 
+## Product expansion release note, 2026-09-05
+
+The current artifact adds the [approved product contours](PRODUCT_IMPLEMENTATION.md). No production dependencies, environment variables or lockfile changes are required. Existing session/Discord/Mongo configuration still applies. The public core remains free; the new store spends earned internal coins and is independent of legacy entitlement/billing hooks.
+
+`release:preflight` now imports DevelopmentRun, DevelopmentCompletion, PairWorkspace, EconomyWallet, EconomyLedger, EconomyInventory, EconomyPairCollection and MatchingConversationRound, in addition to User and existing models. With production `autoIndex=false`, inspect the report and apply the existing additive-index procedure before serving the new flows, including the sparse unique `user_public_pairing_id`. No index migration or reset has been run against the owner's database. Legacy data may be disposable according to the owner, but a target must still be identified before any target-specific reset.
+
+Local transaction and concurrency evidence is documented in [PRODUCT_IMPLEMENTATION.md](PRODUCT_IMPLEMENTATION.md). Before deployment, run the target readiness/index checks and the two-account Discord smoke there. The temporary local test server and its synthetic authentication wrapper are not deployment artifacts. Telegram OAuth, background notifications, media storage and real-money payments require separate implementation; do not infer them from the public code or store UI.
+
 ## 0. Release principles
 
 - Core billing is disabled/non-gating; do not configure a paywall or entitlement as part of release.

@@ -1,6 +1,17 @@
 # Security and privacy
 
-Status: active security boundary after the NEW_ONLY cutover and Factor Matching integration. Updated 2026-08-13.
+Status: active security boundary after the NEW_ONLY cutover and Factor Matching integration. Reviewed 2026-09-05 after the Discord Activity OAuth stabilization.
+
+## Product expansion boundaries, 2026-09-05
+
+- The stable public pairing code identifies an invitation recipient; it is not a session credential. Both invitation participants explicitly confirm before a Pair exists. The authenticated session remains the actor across new entry, conversation, development, workspace and economy routes.
+- Conversation answers are independent and private until both participants acknowledge the disclosure notice and submit. Completed development answers and personal notes remain owner-only even for a joint practice; the partner sees completion status, not text.
+- Pair context is canonicalized after resource authorization. Transactional writes fence the current active Pair lifecycle; paused pairs permit designated reads only, and ended pairs cannot read these new active workspaces. Replayed idempotency results are subject to current access checks.
+- Development and shared-life mutation caches hold receipts, not private content. Clients fetch a freshly authorized view after a mutation. Shared workspace deletion cleanup covers both participants' old route caches, including mixed-case Pair paths. Export contains own results and currently accessible shared data, with bounded export limits exposed.
+- Wallet rewards, purchases and collection transfers are atomic, with deterministic source identity and immutable ledger entries. A shared collection does not disclose the partner's private wallet. Household budget currencies remain separate from earned coins.
+- Demo content does not produce clinical or causal claims or feed Factor evidence. Intimate preferences retain explicit skip/private behavior. Optional coarse location has a manual-city fallback; exact Discord iframe permissions still require a live check.
+
+See [entry](ENTRY_AND_PAIRING_UPDATE.md), [matching](MATCHING_PRODUCT_UPDATE.md), [workspace](PRODUCT_WORKSPACE_UPDATE.md) and [economy](ECONOMY_UPDATE.md) for precise contracts and limits. Account-deletion failure recovery, new breakup archives and future cross-platform account linking were not implemented in this expansion.
 
 ## Authentication and session revocation
 

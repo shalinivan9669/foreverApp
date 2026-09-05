@@ -12,6 +12,8 @@ Do not use a `historical`, `archive`, or `deprecated` document as current behavi
 | `docs/API_CONTRACTS.md`, `docs/SECURITY.md` | active | Current public boundary and disclosure/security rules |
 | `docs/TESTING.md`, `docs/RELEASE_RUNBOOK.md`, `docs/SCALE_READINESS.md` | active | Verification and operations |
 | `docs/MVP_RELEASE_STATUS.md`, `docs/P0_CAPABILITY_MATRIX.md`, `docs/P0_TWO_USER_E2E.md` | active | Current evidence and external gates |
+| `docs/PRODUCT_IMPLEMENTATION.md` | active | Accepted 2026-09-05 expansion, current local verification and remaining Discord/target checks |
+| `docs/CURRENT_PILOT_HANDOFF.md` | historical | Pilot observations before the 2026-09-05 implementation; preserved evidence and unexecuted reset proposals |
 | `docs/PUBLIC_FREE_MVP_EXECUTION.md` | active | 2026-08-11 cutover ledger; final gate follows recorded evidence |
 | `docs/CODE_REVIEW.md`, `docs/TROUBLESHOOTING.md` | active | Engineering checklists |
 | `docs/TASK_PACKS.md`, `docs/AGENT_OPERATING_MODES.md`, `docs/CONTEXT_BUDGET.md`, `docs/AGENT_RETROSPECTIVE.md` | active | Agent process |

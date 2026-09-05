@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { usePair } from '@/client/hooks/usePair';
+import { useCurrentUser } from '@/client/hooks/useCurrentUser';
 import { pairsApi, type PairSummaryDTO } from '@/client/api/pairs.api';
 import {
   weeklyCyclesApi,
@@ -50,6 +51,8 @@ const PAIR_DATA_STATUS_LABELS: Record<
 
 export default function MainMenuPage() {
   const router = useRouter();
+  const { data: currentUser } = useCurrentUser();
+  const existingPartnerIntent = currentUser?.entryCohort === 'EXISTING_PARTNER';
   const {
     pairId,
     pairMe,
@@ -192,22 +195,21 @@ export default function MainMenuPage() {
           </section>
         ) : !pairId ? (
           <Link
-            href="/invite"
-            aria-label="Создать приглашение"
+            href={existingPartnerIntent ? '/invite' : '/development'}
+            aria-label={existingPartnerIntent ? 'Связать партнёра' : 'Личное развитие'}
             className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
           >
             <div className="app-tile-content">
               <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
-                Начать вместе
+                {existingPartnerIntent ? 'Начать вместе' : 'Мой следующий шаг'}
               </span>
               <div className="mt-6">
-                <h1 className="app-tile-title">Пригласите партнёра</h1>
+                <h1 className="app-tile-title">{existingPartnerIntent ? 'Свяжите вашу пару' : 'Начните с себя'}</h1>
                 <p className="app-tile-description">
-                  Создайте одноразовую ссылку. Пара появится только после согласия
-                  второго участника.
+                  {existingPartnerIntent ? 'Передайте партнёру свой код или приглашение. Сверьте друг друга и подтвердите пару с обеих сторон.' : 'Исследуйте свои ожидания, выберите посильную практику и подготовьтесь к знакомству.'}
                 </p>
                 <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
-                  Создать приглашение
+                  {existingPartnerIntent ? 'Связать партнёра' : 'Выбрать личный шаг'}
                 </span>
               </div>
             </div>
@@ -333,7 +335,7 @@ export default function MainMenuPage() {
         >
           <div className="app-tile-content">
             <span className="mb-auto w-fit rounded-full bg-white/20 px-3 py-1 text-sm text-white/95">
-              Factor Matching
+              Подбор партнёра
             </span>
             <span className="app-tile-title mt-5">Знакомства</span>
             <span className="app-tile-description text-white/90">
@@ -360,6 +362,10 @@ export default function MainMenuPage() {
       </div>
 
       <nav className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Дополнительные разделы">
+        <Link href="/development" className="app-btn-secondary px-3 py-2">Развитие и отдых</Link>
+        <Link href="/store" className="app-btn-secondary px-3 py-2">Монеты и магазин</Link>
+        {pairId && <Link href="/shared-life" className="app-btn-secondary px-3 py-2">Наша общая жизнь</Link>}
+        {!pairId && <Link href="/invite" className="app-btn-secondary px-3 py-2">Уже есть партнёр</Link>}
         {pairId && (
           <Link href={`/pair/${pairId}`} className="app-btn-secondary px-3 py-2">
             О паре

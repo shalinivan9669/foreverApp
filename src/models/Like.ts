@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types } from "mongoose";
+import type { MatchingAnswers, MatchingSocialCard, MatchingStatementReaction } from "@/domain/model/matching/socialContract";
 
 export type LikeStatus =
   | "SENT"
@@ -6,6 +7,7 @@ export type LikeStatus =
   | "RESPONDED"
   | "MATCHED"
   | "DECLINED"
+  | "WITHDRAWN"
   | "EXPIRED"
   | "BLOCKED"
   | "sent"
@@ -16,16 +18,14 @@ export type LikeStatus =
   | "rejected"
   | "expired";
 
-export interface CardSnapshot {
-  requirements: [string, string, string];
-  give?: [string, string, string];
-  questions: [string, string];
+export interface CardSnapshot extends MatchingSocialCard {
   updatedAt?: Date;
 }
 
 export interface RecipientResponse {
   agreements: [boolean, boolean, boolean];
-  answers: [string, string];
+  answers: MatchingAnswers;
+  reactions?: MatchingStatementReaction[];
   initiatorCardSnapshot: CardSnapshot;
   at: Date;
 }
@@ -68,7 +68,8 @@ export interface LikeType {
 
   /** устаревшие поля — только для обратной совместимости */
   agreements?: [boolean, boolean, boolean];
-  answers?: [string, string];
+  answers?: MatchingAnswers;
+  reactions?: MatchingStatementReaction[];
   cardSnapshot?: CardSnapshot;
 }
 
@@ -77,6 +78,9 @@ const CardSchema = new Schema<CardSnapshot>(
     requirements: { type: [String], required: true },
     give: { type: [String], required: false },
     questions: { type: [String], required: true },
+    boundaries: { type: [String], default: undefined },
+    boundaryDealbreakers: { type: [Boolean], default: undefined },
+    cardVersion: { type: Number, enum: [1, 2] },
     updatedAt: { type: Date },
   },
   { _id: false },
@@ -90,10 +94,18 @@ const DecisionSchema = new Schema<Decision>(
   { _id: false },
 );
 
+const ReactionSchema = new Schema<MatchingStatementReaction>({
+  section: { type: String, enum: ["give", "requirements", "boundaries"], required: true },
+  index: { type: Number, min: 0, max: 2, required: true },
+  reaction: { type: String, enum: ["AGREE", "NEUTRAL", "AGAINST"], required: true },
+  note: { type: String, maxlength: 280 },
+}, { _id: false });
+
 const RecipientResponseSchema = new Schema<RecipientResponse>(
   {
     agreements: { type: [Boolean], required: true },
     answers: { type: [String], required: true },
+    reactions: { type: [ReactionSchema], default: undefined },
     initiatorCardSnapshot: {
       type: CardSchema,
       required: true,
@@ -168,6 +180,7 @@ const LikeSchema = new Schema<LikeType>(
     // устаревшие поля — делаем необязательными
     agreements: { type: [Boolean], required: false, select: false },
     answers: { type: [String], required: false, select: false },
+    reactions: { type: [ReactionSchema], default: undefined, select: false },
     cardSnapshot: { type: CardSchema, required: false, select: false },
   },
   { timestamps: true },

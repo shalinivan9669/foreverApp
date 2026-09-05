@@ -7,7 +7,7 @@ import {
 export type MatchingConnectionStage =
   "MATCHED" | "TALKING" | "DATING" | "COUPLE_CONFIRMED";
 
-export type MatchingConnectionStatus = "ACTIVE" | "CLOSED" | "BLOCKED";
+export type MatchingConnectionStatus = "ACTIVE" | "PAUSED" | "CLOSED" | "BLOCKED";
 
 export type CoupleConfirmationSnapshot = {
   requestedBy?: string;
@@ -31,6 +31,8 @@ export type MatchingConnectionAction =
   | { type: "CANCEL"; at: Date }
   | { type: "BLOCK"; at: Date }
   | { type: "CLOSE"; at: Date }
+  | { type: "PAUSE"; at: Date }
+  | { type: "RESUME"; at: Date }
   | { type: "PAIR_FORMED"; pairId: string; at: Date };
 
 export type MatchingConnectionTransition = {
@@ -100,7 +102,7 @@ export const matchingConnectionTransition = (
   switch (action.type) {
     case "REQUEST": {
       if (actorId === "SYSTEM") return notFound();
-      if (snapshot.status !== "ACTIVE" || snapshot.stage !== "MATCHED") {
+      if (snapshot.status !== "ACTIVE" || snapshot.stage === "COUPLE_CONFIRMED") {
         return conflict(snapshot, action);
       }
       if (snapshot.pairId) return conflict(snapshot, action);
@@ -129,7 +131,7 @@ export const matchingConnectionTransition = (
       ) {
         return noop(snapshot);
       }
-      if (snapshot.stage !== "MATCHED" || snapshot.pairId) {
+      if (snapshot.stage === "COUPLE_CONFIRMED" || snapshot.pairId) {
         return conflict(snapshot, action);
       }
       const requestedBy = snapshot.coupleConfirmation.requestedBy;
@@ -157,12 +159,12 @@ export const matchingConnectionTransition = (
         return conflict(snapshot, action);
       }
       if (
-        snapshot.stage === "MATCHED" &&
+        snapshot.stage !== "COUPLE_CONFIRMED" &&
         !snapshot.coupleConfirmation.requestedBy
       ) {
         return noop(snapshot);
       }
-      if (snapshot.stage !== "MATCHED") return conflict(snapshot, action);
+      if (snapshot.stage === "COUPLE_CONFIRMED") return conflict(snapshot, action);
       return applied(snapshot, {
         coupleConfirmation: resetConfirmation(snapshot.coupleConfirmation),
       });
@@ -177,6 +179,15 @@ export const matchingConnectionTransition = (
         status: "BLOCKED",
         coupleConfirmation: resetConfirmation(snapshot.coupleConfirmation),
       });
+
+    case "PAUSE":
+    case "RESUME": {
+      if (actorId === "SYSTEM") return notFound();
+      if (snapshot.pairId || (snapshot.status !== "ACTIVE" && snapshot.status !== "PAUSED")) return conflict(snapshot, action);
+      const status = action.type === "PAUSE" ? "PAUSED" : "ACTIVE";
+      if (snapshot.status === status) return noop(snapshot);
+      return applied(snapshot, { status, coupleConfirmation: resetConfirmation(snapshot.coupleConfirmation) });
+    }
 
     case "CLOSE":
       if (snapshot.status === "CLOSED") return noop(snapshot);

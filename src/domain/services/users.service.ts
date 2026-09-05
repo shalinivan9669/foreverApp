@@ -9,13 +9,17 @@ import { toUserDTO, type UserDTO } from '@/lib/dto/user.dto';
 import { CandidateDiscoveryProjection } from '@/models/CandidateDiscoveryProjection';
 import { CandidatePresentationGrant } from '@/models/CandidatePresentationGrant';
 import { MatchingProfile } from '@/models/MatchingProfile';
+import { Pair } from '@/models/Pair';
 
 export type UserProfileUpsertPayload = {
   username?: UserType['username'];
   avatar?: UserType['avatar'];
   personal?: UserType['personal'];
   preferences?: UserType['preferences'];
-  location?: UserType['location'];
+  location?: UserType['location'] | null;
+  entryCohort?: UserType['entryCohort'];
+  entryCompletedAt?: Date;
+  locationSource?: UserType['locationSource'];
 };
 
 const profileUpsertFields = [
@@ -24,6 +28,9 @@ const profileUpsertFields = [
   'personal',
   'preferences',
   'location',
+  'entryCohort',
+  'entryCompletedAt',
+  'locationSource',
 ] as const;
 
 const toUpdateFields = (payload: UserProfileUpsertPayload): Record<string, unknown> => {
@@ -38,7 +45,7 @@ const toUpdateFields = (payload: UserProfileUpsertPayload): Record<string, unkno
 };
 
 const changesDiscoveryInputs = (fields: Record<string, unknown>): boolean =>
-  ['personal', 'preferences', 'location'].some((field) =>
+  ['personal', 'preferences', 'location', 'entryCohort'].some((field) =>
     Object.hasOwn(fields, field)
   );
 
@@ -67,10 +74,20 @@ const updateUserProfileDocument = async (input: {
   try {
     const result = await session.withTransaction(async () => {
       const now = new Date();
+      // Recheck inside the same transaction as the User membership fence. A
+      // cohort/profile save racing Pair formation cannot overwrite its fact.
+      const hasPair = Boolean(await Pair.exists({ members: input.userId, status: { $in: ['active', 'paused'] } }).session(session));
+      if (hasPair && input.fields.entryCohort === 'SOLO') {
+        throw new DomainError({ code: 'PAIR_ALREADY_ACTIVE', status: 409, message: 'An active pair already exists' });
+      }
+      const fields = { ...input.fields };
+      if (fields.personal && typeof fields.personal === 'object') {
+        fields.personal = { ...fields.personal, relationshipStatus: hasPair ? 'in_relationship' : 'seeking' };
+      }
       const user = await User.findOneAndUpdate(
         { id: input.userId },
         {
-          $set: input.fields,
+          $set: fields,
           $inc: { pairMembershipRevision: 1 },
           ...(input.upsert ? { $setOnInsert: { id: input.userId } } : {}),
         },
@@ -83,18 +100,17 @@ const updateUserProfileDocument = async (input: {
         }
       ).lean<UserType | null>();
       if (!user) return null;
-      await Promise.all([
-        MatchingProfile.updateOne(
+      await MatchingProfile.updateOne(
           { userId: input.userId },
           { $set: { active: false } },
           { session }
-        ),
-        CandidateDiscoveryProjection.updateOne(
+        );
+      await CandidateDiscoveryProjection.updateOne(
           { userId: input.userId },
           { $set: { active: false } },
           { session }
-        ),
-        CandidatePresentationGrant.updateMany(
+        );
+      await CandidatePresentationGrant.updateMany(
           {
             $or: [
               { requesterId: input.userId },
@@ -104,8 +120,7 @@ const updateUserProfileDocument = async (input: {
           },
           { $set: { revokedAt: now } },
           { session }
-        ),
-      ]);
+        );
       return user;
     });
     return result ?? null;

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import mongoose, { Types } from "mongoose";
-import { POST as acceptLike } from "@/app/api/match/accept/route";
+import { GET as getConversation, POST as updateConversation } from "@/app/api/match/connections/[id]/conversation/route";
+import { MatchingConversationRound } from "@/models/MatchingConversationRound";
 import { POST as blockUser } from "@/app/api/match/block/route";
 import { DELETE as unblockUser } from "@/app/api/match/block/[id]/route";
 import { GET as getCandidateCard } from "@/app/api/match/card/[id]/route";
@@ -72,7 +73,9 @@ type Actor = {
 type CardBody = {
   requirements: [string, string, string];
   give: [string, string, string];
-  questions: [string, string];
+  questions: [string, string, string];
+  boundaries: [string, string, string];
+  boundaryDealbreakers: [boolean, boolean, boolean];
   ageRange: { min: number; max: number };
   maxDistanceKm: number;
   active: boolean;
@@ -268,7 +271,10 @@ const cardFor = (label: string): CardBody => ({
   questions: [
     `${label}: what makes a good week?`,
     `${label}: how do you repair conflict?`,
+    `${label}: how do you respect differences?`,
   ],
+  boundaries: ["No insults", "No coercion", "No deception"],
+  boundaryDealbreakers: [true, true, false],
   ageRange: { min: 18, max: 99 },
   maxDistanceKm: 100,
   active: true,
@@ -282,6 +288,8 @@ const cardFor = (label: string): CardBody => ({
     relationshipPriority: 0.9,
   },
 });
+
+const reactions = ["give", "requirements", "boundaries"].flatMap((section) => [0, 1, 2].map((index) => ({ section, index, reaction: "AGREE" })));
 
 const jsonCard = (card: CardBody): JsonObject => ({
   ...card,
@@ -389,10 +397,12 @@ const configureParticipant = async (
   assert.equal(ownCard.requiredDataReady, true);
   const storedCard = asObject(ownCard.card, "own matching card");
   assert.equal(storedCard.active, true);
-  assert.deepEqual(
-    asObject(storedCard.actual, "actual matching input"),
-    card.actual,
-  );
+  const actual = asObject(storedCard.actual, "actual matching input");
+  assert.deepEqual(Object.keys(actual).sort(), Object.keys(card.actual).sort());
+  for (const [key, expected] of Object.entries(card.actual)) {
+    if (typeof expected === "number") assert.ok(Math.abs(asNumber(actual[key], key) - expected) < 1e-12, `${key} must preserve the configured value within floating-point precision`);
+    else assert.equal(actual[key], expected);
+  }
 };
 
 const feedItemFor = (data: JsonObject, userId: string): JsonObject => {
@@ -454,6 +464,7 @@ const ensureIndexes = async (): Promise<void> => {
     Like.createIndexes(),
     MatchingBlock.createIndexes(),
     MatchingConnection.createIndexes(),
+    MatchingConversationRound.createIndexes(),
     MatchingSocialEffect.createIndexes(),
     Pair.createIndexes(),
     PairInvite.createIndexes(),
@@ -499,6 +510,7 @@ const cleanup = async (): Promise<void> => {
         { blockedId: { $in: allUserIds } },
       ],
     }),
+    MatchingConversationRound.deleteMany({ participantIds: { $in: allUserIds } }),
     MatchingConnection.deleteMany({ participantIds: { $in: allUserIds } }),
     Like.deleteMany({
       $or: [{ fromId: { $in: allUserIds } }, { toId: { $in: allUserIds } }],
@@ -666,7 +678,8 @@ const runSocialFlow = async (): Promise<void> => {
           "attacker candidate grant",
         ),
         agreements: [true, true, true],
-        answers: ["Decline route answer one", "Decline route answer two"],
+        reactions,
+        answers: ["Decline route answer one", "Decline route answer two", "Decline route answer three"],
       }),
     ),
   );
@@ -771,7 +784,8 @@ const runSocialFlow = async (): Promise<void> => {
     candidateId: userIds.b,
     candidateGrant: freshGrant,
     agreements: [true, true, true],
-    answers: ["I value consistency", "I repair through calm conversation"],
+    reactions,
+    answers: ["I value consistency", "I repair through calm conversation", "I respect differences"],
   };
   await expectError(
     await createLike(
@@ -888,19 +902,25 @@ const runSocialFlow = async (): Promise<void> => {
     ),
   );
   assert.equal(viewedLike.status, "VIEWED");
+  const responseKey = randomUUID();
   const respondedLike = await expectOk(
     await respondToLike(
       mutationRequest(actorB, "/api/match/respond", "POST", {
         likeId,
         agreements: [true, true, true],
+        reactions,
         answers: [
           "I also value consistency",
           "I prefer a short pause, then repair",
+          "I respect a clear boundary",
         ],
-      }),
+      }, responseKey),
     ),
   );
-  assert.equal(respondedLike.status, "RESPONDED");
+  assert.equal(respondedLike.status, "MATCHED");
+  const responseReplay = await expectOk(await respondToLike(mutationRequest(actorB, "/api/match/respond", "POST", { likeId, agreements: [true, true, true], reactions, answers: ["I also value consistency", "I prefer a short pause, then repair", "I respect a clear boundary"] }, responseKey)));
+  assert.equal(responseReplay.connectionId, respondedLike.connectionId, "A recipient response replay does not require another sender acceptance");
+
 
   const detailForA = await expectOk(
     await getLike(
@@ -911,10 +931,10 @@ const runSocialFlow = async (): Promise<void> => {
       { params: Promise.resolve({ id: likeId }) },
     ),
   );
-  assert.equal(detailForA.status, "RESPONDED");
+  assert.equal(detailForA.status, "MATCHED");
   assert.equal(
     asArray(detailForA.responseAnswers, "response answers").length,
-    2,
+    3,
   );
   const inboxA = await expectOk(
     await getInbox(
@@ -924,18 +944,13 @@ const runSocialFlow = async (): Promise<void> => {
   assert.ok(
     asArray(inboxA.outgoing, "outgoing likes").some((entry) => {
       const outgoing = asObject(entry, "outgoing like");
-      return outgoing.id === likeId && outgoing.status === "RESPONDED";
+      return outgoing.id === likeId && outgoing.status === "MATCHED";
     }),
     "A inbox must show the response",
   );
 
-  const acceptedLike = await expectOk(
-    await acceptLike(
-      mutationRequest(actorA, "/api/match/accept", "POST", { likeId }),
-    ),
-  );
-  assert.equal(acceptedLike.status, "MATCHED");
-  const connectionId = asString(acceptedLike.connectionId, "connection id");
+  const connectionId = asString(respondedLike.connectionId, "connection id");
+  assert.equal(await MatchingConnection.countDocuments({ participantIds: userIds.a, status: "ACTIVE" }), 1, "Recipient acceptance creates a connection without a sender third step");
   assert.ok(Types.ObjectId.isValid(connectionId));
 
   await expectError(
@@ -971,6 +986,34 @@ const runSocialFlow = async (): Promise<void> => {
   );
   assert.equal(connectionForB.stage, "MATCHED");
 
+  // This independent protocol section starts a fresh test-only rate budget.
+  // Production limits remain unchanged; the query is restricted to this run's actors.
+  await RateLimitBucket.deleteMany({ key: { $in: allUserIds.map((userId) => `user:${userId}`) }, route: "/api/match/*" });
+  const conversationPath = `/api/match/connections/${encodeURIComponent(connectionId)}/conversation`;
+  const context = { params: Promise.resolve({ id: connectionId }) };
+  await expectError(await updateConversation(mutationRequest(attacker, conversationPath, "POST", { action: "SUBMIT", topicKey: "boundaries", round: 1, text: "foreign actor", revealConsent: true }), context), 404, "NOT_FOUND");
+  await expectError(await updateConversation(mutationRequest(actorA, conversationPath, "POST", { action: "SUBMIT", topicKey: "boundaries", round: 1, text: "without notice consent", revealConsent: false }), context), 400, "VALIDATION_ERROR");
+  const conversationSubmitKey = randomUUID();
+  const firstAnswerBody = { action: "SUBMIT", topicKey: "boundaries", round: 1, text: "owner-round-secret", revealConsent: true };
+  const first = await expectOk(await updateConversation(mutationRequest(actorA, conversationPath, "POST", firstAnswerBody, conversationSubmitKey), context));
+  assert.equal(asObject(asArray(first.topics, "topics")[1], "topic").revealed, false);
+  const beforeReveal = await expectOk(await getConversation(requestFor({ actor: actorB, path: conversationPath }), context));
+  assert.equal(JSON.stringify(beforeReveal).includes("owner-round-secret"), false, "First answer stays hidden from partner");
+  await expectError(await getConversation(requestFor({ actor: attacker, path: conversationPath }), context), 404, "NOT_FOUND");
+  await expectOk(await updateConversation(mutationRequest(actorA, conversationPath, "POST", { action: "WITHDRAW", topicKey: "boundaries", round: 1 }), context));
+  await expectOk(await updateConversation(mutationRequest(actorA, conversationPath, "POST", { action: "SUBMIT", topicKey: "boundaries", round: 1, text: "owner-round-revised", revealConsent: true }), context));
+  const disclosed = await expectOk(await updateConversation(mutationRequest(actorB, conversationPath, "POST", { action: "SUBMIT", topicKey: "boundaries", round: 1, text: "partner-round-secret", revealConsent: true }), context));
+  assert.equal(JSON.stringify(disclosed).includes("owner-round-revised"), true);
+  assert.equal(JSON.stringify(disclosed).includes("partner-round-secret"), true);
+  await expectError(await updateConversation(mutationRequest(actorA, conversationPath, "POST", { action: "WITHDRAW", topicKey: "boundaries", round: 1 }), context), 409, "MATCHING_REVEAL_CONFLICT");
+  await expectOk(await updateConversation(mutationRequest(actorA, conversationPath, "POST", { action: "SUBMIT", topicKey: "boundaries", round: 2, text: "new-round-private", revealConsent: true }), context));
+  const nextRound = await expectOk(await getConversation(requestFor({ actor: actorB, path: conversationPath }), context));
+  assert.equal(JSON.stringify(nextRound).includes("new-round-private"), false);
+  const paused = await expectOk(await confirmConnection(mutationRequest(actorA, "/api/match/confirm", "POST", { connectionId, action: "PAUSE" })));
+  assert.equal(paused.status, "PAUSED");
+  await expectError(await updateConversation(mutationRequest(actorB, conversationPath, "POST", { action: "SUBMIT", topicKey: "boundaries", round: 2, text: "paused-answer", revealConsent: true }), context), 409, "MATCHING_CONNECTION_STATE_CONFLICT");
+  await expectOk(await confirmConnection(mutationRequest(actorB, "/api/match/confirm", "POST", { connectionId, action: "RESUME" })));
+
   const requested = await expectOk(
     await confirmConnection(
       mutationRequest(actorA, "/api/match/confirm", "POST", {
@@ -984,12 +1027,13 @@ const runSocialFlow = async (): Promise<void> => {
     "PENDING",
   );
 
+  const confirmationKey = randomUUID();
   const confirmed = await expectOk(
     await confirmConnection(
       mutationRequest(actorB, "/api/match/confirm", "POST", {
         connectionId,
         action: "CONFIRM",
-      }),
+      }, confirmationKey),
     ),
   );
   assert.equal(confirmed.stage, "COUPLE_CONFIRMED");
@@ -998,6 +1042,9 @@ const runSocialFlow = async (): Promise<void> => {
     "CONFIRMED",
   );
   const pairId = asString(confirmed.pairId, "pair id");
+  const confirmationReplay = await expectOk(await confirmConnection(mutationRequest(actorB, "/api/match/confirm", "POST", { connectionId, action: "CONFIRM" }, confirmationKey)));
+  assert.equal(confirmationReplay.pairId, pairId, "Pair confirmation replay remains accessible to an active member");
+  await expectError(await updateConversation(mutationRequest(actorA, conversationPath, "POST", firstAnswerBody, conversationSubmitKey), context), 409, "MATCHING_CONNECTION_STATE_CONFLICT");
 
   const pairThroughHttp = await expectOk(
     await getOwnPair(requestFor({ actor: actorA, path: "/api/pairs/me" })),
@@ -1024,7 +1071,7 @@ const runSocialFlow = async (): Promise<void> => {
       mutationRequest(actorA, "/api/pair-invites", "POST", {}),
     ),
     409,
-    "PAIR_ALREADY_ACTIVE",
+    "PAIR_ENTRY_REQUIRED",
   );
   assert.equal(
     await PairInvite.countDocuments({ creatorUserId: userIds.a }),
@@ -1045,6 +1092,13 @@ const runSocialFlow = async (): Promise<void> => {
   assert.ok(claims.every((claim) => String(claim.pairId) === pairId));
   assert.equal(String(connection?.pairId), pairId);
   assert.equal(connection?.stage, "COUPLE_CONFIRMED");
+  await expectOk(await blockUser(mutationRequest(actorA, "/api/match/block", "POST", { blockedUserId: userIds.b })));
+  await expectError(await updateConversation(mutationRequest(actorA, conversationPath, "POST", firstAnswerBody, conversationSubmitKey), context), 409, "MATCHING_BLOCKED");
+  await expectError(await createLike(mutationRequest(actorA, "/api/match/like", "POST", likeBody, createLikeKey)), 409, "MATCHING_BLOCKED");
+  await expectError(await respondToLike(mutationRequest(actorB, "/api/match/respond", "POST", { likeId, agreements: [true, true, true], reactions, answers: ["I also value consistency", "I prefer a short pause, then repair", "I respect a clear boundary"] }, responseKey)), 409, "MATCHING_BLOCKED");
+  const blockedDetail = await expectOk(await getLike(requestFor({ actor: actorA, path: `/api/match/like/${likeId}` }), { params: Promise.resolve({ id: likeId }) }));
+  assert.equal(blockedDetail.responseAnswers, undefined, "Blocked Like GET never returns private answers");
+
 };
 
 const main = async (): Promise<void> => {

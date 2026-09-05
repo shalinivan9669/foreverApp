@@ -1,3 +1,4 @@
+import { assertMatchingSolo } from "./matchingEligibility.service";
 import { createHash } from "node:crypto";
 import mongoose, { type ClientSession } from "mongoose";
 import { DomainError } from "@/domain/errors";
@@ -857,6 +858,7 @@ const projectDiscovery = async (input: {
 export type SaveMatchingProfileInput = {
   ownerId: string;
   card: MatchingCard;
+  soughtGender?: "ANY" | "male" | "female";
   actual: MatchingActualInput;
   desiredAgeRange: { min: number; max: number };
   maxDistanceKm: number;
@@ -885,6 +887,7 @@ export const saveMatchingProfile = async (
     JSON.stringify({
       card: input.card,
       actual: input.actual,
+      soughtGender: input.soughtGender ?? "ANY",
       desiredAgeRange: input.desiredAgeRange,
       maxDistanceKm: input.maxDistanceKm,
       discoveryRequested: input.discoveryRequested,
@@ -918,6 +921,7 @@ export const saveMatchingProfile = async (
         "Matching profile owner was not found",
       );
     }
+    if (input.discoveryRequested) await assertMatchingSolo([input.ownerId], session);
     const publicCardRevision = (previous?.publicCardRevision ?? 0) + 1;
     const actualProfileRevision = (previous?.actualProfileRevision ?? 0) + 1;
 
@@ -1001,7 +1005,8 @@ export const saveMatchingProfile = async (
           discoveryRequested: input.discoveryRequested,
           active,
           requiredDataReady: readiness.ready,
-          desiredAgeRange: input.desiredAgeRange,
+          soughtGender: input.soughtGender ?? "ANY",
+      desiredAgeRange: input.desiredAgeRange,
           maxDistanceKm: input.maxDistanceKm,
           publicCardRevision,
           actualProfileRevision,

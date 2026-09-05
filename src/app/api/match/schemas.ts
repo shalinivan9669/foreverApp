@@ -26,7 +26,10 @@ export const matchingCardBodySchema = z
   .object({
     requirements: z.tuple([shortText, shortText, shortText]),
     give: z.tuple([shortText, shortText, shortText]),
-    questions: z.tuple([questionText, questionText]),
+    questions: z.tuple([questionText, questionText, questionText]),
+    boundaries: z.tuple([shortText, shortText, shortText]),
+    boundaryDealbreakers: z.tuple([z.boolean(), z.boolean(), z.boolean()]),
+    soughtGender: z.enum(["ANY", "male", "female"]).default("ANY"),
     ageRange: z
       .object({
         min: z.number().int().min(18).max(99),
@@ -132,12 +135,16 @@ export const matchingPreferencesBodySchema = z
   })
   .strict();
 
+const reactionsSchema = z.array(z.object({ section: z.enum(["give", "requirements", "boundaries"]), index: z.number().int().min(0).max(2), reaction: z.enum(["AGREE", "NEUTRAL", "AGAINST"]), note: z.string().trim().max(280).optional() }).strict()).max(9).optional();
+const answersSchema = z.union([z.tuple([answerText, answerText, answerText]), z.tuple([answerText, answerText])]);
+
 export const createLikeBodySchema = z
   .object({
     candidateId: matchingIdSchema,
     candidateGrant: z.string().trim().min(16).max(1024),
     agreements: z.tuple([z.literal(true), z.literal(true), z.literal(true)]),
-    answers: z.tuple([answerText, answerText]),
+    answers: answersSchema,
+    reactions: reactionsSchema,
   })
   .strict();
 
@@ -145,7 +152,8 @@ export const respondLikeBodySchema = z
   .object({
     likeId: matchingIdSchema,
     agreements: z.tuple([z.literal(true), z.literal(true), z.literal(true)]),
-    answers: z.tuple([answerText, answerText]),
+    answers: answersSchema,
+    reactions: reactionsSchema,
   })
   .strict();
 
@@ -160,7 +168,7 @@ export const blockBodySchema = z
 export const confirmationBodySchema = z
   .object({
     connectionId: matchingIdSchema,
-    action: z.enum(["REQUEST", "CONFIRM", "CANCEL"]),
+    action: z.enum(["REQUEST", "CONFIRM", "CANCEL", "PAUSE", "RESUME", "CLOSE"]),
   })
   .strict();
 

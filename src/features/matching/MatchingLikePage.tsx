@@ -1,5 +1,7 @@
 "use client";
 
+import type { MatchPublicCardDTO } from "@/client/api/match.api";
+import type { MatchingAnswers, MatchingStatementReaction } from "@/lib/contracts/matchingProduct";
 import Link from "next/link";
 import { useMatchLike } from "@/client/hooks/useMatchLike";
 import { useMatchingConnection } from "@/client/hooks/useMatchingConnection";
@@ -70,16 +72,21 @@ export default function MatchingLikePage({ likeId }: { likeId: string }) {
               </div>
             )}
 
+            {like.card?.boundaries && <section className="app-panel-soft mt-4 p-4"><h2 className="font-semibold">Чего человек не принимает</h2><ul className="mt-2 list-disc pl-5">{like.card.boundaries.map((text, index) => <li key={index}>{text}{like.card?.boundaryDealbreakers?.[index] ? " · непреодолимая граница" : ""}</li>)}</ul></section>}
+            {like.initiatorReactions && like.targetCard && <ReactionBlock title="Реакции инициатора" card={like.targetCard} reactions={like.initiatorReactions} />}
+            {like.responseReactions && like.initiatorCard && <ReactionBlock title="Реакции получателя" card={like.initiatorCard} reactions={like.responseReactions} />}
             {like.initiatorAnswers && (
               <AnswerBlock
                 title="Ответ инициатора"
                 answers={like.initiatorAnswers}
+                questions={like.targetCard?.questions}
               />
             )}
             {like.responseAnswers && (
               <AnswerBlock
                 title="Ответ получателя"
                 answers={like.responseAnswers}
+                questions={like.initiatorCard?.questions}
               />
             )}
           </section>
@@ -87,6 +94,7 @@ export default function MatchingLikePage({ likeId }: { likeId: string }) {
           {like.allowedActions.includes("RESPOND") && (
             <section className="app-panel p-4 sm:p-6">
               <LikeComposer
+                card={like.card}
                 questions={like.questions ?? like.card?.questions ?? ["", ""]}
                 loading={match.actionLoading}
                 mode="respond"
@@ -101,10 +109,11 @@ export default function MatchingLikePage({ likeId }: { likeId: string }) {
             <section className="app-panel p-4 sm:p-6">
               <h2 className="text-xl font-semibold">Ваше решение</h2>
               <p className="app-muted mt-1 text-sm">
-                Принятие создаст взаимную связь, но не создаст пару
-                автоматически.
+                Знакомство начинается после ответа получателя и его согласия.
+                Пара требует отдельного подтверждения обоих.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
+                {like.allowedActions.includes("WITHDRAW") && <button className="app-btn-secondary" type="button" disabled={match.actionLoading} onClick={() => void match.withdraw()}>Отозвать интерес</button>}
                 {like.allowedActions.includes("ACCEPT") && (
                   <button
                     className="app-btn-success"
@@ -157,9 +166,11 @@ export default function MatchingLikePage({ likeId }: { likeId: string }) {
 function AnswerBlock({
   title,
   answers,
+  questions,
 }: {
   title: string;
-  answers: [string, string];
+  answers: MatchingAnswers;
+  questions?: MatchingAnswers;
 }) {
   return (
     <section className="mt-5">
@@ -167,7 +178,7 @@ function AnswerBlock({
       <ol className="mt-2 grid gap-2">
         {answers.map((answer, index) => (
           <li className="app-panel-soft p-3 text-sm" key={`${index}-${answer}`}>
-            {answer}
+            {questions?.[index] && <p className="font-semibold">{questions[index]}</p>}{answer}
           </li>
         ))}
       </ol>
@@ -192,4 +203,11 @@ function ConnectionSection({
       />
     </>
   );
+}
+
+function ReactionBlock({ title, card, reactions }: { title: string; card: MatchPublicCardDTO; reactions: MatchingStatementReaction[] }) {
+  const labels = { AGREE: "Согласен", NEUTRAL: "Нейтрально", AGAINST: "Против" };
+  const sections = { give: "Даю", requirements: "Ожидаю", boundaries: "Не принимаю" };
+  if (!reactions.length) return null;
+  return <section className="mt-5"><h2 className="font-semibold">{title}</h2><ul className="mt-2 grid gap-2">{reactions.map((item) => <li className="app-panel-soft p-3 text-sm" key={`${item.section}:${item.index}`}><p className="app-muted">{sections[item.section]}</p><p>{card[item.section]?.[item.index]}</p><strong>{labels[item.reaction]}</strong>{item.note && <p className="mt-1 whitespace-pre-wrap">{item.note}</p>}</li>)}</ul></section>;
 }
