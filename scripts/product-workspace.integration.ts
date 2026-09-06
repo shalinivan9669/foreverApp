@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import { GET as getWorkspaceRoute, POST as saveWorkspaceRoute } from "@/app/api/pairs/[id]/shared-life/route";
 import { GET as getDevelopmentRoute } from "@/app/api/development/runs/[id]/route";
+import { GET as listDevelopmentRunsRoute } from "@/app/api/development/runs/route";
 import { POST as startDevelopmentRoute } from "@/app/api/development/start/route";
 import { POST as completeDevelopmentRoute } from "@/app/api/development/complete/route";
 import { signJwt } from "@/lib/jwt";
@@ -13,7 +14,7 @@ import { IdempotencyRecord } from "@/models/IdempotencyRecord";
 import { SessionSubject } from "@/models/SessionSubject";
 import type { JsonValue } from "@/lib/api/response";
 import type { SharedLifeDTO } from "@/lib/dto/sharedLife.dto";
-import type { DevelopmentDetailDTO } from "@/lib/dto/development.dto";
+import type { DevelopmentDetailDTO, DevelopmentRunPageDTO } from "@/lib/dto/development.dto";
 import { parseMatchingTestDatabaseUri } from "./lib/matching-test-database";
 import { connectToDatabase } from "@/lib/mongodb";
 import { createDevelopmentService, developmentService } from "@/domain/services/development.service";
@@ -45,10 +46,13 @@ if (
 const prefix = `workspace-${randomUUID()}`;
 const members: [string, string] = [`${prefix}-a`, `${prefix}-b`];
 const outsider = `${prefix}-c`;
-const userIds = [...members, outsider];
+const pageMembers: [string, string] = [`${prefix}-pages-a`, `${prefix}-pages-b`];
+const pageOutsider = `${prefix}-pages-c`;
+const userIds = [...members, outsider, ...pageMembers, pageOutsider];
 const jwtSecret = `${randomUUID()}${randomUUID()}`;
 process.env.JWT_SECRET = jwtSecret;
 let pairId = "";
+let paginationPairId = "";
 const denied = (error: Error) =>
   error instanceof DomainError && error.status === 404;
 const conflict = (error: Error) =>
@@ -469,8 +473,117 @@ async function main() {
   await assert.rejects(paidUpdatedService.assertRunAccess(outsider, paidRun.run.id), locked);
   await assert.rejects(archiveUnavailableService.detail(outsider, paidRun.run.id), locked, "revoked paid access wins over unavailable archive");
   assert.ok(!(await developmentService.overview(outsider)).recent.some((run) => run.id === paidRun.run.id), "locked run must disappear from resumable owner overview");
+
+  const paginationPair = await Pair.create({ members: pageMembers, key: pageMembers.join("|"), status: "active" });
+  paginationPairId = paginationPair._id.toString();
+  const paginationInventoryId = economyIdentity(pageMembers[0], "inventory", "content.deep-values");
+  const grantPaidAccess = () => EconomyInventory.create({
+    _id: paginationInventoryId, userId: pageMembers[0], itemId: "content.deep-values", quantity: 1, acquiredAt: new Date(),
+  });
+  await grantPaidAccess();
+  const idPrefix = createHash("sha256").update(`${prefix}:pagination`).digest("hex").slice(0, 56);
+  const runIdAt = (position: number) => `${idPrefix}${(1000 - position).toString(16).padStart(8, "0")}`;
+  const tiedCreatedAt = new Date("2026-01-05T12:00:00.000Z");
+  const pageFixtures = Array.from({ length: 65 }, (_, index) => ({
+    _id: runIdAt(index), contentKey: index >= 50 ? paidKey : index >= 40 ? "communication.pair_practice.1" : "communication.solo_practice.1",
+    contentRevision: 1, periodKey: `pagination-period-${index}`, participantIds: index >= 40 && index < 50 ? pageMembers : [pageMembers[0]],
+    ...(index >= 40 && index < 50 ? { pairId: paginationPairId } : {}),
+    completedUserIds: index >= 40 && index < 50 ? [pageMembers[1]] : [],
+    status: index >= 40 && index < 50 ? "PARTIAL" as const : "ACTIVE" as const,
+    revision: 1, createdAt: tiedCreatedAt,
+  }));
+  await DevelopmentRun.create([
+    ...pageFixtures,
+    { ...pageFixtures[0], _id: runIdAt(-1), participantIds: [pageOutsider] },
+    { ...pageFixtures[0], _id: runIdAt(-2), status: "COMPLETED", completedUserIds: [pageMembers[0]], completedAt: new Date() },
+  ]);
+  const pageToken = signJwt(pageMembers[0], jwtSecret, 900, await sessionRevocationService.getOrCreateVersion(pageMembers[0]));
+  const foreignPageToken = signJwt(pageOutsider, jwtSecret, 900, await sessionRevocationService.getOrCreateVersion(pageOutsider));
+  const pageRequest = (query = "", foreign = false) => new NextRequest(`https://workspace.integration.test/api/development/runs${query}`, {
+    headers: { authorization: `Bearer ${foreign ? foreignPageToken : pageToken}` },
+  });
+  const getPage = async (cursor?: string): Promise<DevelopmentRunPageDTO> => {
+    const response = await listDevelopmentRunsRoute(pageRequest(cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""));
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    for (const privateField of [pageMembers[0], pageMembers[1], "participantIds", "completedUserIds", "contentRevision", "privateNote"])
+      assert.ok(!body.includes(privateField), "unfinished pages expose only audience-safe run DTOs");
+    return (JSON.parse(body) as { ok: true; data: DevelopmentRunPageDTO }).data;
+  };
+  const allPages: DevelopmentRunPageDTO[] = [];
+  let nextPageCursor: string | undefined;
+  do {
+    const page = await getPage(nextPageCursor);
+    assert.ok(page.runs.length <= 30);
+    allPages.push(page);
+    assert.ok(allPages.length <= 3, "pagination must terminate after all fixture runs");
+    nextPageCursor = page.nextCursor ?? undefined;
+  } while (nextPageCursor);
+  assert.deepEqual(allPages.map((page) => page.runs.length), [30, 30, 5]);
+  const allRunIds = allPages.flatMap((page) => page.runs.map((run) => run.id));
+  assert.deepEqual(allRunIds, pageFixtures.map((run) => run._id), "tied timestamps must neither duplicate nor omit older unfinished runs");
+  assert.equal(new Set(allRunIds).size, 65);
+  assert.ok(allPages[1].runs.filter((run) => run.pairId).every((run) => run.partnerCompleted && !run.myCompletion));
+  assert.equal(allPages.at(-1)?.nextCursor, null);
+  const firstPage = allPages[0];
+  assert.ok(firstPage.nextCursor);
+  assert.deepEqual(await getPage(firstPage.nextCursor), allPages[1], "repeating a continuation returns the same page while the context is unchanged");
+  for (const malformed of ["", "not-a-cursor", "a".repeat(257), Buffer.from("1|not-a-date|bad-id|bad-scope").toString("base64url")]) {
+    const response = await listDevelopmentRunsRoute(pageRequest(`?cursor=${encodeURIComponent(malformed)}`));
+    assert.equal(response.status, 400, "malformed cursors are rejected before query execution");
+  }
+  assert.equal((await listDevelopmentRunsRoute(new NextRequest("https://workspace.integration.test/api/development/runs"))).status, 401);
+  for (const unsupportedQuery of [`?userId=${encodeURIComponent(pageOutsider)}`, "?limit=1000", "?actorId=someone-else"])
+    assert.equal((await listDevelopmentRunsRoute(pageRequest(unsupportedQuery))).status, 400, "client input cannot select the session actor or expand the page bound");
+  const foreignContinuation = await listDevelopmentRunsRoute(pageRequest(`?cursor=${encodeURIComponent(firstPage.nextCursor)}`, true));
+  assert.equal(foreignContinuation.status, 409, "another authenticated actor cannot reuse the cursor scope");
+  const foreignBody = await foreignContinuation.text();
+  assert.ok(!allRunIds.some((id) => foreignBody.includes(id)));
+  assert.deepEqual((await developmentService.listUnfinishedRuns(pageOutsider)).runs.map((run) => run.id), [runIdAt(-1)]);
+
+  await DevelopmentRun.updateOne({ _id: runIdAt(31) }, { $set: { status: "COMPLETED", completedUserIds: [pageMembers[0]], completedAt: new Date() } });
+  await DevelopmentRun.create({ ...pageFixtures[0], _id: runIdAt(-3) });
+  const afterConcurrentCompletion = await getPage(firstPage.nextCursor);
+  assert.ok(afterConcurrentCompletion.nextCursor);
+  const afterConcurrentFinal = await getPage(afterConcurrentCompletion.nextCursor);
+  assert.deepEqual([...afterConcurrentCompletion.runs, ...afterConcurrentFinal.runs].map((run) => run.id), pageFixtures.slice(30).filter((run) => run._id !== runIdAt(31)).map((run) => run._id), "completion and new insertion between pages preserve the original descending boundary");
+  assert.equal(afterConcurrentFinal.nextCursor, null);
+  await DevelopmentRun.deleteOne({ _id: runIdAt(-3) });
+  await DevelopmentRun.updateOne({ _id: runIdAt(31) }, { $set: { status: "ACTIVE", completedUserIds: [] }, $unset: { completedAt: 1 } });
+
+  const assertChangedScope = async (cursor: string) => {
+    const response = await listDevelopmentRunsRoute(pageRequest(`?cursor=${encodeURIComponent(cursor)}`));
+    assert.equal(response.status, 409);
+    const body = await response.text();
+    assert.ok(body.includes("RUN_LIST_CHANGED"));
+    assert.ok(!allRunIds.some((id) => body.includes(id)), "invalidated pages never expose data from the previous access scope");
+  };
+  await EconomyInventory.deleteOne({ _id: paginationInventoryId });
+  await assertChangedScope(firstPage.nextCursor);
+  const lockedFirst = await getPage();
+  assert.ok(lockedFirst.nextCursor);
+  const lockedSecond = await getPage(lockedFirst.nextCursor);
+  assert.equal(lockedSecond.nextCursor, null);
+  assert.equal(lockedFirst.runs.length + lockedSecond.runs.length, 50);
+  assert.ok([...lockedFirst.runs, ...lockedSecond.runs].every((run) => run.contentKey !== paidKey));
+  await grantPaidAccess();
+  const activePage = await getPage(); assert.ok(activePage.nextCursor);
+  await Pair.updateOne({ _id: paginationPairId }, { $set: { status: "paused" } });
+  await assertChangedScope(activePage.nextCursor);
+  const pausedFirst = await getPage(); assert.ok(pausedFirst.nextCursor);
+  const pausedSecond = await getPage(pausedFirst.nextCursor);
+  const pausedPairRun = pausedSecond.runs.find((run) => run.pairId === paginationPairId);
+  assert.ok(pausedPairRun, "paused pair work remains readable after restarting pagination");
+  await assert.rejects(developmentService.assertRunAccess(pageMembers[0], pausedPairRun.id), denied, "paused page access cannot authorize a mutation");
+  await Pair.updateOne({ _id: paginationPairId }, { $set: { status: "ended" } });
+  await assertChangedScope(pausedFirst.nextCursor);
+  const endedFirst = await getPage(); assert.ok(endedFirst.nextCursor);
+  const endedSecond = await getPage(endedFirst.nextCursor);
+  assert.equal(endedSecond.nextCursor, null);
+  assert.equal(endedFirst.runs.length + endedSecond.runs.length, 55);
+  assert.ok([...endedFirst.runs, ...endedSecond.runs].every((run) => !run.pairId), "ended contexts are absent from every newly fetched page");
   console.log(
-    "product-workspace integration PASS: immutable v1/v2, resumable old runs, access before archive/replay, exactly-once rewards, pair partial/final API privacy, peer refresh and reviewed conflict retry.",
+    "product-workspace integration PASS: immutable v1/v2, 65-run cursor pagination, tie ordering, concurrent completion, scope invalidation, guarded page DTOs, access before replay, exactly-once rewards, pair partial/final privacy and reviewed conflict retry.",
   );
 }
 
@@ -483,6 +596,7 @@ main()
         await PairWorkspace.deleteOne({ _id: pairId });
         await Pair.deleteOne({ _id: pairId });
       }
+      if (paginationPairId) await Pair.deleteOne({ _id: paginationPairId });
       await EconomyLedger.deleteMany({ userId: { $in: userIds } });
       await EconomyInventory.deleteMany({ userId: { $in: userIds } });
       await EconomyWallet.deleteMany({ _id: { $in: userIds } });

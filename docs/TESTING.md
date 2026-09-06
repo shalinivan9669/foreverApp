@@ -2,6 +2,12 @@
 
 Status: active verification matrix. Run checks by blast radius; database commands require an isolated local replica set.
 
+## Autonomous local acceptance and pagination, 2026-09-05
+
+`npm run acceptance:local -- --mongod <absolute-path>` now starts a fresh loopback MongoDB replica set, runs the six-suite aggregate and removes only its newly created temporary instance after stopping its processes. `npm run acceptance:browser -- --mongod <absolute-path>` starts the current production build and two fixed synthetic, onboarded participants using real signed sessions. Both modes refuse runtime `.env` files and discard inherited application credentials. See [local launch, guards and browser limits](LOCAL_ACCEPTANCE.md). Existing external-instance integration commands retain their guards.
+
+`selfcheck:local-acceptance` joins `check:self` as the 48th suite and checks argument/port validation, child-environment isolation, cleanup path ownership and fixed bootstrap subjects. Updated `selfcheck:continuation-ui` exercises pagination on the actual hook: coalesced clicks, deduplication, retry after a network failure, stale append versus refresh, and scope/access revocation. `selfcheck:product-workspace` validates strict cursor decoding. The MongoDB workspace suite traverses 65 unfinished records with identical creation timestamps, checks stable boundaries with insertion/completion between requests, and repeats access checks after paid-content revocation and Pair pause/end. Browser rendering and real Discord OAuth remain separate evidence.
+
 ## Continuation and published versions, 2026-09-05
 
 `npm run integration:two-user-acceptance` runs six focused entry/matching/invite/workspace/lifecycle suites sequentially. It requires `MATCHING_TEST_MONGODB_URI` with an explicit loopback replica set and a disposable `_test` database name, assigns a fresh database per suite/run, and creates command-local synthetic JWT secrets. It never reads `.env`, falls back to the application DB, starts an HTTP authentication bypass, or drops a database. Each suite cleans only its synthetic fixtures. Economy and pair-event-settings remain separate commands: their existing stricter guard requires the dedicated `127.0.0.1:27029/vmeste_economy_product_test?replicaSet=vmesteTest` target. See [exact commands, current results and Discord checklist](TWO_USER_ACCEPTANCE.md).

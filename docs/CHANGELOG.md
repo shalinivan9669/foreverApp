@@ -2,6 +2,18 @@
 
 Date: 2026-09-05
 Summary:
+- Added a separate unfinished-development-run API with fixed 30-row keyset pages and a “Показать ещё” UI; the existing overview contract remains compatible.
+- Revalidate actor/Pair/paid-content scope for every page; changed scope restarts the list, retries preserve ordinary network failures, and late responses cannot restore data after denied access.
+- Added an autonomous local acceptance runner using a newly created loopback MongoDB replica set and isolated synthetic runtime settings; browser mode provisions two fixed onboarded participants using genuine sessions, outside production routes.
+- Added 65-run pagination/access integration cases, actual-hook race regressions and local-runner guard checks. Documented launch commands, process ownership/cleanup and the remaining real Discord/OAuth boundary.
+- Made the three-cycle acceptance fixture use future Mondays to avoid expiry against MongoDB's real TTL clock, measured timings with the monotonic clock, and made terminal failures observable instead of hanging on leftover handles. The updated six-suite local aggregate passed.
+- Added `scripts/local-acceptance-server.ts`: two loopback servers of the same production build use explicit participant hostnames and preserve the application's normal session and Origin checks. This is local acceptance tooling only.
+- Completed local browser acceptance for mutual invitation, 30→35 pagination/reload, joint partial→final completion with private notes, and concurrent shared-task edits with explicit conflict resolution. The final browser run stopped and cleaned up; one directory from an earlier interrupted run remains after an automatic deletion denial, recorded in `TWO_USER_ACCEPTANCE.md`.
+Additional files: scripts/local-acceptance-server.ts, scripts/two-user-mvp.integration.ts, scripts/two-user-acceptance.integration.ts
+Files: src/domain/model/development/runPagination.ts, src/domain/services/development.service.ts, src/lib/dto/development.dto.ts, src/app/api/development/runs/route.ts, src/client/api/development.api.ts, src/client/hooks/useDevelopment.ts, src/features/development/DevelopmentPage.tsx, src/components/profile/today/ContinuationPanel.tsx, scripts/product-workspace.integration.ts, scripts/product-workspace.selfcheck.ts, scripts/continuation-ui.selfcheck.ts, scripts/local-acceptance.ts, scripts/local-acceptance.selfcheck.ts, scripts/lib/local-acceptance-options.ts, scripts/lib/local-acceptance-fixtures.ts, package.json, README.md, docs/LOCAL_ACCEPTANCE.md, docs/API_CONTRACTS.md, docs/PRODUCT_WORKSPACE_UPDATE.md, docs/TESTING.md, docs/TWO_USER_ACCEPTANCE.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-09-05
+Summary:
 - Added an active pilot handoff that separates the September fixes present on `main`, limited manual pilot observations, the audited as-is first-entry flow, and the agreed but not-yet-implemented relationship/seeking split.
 - Recorded explicitly that the requested beta user-data reset was not executed and documented the guarded backup/restore/full-linked-graph procedure required before the same Discord identities can start cleanly.
 - Added operational troubleshooting for the exact Discord Activity OAuth boundary, first-login partial upsert, narrow weekly missing-index fallback, and safe closed-beta reset boundary.

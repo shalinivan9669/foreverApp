@@ -6,7 +6,7 @@ import { sharedLifeApi } from "@/client/api/sharedLife.api";
 import { ApiClientError } from "@/client/api/errors";
 import { developmentRunHref, developmentRunStatus, nextDevelopmentProgramStep, resumableDevelopmentRuns } from "@/client/viewmodels/development.viewmodels";
 import { matchingConfirmationCopy } from "@/client/viewmodels/matching";
-import type { DevelopmentDetailDTO, DevelopmentOverviewDTO, DevelopmentRunDTO } from "@/lib/dto/development.dto";
+import type { DevelopmentDetailDTO, DevelopmentOverviewDTO, DevelopmentRunDTO, DevelopmentRunPageDTO } from "@/lib/dto/development.dto";
 import type { SharedLifeDTO } from "@/lib/dto/sharedLife.dto";
 import { DEFAULT_SHARED_LIFE_SETTINGS } from "@/lib/contracts/sharedLife";
 
@@ -30,14 +30,21 @@ assert.equal(matchingConfirmationCopy({ id: "c", participant: { id: "u", usernam
 
 // As in client-request-race.selfcheck, exercise real hook request logic with a
 // minimal React adapter. Cells are heterogeneous hook state, hence object/boolean/null.
-type Cell = object | boolean | null;
+type Cell = object | string | boolean | null;
 const cells: Array<{ value: Cell }> = [];
 const cellValue = (index: number): Cell => cells[index].value;
-const refs: Array<{ current: object | number | boolean | null }> = [];
+const refs: Array<{ current: object | string | number | boolean | null }> = [];
 let stateIndex = 0;
 let refIndex = 0;
-let effects: Array<() => void | (() => void)> = [];
-let cleanups: Array<() => void> = [];
+let effectIndex = 0;
+let callbackIndex = 0;
+type HookDependency = object | string | number | boolean | null | undefined;
+type Dependencies = readonly HookDependency[];
+const effectCells: Array<{ dependencies?: Dependencies; cleanup?: () => void }> = [];
+const callbackCells: Array<{ dependencies: Dependencies; value: object }> = [];
+let effects: Array<() => void> = [];
+const sameDependencies = (left: Dependencies | undefined, right: Dependencies | undefined) =>
+  Boolean(left && right && left.length === right.length && left.every((value, index) => Object.is(value, right[index])));
 const originals: Array<{ key: string; descriptor?: PropertyDescriptor }> = [];
 const stubHook = (key: string, value: object) => {
   originals.push({ key, descriptor: Object.getOwnPropertyDescriptor(React, key) });
@@ -51,27 +58,42 @@ const pending = <T>() => {
 };
 const tick = async () => { for (let i = 0; i < 6; i += 1) await Promise.resolve(); };
 const renderHook = <T>(probe: () => T): T => {
-  cleanups.forEach((cleanup) => cleanup()); cleanups = []; effects = []; stateIndex = 0; refIndex = 0;
+  effects = []; stateIndex = 0; refIndex = 0; effectIndex = 0; callbackIndex = 0;
   const result = probe();
-  for (const effect of effects) { const cleanup = effect(); if (cleanup) cleanups.push(cleanup); }
+  for (const effect of effects) effect();
   return result;
 };
-const reset = () => { cleanups.forEach((cleanup) => cleanup()); cleanups = []; effects = []; cells.length = 0; refs.length = 0; };
+const reset = () => {
+  effectCells.forEach((cell) => cell.cleanup?.());
+  effectCells.length = 0; callbackCells.length = 0; effects = []; cells.length = 0; refs.length = 0;
+};
 const main = async () => {
   const originalDevelopment = { ...developmentApi };
   const originalSharedLife = { ...sharedLifeApi };
-  stubHook("useState", <T extends Cell>(initial: T): [T, (value: T) => void] => {
+  stubHook("useState", <T extends Cell>(initial: T): [T, (value: T | ((previous: T) => T)) => void] => {
     const index = stateIndex++; const cell = cells[index] ?? (cells[index] = { value: initial });
-    return [cell.value as T, (value) => { cell.value = value; }];
+    return [cell.value as T, (value) => { cell.value = typeof value === "function" ? value(cell.value as T) : value; }];
   });
-  stubHook("useRef", <T extends object | number | boolean | null>(initial: T) => {
+  stubHook("useRef", <T extends object | string | number | boolean | null>(initial: T) => {
     const index = refIndex++; return (refs[index] ?? (refs[index] = { current: initial })) as { current: T };
   });
-  stubHook("useCallback", <T>(callback: T) => callback);
-  stubHook("useEffect", (effect: () => void | (() => void)) => { effects.push(effect); });
+  stubHook("useCallback", <T extends object>(callback: T, dependencies: Dependencies): T => {
+    const index = callbackIndex++; const previous = callbackCells[index];
+    if (previous && sameDependencies(previous.dependencies, dependencies)) return previous.value as T;
+    callbackCells[index] = { value: callback, dependencies }; return callback;
+  });
+  stubHook("useEffect", (effect: () => void | (() => void), dependencies?: Dependencies) => {
+    const index = effectIndex++; const previous = effectCells[index];
+    if (previous && sameDependencies(previous.dependencies, dependencies)) return;
+    effects.push(() => {
+      previous?.cleanup?.(); const cleanup = effect();
+      effectCells[index] = { dependencies, ...(cleanup ? { cleanup } : {}) };
+    });
+  });
   try {
     const { useDevelopment } = await import("@/client/hooks/useDevelopment");
     developmentApi.overview = async () => overview;
+    developmentApi.unfinishedRuns = async () => ({ runs: [], nextCursor: null });
     const oldRun = pending<DevelopmentDetailDTO>();
     const newRun = pending<DevelopmentDetailDTO>();
     developmentApi.detail = (id) => id === "old" ? oldRun.promise : newRun.promise;
@@ -100,6 +122,154 @@ const main = async () => {
     lateOverview.resolve(overview); await refresh;
     assert.equal(cells[1].value, null, "missing immutable revision must not leave an actionable old form");
     assert.equal((cellValue(5) as ApiClientError).code, "CONTENT_VERSION_UNAVAILABLE", "overview success must not hide the detail error");
+
+    reset();
+    const firstRunPage: DevelopmentRunPageDTO = { runs: [run("first"), run("overlap")], nextCursor: "cursor-1" };
+    const nextRunPage: DevelopmentRunPageDTO = { runs: [run("overlap", { myCompletion: true, status: "PARTIAL" }), run("older")], nextCursor: "cursor-2" };
+    developmentApi.overview = async () => overview;
+    developmentApi.unfinishedRuns = async () => firstRunPage;
+    const renderDevelopment = () => renderHook(() => useDevelopment());
+    renderDevelopment(); await tick();
+    let paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["first", "overlap"]);
+    assert.equal(paginated.hasMoreRuns, true);
+    const firstAppend = pending<DevelopmentRunPageDTO>();
+    const requestedCursors: Array<string | undefined> = [];
+    developmentApi.unfinishedRuns = (cursor) => { requestedCursors.push(cursor); return firstAppend.promise; };
+    const append = paginated.loadMoreRuns();
+    await paginated.loadMoreRuns();
+    assert.deepEqual([...requestedCursors], ["cursor-1"], "double activation must coalesce into one next-page request");
+    assert.equal(renderDevelopment().runsLoading, true);
+    firstAppend.resolve(nextRunPage); await append;
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["first", "overlap", "older"]);
+    assert.equal(paginated.unfinishedRuns.find((item) => item.id === "overlap")?.myCompletion, true, "a repeated run is replaced by its fresh DTO without another row");
+    assert.equal(paginated.runsLoading, false);
+    developmentApi.unfinishedRuns = async (cursor) => {
+      requestedCursors.push(cursor);
+      throw new ApiClientError({ status: 0, code: "NETWORK_ERROR", message: "Network unavailable" });
+    };
+    await paginated.loadMoreRuns();
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["first", "overlap", "older"], "a retryable network failure retains loaded rows");
+    assert.equal(paginated.runsError?.code, "NETWORK_ERROR");
+    assert.equal(paginated.hasMoreRuns, true);
+    developmentApi.unfinishedRuns = async (cursor) => {
+      requestedCursors.push(cursor); return { runs: [run("oldest")], nextCursor: null };
+    };
+    await paginated.loadMoreRuns();
+    paginated = renderDevelopment();
+    assert.deepEqual([...requestedCursors], ["cursor-1", "cursor-2", "cursor-2"], "network retry must keep the rejected continuation boundary");
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["first", "overlap", "older", "oldest"]);
+    assert.equal(paginated.runsError, null);
+    assert.equal(paginated.hasMoreRuns, false);
+    await paginated.loadMoreRuns();
+    assert.equal(requestedCursors.length, 3, "the final page cannot issue another load");
+
+    developmentApi.unfinishedRuns = async () => firstRunPage;
+    await paginated.reload();
+    paginated = renderDevelopment();
+    const staleAppend = pending<DevelopmentRunPageDTO>();
+    developmentApi.unfinishedRuns = (cursor) => cursor ? staleAppend.promise : Promise.resolve({ runs: [run("fresh-first")], nextCursor: "fresh-cursor" });
+    const beforeRefreshAppend = paginated.loadMoreRuns();
+    await paginated.reload();
+    staleAppend.resolve(nextRunPage); await beforeRefreshAppend;
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["fresh-first"], "late append must not join a newly refreshed first page");
+    assert.equal(paginated.runsLoading, false);
+    const staleFailure = pending<DevelopmentRunPageDTO>();
+    developmentApi.unfinishedRuns = (cursor) => cursor ? staleFailure.promise : Promise.resolve(firstRunPage);
+    const beforeRefreshFailure = paginated.loadMoreRuns();
+    await paginated.reload();
+    staleFailure.reject(new ApiClientError({ status: 403, code: "ACCESS_DENIED", message: "Old page denied" })); await beforeRefreshFailure;
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["first", "overlap"], "a late failure from an invalidated append cannot erase fresh rows");
+    assert.equal(paginated.runsError, null);
+
+    const scopeRequests: Array<string | undefined> = [];
+    const freshScopePage = pending<DevelopmentRunPageDTO>();
+    developmentApi.unfinishedRuns = (cursor) => {
+      scopeRequests.push(cursor);
+      return cursor
+        ? Promise.reject(new ApiClientError({ status: 409, code: "RUN_LIST_CHANGED", message: "Scope changed" }))
+        : freshScopePage.promise;
+    };
+    const scopeRefresh = paginated.loadMoreRuns(); await tick();
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns, [], "scope invalidation clears accumulated rows before fetching current access");
+    freshScopePage.resolve({ runs: [run("still-accessible")], nextCursor: null }); await scopeRefresh;
+    paginated = renderDevelopment();
+    assert.deepEqual(scopeRequests, ["cursor-1", undefined]);
+    assert.deepEqual(paginated.unfinishedRuns.map((item) => item.id), ["still-accessible"]);
+    assert.ok(paginated.runsNotice);
+    assert.equal(paginated.runsLoading, false);
+    assert.equal(paginated.runsError, null);
+
+    developmentApi.unfinishedRuns = async () => firstRunPage;
+    await paginated.reload();
+    paginated = renderDevelopment();
+    developmentApi.unfinishedRuns = async (cursor) => {
+      throw cursor
+        ? new ApiClientError({ status: 409, code: "RUN_LIST_CHANGED", message: "Scope changed again" })
+        : new ApiClientError({ status: 0, code: "NETWORK_ERROR", message: "Could not reload current access" });
+    };
+    await paginated.loadMoreRuns();
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns, [], "a failed scope reset cannot restore rows from the previous access scope");
+    assert.equal(paginated.runsNotice, null, "a failed refresh must not announce that the current list is displayed");
+    assert.equal(paginated.error?.code, "NETWORK_ERROR");
+    developmentApi.unfinishedRuns = async () => firstRunPage;
+    await paginated.reload();
+    paginated = renderDevelopment();
+    developmentApi.unfinishedRuns = async () => { throw new ApiClientError({ status: 401, code: "UNAUTHORIZED", message: "Session ended" }); };
+    await paginated.loadMoreRuns();
+    paginated = renderDevelopment();
+    assert.deepEqual(paginated.unfinishedRuns, []);
+    assert.equal(paginated.overview, null);
+    assert.equal(paginated.hasMoreRuns, false);
+    assert.equal(paginated.runsLoading, false);
+    assert.equal(paginated.runsError?.status, 401);
+
+    developmentApi.unfinishedRuns = async () => firstRunPage;
+    await paginated.reload();
+    const revokedRefresh = pending<DevelopmentOverviewDTO>();
+    developmentApi.overview = () => revokedRefresh.promise;
+    const beforeAccessDenied = paginated.reload();
+    developmentApi.detail = async () => { throw new ApiClientError({ status: 403, code: "ACCESS_DENIED", message: "Current access denied" }); };
+    await paginated.open("revoked");
+    revokedRefresh.resolve(overview); await beforeAccessDenied;
+    paginated = renderDevelopment();
+    assert.equal(paginated.overview, null, "a read started before current access denial must not resurrect the overview");
+    assert.deepEqual(paginated.unfinishedRuns, [], "a read started before current access denial must not resurrect accumulated runs");
+    assert.equal(paginated.error?.status, 403);
+
+    reset();
+    const latePageAfterDirectDenial = pending<DevelopmentRunPageDTO>();
+    developmentApi.overview = async () => overview;
+    developmentApi.unfinishedRuns = () => latePageAfterDirectDenial.promise;
+    developmentApi.detail = async () => { throw new ApiClientError({ status: 404, code: "NOT_FOUND", message: "Run no longer accessible" }); };
+    renderHook(() => useDevelopment("direct-revoked")); await tick();
+    latePageAfterDirectDenial.resolve(firstRunPage); await tick();
+    const directDenied = renderHook(() => useDevelopment("direct-revoked"));
+    assert.equal(directDenied.overview, null, "direct-link access denial invalidates a concurrently loading overview");
+    assert.deepEqual(directDenied.unfinishedRuns, []);
+    assert.equal(directDenied.busy, false);
+    assert.equal(directDenied.loading, false);
+    assert.equal(directDenied.error?.status, 404);
+
+    reset();
+    const detailAfterOverviewDenial = pending<DevelopmentDetailDTO>();
+    developmentApi.overview = async () => { throw new ApiClientError({ status: 401, code: "UNAUTHORIZED", message: "Session expired" }); };
+    developmentApi.unfinishedRuns = async () => firstRunPage;
+    developmentApi.detail = () => detailAfterOverviewDenial.promise;
+    renderHook(() => useDevelopment("late-protected-detail")); await tick();
+    detailAfterOverviewDenial.resolve(detail("late-protected-detail")); await tick();
+    const sessionDenied = renderHook(() => useDevelopment("late-protected-detail"));
+    assert.equal(sessionDenied.detail, null, "a late detail success cannot resurrect protected content after overview auth denial");
+    assert.equal(sessionDenied.overview, null);
+    assert.deepEqual(sessionDenied.unfinishedRuns, []);
+    assert.equal(sessionDenied.busy, false);
+    assert.equal(sessionDenied.error?.status, 401);
 
     reset();
     const { useSharedLife } = await import("@/client/hooks/useSharedLife");
@@ -164,6 +334,6 @@ const main = async () => {
   assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /data = pairAccessLost \? null : flow.data/);
   assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /editing = draft\?\.pairId === pair.pairId \? draft : null/);
   assert.doesNotMatch(read("src/client/hooks/useDevelopment.ts") + read("src/features/development/DevelopmentPage.tsx"), /localStorage/);
-  console.log("Continuation UI self-check passed: resume, program order, partial/final, revoked access and request races.");
+  console.log("Continuation UI self-check passed: resume, page coalescing/deduplication/retry, refresh races, scope invalidation, program order, partial/final and revoked access.");
 };
 void main().catch((error: Error) => { console.error(error); process.exitCode = 1; });

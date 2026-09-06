@@ -122,7 +122,7 @@ export default function DevelopmentPage() {
   const [domain, setDomain] = useState("all");
   const [kind, setKind] = useState("all");
   const detail = flow.detail;
-  const runs = flow.overview ? resumableDevelopmentRuns(flow.overview, pairId, pair.pairMe?.pair?.status) : [];
+  const runs = flow.overview ? resumableDevelopmentRuns({ ...flow.overview, recent: flow.unfinishedRuns }, pairId, pair.pairMe?.pair?.status) : [];
   const close = () => { flow.close(); router.replace("/development", { scroll: false }); };
   const start = async (key: string, selectedPairId?: string) => {
     const saved = runs.find((run) => run.contentKey === key && run.pairId === (selectedPairId ?? null));
@@ -130,7 +130,7 @@ export default function DevelopmentPage() {
     if (next) router.replace(developmentRunHref(next.run.id), { scroll: false });
   };
   const refresh = async () => { await Promise.all([flow.refresh(), pair.refetch()]); };
-  useRefreshOnReturn(refresh, !flow.busy && Boolean(detail?.run.myCompletion));
+  useRefreshOnReturn(refresh, !flow.busy && (!detail || detail.run.myCompletion));
   return (
     <main className="app-shell py-5">
       <nav className="mb-5 flex flex-wrap gap-3">
@@ -161,6 +161,7 @@ export default function DevelopmentPage() {
           <ErrorView error={flow.error} onRetry={() => void refresh()} />
         </div>
       )}
+      {flow.runsError && <div className="mt-4"><ErrorView error={flow.runsError} onRetry={() => void (flow.hasMoreRuns ? flow.loadMoreRuns() : flow.reload())} /></div>}
       {flow.loading && (
         <p role="status" className="mt-4">
           Загружаем библиотеку…
@@ -238,14 +239,20 @@ export default function DevelopmentPage() {
       ) : (
         flow.overview && (
           <>
-            {runs.length > 0 && <section className="app-panel app-panel-solid mt-5 p-5">
+            <section id="unfinished" className="app-panel app-panel-solid mt-5 p-5">
               <h2 className="text-lg font-semibold">Незавершённые занятия</h2>
               <p className="app-muted mt-2 text-sm">Занятие можно открыть после перезагрузки. Неотправленные ответы и заметки в браузере не сохраняются.</p>
+              <button className="app-btn-secondary mt-3 px-3 py-2" disabled={flow.loading || flow.runsLoading || flow.busy} onClick={() => void refresh()}>Обновить список</button>
+              {flow.runsNotice && <p className="app-muted mt-3 text-sm" role="status">{flow.runsNotice}</p>}
+              {!flow.loading && runs.length === 0 && <p className="app-muted mt-3 text-sm">Незавершённых занятий пока нет. Можно выбрать новое занятие ниже.</p>}
               <div className="mt-3 space-y-3">{runs.map((run) => <div key={run.id} className="app-panel-soft p-3">
                 <Link className="font-medium underline" href={developmentRunHref(run.id)}>{flow.overview!.content.find((card) => card.key === run.contentKey)?.title ?? "Сохранённое занятие"}</Link>
+                <p className="app-muted mt-1 text-xs">Неделя с <time dateTime={run.periodKey}>{run.periodKey}</time> (UTC) · {run.pairId ? "Совместное" : "Личное"} занятие</p>
                 <p className="app-muted mt-1 text-sm">{developmentRunStatus(run, pair.pairMe?.pair?.status === "paused")}</p>
               </div>)}</div>
-            </section>}
+              {flow.hasMoreRuns && <button className="app-btn-secondary mt-4 px-4 py-2" disabled={flow.loading || flow.runsLoading || flow.busy} onClick={() => void flow.loadMoreRuns()}>{flow.runsLoading ? "Загружаем…" : "Показать ещё"}</button>}
+              <p className="app-muted mt-3 text-sm" role="status">{flow.runsLoading ? "Загружаем следующую страницу занятий…" : runs.length > 0 ? `Показано занятий: ${runs.length}${flow.hasMoreRuns ? ". Более ранние занятия доступны по кнопке «Показать ещё»." : ". Все доступные незавершённые занятия загружены."}` : ""}</p>
+            </section>
             <section className="app-panel app-panel-solid mt-5 p-5">
               <p className="app-muted text-xs">Один следующий шаг</p>
               <h2 className="mt-1 text-lg font-semibold">

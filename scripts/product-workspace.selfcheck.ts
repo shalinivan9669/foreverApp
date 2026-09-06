@@ -7,6 +7,12 @@ import {
 } from "@/domain/model/development/catalog";
 import { createDevelopmentContentRepository } from "@/domain/model/development/publications";
 import {
+  decodeDevelopmentRunCursor,
+  encodeDevelopmentRunCursor,
+  DEVELOPMENT_RUN_PAGE_SIZE,
+} from "@/domain/model/development/runPagination";
+import { DomainError } from "@/domain/errors";
+import {
   DEVELOPMENT_CONTENT_V1,
   REFLECTION_OPTIONS_V1,
 } from "@/domain/model/development/published/v1";
@@ -31,6 +37,30 @@ import { toSharedLifeDTO } from "@/lib/dto/sharedLife.dto";
 import { toDevelopmentRunDTO } from "@/lib/dto/development.dto";
 
 assert.equal(DEVELOPMENT_DOMAINS.length, 6);
+assert.equal(DEVELOPMENT_RUN_PAGE_SIZE, 30);
+const cursorPosition = { createdAt: new Date("2026-09-05T01:02:03.456Z"), id: "a".repeat(64), scope: "b".repeat(64) };
+const cursor = encodeDevelopmentRunCursor(cursorPosition);
+assert.deepEqual(decodeDevelopmentRunCursor(cursor), cursorPosition);
+assert.equal(encodeDevelopmentRunCursor(decodeDevelopmentRunCursor(cursor)), cursor);
+const cursorRaw = Buffer.from(cursor, "base64url").toString("utf8");
+const badCursorPayloads = [
+  cursorRaw.replace("v1|", "v2|"),
+  cursorRaw.replace("2026-09-05", "2026-02-30"),
+  cursorRaw.replace("03.456Z", "03Z"),
+  cursorRaw.replace(cursorPosition.id, "A".repeat(64)),
+  cursorRaw.replace(cursorPosition.id, "a".repeat(63)),
+  cursorRaw.replace(cursorPosition.scope, "b".repeat(65)),
+  `${cursorRaw}|extra`,
+  JSON.stringify({ createdAt: { $lt: new Date() }, id: { $ne: null }, scope: cursorPosition.scope }),
+];
+for (const invalidCursor of [
+  "", "a".repeat(257), `${cursor}=`, `${cursor}\n`, cursor.slice(0, -1),
+  ...badCursorPayloads.map((payload) => Buffer.from(payload).toString("base64url")),
+]) {
+  assert.throws(() => decodeDevelopmentRunCursor(invalidCursor), (error: Error) =>
+    error instanceof DomainError && error.status === 400 && error.code === "VALIDATION_ERROR",
+  );
+}
 assert.equal(
   new Set(DEVELOPMENT_CATALOG.map((item) => item.key)).size,
   DEVELOPMENT_CATALOG.length,
@@ -312,5 +342,5 @@ assert.equal(run.myCompletion, false);
 assert.equal(run.partnerCompleted, true);
 assert.ok(!JSON.stringify(run).includes("peer"));
 console.log(
-  "product-workspace selfcheck PASS: immutable v1 publication, exact/latest revisions, pinned validation, content coverage, calendar edges, explicit skips, strict input, currencies, DTO privacy.",
+  "product-workspace selfcheck PASS: strict canonical pagination cursor, immutable v1 publication, exact/latest revisions, pinned validation, content coverage, calendar edges, explicit skips, strict input, currencies, DTO privacy.",
 );

@@ -9,6 +9,12 @@ import {
 } from "@/domain/model/development/catalog";
 import type { DevelopmentContentRepository } from "@/domain/model/development/publications";
 import {
+  decodeDevelopmentRunCursor,
+  DEVELOPMENT_RUN_PAGE_SIZE,
+  encodeDevelopmentRunCursor,
+} from "@/domain/model/development/runPagination";
+import { ECONOMY_CATALOG } from "@/domain/model/economy/catalog";
+import {
   developmentPeriod,
   validateDevelopmentAnswers,
 } from "@/domain/model/development/progress";
@@ -20,6 +26,7 @@ import {
   type DevelopmentCompleteInput,
   type DevelopmentDetailDTO,
   type DevelopmentOverviewDTO,
+  type DevelopmentRunPageDTO,
 } from "@/lib/dto/development.dto";
 import { economyService } from "./economy.service";
 import { pairContextAccess } from "./pairContextAccess.service";
@@ -74,8 +81,67 @@ export function createDevelopmentService(
       });
     return publication;
   };
+  const lockedContentKeys = async (userId: string) => {
+    const locked = new Set<string>();
+    for (const item of ECONOMY_CATALOG) {
+      if (item.kind !== "CONTENT" || !item.contentKey) continue;
+      try {
+        await economyService.assertContentAccess({ userId, contentKey: item.contentKey });
+      } catch (error) {
+        if (error instanceof DomainError && (error.status === 403 || error.status === 402)) locked.add(item.contentKey);
+        else throw error;
+      }
+    }
+    return locked;
+  };
 
   return {
+    async listUnfinishedRuns(userId: string, cursor?: string): Promise<DevelopmentRunPageDTO> {
+      const position = cursor === undefined ? null : decodeDevelopmentRunCursor(cursor);
+      await connectToDatabase();
+      const accessiblePairs = await Pair.find({
+        members: userId,
+        status: { $in: ["active", "paused"] },
+      }).select({ _id: 1, status: 1 }).lean();
+      // Reuse the centralized resource guard, including on subsequent pages.
+      const guardedPairs = await Promise.all(accessiblePairs.map((pair) => pairContextAccess.read(pair._id.toString(), userId)));
+      const lockedKeys = await lockedContentKeys(userId);
+      const scope = hash(JSON.stringify([
+        userId,
+        guardedPairs.map((pair) => `${pair._id.toString()}:${pair.status}`).sort(),
+        [...lockedKeys].sort(),
+      ]));
+      if (position && position.scope !== scope) {
+        throw new DomainError({
+          code: "RUN_LIST_CHANGED",
+          status: 409,
+          message: "Доступ к занятиям изменился. Обновите список с первой страницы.",
+        });
+      }
+      const candidates = await DevelopmentRun.find({
+        participantIds: userId,
+        status: { $in: ["ACTIVE", "PARTIAL"] },
+        contentKey: { $nin: [...lockedKeys] },
+        $and: [
+          { $or: [
+            { pairId: { $exists: false } },
+            { pairId: { $in: guardedPairs.map((pair) => pair._id.toString()) } },
+          ] },
+          ...(position ? [{ $or: [
+            { createdAt: { $lt: position.createdAt } },
+            { createdAt: position.createdAt, _id: { $lt: position.id } },
+          ] }] : []),
+        ],
+      }).sort({ createdAt: -1, _id: -1 }).limit(DEVELOPMENT_RUN_PAGE_SIZE + 1).lean();
+      const runs = candidates.slice(0, DEVELOPMENT_RUN_PAGE_SIZE);
+      const last = runs.at(-1);
+      return {
+        runs: runs.map((run) => toDevelopmentRunDTO(run, userId)),
+        nextCursor: candidates.length > DEVELOPMENT_RUN_PAGE_SIZE && last
+          ? encodeDevelopmentRunCursor({ createdAt: last.createdAt, id: last._id, scope })
+          : null,
+      };
+    },
     async assertRunAccess(userId: string, runId: string) {
       const run = await accessibleRun(userId, runId, true);
       await economyService.assertContentAccess({
@@ -124,22 +190,7 @@ export function createDevelopmentService(
             .lean(),
         ]);
       const count = new Map(completions.map((item) => [item._id, item.count]));
-      const lockedKeys = new Set<string>();
-      for (const contentKey of [
-        "reflection.deep-values-v1",
-        "scenario.weekend-dialogue-v1",
-      ]) {
-        try {
-          await economyService.assertContentAccess({ userId, contentKey });
-        } catch (error) {
-          if (
-            error instanceof DomainError &&
-            (error.status === 403 || error.status === 402)
-          )
-            lockedKeys.add(contentKey);
-          else throw error;
-        }
-      }
+      const lockedKeys = await lockedContentKeys(userId);
       const focus = reflections.find(
         (reflection) =>
           !lockedKeys.has(reflection.contentKey) &&

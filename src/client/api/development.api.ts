@@ -3,11 +3,17 @@ import type {
   DevelopmentCompleteInput,
   DevelopmentDetailDTO,
   DevelopmentOverviewDTO,
+  DevelopmentRunPageDTO,
 } from "@/lib/dto/development.dto";
 
 export const developmentApi = {
   overview: (signal?: AbortSignal) =>
     http.get<DevelopmentOverviewDTO>("/api/development", { signal }),
+  unfinishedRuns: (cursor?: string, signal?: AbortSignal) =>
+    http.get<DevelopmentRunPageDTO>(
+      `/api/development/runs${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      { signal },
+    ),
   start: async (
     contentKey: string,
     pairId?: string,

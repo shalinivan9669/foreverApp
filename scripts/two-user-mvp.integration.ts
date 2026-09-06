@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { mock } from 'node:test';
 import mongoose, { Types } from 'mongoose';
 import { DomainError } from '@/domain/errors';
@@ -71,11 +72,14 @@ const memberIds = [memberA, memberB].sort();
 const pairKey = memberIds.join('|');
 const timingsMs: Record<string, number> = {};
 
-const cycleDates = [
-  new Date('2026-08-10T12:00:00.000Z'),
-  new Date('2026-08-17T12:00:00.000Z'),
-  new Date('2026-08-24T12:00:00.000Z'),
-] as const;
+// Mongo's TTL monitor keeps real time while this process advances its Date
+// mock. Future Mondays prevent the server deleting short-lived audit fixtures.
+const firstCycleDate = new Date();
+firstCycleDate.setUTCDate(firstCycleDate.getUTCDate() + ((8 - firstCycleDate.getUTCDay()) % 7 || 7));
+firstCycleDate.setUTCHours(12, 0, 0, 0);
+const cycleDates = [0, 1, 2].map((week) =>
+  new Date(firstCycleDate.getTime() + week * 7 * 24 * 60 * 60 * 1000),
+);
 
 const weeklyFactorKeys = [
   'communication.weekly.connection',
@@ -152,11 +156,14 @@ const timed = async <T>(
   label: string,
   operation: () => Promise<T>
 ): Promise<T> => {
-  const startedAt = Date.now();
+  const startedAt = performance.now();
+  process.stderr.write(`${JSON.stringify({ suite: 'two-user-mvp', stage: label, status: 'running' })}\n`);
   try {
-    return await operation();
+    const result = await operation();
+    process.stderr.write(`${JSON.stringify({ suite: 'two-user-mvp', stage: label, status: 'passed' })}\n`);
+    return result;
   } finally {
-    timingsMs[label] = Date.now() - startedAt;
+    timingsMs[label] = Math.round(performance.now() - startedAt);
   }
 };
 
@@ -164,8 +171,11 @@ const freeCall = async <T>(
   label: string,
   operation: () => Promise<T>
 ): Promise<T> => {
+  process.stderr.write(`${JSON.stringify({ suite: 'two-user-mvp', stage: label, status: 'running' })}\n`);
   try {
-    return await operation();
+    const result = await operation();
+    process.stderr.write(`${JSON.stringify({ suite: 'two-user-mvp', stage: label, status: 'passed' })}\n`);
+    return result;
   } catch (error) {
     if (
       error instanceof DomainError &&
@@ -1780,5 +1790,10 @@ void main().catch((error: Error) => {
       timingsMs,
     })
   );
-  process.exitCode = 1;
+  const failureKind = (error instanceof DomainError ? error.code : error.name).replace(/[^A-Za-z0-9 ]/g, '').slice(0, 60) || 'Error';
+  const resourceKinds = [...new Set(process.getActiveResourcesInfo())].join(' ').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 60);
+  process.stderr.write(`${JSON.stringify({ suite: 'two-user-mvp', stage: `remaining ${resourceKinds || 'none'}`, status: 'failed' })}\n`);
+  // main's finally has already reset the fake clock, cleaned fixtures and
+  // disconnected Mongo. Do not let unrelated lingering handles hide a failure.
+  process.stderr.write(`${JSON.stringify({ suite: 'two-user-mvp', stage: `failure ${failureKind}`, status: 'failed' })}\n`, () => process.exit(1));
 });

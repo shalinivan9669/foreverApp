@@ -11,6 +11,8 @@ The accepted product expansion adds owner entry/cohort/public pairing identity, 
 
 All new private APIs derive the actor from the session. Replay authorization precedes cached results where applicable. Owner export adds `productWorkspace`, `economy` and own Matching conversation answers; peer-private reflection answers are excluded.
 
+`GET /api/development/runs?cursor=` adds a separate unfinished-run list without changing overview: `{ runs: DevelopmentRunDTO[], nextCursor: string | null }`, fixed maximum 30 rows, `ACTIVE`/`PARTIAL` only, descending `createdAt` and `_id`. Omit query for the first page; only the opaque versioned cursor is accepted for continuation. Authentication precedes query validation. Every page rechecks session ownership, current active/paused Pair resource access and paid-content access before limiting results. Invalid cursor returns `400 VALIDATION_ERROR`; a changed actor/Pair/access scope returns `409 RUN_LIST_CHANGED` and requires restarting the list. The cursor is a position, never an access grant. DTOs omit completion answers/private notes and responses use the standard private, no-store envelope. See [workspace behavior](PRODUCT_WORKSPACE_UPDATE.md).
+
 Status: current public/participant boundary after the Factor NEW_ONLY/free-core cutover and Factor Matching integration. Reviewed 2026-09-05 after the Discord Activity OAuth stabilization.
 
 ## Envelope and caching

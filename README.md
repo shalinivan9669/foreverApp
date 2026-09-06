@@ -46,6 +46,8 @@ npm run dev
 
 Откройте `http://localhost:3000`. Для database integrations используйте только отдельную локальную БД с суффиксом `_test`; точные команды находятся в [release runbook](./docs/RELEASE_RUNBOOK.md).
 
+Для приёмки без Discord и реальных секретов доступны `npm run acceptance:local -- --mongod <абсолютный-путь>` и, после сборки, `npm run acceptance:browser -- --mongod <абсолютный-путь>`. Инструмент сам запускает новый тестовый replica set; browser-режим создаёт две фиксированные синтетические сессии. Вместо аргумента можно задать `LOCAL_ACCEPTANCE_MONGOD` — это только путь к установленному `mongod` для локального инструмента, production-приложение его не использует. Рабочая копия для этих команд должна быть без runtime `.env`-файлов. Подробности и границы проверки — в [LOCAL_ACCEPTANCE.md](./docs/LOCAL_ACCEPTANCE.md).
+
 ## Переменные окружения
 
 | Переменная | Обязательность | Назначение |

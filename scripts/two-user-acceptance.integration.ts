@@ -48,10 +48,22 @@ async function main(): Promise<void> {
           JWT_SECRET: `${randomUUID()}${randomUUID()}`,
         },
       });
-      // Suites may log generated ids and internal diagnostics; aggregate output
-      // retains only pass/fail evidence. Re-run the named suite for diagnostics.
+      // Forward only fixed stage labels from the multi-cycle acceptance test;
+      // generated ids, payloads and the full child diagnostics remain private.
       child.stdout.resume();
-      child.stderr.resume();
+      let buffered = "";
+      child.stderr.on("data", (chunk: Buffer) => {
+        buffered += chunk.toString("utf8");
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          const progress = /^\{"suite":"two-user-mvp","stage":"([A-Za-z0-9 ]{1,80})","status":"(running|passed|failed)"\}$/.exec(line.trim());
+          if (suite === "two-user-mvp" && progress) {
+            process.stdout.write(`${JSON.stringify({ suite, stage: progress[1], status: progress[2] })}\n`);
+          }
+        }
+        if (buffered.length > 4_096) buffered = "";
+      });
       child.once("error", () => reject(new Error(`TWO_USER_ACCEPTANCE_START_FAILED:${suite}`)));
       child.once("close", (code) => resolveExit(code ?? 1));
     });

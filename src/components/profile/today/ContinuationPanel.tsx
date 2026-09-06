@@ -30,7 +30,7 @@ export default function ContinuationPanel({ pairId, pairStatus, existingPartnerI
   const flow = useDevelopment();
   const { data: currentUser } = useCurrentUser();
   const hasExistingPartnerIntent = existingPartnerIntent ?? currentUser?.entryCohort === "EXISTING_PARTNER";
-  const runs = flow.overview ? resumableDevelopmentRuns(flow.overview, pairId, pairStatus).slice(0, 3) : [];
+  const runs = flow.overview ? resumableDevelopmentRuns({ ...flow.overview, recent: flow.unfinishedRuns }, pairId, pairStatus).slice(0, 3) : [];
   const programs = flow.overview?.programs.filter((program) => program.completedSteps > 0 && program.completedSteps < program.contentKeys.length) ?? [];
   useRefreshOnReturn(async () => { await flow.reload(); }, !flow.loading);
   return <section className="app-panel app-panel-solid mt-4 p-4 sm:p-5" aria-label="Продолжить свой путь">

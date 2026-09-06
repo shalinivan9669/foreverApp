@@ -6,6 +6,7 @@ import type {
   DevelopmentCompleteInput,
   DevelopmentDetailDTO,
   DevelopmentOverviewDTO,
+  DevelopmentRunPageDTO,
 } from "@/lib/dto/development.dto";
 
 export function useDevelopment(runId: string | null = null) {
@@ -15,17 +16,50 @@ export function useDevelopment(runId: string | null = null) {
   const [busy, setBusy] = useState(false);
   const [overviewError, setOverviewError] = useState<UiErrorState | null>(null);
   const [detailError, setDetailError] = useState<UiErrorState | null>(null);
+  const [runPage, setRunPage] = useState<DevelopmentRunPageDTO>({ runs: [], nextCursor: null });
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState<UiErrorState | null>(null);
+  const [runsNotice, setRunsNotice] = useState<string | null>(null);
   const busyRef = useRef(false);
   const detailVersion = useRef(0);
   const overviewVersion = useRef(0);
+  const runsVersion = useRef(0);
+  const runsBusy = useRef(false);
+  const nextCursor = useRef<string | null>(null);
+  const clearRuns = useCallback(() => {
+    runsVersion.current += 1;
+    runsBusy.current = false;
+    nextCursor.current = null;
+    setRunPage({ runs: [], nextCursor: null });
+    setRunsLoading(false);
+  }, []);
+  const clearProtectedData = useCallback(() => {
+    overviewVersion.current += 1;
+    detailVersion.current += 1;
+    busyRef.current = false;
+    clearRuns();
+    setLoading(false);
+    setBusy(false);
+    setOverview(null);
+    setDetail(null);
+  }, [clearRuns]);
   const load = useCallback(async (signal?: AbortSignal) => {
     const version = ++overviewVersion.current;
+    clearRuns();
+    setRunsError(null);
+    setRunsNotice(null);
     setLoading(true);
     try {
-      const result = await developmentApi.overview(signal);
+      const [result, page] = await Promise.all([
+        developmentApi.overview(signal),
+        developmentApi.unfinishedRuns(undefined, signal),
+      ]);
       if (!signal?.aborted && version === overviewVersion.current) {
         setOverview(result);
+        setRunPage(page);
+        nextCursor.current = page.nextCursor;
         setOverviewError(null);
+        return true;
       }
     } catch (e) {
       if (!signal?.aborted && version === overviewVersion.current) {
@@ -36,14 +70,53 @@ export function useDevelopment(runId: string | null = null) {
           );
         setOverviewError(normalized);
         if ([401, 403, 404].includes(normalized.status)) {
-          setOverview(null);
-          setDetail(null);
+          clearProtectedData();
         }
       }
     } finally {
       if (!signal?.aborted && version === overviewVersion.current) setLoading(false);
     }
-  }, []);
+    return false;
+  }, [clearProtectedData, clearRuns]);
+  const loadMoreRuns = useCallback(async () => {
+    const cursor = nextCursor.current;
+    if (!cursor || runsBusy.current) return;
+    const version = runsVersion.current;
+    runsBusy.current = true;
+    setRunsLoading(true);
+    setRunsError(null);
+    setRunsNotice(null);
+    try {
+      const page = await developmentApi.unfinishedRuns(cursor);
+      if (version !== runsVersion.current) return;
+      setRunPage((previous) => ({
+        runs: [...new Map([...previous.runs, ...page.runs].map((run) => [run.id, run])).values()],
+        nextCursor: page.nextCursor,
+      }));
+      nextCursor.current = page.nextCursor;
+    } catch (e) {
+      if (version !== runsVersion.current) return;
+      const normalized = toUiErrorState(e instanceof Error ? e : new Error("Не удалось загрузить следующую страницу."));
+      if (normalized.code === "RUN_LIST_CHANGED") {
+        clearRuns();
+        const refreshed = load();
+        const refreshVersion = overviewVersion.current;
+        if (await refreshed && refreshVersion === overviewVersion.current) {
+          setRunsNotice("Доступ к занятиям изменился. Показываем актуальный список с первой страницы.");
+        }
+      } else {
+        if ([401, 403, 404].includes(normalized.status)) {
+          clearProtectedData();
+        }
+        setRunsError(normalized);
+      }
+    } finally {
+      if (version === runsVersion.current) {
+        runsBusy.current = false;
+        setRunsLoading(false);
+      }
+    }
+  }, [clearProtectedData, clearRuns, load]);
   useEffect(() => {
     const controller = new AbortController();
     queueMicrotask(() => {
@@ -69,7 +142,10 @@ export function useDevelopment(runId: string | null = null) {
         e instanceof Error ? e : new Error("Не удалось сохранить занятие."),
       );
       setDetailError(normalized);
-      if ([401, 403, 404].includes(normalized.status) || normalized.code === "CONTENT_VERSION_UNAVAILABLE") setDetail(null);
+      if ([401, 403, 404].includes(normalized.status)) {
+        clearProtectedData();
+      }
+      if (normalized.code === "CONTENT_VERSION_UNAVAILABLE") setDetail(null);
       return null;
     } finally {
       if (version === detailVersion.current) {
@@ -77,7 +153,7 @@ export function useDevelopment(runId: string | null = null) {
         setBusy(false);
       }
     }
-  }, [load]);
+  }, [clearProtectedData, load]);
   const open = useCallback((id: string) => execute(() => developmentApi.detail(id)), [execute]);
   useEffect(() => {
     const controller = new AbortController();
@@ -94,7 +170,11 @@ export function useDevelopment(runId: string | null = null) {
         const next = await developmentApi.detail(runId, controller.signal);
         if (!controller.signal.aborted && version === detailVersion.current) setDetail(next);
       } catch (e) {
-        if (!controller.signal.aborted && version === detailVersion.current) setDetailError(toUiErrorState(e instanceof Error ? e : new Error("Не удалось открыть занятие.")));
+        if (!controller.signal.aborted && version === detailVersion.current) {
+          const normalized = toUiErrorState(e instanceof Error ? e : new Error("Не удалось открыть занятие."));
+          setDetailError(normalized);
+          if ([401, 403, 404].includes(normalized.status)) clearProtectedData();
+        }
       } finally {
         if (!controller.signal.aborted && version === detailVersion.current) {
           busyRef.current = false;
@@ -103,7 +183,7 @@ export function useDevelopment(runId: string | null = null) {
       }
     });
     return () => controller.abort();
-  }, [runId]);
+  }, [clearProtectedData, runId]);
   const refresh = useCallback(async () => {
     if (detail) await open(detail.run.id);
     else if (runId) await open(runId);
@@ -112,6 +192,12 @@ export function useDevelopment(runId: string | null = null) {
   return {
     overview,
     detail,
+    unfinishedRuns: runPage.runs,
+    hasMoreRuns: Boolean(runPage.nextCursor),
+    runsLoading,
+    runsError,
+    runsNotice,
+    loadMoreRuns,
     loading,
     busy,
     error: detailError ?? overviewError,

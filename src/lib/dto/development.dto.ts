@@ -18,6 +18,10 @@ export type DevelopmentRunDTO = {
   partnerCompleted: boolean;
   completedAt: string | null;
 };
+export type DevelopmentRunPageDTO = {
+  runs: DevelopmentRunDTO[];
+  nextCursor: string | null;
+};
 export const toDevelopmentRunDTO = (
   run: DevelopmentRunType,
   userId: string,
