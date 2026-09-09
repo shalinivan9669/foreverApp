@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { permitsIndividualProjection } from '@/domain/model/evidence/projectionPolicy';
 import {
   aggregateFactorEvidence,
   type FactorAggregationMetrics,
@@ -546,7 +547,7 @@ export function buildIndividualFactorSnapshot(
 ): IndividualFactorSnapshot {
   const calculatedAt = canonicalSnapshotCalculatedAt(input.calculatedAt);
   const evidenceCutoffTimestamp = input.calculatedAt.getTime();
-  const isolatedEvents = input.events.filter(
+  const eligibleEvents = input.events.filter(
     (event) =>
       event.subjectKind === 'INDIVIDUAL' &&
       event.subjectId === input.subjectId &&
@@ -556,20 +557,14 @@ export function buildIndividualFactorSnapshot(
       event.observationScope === 'SELF' &&
       event.factorKey === input.factor.key &&
       event.status === 'ACCEPTED' &&
-      event.purpose === input.projectionPurpose &&
-      (input.projectionPurpose === 'OWNER_PROFILE'
-        ? event.captureMode === 'PRIVATE' || event.captureMode === 'SHARED'
-        : input.projectionPurpose === 'PAIR_MODEL' ||
-            input.projectionPurpose === 'RECOMMENDATION'
-          ? event.captureMode === 'PAIR_MODEL_ONLY' ||
-            event.captureMode === 'SHARED'
-          : input.projectionPurpose === 'SAFETY'
-            ? event.captureMode === 'SYSTEM_ONLY'
-            : event.captureMode !== 'PRIVATE' &&
-              event.captureMode !== 'SYSTEM_ONLY') &&
+      permitsIndividualProjection(event, input.projectionPurpose) &&
       event.observedAt.getTime() <= evidenceCutoffTimestamp &&
       event.recordedAt.getTime() <= evidenceCutoffTimestamp
   );
+  // Destination projections of one immutable answer are not independent evidence.
+  const isolatedEvents = [...new Map(eligibleEvents.map((event) => [
+    `${event.sourceRef}|${event.sourceRevision}|${event.measurementKey}`, event,
+  ])).values()];
   assertEvidenceVersions(isolatedEvents, input.factor, input);
   const aggregation = aggregateFactorEvidence(
     input.factor,

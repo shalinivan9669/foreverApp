@@ -19,10 +19,10 @@ assert.equal(
   "3156d7e2e38d9b2e88cc82ca299252974bd746eaa15ccb22af7a47386b23fbbd",
   "the historical v6 canonical identity must not be rewritten",
 );
-assert.equal(MVP_FACTOR_REGISTRY.registryVersion, 7);
+assert.equal(MVP_FACTOR_REGISTRY.registryVersion, 8);
 assert.equal(MVP_FACTOR_REGISTRY.algorithmVersion, 5);
 assert.equal(MVP_FACTOR_REGISTRY.snapshotVersion, 3);
-assert.equal(MVP_FACTOR_REGISTRY.displayVersion, 4);
+assert.equal(MVP_FACTOR_REGISTRY.displayVersion, 5);
 assert.ok(verifyFactorRegistryRelease(MVP_FACTOR_REGISTRY));
 assert.notEqual(MVP_FACTOR_REGISTRY.hash, MVP_FACTOR_REGISTRY_V6.hash);
 

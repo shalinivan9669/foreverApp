@@ -52,7 +52,7 @@ export async function GET(
   if (!params.ok) return params.response;
   const { id } = params.data;
 
-  const questionnaire = await questionnaireCatalogService.getPublishedById(id);
+  const questionnaire = await questionnaireCatalogService.getPublishedById(id, auth.data.userId);
   if (!questionnaire) {
     return jsonError(404, 'QUESTIONNAIRE_NOT_FOUND', 'not found');
   }

@@ -21,6 +21,7 @@ import {
 import { DevelopmentRun } from "@/models/DevelopmentRun";
 import { DevelopmentCompletion } from "@/models/DevelopmentCompletion";
 import { Pair } from "@/models/Pair";
+import { User } from "@/models/User";
 import {
   toDevelopmentRunDTO,
   type DevelopmentCompleteInput,
@@ -279,12 +280,14 @@ export function createDevelopmentService(
         pairId = guardedPair._id.toString();
       }
       await economyService.assertContentAccess({ userId, contentKey });
-      const periodKey = developmentPeriod(new Date());
+      const previousReflection = content.kind === 'REFLECTION' ? await DevelopmentRun.findOne({ participantIds: userId, contentKey, pairId: { $exists: false } }).sort({ createdAt: 1 }).lean() : null;
+      if (previousReflection) return this.detail(userId, previousReflection._id);
+      const periodKey = content.kind === 'REFLECTION' ? 'once' : developmentPeriod(new Date());
       const runId = hash(
         JSON.stringify([
           pairId ? `pair:${pairId}` : `owner:${userId}`,
           content.key,
-          content.revision,
+          content.kind === 'REFLECTION' ? 'stable-test' : content.revision,
           periodKey,
         ]),
       );
@@ -363,6 +366,12 @@ export function createDevelopmentService(
         await session.withTransaction(async () => {
           if (run.pairId)
             await pairContextAccess.fence(run.pairId, userId, session);
+          if (content.kind === 'REFLECTION') {
+            const owner = await User.updateOne({ id: userId }, { $inc: { pairMembershipRevision: 1 } }, { session });
+            if (owner.matchedCount !== 1) return missing();
+            const previous = await DevelopmentCompletion.exists({ userId, contentKey: content.key, runId: { $ne: run._id } }).session(session);
+            if (previous) throw new DomainError({ code: 'STATE_CONFLICT', status: 409, message: 'Эта анкета уже пройдена. Откройте сохранённый результат из библиотеки.' });
+          }
           await economyService.assertContentAccess({
             userId,
             contentKey: content.key,
@@ -383,7 +392,7 @@ export function createDevelopmentService(
               code: "STATE_CONFLICT",
               status: 409,
               message:
-                "Этот результат уже сохранён. Новое прохождение доступно на следующей неделе.",
+                content.kind === 'REFLECTION' ? 'Эта анкета уже пройдена. Ответы закрыты; сохранённый результат доступен.' : 'Этот результат уже сохранён. Практику можно повторить в следующем цикле.',
             });
           if (!existing)
             await DevelopmentCompletion.create(

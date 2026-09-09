@@ -69,6 +69,9 @@ They may describe six-axis vectors, diagnostics, paywalls or pre-cutover schemas
 
 ## Agent process
 
+- [Измерительные анкеты и характеристики](FACTOR_MEASUREMENT_CONTRACT.md) — значения, одноразовость, приватность и совместимость.
+- [Приёмка механики характеристик](FACTOR_MEASUREMENT_ACCEPTANCE.md) — воспроизводимые проверки и границы локальной проверки.
+
 - `docs/AGENT_OPERATING_MODES.md` — task classification.
 - `docs/TASK_PACKS.md` — scoped read/check packs.
 - `docs/CONTEXT_BUDGET.md` — planning guidance.

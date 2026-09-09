@@ -1,5 +1,9 @@
 # Testing
 
+## Measurement feature acceptance — 2026-09-09
+
+Run `npm run acceptance:local -- --mongod <absolute-local-binary> --suite factors` in the owned disposable replica set harness. It runs onboarding-factor-engine, factor-engine-runtime and factor-profile-flow. Golden cases assert literal normalized values for two opposite profiles across all six areas, matching consumption, separate desires/grants, pair disclosure/revocation, once-only concurrency, crash recovery, pinned publications and compatible v7 sources. Product regression uses the same harness with `--suite product`. Neither suite reads application env files or existing DB targets. See [acceptance evidence](FACTOR_MEASUREMENT_ACCEPTANCE.md) for browser checks and limitations.
+
 Status: active verification matrix. Run checks by blast radius; database commands require an isolated local replica set.
 
 ## Autonomous local acceptance and pagination, 2026-09-05

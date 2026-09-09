@@ -13,6 +13,7 @@ export default function DevelopmentCatalog({ overview, audience, domain, kind, h
   return <>
     <section id="catalog" className="app-panel app-panel-solid mt-5 scroll-mt-4 p-5" aria-labelledby="library-catalog-title">
       <h2 id="library-catalog-title" className="text-xl font-semibold">Выберите занятие</h2>
+      <p className="mt-3"><Link className="underline" href="/measurements">Измерительные анкеты по шести областям и личные результаты</Link>. Свободная рефлексия ниже помогает размышлять, но сама по себе не рассчитывает характеристики.</p>
       <div className="mt-4 grid grid-cols-2 gap-2" role="group" aria-label="Для кого занятие">
         <button className="app-btn-secondary px-3 py-3" aria-pressed={audience === "personal"} onClick={() => onFilter({ scope: "personal", format: null })}>Для себя</button>
         <button className="app-btn-secondary px-3 py-3" aria-pressed={audience === "together"} onClick={() => onFilter({ scope: "together", format: null })}>Вместе</button>

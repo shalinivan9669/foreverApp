@@ -386,6 +386,9 @@ export async function materializeOnboardingFactorEvidence(input: {
         event,
       })
     );
+    if (capture.purpose !== 'OWNER_PROFILE') {
+      individualSnapshotIds.push(await materializeSnapshot({ subjectId: input.subjectId, factor, purpose: 'OWNER_PROFILE', event }));
+    }
   }
 
   return {

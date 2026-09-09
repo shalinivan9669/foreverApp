@@ -11,7 +11,7 @@ const source = readFileSync(servicePath, 'utf8');
 const readStart = source.indexOf(
   'const readActivityRecommendationInputsInSession'
 );
-const readEnd = source.indexOf('\nconst toDomainEvidenceEvent', readStart);
+const readEnd = source.indexOf('\nexport const toDomainEvidenceEvent', readStart);
 assert.ok(readStart >= 0 && readEnd > readStart, 'recommendation reader not found');
 const readSource = source.slice(readStart, readEnd);
 

@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import QuestionnaireCard from '@/components/QuestionnaireCard';
+import { MeasurementCatalog } from '@/features/measurements/MeasurementPages';
 import LoadingView from '@/components/ui/LoadingView';
 import type {
   QuestionnaireCardVM,
@@ -41,6 +42,7 @@ export default function QuestionnairesPageView({
 
   return (
     <div className="app-page-stack">
+      <MeasurementCatalog />
       <div className="app-panel-soft flex flex-wrap items-center gap-2 p-2" role="tablist" aria-label="Тип анкеты">
         <button
           type="button"

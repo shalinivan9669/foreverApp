@@ -51,7 +51,24 @@ const ensurePairMember = async (pairId: string, currentUserId: string) => {
   return guard.data;
 };
 
+/** A recorded participant answer remains closed after leaving its original pair. */
+async function assertNoFormerQuestionnaireAnswers(ownerId: string, pairId: Types.ObjectId, questionnaireId: string, session: ClientSession): Promise<void> {
+  const actor = await User.findOne({ id: ownerId }).select({ _id: 1 }).session(session);
+  if (!actor) return stateConflict('Аккаунт недоступен.');
+  const previous = await PairQuestionnaireSession.aggregate<{ _id: Types.ObjectId }>([
+    { $match: { pairId: { $ne: pairId }, questionnaireId, members: actor._id } },
+    { $lookup: { from: 'pair_qn_answers', let: { source: '$_id', role: { $cond: [{ $eq: [{ $arrayElemAt: ['$members', 0] }, actor._id] }, 'A', 'B'] } }, pipeline: [
+      { $match: { $expr: { $and: [{ $eq: ['$sessionId', '$$source'] }, { $eq: ['$by', '$$role'] }] } } }, { $limit: 1 }, { $project: { _id: 1 } },
+    ], as: 'ownAnswers' } },
+    { $match: { 'ownAnswers.0': { $exists: true } } }, { $limit: 1 }, { $project: { _id: 1 } },
+  ]).session(session);
+  if (previous.length) stateConflict('Ответы этого теста уже сохранены в прежнем контексте. Новая пара не открывает повторную сдачу.');
+}
+
 type QuestionnaireAnswerInput = { qid: string; ui: number };
+const requirePairPublication = (session: Pick<PairQuestionnaireSessionType, 'questionnaireVersion'>, version: number): void => {
+  if (session.questionnaireVersion !== version) throw new DomainError({ code: 'CONTENT_VERSION_UNAVAILABLE', status: 409, message: 'Редакция сохранённой анкеты недоступна. Ответы сохранены; повторное прохождение закрыто до восстановления исходной публикации.' });
+};
 type QuestionScaleDefinition = {
   id: string;
   optionCount: number;
@@ -161,8 +178,7 @@ const submissionIdentity = (input: {
       [
         input.userId,
         input.questionnaireId,
-        String(input.questionnaireVersion),
-        contentHash,
+        'one-time-test-v1',
       ].join('|')
     )
     .digest('hex')
@@ -171,6 +187,7 @@ const submissionIdentity = (input: {
 };
 
 type SessionLean = {
+  questionnaireVersion?: number;
   _id: Types.ObjectId;
   status: PairQuestionnaireSessionType['status'];
   startedAt: Date;
@@ -348,8 +365,11 @@ export const questionnairesService = {
       questionnaireVersion: questionnaire.version,
       answers: canonicalAnswers,
     });
+    const prior = await PersonalQuestionnaireSubmission.findOne({ userId: input.currentUserId, questionnaireId: input.questionnaireId }).sort({ submittedAt: 1 }).lean();
+    const answerFingerprint = (answers: readonly { questionId: string; ui: number }[]) => JSON.stringify([...answers].sort((a, b) => a.questionId.localeCompare(b.questionId)).map(({ questionId, ui }) => ({ questionId, ui })));
+    if (prior && answerFingerprint(prior.answers) !== answerFingerprint(canonicalAnswers)) stateConflict('Анкета уже пройдена. Изменить окончательные ответы нельзя.');
     try {
-      await PersonalQuestionnaireSubmission.updateOne(
+      if (!prior) await PersonalQuestionnaireSubmission.updateOne(
         { submissionId: identity.submissionId },
         {
           $setOnInsert: {
@@ -381,6 +401,8 @@ export const questionnairesService = {
       });
       if (!existing) throw error;
     }
+    const canonicalStored = prior ?? await PersonalQuestionnaireSubmission.findOne({ submissionId: identity.submissionId }).lean();
+    if (!canonicalStored || answerFingerprint(canonicalStored.answers) !== answerFingerprint(canonicalAnswers)) stateConflict('Анкета уже пройдена с другими ответами.');
 
     // One reward per questionnaire, independent of answer content and repeated
     // submissions. Retrying a stored completion also repairs a missed reward.
@@ -422,8 +444,9 @@ export const questionnairesService = {
     auditRequest?: AuditRequestContext;
   }, hooks: QuestionnaireReliabilityTestHooks = {}): Promise<{
     sessionId: string;
-    status: 'in_progress';
+    status: 'in_progress' | 'completed';
     startedAt: Date;
+    ownAnswers: { questionId: string; ui: number }[];
   }> {
     await connectToDatabase();
     const pairData = await ensurePairMember(input.pairId, input.currentUserId);
@@ -446,7 +469,7 @@ export const questionnairesService = {
     const runBeforePairFence = createOneShotHook(hooks.beforePairFence);
     const mongoSession = await mongoose.startSession();
     let result:
-      | { sessionId: string; status: 'in_progress'; startedAt: Date }
+      | { sessionId: string; status: 'in_progress' | 'completed'; startedAt: Date }
       | undefined;
     try {
       result = await mongoSession.withTransaction(async () => {
@@ -462,7 +485,16 @@ export const questionnairesService = {
           session: mongoSession,
         });
 
+        const completed = await PairQuestionnaireSession.findOne({ pairId, questionnaireId: input.questionnaireId, status: 'completed' }).sort({ startedAt: 1 }).session(mongoSession);
+        if (completed) {
+          requirePairPublication(completed, questionnaire.version);
+          return { sessionId: String(completed._id), status: 'completed' as const, startedAt: completed.startedAt };
+        }
+
+        for (const memberId of fencedPair.members) await assertNoFormerQuestionnaireAnswers(memberId, pairId, input.questionnaireId, mongoSession);
+
         if (existing) {
+          requirePairPublication(existing, questionnaire.version);
           const transition = questionnaireTransition(
             {
               status: existing.status,
@@ -517,6 +549,7 @@ export const questionnairesService = {
               pairId,
               questionnaireId: input.questionnaireId,
               members: [memberA._id, memberB._id],
+              questionnaireVersion: questionnaire.version,
               startedAt: transition.next.startedAt,
               status: transition.next.status,
             },
@@ -573,7 +606,9 @@ export const questionnairesService = {
       },
     });
 
-    return result;
+    await ensurePairMember(input.pairId, input.currentUserId);
+    const ownAnswers = await PairQuestionnaireAnswer.find({ sessionId: result.sessionId, by: pairData.by }).select({ _id: 0, questionId: 1, ui: 1 }).lean();
+    return { ...result, ownAnswers: ownAnswers.map(({ questionId, ui }) => ({ questionId, ui })) };
   },
 
   async answerPairQuestionnaire(input: {
@@ -654,6 +689,9 @@ export const questionnairesService = {
           });
         }
 
+        await assertNoFormerQuestionnaireAnswers(input.currentUserId, pairId, input.questionnaireId, mongoSession);
+
+        requirePairPublication(session, questionnaire.version);
         const answerIdentity = {
           sessionId: session._id,
           questionId: input.questionId,

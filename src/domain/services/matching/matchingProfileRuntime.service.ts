@@ -55,8 +55,25 @@ import {
 } from "@/models/PartnerPreferenceProfile";
 import { fromStoredFactorValue } from "@/models/factorEngineSchemas";
 import { User, type UserType } from "@/models/User";
+import { CandidatePresentationGrant } from '@/models/CandidatePresentationGrant';
+import { MatchingFeedSession } from '@/models/MatchingFeedSession';
 
 const MATERIALIZATION_RETRY_LIMIT = 5;
+
+/** A measured actual revision never grants consent, changes desires or activates discovery. */
+export async function refreshMeasuredMatchingProfile(ownerId: string, session: ClientSession, now: Date): Promise<void> {
+  const profile = await MatchingProfile.findOne({ userId: ownerId }).session(session).lean<MatchingProfileType | null>();
+  if (!profile) return;
+  const sources = await loadMatchingActualProfileSources({ ownerIds: [ownerId], session });
+  const preferences = (await loadDomainPreferenceProfiles({ ownerIds: [ownerId], session }))[0] ?? validatePartnerPreferenceProfile({ ownerId, revision: 0, registryKey: MVP_FACTOR_REGISTRY.registryKey, registryVersion: MVP_FACTOR_REGISTRY.registryVersion, preferences: [], updatedAt: now, release: MVP_FACTOR_REGISTRY });
+  const revision = profile.actualProfileRevision + 1;
+  const readiness = readinessFor({ ownerId, revision, snapshots: sources[0].snapshots, grants: sources[0].grants, preferences, now });
+  const projectionHash = sha256(JSON.stringify(['measurement', ownerId, revision, profile.preferenceRevision, readiness.ready]));
+  const updated = await MatchingProfile.findOneAndUpdate({ userId: ownerId }, { $set: { actualProfileRevision: revision, requiredDataReady: readiness.ready, active: profile.active && readiness.ready, projectionHash, registryVersion: MVP_FACTOR_REGISTRY.registryVersion, algorithmVersion: MVP_FACTOR_REGISTRY.algorithmVersion } }, { new: true, session });
+  if (updated) await projectDiscovery({ profile: updated, projectionHash, session });
+  await CandidatePresentationGrant.updateMany({ $or: [{ requesterId: ownerId }, { candidateId: ownerId }], revokedAt: { $exists: false } }, { $set: { revokedAt: now } }, { session });
+  await MatchingFeedSession.deleteMany({ $or: [{ requesterId: ownerId }, { candidateIds: ownerId }] }, { session });
+}
 
 const sha256 = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");

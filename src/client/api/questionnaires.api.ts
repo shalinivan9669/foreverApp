@@ -41,8 +41,8 @@ export const questionnairesApi = {
     pairId: string,
     questionnaireId: string,
     signal?: AbortSignal
-  ): Promise<{ sessionId: string; status: 'in_progress'; startedAt: string }> =>
-    http.post<{ sessionId: string; status: 'in_progress'; startedAt: string }, Record<string, never>>(
+  ): Promise<{ sessionId: string; status: 'in_progress' | 'completed'; startedAt: string; ownAnswers: { questionId: string; ui: number }[] }> =>
+    http.post<{ sessionId: string; status: 'in_progress' | 'completed'; startedAt: string; ownAnswers: { questionId: string; ui: number }[] }, Record<string, never>>(
       `/api/pairs/${pairId}/questionnaires/${questionnaireId}/start`,
       {},
       { idempotency: true, ...(signal ? { signal } : {}) }

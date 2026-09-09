@@ -15,10 +15,10 @@ type ProfileSummaryProps = {
 const fallbackAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
 
 const statusClasses: Record<FactorProfileStatus, string> = {
-  AVAILABLE: 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200',
-  MISSING: 'bg-slate-500/10 text-slate-700 dark:text-slate-200',
-  UNKNOWN: 'bg-amber-500/10 text-amber-800 dark:text-amber-200',
-  INSUFFICIENT: 'bg-violet-500/10 text-violet-800 dark:text-violet-200',
+  AVAILABLE: 'bg-emerald-500/10 text-emerald-800',
+  MISSING: 'bg-slate-500/10 text-slate-700',
+  UNKNOWN: 'bg-amber-500/10 text-amber-800',
+  INSUFFICIENT: 'bg-violet-500/10 text-violet-800',
 };
 
 const formatDate = (value: string | null): string => {
@@ -62,7 +62,7 @@ function ProfileIdentity({ summary }: ProfileSummaryProps) {
   );
 }
 
-function FactorCard({ card }: { card: FactorSemanticCardDTO }) {
+export function FactorCard({ card }: { card: FactorSemanticCardDTO }) {
   return (
     <article
       className="app-panel app-panel-solid flex h-full flex-col p-4"
@@ -102,23 +102,28 @@ function FactorCard({ card }: { card: FactorSemanticCardDTO }) {
       </dl>
 
       <p className="mt-4 border-t border-black/5 pt-3 text-sm">{card.neutralWording}</p>
+      {card.valuePresentation?.scale && <div className="mt-3"><meter className="w-full" aria-label={card.title} min={card.valuePresentation.scale.min} max={card.valuePresentation.scale.max} value={card.valuePresentation.scale.value} /><div className="flex justify-between gap-4 text-xs app-muted"><span>{card.valuePresentation.scale.low}</span><span className="text-right">{card.valuePresentation.scale.high}</span></div></div>}
+      {card.history && card.history.length > 0 && <details className="mt-3 text-sm"><summary>История результата</summary>{card.history.map((entry, index) => <p key={`${entry.at}:${index}`} className="mt-2"><time>{formatDate(entry.at)}</time>: {entry.label}. <span className="app-muted">{entry.explanation}</span></p>)}</details>}
+      {card.nextStep && <Link className="mt-3 text-sm underline" href={card.nextStep.href}>{card.nextStep.label}</Link>}
     </article>
   );
 }
 
 function FactorCards({ summary }: ProfileSummaryProps) {
   const { cards, latestCalculatedAt } = summary.factorProfile;
+  const stableAreas = [...new Set(cards.filter((card) => card.kind !== 'STATE').map((card) => card.domain.title))];
 
   return (
     <section className="space-y-3" aria-labelledby="factor-profile-title">
       <div>
         <h2 id="factor-profile-title" className="text-lg font-semibold">
-          Личные факторы
+          Личные характеристики
         </h2>
         <p className="app-muted mt-1 max-w-3xl text-sm">
           Карточки описывают только ваши данные. Они не являются оценкой личности и не
           содержат значения другого человека.
         </p>
+        <Link className="app-btn-primary mt-3 inline-flex" href="/measurements">Анкеты по шести областям</Link>
       </div>
 
       {!latestCalculatedAt && (
@@ -129,16 +134,13 @@ function FactorCards({ summary }: ProfileSummaryProps) {
       )}
 
       {cards.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {cards.map((card) => (
-            <FactorCard key={card.factorKey} card={card} />
-          ))}
-        </div>
+        <div className="space-y-6">{stableAreas.map((area) => <section key={area} className="space-y-3"><h3 className="text-lg font-semibold">{area}</h3><div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{cards.filter((card) => card.kind !== 'STATE' && card.domain.title === area).map((card) => <FactorCard key={card.factorKey} card={card} />)}</div></section>)}</div>
       ) : (
         <div className="app-panel app-panel-solid p-4 text-sm app-muted">
           Определения факторов пока недоступны. Попробуйте открыть профиль позже.
         </div>
       )}
+      {cards.some((card) => card.kind === 'STATE') && <><h3 className="text-lg font-semibold">Текущие состояния</h3><p className="app-muted">Отдельно от устойчивых характеристик: нагрузка, ресурс и контакт меняются со временем.</p><div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{cards.filter((card) => card.kind === 'STATE').map((card) => <FactorCard key={card.factorKey} card={card} />)}</div></>}
     </section>
   );
 }

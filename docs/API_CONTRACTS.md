@@ -159,6 +159,24 @@ Recommendation/activity participant DTOs omit SafetyGate state, template/interna
 - `POST /api/billing/webhooks/sandbox` and `POST /api/entitlements/grant` remain protected, disabled/isolated infrastructure. Their state never determines access to the public core flow.
 - The current `/api/match/**` routes expose Factor Matching only. Retained legacy status/card data may be migration input, but legacy `matchScore`/vector data is never authorization, candidate intelligence, Pair-activation evidence or participant output.
 
+## Measurement tests and owner interpretations — 2026-09-09
+
+All routes use the current session as the subject and the standard envelope. Definitions and formulas: [measurement contract](FACTOR_MEASUREMENT_CONTRACT.md).
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/measurements` | Six publications with own NEW/DRAFT/FINALIZED state, pinned content, own answers and permission revisions. |
+| `GET /api/measurements/[key]` | Own canonical test; reconciles committed sources and current pair. READY only after success; PENDING preserves closed answers and offers retry. |
+| `POST /api/measurements/[key]` | Strict actions: start, draft, finalize, permission, retry. Draft/finalize: expectedRevision, answers [{questionId,choice:1/2/3/null}], pairUse. Permission: expectedPermissionRevision, pairUse. Start/retry have no other fields. |
+| `GET /api/pairs/[id]/factor-profile` | Active/paused member only: six shared interpretations, next actions and evaluation revisions. No raw values, answers, confidence, evidence counts or peer source identifiers. Ended/foreign contexts denied. |
+| `GET /api/users/me/profile-summary` | Adds owner value presentation, meaningful scales, bounded own history, kind and next action. Compatible sources replay; unavailable versions are labelled. |
+| `GET /api/questionnaires/[id]` | Adds ownSubmission for the caller only. Unmeasured submissions stay unmeasured and closed; answers display against matching content only. |
+| `GET /api/privacy/export` | Workspace section includes own pinned measurement sources, answers and current pair permission. Account execution deletes these sources. |
+
+Final identity is owner + stable test key, independent of week/version/pair. Exact retry returns stored result; changed final answers return TEST_ALREADY_COMPLETED (409). Stale draft/permission revisions return TEST_DRAFT_STALE/PERMISSION_STALE (409). Invalid/incomplete answers return VALIDATION_ERROR (400). Missing owner/test returns 404. CONTENT_VERSION_UNAVAILABLE (409) never opens a replacement attempt. No owner/actor identifier is accepted in the strict mutation schema.
+
+Ordinary personal questionnaires and library reflections preserve the first stable completion. Pair questionnaire start returns ownAnswers plus in_progress/completed; reload resumes unsent questions or shows the closed own part. The session pins immutable questionnaireVersion; missing/incompatible legacy publications return CONTENT_VERSION_UNAVAILABLE and preserve sources. Recorded participant answers cannot be replayed into a new pair. Unmapped publications remain reflection without synthetic factors.
+
 ## References
 
 - [Security](./SECURITY.md)

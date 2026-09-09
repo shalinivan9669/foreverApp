@@ -46,6 +46,7 @@ import { User } from '@/models/User';
 import { DefinitionRegistryRelease } from '@/models/DefinitionRegistryRelease';
 import { EvidenceEvent } from '@/models/EvidenceEvent';
 import { IndividualFactorSnapshot } from '@/models/IndividualFactorSnapshot';
+import { MeasurementTestSession } from '@/models/MeasurementTestSession';
 import { PairFactorEvaluationSnapshot } from '@/models/PairFactorEvaluationSnapshot';
 import { PairFactorSnapshot } from '@/models/PairFactorSnapshot';
 import { SessionSubject } from '@/models/SessionSubject';
@@ -557,6 +558,7 @@ try {
     DefinitionRegistryRelease,
     EvidenceEvent,
     IndividualFactorSnapshot,
+    MeasurementTestSession,
     PairFactorSnapshot,
     PairFactorEvaluationSnapshot,
     SessionSubject,

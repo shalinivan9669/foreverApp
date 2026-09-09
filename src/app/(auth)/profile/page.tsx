@@ -43,6 +43,17 @@ export default function ProfileOverviewPage() {
   const loading = userLoading || (currentUserId !== null && loadedUserId !== currentUserId);
 
   useEffect(() => {
+    const refresh = () => { if (document.visibilityState === 'visible') setLoadAttempt((value) => value + 1); };
+    const storage = (event: StorageEvent) => { if (event.key === 'profile-measurements-revision') refresh(); };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', refresh);
+    window.addEventListener('profile-measurements-changed', refresh);
+    window.addEventListener('storage', storage);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.removeEventListener('focus', refresh); window.removeEventListener('pageshow', refresh); window.removeEventListener('profile-measurements-changed', refresh); window.removeEventListener('storage', storage); document.removeEventListener('visibilitychange', refresh); };
+  }, []);
+
+  useEffect(() => {
     let active = true;
 
     if (!currentUserId) return;

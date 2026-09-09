@@ -800,6 +800,7 @@ export type QuestionnaireQuestionDTO = {
 export type QuestionDTO = QuestionnaireQuestionDTO;
 
 export type QuestionnaireDTO = {
+  ownSubmission?: { submittedAt: string; version: number; answers: { questionId: string; ui: number }[] };
   id: string;
   contentModel: 'SEMANTIC_V1';
   scope: QuestionnaireScope;

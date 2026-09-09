@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
@@ -110,7 +111,7 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
 
     if (!saved) return;
 
-    router.push('/questionnaires');
+    setLoadAttempt((attempt) => attempt + 1);
   };
 
   if ((loadingQuestionnaire || !loadSettled) && !questionnaire) {
@@ -161,12 +162,15 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
     );
   }
 
+  if (questionnaire.ownSubmission) return <main className="app-shell-compact app-page-stack py-4"><BackBar title={title} fallbackHref="/questionnaires" /><h1 className="text-xl font-semibold">Пройден: результат сохранён</h1><p>Ответы закрыты для повторной сдачи. Эта анкета — личная саморефлексия; измерительные характеристики доступны в отдельном каталоге.</p>{questionnaire.ownSubmission.version === questionnaire.version ? questionnaire.ownSubmission.answers.map((answer) => <p key={answer.questionId}>{questions.find((question) => question.id === answer.questionId)?.text.ru ?? answer.questionId}: вариант {answer.ui}</p>) : <p>Сохранена другая редакция. Её текст недоступен; новые формулировки не применяются к вашим прежним ответам.</p>}<Link href="/measurements" className="app-btn-primary">Измерительные анкеты</Link></main>;
+
   return (
     <main className="app-shell-compact app-page-stack py-3 sm:py-5">
       <BackBar title={title} fallbackHref="/questionnaires" />
 
       <div>
         <h1 className="app-page-title font-semibold">{title}</h1>
+        <p className="app-muted mt-2">Личная саморефлексия. Последний ответ окончательно сохранит анкету и закроет повторное прохождение.</p>
         <div className="mt-4 flex items-center justify-between gap-3 text-sm">
           <span className="app-muted">Вопрос {index + 1} из {questions.length}</span>
           <span className="font-semibold">{Math.round(((index + 1) / questions.length) * 100)}%</span>

@@ -1,4 +1,5 @@
 import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
+import mongoose from 'mongoose';
 import {
   isSnapshotEffectiveAt,
   snapshotVersionsMatchRegistry,
@@ -17,6 +18,8 @@ import {
 import { User, type UserType } from '@/models/User';
 import { Pair } from '@/models/Pair';
 import { materializeCurrentOwnerFactorSnapshots } from '@/domain/services/activityFactorRuntime.service';
+import { recoverMeasurementResults } from '@/domain/services/measurementTests.service';
+import { bridgeCompatibleProfileEvidence } from './profileEvidenceCompatibility.service';
 
 type ProfileUserSource = Pick<
   UserType,
@@ -38,8 +41,8 @@ export async function getOwnerFactorProfileSummary(
   await connectToDatabase();
 
   const factorKeys = MVP_FACTOR_REGISTRY.factors.map((factor) => factor.key);
-  const effectiveAt = new Date();
-  const [user, activePair] = await Promise.all([
+  let effectiveAt = new Date();
+  const [user, initialPair] = await Promise.all([
     User.findOne({ id: ownerId })
       .select({ id: 1, username: 1, avatar: 1, createdAt: 1, updatedAt: 1 })
       .lean<ProfileUserSource | null>(),
@@ -53,18 +56,23 @@ export async function getOwnerFactorProfileSummary(
   ]);
 
   if (!user) return null;
+  let activePair = initialPair;
 
-  await materializeCurrentOwnerFactorSnapshots({
-    subjectId: ownerId,
-    calculatedAt: effectiveAt,
-  });
-  if (activePair) {
-    await materializeCurrentOwnerFactorSnapshots({
-      subjectId: ownerId,
-      pairId: String(activePair._id),
-      calculatedAt: effectiveAt,
+  await recoverMeasurementResults(ownerId);
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const fence = await User.updateOne({ id: ownerId }, { $inc: { pairMembershipRevision: 1 } }, { session });
+      if (fence.matchedCount !== 1) return;
+      activePair = await Pair.findOne({ members: ownerId, status: { $in: ['active', 'paused'] } }).sort({ createdAt: -1 }).select({ _id: 1 }).session(session).lean<{ _id: import('mongoose').Types.ObjectId } | null>();
+      await bridgeCompatibleProfileEvidence(ownerId, undefined, session);
+      if (activePair) await bridgeCompatibleProfileEvidence(ownerId, String(activePair._id), session);
+      effectiveAt = new Date();
+      await materializeCurrentOwnerFactorSnapshots({ subjectId: ownerId, calculatedAt: effectiveAt, session });
+      if (activePair) await materializeCurrentOwnerFactorSnapshots({ subjectId: ownerId, pairId: String(activePair._id), calculatedAt: effectiveAt, session });
     });
-  }
+  } finally { await session.endSession(); }
   const snapshots =
     await IndividualFactorSnapshot.aggregate<FactorProfileSnapshotRow>([
       {
@@ -72,10 +80,12 @@ export async function getOwnerFactorProfileSummary(
           subjectId: ownerId,
           projectionPurpose: 'OWNER_PROFILE',
           factorKey: { $in: factorKeys },
+          $or: [{ contextPairId: { $exists: false } }, ...(activePair ? [{ contextPairId: String(activePair._id) }] : [])],
         },
       },
       { $sort: { factorKey: 1, calculatedAt: -1, revision: -1 } },
-      { $group: { _id: '$factorKey', document: { $first: '$$ROOT' } } },
+      { $group: { _id: '$factorKey', document: { $first: '$$ROOT' }, history: { $firstN: { input: '$$ROOT', n: 5 } } } },
+      { $set: { 'document.history': '$history' } },
       { $replaceWith: '$document' },
       {
         $project: {
@@ -85,6 +95,8 @@ export async function getOwnerFactorProfileSummary(
           factorKey: 1,
           revision: 1,
           status: 1,
+          value: 1,
+          history: 1,
           metrics: 1,
           calculatedAt: 1,
           versions: 1,
@@ -115,10 +127,14 @@ export async function getOwnerFactorProfileSummary(
       ) ||
       !isSnapshotEffectiveAt(snapshot, effectiveAt)
     ) {
+      if (factor && snapshot.projectionPurpose === 'OWNER_PROFILE') effectiveSnapshots.push({ ...snapshot, status: 'UNKNOWN', value: undefined, history: [], ...(!snapshotVersionsMatchRegistry(snapshot.versions, factor, MVP_FACTOR_REGISTRY) ? { unavailableReason: 'VERSION_UNAVAILABLE' as const } : {}) });
       continue;
     }
-    effectiveSnapshots.push(snapshot);
+    effectiveSnapshots.push({ ...snapshot, history: snapshot.history?.filter((entry) => { const versioned = entry as FactorProfileSnapshotRow; return snapshotVersionsMatchRegistry(versioned.versions, factor, MVP_FACTOR_REGISTRY); }) });
   }
+
+  if (!await User.exists({ id: ownerId })) return null;
+  if (activePair && !await Pair.exists({ _id: activePair._id, members: ownerId, status: { $in: ['active', 'paused'] } })) return getOwnerFactorProfileSummary(ownerId);
 
   const avatarUrl = user.avatar
     ? toDiscordAvatarUrl(user.id, user.avatar)

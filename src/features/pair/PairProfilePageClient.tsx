@@ -9,6 +9,7 @@ import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
 import PairWeeklyCheckInPanel from '@/components/checkins/PairWeeklyCheckInPanel';
 import PairEventsPanel from '@/components/events/PairEventsPanel';
+import { MeasuredPairPanel } from '@/features/measurements/MeasurementPages';
 import {
   pairHistoryApi,
   type PairHistoryItemDTO,
@@ -579,6 +580,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
 
           <div className="app-grid-wide"><ContinuationPanel pairId={pairId} pairStatus={pairStatus} /></div>
           <div className="app-grid-wide"><PairEventsPanel pairId={pairId} pairStatus={data.pair.status} /></div>
+          <div className="app-grid-wide"><MeasuredPairPanel key={pairId} pairId={pairId} /></div>
           <section id="weekly-checkin" tabIndex={-1} className="app-reveal app-grid-wide scroll-mt-4">
             <Suspense fallback={<LoadingView compact label="Открываем отметку недели..." />}>
             <PairWeeklyCheckInPanel

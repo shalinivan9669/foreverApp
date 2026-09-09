@@ -1,4 +1,5 @@
 import { DevelopmentCompletion } from "@/models/DevelopmentCompletion";
+import { MeasurementTestSession } from '@/models/MeasurementTestSession';
 import { PairWorkspace } from "@/models/PairWorkspace";
 import { Pair } from "@/models/Pair";
 import { toSharedLifeDTO } from "@/lib/dto/sharedLife.dto";
@@ -6,6 +7,7 @@ import { toSharedLifeDTO } from "@/lib/dto/sharedLife.dto";
 /** Export contains owner answers and currently accessible shared records, never peer reflections. */
 export const productWorkspacePrivacy = {
   async exportOwnerData(userId: string) {
+    const measurementTests = await MeasurementTestSession.find({ ownerId: userId }).limit(100).lean();
     const completions = await DevelopmentCompletion.find({ userId })
       .sort({ createdAt: -1, _id: -1 })
       .limit(501)
@@ -22,6 +24,7 @@ export const productWorkspacePrivacy = {
     const today = new Date().toISOString().slice(0, 10);
     return {
       version: "product-workspace-owner-v1",
+      measurementTests: measurementTests.map((row) => ({ testKey: row.testKey, contentRevision: row.contentRevision, registryVersion: row.registryVersion, status: row.status, answers: row.answers.map(({ questionId, choice }) => ({ questionId, choice })), pairUse: row.pairUse, permissionRevision: row.permissionRevision, finalizedAt: row.finalizedAt?.toISOString() ?? null })),
       completions: {
         limit: 500,
         truncated: completions.length > 500,

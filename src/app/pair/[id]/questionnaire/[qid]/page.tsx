@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import BackBar from '@/components/ui/BackBar';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
@@ -35,6 +36,7 @@ function PairQuestionnaireRunnerContent({
   const router = useRouter();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [completed, setCompleted] = useState(false);
   const [questions, setQuestions] = useState<QuestionDTO[]>([]);
   const [title, setTitle] = useState<string>('');
   const [index, setIndex] = useState(0);
@@ -99,6 +101,9 @@ function PairQuestionnaireRunnerContent({
       .then((response) => {
         if (!active || !response) return;
         setSessionId(response.sessionId);
+        setCompleted(response.status === 'completed');
+        setAnswersByQuestionId(Object.fromEntries(response.ownAnswers.map((answer) => [answer.questionId, answer.ui])));
+        setIndex(response.ownAnswers.length);
       })
       .finally(() => {
         if (active) setSessionSettled(true);
@@ -186,6 +191,10 @@ function PairQuestionnaireRunnerContent({
     );
   }
 
+  if (completed || (questions.length > 0 && index >= questions.length)) {
+    return <main className="app-shell-compact app-page-stack py-4"><BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}`} /><h1 className="text-xl font-semibold">Ваши ответы сохранены</h1><p>Ваша часть анкеты пройдена и закрыта для редактирования. {completed ? 'Оба участника завершили анкету.' : 'Ожидаем второго участника.'} Эта анкета — рефлексия; она не создаёт измеренные характеристики.</p><Link className="app-btn-primary" href={`/pair/${pairId}`}>Вернуться к паре</Link><Link className="app-btn-secondary" href="/measurements">Анкеты личных характеристик</Link></main>;
+  }
+
   if (!currentQuestion) {
     return (
       <main className="app-shell-compact py-3 sm:py-4">
@@ -203,7 +212,7 @@ function PairQuestionnaireRunnerContent({
       <BackBar title={title || 'Анкета пары'} fallbackHref={`/pair/${pairId}`} />
 
       <div className="app-panel-soft p-3 text-sm">
-        Ответ сохраняется от вашего аккаунта. Партнёр не увидит выбранный вариант напрямую.
+        Каждый ответ сохраняется окончательно от вашего аккаунта и не редактируется. Последний ответ завершит вашу часть анкеты. Партнёр не увидит выбранный вариант напрямую.
       </div>
 
       <div>

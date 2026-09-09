@@ -381,6 +381,8 @@ export async function formPairInSession(input: {
     ],
     { session: input.session },
   );
+  const { materializeMeasuredPairProfile } = await import('./measuredPairProfile.service');
+  await materializeMeasuredPairProfile(String(pairId), input.session);
   await closeConflictingMatchingState({
     source: input.source,
     sourceId,

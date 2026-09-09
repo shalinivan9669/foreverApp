@@ -129,7 +129,7 @@ const main = async (): Promise<void> => {
     }).lean();
     assert.equal(storedSession?.factorEngine.status, 'MATERIALIZED');
     assert.equal(storedSession?.factorEngine.evidenceEventIds.length, 3);
-    assert.equal(storedSession?.factorEngine.individualSnapshotIds.length, 3);
+    assert.equal(storedSession?.factorEngine.individualSnapshotIds.length, 4);
 
     const evidence = await EvidenceEvent.find({ actorId: subjectId })
       .sort({ factorKey: 1 })
@@ -170,7 +170,7 @@ const main = async (): Promise<void> => {
     const snapshots = await IndividualFactorSnapshot.find({
       subjectId,
     }).lean();
-    assert.equal(snapshots.length, 3);
+    assert.equal(snapshots.length, 4);
     assert.ok(snapshots.every((snapshot) => snapshot.contextPairId === undefined));
     assert.deepEqual(
       new Set(snapshots.map((snapshot) => snapshot.projectionPurpose)),
@@ -187,7 +187,7 @@ const main = async (): Promise<void> => {
     assert.equal(await EvidenceEvent.countDocuments({ actorId: subjectId }), 3);
     assert.equal(
       await IndividualFactorSnapshot.countDocuments({ subjectId }),
-      3
+      4
     );
     const retriedSession = await MvpOnboardingSession.findOne({
       userId: subjectId,

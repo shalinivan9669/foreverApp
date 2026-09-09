@@ -1,4 +1,5 @@
 import { createFactorRegistryRelease } from '@/domain/model/definitions/registry';
+import { PROFILE_ADDITIONAL_FACTORS, PROFILE_INSTRUMENT, profileMeasurements } from './profileMeasurements';
 import type {
   ActionDefinition,
   DimensionDefinition,
@@ -1200,7 +1201,7 @@ export const MVP_INSTRUMENTS: readonly InstrumentDefinition[] = [
   },
 ];
 
-export const MVP_FACTOR_REGISTRY_INPUT: UnhashedFactorRegistryRelease = {
+export const MVP_FACTOR_REGISTRY_V7_INPUT: UnhashedFactorRegistryRelease = {
   registryKey: 'foreverApp.factorEngine.mvp',
   registryVersion: 7,
   algorithmVersion: 5,
@@ -1215,6 +1216,24 @@ export const MVP_FACTOR_REGISTRY_INPUT: UnhashedFactorRegistryRelease = {
   actions: MVP_ACTIONS,
 };
 
-export const MVP_FACTOR_REGISTRY = createFactorRegistryRelease(
-  MVP_FACTOR_REGISTRY_INPUT
+export const MVP_FACTOR_REGISTRY_V7 = createFactorRegistryRelease(
+  MVP_FACTOR_REGISTRY_V7_INPUT
 );
+
+// Keep the published v7 release reproducible; new content is an additive release.
+const profileFactors: readonly FactorDefinition[] = [
+  ...MVP_FACTORS.map((factor): FactorDefinition => {
+    if (!['sharedLife.planning.structurePreference', 'sharedLife.values.relationshipPriority'].includes(factor.key)) return factor;
+    const dating = factor.pairStrategies.find((strategy) => strategy.context === 'DATING');
+    return dating ? { ...factor, contexts: [...new Set([...factor.contexts, 'COMMITTED_RELATIONSHIP' as const])], pairStrategies: [...factor.pairStrategies, { ...dating, context: 'COMMITTED_RELATIONSHIP' }], definitionVersion: factor.definitionVersion + 1 } : factor;
+  }),
+  ...PROFILE_ADDITIONAL_FACTORS,
+];
+
+export const MVP_FACTOR_REGISTRY_INPUT: UnhashedFactorRegistryRelease = {
+  ...MVP_FACTOR_REGISTRY_V7_INPUT, registryVersion: 8, displayVersion: 5,
+  domains: [...MVP_DOMAINS, ...['finance', 'intimacy'].map((key, index) => ({ id: `domain.${key}`, key, title: index === 0 ? 'Финансовые договорённости' : 'Интимность и границы', description: 'Личные предпочтения и совместные договорённости.', order: 50 + index * 10, version: 1 }))],
+  dimensions: [...MVP_DIMENSIONS, ...['finance', 'intimacy'].map((key) => ({ id: `dimension.${key}.agreements`, key: `${key}.agreements`, domainKey: key, title: 'Договорённости', description: 'Предпочтения без оценки хорошо или плохо.', order: 10, version: 1 }))],
+  factors: profileFactors, measurements: [...MVP_MEASUREMENTS, ...profileMeasurements(profileFactors)], instruments: [...MVP_INSTRUMENTS, PROFILE_INSTRUMENT],
+};
+export const MVP_FACTOR_REGISTRY = createFactorRegistryRelease(MVP_FACTOR_REGISTRY_INPUT);

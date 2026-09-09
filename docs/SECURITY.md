@@ -1,5 +1,9 @@
 # Security and privacy
 
+## Measurement sources — 2026-09-09
+
+Measurement routes use existing session/resource guards. Owner SELF projections require actor=subject and exclude SYSTEM_ONLY and OBSERVER_REPORT. Pair use is separately revocable per test and checked against current permission revision on each shared calculation. Shared DTOs pass through central disclosure and contain no peer answers, scalar/mastery values or evidence metadata. Matching still requires MatchingUseGrant plus matchingPolicy. Owner access does not grant either consumer access. Former pair-scoped evidence is excluded from the current owner profile and new pair. Measurement sources appear only in the owner's export and are deleted by existing account execution. No session/auth or environment mechanism changes.
+
 Status: active security boundary after the NEW_ONLY cutover and Factor Matching integration. Reviewed 2026-09-05 after the Discord Activity OAuth stabilization.
 
 ## Product expansion boundaries, 2026-09-05

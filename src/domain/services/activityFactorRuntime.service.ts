@@ -986,7 +986,7 @@ export async function readActivityRecommendationInputs(
   }
 }
 
-const toDomainEvidenceEvent = (stored: EvidenceEventType): DomainEvidenceEvent => {
+export const toDomainEvidenceEvent = (stored: EvidenceEventType): DomainEvidenceEvent => {
   try {
     const submittedValue = fromStoredFactorValue(stored.submittedValue);
     const common = {
@@ -1071,8 +1071,9 @@ const canonicalEvidenceFor = async (input: {
         }
       : input.projectionPurpose === 'OWNER_PROFILE'
         ? {
-            purpose: 'OWNER_PROFILE',
-            captureMode: { $in: ['PRIVATE', 'SHARED'] },
+            purpose: { $in: ['OWNER_PROFILE', 'PAIR_MODEL', 'MATCHING', 'RECOMMENDATION'] },
+            actorId: input.subjectId,
+            captureMode: { $in: ['PRIVATE', 'PAIR_MODEL_ONLY', 'SHARED'] },
           }
         : {
             purpose: { $in: ['PAIR_MODEL', 'RECOMMENDATION'] },
@@ -1167,11 +1168,11 @@ const storedIndividualToDomain = (
   }
 };
 
-const materializeIndividual = async (input: {
+export const materializeIndividual = async (input: {
   subjectId: string;
   pairId?: string;
   factor: FactorDefinition;
-  projectionPurpose: Extract<EvidencePurpose, 'OWNER_PROFILE' | 'PAIR_MODEL'>;
+  projectionPurpose: Extract<EvidencePurpose, 'OWNER_PROFILE' | 'PAIR_MODEL' | 'MATCHING'>;
   fallbackCalculatedAt: Date;
   events?: readonly DomainEvidenceEvent[];
   session?: ClientSession;
@@ -1184,7 +1185,7 @@ const materializeIndividual = async (input: {
       subjectId: input.subjectId,
       pairId: input.pairId,
       factor: input.factor,
-      projectionPurpose: input.projectionPurpose,
+      projectionPurpose: input.projectionPurpose === 'MATCHING' ? 'PAIR_MODEL' : input.projectionPurpose,
       evidenceCutoffAt: calculatedAt,
       session: input.session,
     }));
@@ -1401,7 +1402,7 @@ const materializePair = async (input: {
   throw new ActivityFactorRuntimeError('MATERIALIZATION_RETRY_EXHAUSTED');
 };
 
-const materializeEvaluation = async (input: {
+export const materializeEvaluation = async (input: {
   pairId: string;
   factor: FactorDefinition;
   partnerA: DomainIndividualFactorSnapshot;
@@ -1512,20 +1513,20 @@ export async function materializeCurrentOwnerFactorSnapshots(input: {
     : undefined;
   const factors = MVP_FACTOR_REGISTRY.factors.filter(
     (factor) =>
-      factor.freshnessPolicy.type === 'DECAY' &&
       (!requestedFactorKeys || requestedFactorKeys.has(factor.key))
   );
   const snapshots: DomainIndividualFactorSnapshot[] = [];
+  const ownerEvents = await EvidenceEvent.aggregate<EvidenceEventType>([
+    { $match: { subjectKind: 'INDIVIDUAL', subjectId: input.subjectId, actorId: input.subjectId, observationScope: 'SELF',
+      ...(input.pairId ? { pairId: input.pairId } : { pairId: { $exists: false } }),
+      factorKey: { $in: factors.map((factor) => factor.key) }, status: 'ACCEPTED', purpose: { $in: ['OWNER_PROFILE', 'PAIR_MODEL', 'MATCHING', 'RECOMMENDATION'] }, captureMode: { $ne: 'SYSTEM_ONLY' },
+      'versions.registryVersion': MVP_FACTOR_REGISTRY.registryVersion, observedAt: { $lte: calculatedAt }, recordedAt: { $lte: calculatedAt } } },
+    { $sort: { observedAt: -1, eventId: -1 } },
+    { $group: { _id: '$factorKey', events: { $firstN: { input: '$$ROOT', n: 64 } } } },
+    { $unwind: '$events' }, { $replaceWith: '$events' },
+  ]).session(input.session ?? null);
   for (const factor of factors) {
-    const events = await canonicalEvidenceFor({
-      subjectKind: 'INDIVIDUAL',
-      subjectId: input.subjectId,
-      pairId: input.pairId,
-      factor,
-      projectionPurpose: 'OWNER_PROFILE',
-      evidenceCutoffAt: calculatedAt,
-      session: input.session,
-    });
+    const events = ownerEvents.filter((event) => event.factorKey === factor.key && isCanonicalEvidenceRecord(event, factor)).map(toDomainEvidenceEvent);
     if (events.length === 0) continue;
     snapshots.push(
       await materializeIndividual({

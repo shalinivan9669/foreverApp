@@ -3,6 +3,7 @@ import mongoose, { Schema, Types } from 'mongoose';
 export interface PairQuestionnaireSessionType {
   pairId: Types.ObjectId;
   questionnaireId: string;
+  questionnaireVersion?: number;
   members: [Types.ObjectId, Types.ObjectId];
   startedAt: Date;
   finishedAt?: Date;
@@ -16,6 +17,7 @@ const PairQuestionnaireSessionSchema = new Schema<PairQuestionnaireSessionType>(
   {
     pairId: { type: Schema.Types.ObjectId, ref: 'Pair', required: true },
     questionnaireId: { type: String, required: true },
+    questionnaireVersion: { type: Number, min: 1, immutable: true },
     members: { type: [Schema.Types.ObjectId], ref: 'User', required: true },
     startedAt: { type: Date, required: true },
     finishedAt: { type: Date },

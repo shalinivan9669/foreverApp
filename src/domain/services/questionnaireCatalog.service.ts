@@ -1,4 +1,5 @@
 import { connectToDatabase } from '@/lib/mongodb';
+import { PersonalQuestionnaireSubmission } from '@/models/PersonalQuestionnaireSubmission';
 import {
   Questionnaire,
   publishedQuestionnaireFilter,
@@ -42,13 +43,16 @@ export const questionnaireCatalogService = {
     );
   },
 
-  async getPublishedById(id: string): Promise<QuestionnaireDTO | null> {
+  async getPublishedById(id: string, ownerId?: string): Promise<QuestionnaireDTO | null> {
     await connectToDatabase();
 
     const questionnaire = await Questionnaire.findOne({
       _id: id,
       ...publishedQuestionnaireFilter(),
     }).lean<QuestionnaireType | null>();
-    return questionnaire ? toQuestionnaireDTO(questionnaire) : null;
+    if (!questionnaire) return null;
+    const result = toQuestionnaireDTO(questionnaire);
+    const own = ownerId ? await PersonalQuestionnaireSubmission.findOne({ userId: ownerId, questionnaireId: id }).sort({ submittedAt: 1 }).lean() : null;
+    return { ...result, ...(own ? { ownSubmission: { submittedAt: own.submittedAt.toISOString(), version: own.questionnaireVersion, answers: own.answers.map(({ questionId, ui }) => ({ questionId, ui })) } } : {}) };
   },
 };

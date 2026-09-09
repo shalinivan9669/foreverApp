@@ -22,16 +22,19 @@ import { CandidateDiscoveryProjection } from '@/models/CandidateDiscoveryProject
 import { CandidatePresentationGrant } from '@/models/CandidatePresentationGrant';
 import { MatchingFeedSession } from '@/models/MatchingFeedSession';
 import { EventLog } from '@/models/EventLog';
+import { EvidenceEvent } from '@/models/EvidenceEvent';
+import { MeasurementTestSession } from '@/models/MeasurementTestSession';
 
 // Model/transaction boundaries below are in-memory stubs. No real DB, socket,
 // HTTP request, seed, migration, or filesystem mutation is performed.
 type StubQuery<T> = Promise<T> & {
   select: () => StubQuery<T>; sort: () => StubQuery<T>;
   session: () => StubQuery<T>; lean: () => StubQuery<T>;
+  limit: () => StubQuery<T>;
 };
 const query = <T>(value: T): StubQuery<T> => {
   const result = Promise.resolve(value) as StubQuery<T>;
-  result.select = result.sort = result.session = result.lean = () => result;
+  result.select = result.sort = result.session = result.lean = result.limit = () => result;
   return result;
 };
 
@@ -110,6 +113,11 @@ const run = async () => {
   replace(User, 'updateMany', async () => { fences += 1; return { matchedCount: 2 }; });
   replace(Pair, 'findOne', () => query(pairCreated && pairId ? { _id: pairId } : null));
   replace(Pair, 'create', async (rows: Array<{ _id: Types.ObjectId; members: string[] }>) => { pairCreated += 1; pairId = rows[0]?._id; assert.deepEqual(rows[0]?.members, [owner.id, recipient.id]); return rows; });
+  let measuredPairReads = 0;
+  replace(Pair, 'findOneAndUpdate', async () => { measuredPairReads++; return { _id: pairId, members: [owner.id, recipient.id], status: 'active' }; });
+  replace(User, 'updateOne', async () => ({ matchedCount: 1 }));
+  replace(EvidenceEvent, 'aggregate', () => query([]));
+  replace(MeasurementTestSession, 'find', () => query([]));
   replace(PairMembershipClaim, 'find', () => query([]));
   replace(PairMembershipClaim, 'insertMany', async (rows: Array<{ userId: string }>) => { claimsCreated += rows.length; return rows; });
   replace(MvpOnboardingSession, 'exists', () => query({ _id: new Types.ObjectId() }));
@@ -159,6 +167,7 @@ const run = async () => {
   const accepted = await pairInviteService.confirm(confirmation);
   assert.equal(accepted.status, 'ACCEPTED');
   assert.equal(pairCreated, 1);
+  assert.equal(measuredPairReads, 1, 'pair creation must materialize permitted factor context');
   assert.equal(claimsCreated, 2);
   assert.equal(invite.creatorConfirmedAt?.toISOString(), now.toISOString());
   assert.equal((await pairInviteService.confirm(confirmation)).pairId, accepted.pairId);

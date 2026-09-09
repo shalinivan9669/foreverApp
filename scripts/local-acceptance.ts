@@ -201,7 +201,6 @@ async function main(): Promise<void> {
     });
     await waitForChild(integration);
     report('passed', { checks: options.suite === 'factors' ? 3 : 6,
-      ...(options.suite === 'factors' ? { questionnaireProfileWorkflowReady: false, confirmedProductGaps: 5 } : {}),
       discordIframeValidated: false, realOAuthValidated: false });
     return;
   }

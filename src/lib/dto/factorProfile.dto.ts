@@ -5,7 +5,8 @@ import type {
   FactorRegistryRelease,
 } from '@/domain/model/definitions/definitionTypes';
 import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
-import type { StoredAggregationMetrics } from '@/models/factorEngineSchemas';
+import { fromStoredFactorValue, type StoredFactorValue, type StoredAggregationMetrics } from '@/models/factorEngineSchemas';
+import { MEASUREMENT_TESTS } from '@/domain/model/measurements/catalog';
 
 export type FactorProfileStatus =
   | 'AVAILABLE'
@@ -32,6 +33,10 @@ export type FactorSemanticCardDTO = {
   status: FactorProfileStatus;
   statusLabel: string;
   neutralWording: string;
+  kind?: string;
+  valuePresentation?: { label: string; scale: { value: number; min: number; max: number; low: string; high: string } | null };
+  nextStep?: { href: string; label: string };
+  history?: { at: string; label: string; explanation: string }[];
   confidence: {
     band: FactorConfidenceBand;
     label: string;
@@ -68,7 +73,25 @@ export type FactorSnapshotDTOInput = {
   status: FactorAggregationStatus;
   metrics: StoredAggregationMetrics;
   calculatedAt: Date;
+  value?: StoredFactorValue;
+  history?: FactorSnapshotDTOInput[];
+  unavailableReason?: 'VERSION_UNAVAILABLE';
 };
+
+export function presentFactorValue(factor: FactorDefinition, snapshot?: FactorSnapshotDTOInput): FactorSemanticCardDTO['valuePresentation'] {
+  if (!snapshot?.value || snapshot.status !== 'AVAILABLE') return undefined;
+  const value = fromStoredFactorValue(snapshot.value);
+  const semantics = factor.semantics;
+  if (value.kind === 'SCALAR' && factor.valueSchema.type === 'SCALAR' && (semantics.kind === 'BIPOLAR' || semantics.kind === 'ORDERED')) {
+    const ratio = (value.value - factor.valueSchema.min) / (factor.valueSchema.max - factor.valueSchema.min);
+    const label = semantics.kind === 'BIPOLAR' ? (value.value < -0.25 ? semantics.lowPole.label : value.value > 0.25 ? semantics.highPole.label : semantics.midpointLabel)
+      : ratio < 0.35 ? semantics.lowPole.label : ratio > 0.65 ? semantics.highPole.label : 'средний диапазон самоотчёта';
+    return { label, scale: { value: value.value, min: factor.valueSchema.min, max: factor.valueSchema.max, low: semantics.lowPole.label, high: semantics.highPole.label } };
+  }
+  if (value.kind === 'MASTERY') return { label: value.level === 'BASIC' ? 'в этих ситуациях пока нужна поддержка' : value.level === 'INTERMEDIATE' ? 'часть шагов восстановления уже удаётся' : 'в этих ситуациях удалось восстановить разговор самостоятельно', scale: { value: value.score01, min: 0, max: 1, low: 'нужна поддержка', high: 'самостоятельное восстановление' } };
+  if (value.kind === 'CONSTRAINT' || value.kind === 'CATEGORY' || value.kind === 'ORDINAL') return { label: semantics.kind !== 'BIPOLAR' ? semantics.labels.find((item) => item.key === value.value)?.label ?? value.value : value.value, scale: null };
+  return undefined;
+}
 
 const STATUS_PRESENTATION: Record<
   FactorProfileStatus,
@@ -219,12 +242,19 @@ export const toOwnerFactorProfileDTO = (input: {
       const freshness = snapshot
         ? freshnessBand(status, snapshot.metrics.freshness)
         : 'UNKNOWN';
+      const valuePresentation = snapshot?.unavailableReason ? undefined : presentFactorValue(factor, snapshot);
+      const test = MEASUREMENT_TESTS.find((test) => test.questions.some((question) => registry.measurements.some((measurement) => measurement.key === question.measurementKey && measurement.factorKey === factor.key)));
+      const history = (snapshot?.unavailableReason ? [] : snapshot?.history ?? (snapshot ? [snapshot] : [])).slice(0, 5).map((entry, index, entries) => {
+        const label = presentFactorValue(factor, entry)?.label ?? STATUS_PRESENTATION[toProfileStatus(entry.status)].label;
+        const prior = entries[index + 1];
+        return { at: entry.calculatedAt.toISOString(), label, explanation: prior && presentFactorValue(factor, prior)?.label === label ? 'Новое наблюдение или пересчёт свежести; смысл результата сохранился.' : 'Сохранённая версия собственного результата.' };
+      });
 
       return {
         factorKey: factor.key,
         domain: {
           key: factor.domainKey,
-          title: domain?.title ?? 'Другой раздел',
+          title: factor.key.startsWith('sharedLife.values.') || factor.domainKey === 'lifePlans' ? 'Взгляды и ценности' : factor.domainKey === 'sharedLife' ? 'Быт и забота' : factor.domainKey === 'wellbeing' ? 'Состояние и восстановление' : domain?.title ?? 'Другой раздел',
         },
         dimension: {
           key: factor.dimensionKey,
@@ -233,8 +263,12 @@ export const toOwnerFactorProfileDTO = (input: {
         title: factor.title,
         description: factor.description,
         status,
-        statusLabel: presentation.label,
-        neutralWording: presentation.neutralWording,
+        statusLabel: snapshot?.unavailableReason ? 'Сохранённая версия недоступна' : presentation.label,
+        neutralWording: snapshot?.unavailableReason ? 'Ваши данные сохранены, но их версия сейчас не может быть безопасно рассчитана. Требуется восстановление совместимой публикации; повторная сдача теста не нужна.' : valuePresentation ? `Ваш ориентир: ${valuePresentation.label}. ${factor.type === 'STATE' ? 'Это временное состояние, а не черта личности.' : 'Результат описывает ваши ответы, а не оценивает человека.'}` : presentation.neutralWording,
+        kind: factor.type,
+        valuePresentation,
+        history,
+        nextStep: test ? { href: `/measurements/${test.key}`, label: status === 'AVAILABLE' ? 'Открыть анкету и сохранённый результат' : 'Анкета и доступные следующие шаги' } : factor.key === 'sharedLife.roles.householdCapability' ? { href: '/development', label: 'Совместные практики и обратная связь' } : { href: factor.type === 'STATE' ? '/pair' : '/profile/matching', label: factor.type === 'STATE' ? 'Открыть текущий цикл пары' : 'Открыть собственные данные для знакомств' },
         confidence: {
           band: confidence,
           label: CONFIDENCE_LABELS[confidence],

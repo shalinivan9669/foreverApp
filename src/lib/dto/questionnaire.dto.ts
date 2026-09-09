@@ -16,6 +16,7 @@ export type QuestionDTO = {
 };
 
 export type QuestionnaireDTO = {
+  ownSubmission?: { submittedAt: string; version: number; answers: { questionId: string; ui: number }[] };
   id: string;
   contentModel: QuestionnaireType['contentModel'];
   scope: 'personal' | 'couple';

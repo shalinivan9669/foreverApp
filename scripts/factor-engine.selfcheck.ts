@@ -123,6 +123,7 @@ assert.deepEqual(
     'activityReflection.mvp',
     'matching.profile.mvp',
     'onboarding.mvp',
+    'profile.tests.v1',
     'weekly.mvp',
   ]
 );
