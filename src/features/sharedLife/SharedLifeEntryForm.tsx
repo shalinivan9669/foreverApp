@@ -30,6 +30,9 @@ type Props = {
   saveDisabled?: boolean;
   onSave: (data: SharedLifeEntryInput) => Promise<boolean>;
   onClose: () => void;
+  onCancel?: () => void;
+  onDirty?: () => void;
+  preservedState?: SharedLifeEntryInput;
 };
 export default function SharedLifeEntryForm({
   entry,
@@ -40,17 +43,25 @@ export default function SharedLifeEntryForm({
   saveDisabled = false,
   onSave,
   onClose,
+  onCancel = onClose,
+  onDirty,
+  preservedState,
 }: Props) {
-  const [kind, setKind] = useState(initialKind);
+  const kind = initialKind;
   const [error, setError] = useState("");
   const data = entry?.data;
-  const field = (key: string): string =>
-    data && key in data ? String(Reflect.get(data, key) ?? "") : "";
+  const stateData = preservedState?.kind === data?.kind ? preservedState : data;
+  const field = (key: string): string => {
+    const source = ["status", "reservedBy", "lastCompletedDate"].includes(key) ? stateData : data;
+    return source && key in source ? String(Reflect.get(source, key) ?? "") : "";
+  };
   return (
     <form
-      className="app-panel app-panel-solid mt-5 space-y-4 p-5"
+      className="space-y-4"
+      onChange={onDirty}
       onSubmit={(event) => {
         event.preventDefault();
+        if (busy || saveDisabled) return;
         const form = new FormData(event.currentTarget);
         const text = (key: string) => String(form.get(key) ?? "").trim();
         const common = { title: text("title"), note: text("note") };
@@ -102,8 +113,8 @@ export default function SharedLifeEntryForm({
               .map((title) => ({
                 title,
                 done:
-                  data?.kind === "GOAL"
-                    ? (data.milestones.find((step) => step.title === title)
+                  stateData?.kind === "GOAL"
+                    ? (stateData.milestones.find((step) => step.title === title)
                         ?.done ?? false)
                     : false,
               })),
@@ -138,27 +149,12 @@ export default function SharedLifeEntryForm({
         });
       }}
     >
+      <fieldset disabled={busy} className="space-y-4">
       <h2 className="text-lg font-semibold">
-        {entry ? "Изменить запись" : "Новая общая запись"}
+        Ваш черновик
       </h2>
-      {!entry && (
-        <label className="block text-sm">
-          Раздел
-          <select
-            className="app-input mt-1 w-full"
-            value={kind}
-            onChange={(event) =>
-              setKind(event.target.value as SharedLifeEntryInput["kind"])
-            }
-          >
-            {Object.entries(SHARED_LIFE_LABELS).map(([key, title]) => (
-              <option key={key} value={key}>
-                {title}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <p className="app-muted text-sm">{SHARED_LIFE_LABELS[kind]}. Ввод остаётся на этом экране до сохранения.</p>
+      {preservedState && <p className="app-panel-soft p-3 text-sm">Отметки выполнения и взятая на себя покупка сохранятся из актуальной версии. Остальные поля будут сохранены из вашего черновика.</p>}
       <label className="block text-sm">
         Название
         <input
@@ -347,19 +343,21 @@ export default function SharedLifeEntryForm({
           {error}
         </p>
       )}
-      <div className="flex gap-3">
+      {saveDisabled && <p className="app-alert p-3 text-sm" role="status">Сначала сравните актуальную запись и разрешите сохранение черновика выше.</p>}
+      <div className="flex flex-wrap gap-3">
         <button disabled={busy || saveDisabled} className="app-btn-primary px-4 py-2">
-          Сохранить
+          {busy ? "Сохраняем…" : "Сохранить"}
         </button>
         <button
           type="button"
           disabled={busy}
-          onClick={onClose}
+          onClick={onCancel}
           className="app-btn-secondary px-4 py-2"
         >
           Отмена
         </button>
       </div>
+      </fieldset>
     </form>
   );
 }

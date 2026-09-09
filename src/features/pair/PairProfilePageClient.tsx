@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
@@ -370,7 +370,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
 
   return (
     <main className="app-shell-dashboard app-page-stack py-3 sm:py-5 lg:py-7">
-      <BackBar title="Профиль пары" fallbackHref="/main-menu" />
+      <BackBar title="Мы · пространство пары" fallbackHref="/main-menu" />
 
       {loading && (
         <div className="app-panel-soft app-panel-soft-solid p-3 text-sm app-muted" role="status" aria-live="polite">
@@ -416,7 +416,7 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
 
                 <div>
                   <div className="app-muted text-xs">Вы вместе с {peerName}</div>
-                  <h1 className="app-page-title font-semibold">Пространство пары</h1>
+                  <h1 className="app-page-title font-semibold">Наше пространство</h1>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                     <span className={`rounded-full px-2 py-0.5 text-xs ${badgeClassForPair(pairStatus)}`}>
                       {pairStatusLabel}
@@ -475,6 +475,15 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
                 )}
               </div>
             </div>
+
+            <nav className="mt-5 flex flex-wrap gap-2 border-t border-black/10 pt-4 text-sm" aria-label="Разделы нашего пространства">
+              <Link href="/main-menu" className="app-btn-secondary px-3 py-2">Сегодня · следующий шаг</Link>
+              {pairStatus !== 'ended' && <Link href="/shared-life" className="app-btn-secondary px-3 py-2">Наша общая жизнь</Link>}
+              <Link href="/development" className="app-btn-secondary px-3 py-2">Личные и совместные занятия</Link>
+              <Link href="#weekly-checkin" className="app-btn-secondary px-3 py-2">Состояние недели</Link>
+              <Link href="/profile/safety" className="app-btn-secondary px-3 py-2">Приватная безопасность</Link>
+              <Link href="/store" className="app-btn-secondary px-3 py-2">Коллекция и магазин</Link>
+            </nav>
 
             {confirmEnd && (
               <div
@@ -568,19 +577,16 @@ function AuthenticatedPairProfile({ pairIdFromRoute }: PairProfilePageClientProp
             </div>
           </section>}
 
-          <section className="app-panel app-panel-solid app-grid-wide p-4">
-            <h2 className="text-lg font-semibold">Планы и время вместе</h2>
-            <div className="mt-3 flex flex-wrap gap-3"><Link href="/shared-life" className="app-btn-secondary px-3 py-2">Даты, дела и желания</Link><Link href="/development" className="app-btn-secondary px-3 py-2">Практики, темы и отдых</Link><Link href="/store" className="app-btn-secondary px-3 py-2">Коллекция и магазин</Link></div>
-          </section>
-
           <div className="app-grid-wide"><ContinuationPanel pairId={pairId} pairStatus={pairStatus} /></div>
           <div className="app-grid-wide"><PairEventsPanel pairId={pairId} pairStatus={data.pair.status} /></div>
-          <section id="weekly-checkin" className="app-reveal app-grid-wide scroll-mt-4">
+          <section id="weekly-checkin" tabIndex={-1} className="app-reveal app-grid-wide scroll-mt-4">
+            <Suspense fallback={<LoadingView compact label="Открываем отметку недели..." />}>
             <PairWeeklyCheckInPanel
               pairId={pairId}
               pairStatus={data.pair.status}
               onSummaryChanged={() => load(pairId)}
             />
+            </Suspense>
           </section>
 
           <section className="app-panel app-panel-solid app-reveal app-grid-wide p-4 sm:p-6">

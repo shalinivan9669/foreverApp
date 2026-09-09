@@ -12,6 +12,10 @@ import { DefinitionRegistryRelease } from '@/models/DefinitionRegistryRelease';
 import { EvidenceEvent } from '@/models/EvidenceEvent';
 import { IndividualFactorSnapshot } from '@/models/IndividualFactorSnapshot';
 import { MvpOnboardingSession } from '@/models/MvpOnboardingSession';
+import { usersService } from '@/domain/services/users.service';
+import { User } from '@/models/User';
+import { EconomyWallet } from '@/models/EconomyWallet';
+import { EconomyLedger } from '@/models/EconomyLedger';
 
 const mongodbUri =
   process.env.FACTOR_ENGINE_TEST_MONGODB_URI?.trim() ||
@@ -84,6 +88,7 @@ const main = async (): Promise<void> => {
   });
 
   try {
+    await usersService.upsertCurrentUserProfile({ currentUserId: subjectId, payload: { username: 'Проверка начальной анкеты', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' } });
     await Promise.all([
       MvpOnboardingSession.createIndexes(),
       DefinitionRegistryRelease.createIndexes(),
@@ -200,6 +205,9 @@ const main = async (): Promise<void> => {
   } finally {
     await Promise.all([
       MvpOnboardingSession.deleteMany({ userId: subjectId }),
+      User.deleteMany({ id: subjectId }),
+      EconomyWallet.deleteMany({ _id: subjectId }),
+      EconomyLedger.deleteMany({ userId: subjectId }),
       EvidenceEvent.deleteMany({ actorId: subjectId }),
       IndividualFactorSnapshot.deleteMany({ subjectId }),
     ]);
@@ -208,6 +216,8 @@ const main = async (): Promise<void> => {
 };
 
 main().catch((error) => {
+  const line = error instanceof Error ? /onboarding-factor-engine\.integration\.ts:(\d+)/.exec(error.stack ?? '')?.[1] : undefined;
+  process.stderr.write(`${JSON.stringify({ suite: 'onboarding-factor-engine', stage: `Failure at line ${line ?? 'unavailable'}`, status: 'failed' })}\n`);
   console.error(error instanceof Error ? error.message : 'integration failed');
   process.exitCode = 1;
 });

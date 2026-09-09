@@ -55,7 +55,7 @@ export function usePair(options: UsePairOptions = {}) {
     const fresh = await runStatusSafe(() => pairsApi.getStatus(controller.signal), {
       loadingKey: 'pair-status',
     });
-    if (!fresh || requestVersion !== statusVersionRef.current) return null;
+    if (!fresh || controller.signal.aborted || requestVersion !== statusVersionRef.current) return null;
 
     setPairStatus(statusKey, fresh);
     return fresh;
@@ -72,7 +72,7 @@ export function usePair(options: UsePairOptions = {}) {
     const fresh = await runPairSafe(() => pairsApi.getMyPair(controller.signal), {
       loadingKey: 'pair-me',
     });
-    if (!fresh || requestVersion !== pairVersionRef.current) return null;
+    if (!fresh || controller.signal.aborted || requestVersion !== pairVersionRef.current) return null;
 
     setPairMe(pairKey, fresh);
     return fresh;
@@ -83,11 +83,12 @@ export function usePair(options: UsePairOptions = {}) {
   }, [refetchPair, refetchStatus]);
 
   useEffect(() => {
-    if (!enabled) return;
-    void refetch();
+    if (enabled) void refetch();
     return () => {
       statusAbortRef.current?.abort();
       pairAbortRef.current?.abort();
+      statusVersionRef.current += 1;
+      pairVersionRef.current += 1;
     };
   }, [enabled, refetch]);
 

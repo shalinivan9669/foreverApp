@@ -60,7 +60,7 @@ export const entryProfileService = {
           gender: input.profile.gender,
           age: input.profile.age,
           city: input.profile.city.trim(),
-          relationshipStatus: hasPair ? 'in_relationship' : 'seeking',
+          relationshipStatus: hasPair || input.profile.cohort === 'EXISTING_PARTNER' ? 'in_relationship' : 'seeking',
         },
         entryCohort: input.profile.cohort,
         entryCompletedAt: existing?.entryCompletedAt ?? new Date(),

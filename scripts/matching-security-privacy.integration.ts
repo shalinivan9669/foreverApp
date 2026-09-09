@@ -116,6 +116,7 @@ const userFixture = (
   id,
   username,
   avatar: "matching-privacy-integration-avatar",
+  entryCohort: "SOLO" as const,
   pairMembershipRevision: 0,
   personal: {
     gender,

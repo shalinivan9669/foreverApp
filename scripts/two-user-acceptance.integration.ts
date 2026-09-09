@@ -4,7 +4,13 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireMatchingTestDatabaseTarget } from "./lib/matching-test-database";
 
-const suites = [
+const factorAudit = process.argv.slice(2).join(' ') === '--factors';
+if (process.argv.length > 2 && !factorAudit) throw new Error('ACCEPTANCE_INVALID_SUITE');
+const suites = factorAudit ? [
+  "onboarding-factor-engine",
+  "factor-engine-runtime",
+  "factor-profile-flow",
+] as const : [
   "entry-onboarding",
   "matching-social-flow",
   "matching-pair-transition",
@@ -57,9 +63,9 @@ async function main(): Promise<void> {
         const lines = buffered.split("\n");
         buffered = lines.pop() ?? "";
         for (const line of lines) {
-          const progress = /^\{"suite":"two-user-mvp","stage":"([A-Za-z0-9 ]{1,80})","status":"(running|passed|failed)"\}$/.exec(line.trim());
-          if (suite === "two-user-mvp" && progress) {
-            process.stdout.write(`${JSON.stringify({ suite, stage: progress[1], status: progress[2] })}\n`);
+          const progress = /^\{"suite":"(two-user-mvp|matching-social-flow|factor-profile-flow|onboarding-factor-engine|factor-engine-runtime)","stage":"([A-Za-z0-9 ]{1,80})","status":"(running|passed|failed)"\}$/.exec(line.trim());
+          if (progress && progress[1] === suite) {
+            process.stdout.write(`${JSON.stringify({ suite, stage: progress[2], status: progress[3] })}\n`);
           }
         }
         if (buffered.length > 4_096) buffered = "";

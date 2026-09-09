@@ -1,6 +1,7 @@
 // src/app/api/pairs/[id]/activities/route.ts
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { Types } from 'mongoose';
 import { requireSession } from '@/lib/auth/guards';
 import { requirePairMember } from '@/lib/auth/resourceGuards';
 import { jsonOk } from '@/lib/api/response';
@@ -18,6 +19,7 @@ const paramsSchema = z.object({
 const querySchema = z
   .object({
     s: z.string().optional(),
+    activityId: z.string().regex(/^[a-f0-9]{24}$/i).optional(),
   })
   .passthrough();
 
@@ -42,6 +44,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       pairId: pairGuard.data.pair._id,
       currentUserId,
       role: pairGuard.data.by,
+      ...(query.data.activityId ? { activityId: new Types.ObjectId(query.data.activityId) } : {}),
       ...(s ? { status: s } : {}),
     })
   );

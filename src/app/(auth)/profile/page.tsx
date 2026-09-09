@@ -15,6 +15,7 @@ import BackBar from '@/components/ui/BackBar';
 import ErrorView from '@/components/ui/ErrorView';
 import ModeAwareProfileOverview from '@/components/profile/ModeAwareProfileOverview';
 import PersonalTodayDashboard from '@/components/profile/today/PersonalTodayDashboard';
+import ProfilePairInvitation from '@/components/profile/ProfilePairInvitation';
 import Skeleton from '@/components/common/Skeleton';
 
 const localDateKey = (): string => {
@@ -149,6 +150,7 @@ export default function ProfileOverviewPage() {
     return (
       <main className="app-shell-dashboard space-y-3 py-3 sm:py-5">
         <BackBar title="Профиль" fallbackHref="/main-menu" />
+        <ProfilePairInvitation user={currentUser} />
         <div className="app-panel app-panel-solid p-4 text-sm app-muted" role="alert">
           Не удалось загрузить сводку профиля. Попробуйте открыть страницу ещё раз.
           <button
@@ -169,6 +171,7 @@ export default function ProfileOverviewPage() {
   return (
     <main className="app-shell-dashboard app-page-stack py-3 sm:py-5 lg:py-7">
       <BackBar title="Профиль" fallbackHref="/main-menu" />
+      <ProfilePairInvitation user={currentUser} />
       {today ? (
         <PersonalTodayDashboard today={today} onRefresh={reloadToday} />
       ) : (

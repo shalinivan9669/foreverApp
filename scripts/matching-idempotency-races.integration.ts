@@ -95,6 +95,7 @@ const createParticipant = async (label: string): Promise<string> => {
   });
   await User.create({
     id: userId,
+    entryCohort: "SOLO",
     username: label,
     avatar: "fixture-avatar",
     pairMembershipRevision: 0,

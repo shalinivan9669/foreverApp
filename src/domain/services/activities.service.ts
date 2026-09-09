@@ -722,6 +722,7 @@ export const activitiesService = {
             pairId: String(data.pair._id),
             type: 'FEEDBACK_REQUESTED',
             sourceKey: `activity:${String(data.activity._id)}`,
+            resourceId: String(data.activity._id),
             now,
             session,
           });

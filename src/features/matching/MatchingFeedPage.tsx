@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import MatchingAccessGate from "@/components/matching/MatchingAccessGate";
+import { useRef } from "react";
 import CandidateCard from "@/components/matching/CandidateCard";
 import FitSummary from "@/components/matching/FitSummary";
 import LikeComposer from "@/components/matching/LikeComposer";
@@ -9,22 +10,20 @@ import MatchingAvatar from "@/components/matching/MatchingAvatar";
 import MatchingErrorPanel from "@/components/matching/MatchingErrorPanel";
 import LoadingView from "@/components/ui/LoadingView";
 import { useMatchFeed } from "@/client/hooks/useMatchFeed";
+import { confirmAppNavigation } from "@/client/hooks/useUnsavedChanges";
+import Dialog from "@/components/ui/Dialog";
 
 export default function MatchingFeedPage() {
+  return <MatchingAccessGate requireCard><MatchingFeedPageContent /></MatchingAccessGate>;
+}
+
+function MatchingFeedPageContent() {
   const feed = useMatchFeed();
-  const { closeCandidate, selected } = feed;
+  const feedHeadingRef = useRef<HTMLHeadingElement>(null);
   const publicCard = feed.candidateCard?.card ?? feed.selected?.card;
   const displayedUser =
     feed.candidateCard?.candidate ?? feed.selected?.candidate;
 
-  useEffect(() => {
-    if (!selected) return;
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") closeCandidate();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [closeCandidate, selected]);
 
   return (
     <main className="app-shell-compact py-4 sm:py-6">
@@ -34,7 +33,7 @@ export default function MatchingFeedPage() {
             <p className="app-accent text-lg text-rose-700">
               Знакомства с вниманием
             </p>
-            <h1 className="app-page-title mt-1">
+            <h1 ref={feedHeadingRef} tabIndex={-1} className="app-page-title mt-1">
               Люди, с которыми стоит поговорить
             </h1>
             <p className="app-muted mt-2 max-w-2xl text-sm sm:text-base">
@@ -54,7 +53,7 @@ export default function MatchingFeedPage() {
       </header>
 
       <MatchingErrorPanel
-        error={feed.error}
+        error={feed.error ?? (!feed.selected ? feed.actionError : null)}
         onRetry={() => void feed.refetch()}
       />
 
@@ -99,13 +98,8 @@ export default function MatchingFeedPage() {
       )}
 
       {feed.selected && (
-        <div
-          className="app-dialog-layer fixed inset-0 z-50 grid overflow-y-auto bg-slate-950/45 p-3 sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="candidate-dialog-title"
-        >
-          <div className="app-panel app-panel-solid m-auto w-full max-w-3xl p-4 sm:p-6">
+        <Dialog open onClose={() => { if (confirmAppNavigation()) feed.closeCandidate(); }} busy={feed.mutationLoading} title={displayedUser?.username ?? 'Карточка знакомства'} description="Сначала прочитайте карточку. Подготовка ответа начнётся только по вашему выбору." className="app-dialog-wide" closeLabel="Закрыть карточку" fallbackFocusRef={feedHeadingRef}>
+          <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 {displayedUser && (
@@ -126,15 +120,6 @@ export default function MatchingFeedPage() {
                   </p>
                 </div>
               </div>
-              <button
-                className="app-btn-secondary min-h-10 px-3"
-                type="button"
-                aria-label="Закрыть карточку"
-                autoFocus
-                onClick={feed.closeCandidate}
-              >
-                Закрыть
-              </button>
             </div>
 
             {feed.actionLoading && !feed.candidateCard && (
@@ -147,7 +132,7 @@ export default function MatchingFeedPage() {
             </div>
 
             {publicCard && (
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
+              <div className="mt-5 space-y-5">
                 <div className="space-y-4">
                   <FitSummary
                     fit={feed.candidateCard?.fit ?? feed.selected.fit}
@@ -170,17 +155,19 @@ export default function MatchingFeedPage() {
                       </ul>
                     </section>
                   )}
+                  {publicCard.boundaries && <section className="app-panel-soft p-4"><h3 className="font-semibold">Что я не принимаю</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{publicCard.boundaries.map((item, index) => <li key={`boundary:${index}`}>{item}{publicCard.boundaryDealbreakers?.[index] ? ' · непреодолимая граница' : ''}</li>)}</ul></section>}
                 </div>
-                <LikeComposer
+                {feed.candidateCard && <LikeComposer
+                  key={feed.selected.candidate.id}
                   card={publicCard}
                   questions={publicCard.questions}
                   loading={feed.actionLoading}
                   onSubmit={feed.createLike}
-                />
+                />}
               </div>
             )}
           </div>
-        </div>
+        </Dialog>
       )}
     </main>
   );

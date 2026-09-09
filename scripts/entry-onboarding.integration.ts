@@ -61,7 +61,7 @@ const main = async () => {
     assert.deepEqual(device.user.location?.coordinates, [37.62, 55.75]);
     assert.equal(device.user.entryCompletedAt, first.user.entryCompletedAt);
     const existing = await entryProfileService.save({ currentUserId: userId, profile: { ...profile, cohort: 'EXISTING_PARTNER' } });
-    assert.equal(existing.user.personal?.relationshipStatus, 'seeking', 'cohort invented an actual Pair');
+    assert.equal(existing.user.personal?.relationshipStatus, 'in_relationship', 'existing partner intent must preserve declared relationship status before linking accounts');
     assert.equal(existing.hasPair, false);
     assert.equal(existing.user.location, undefined);
     await assert.rejects(entryProfileService.save({ currentUserId: userId, profile: { ...profile, age: 17 } }), (error: Error) => error instanceof DomainError && error.code === 'VALIDATION_ERROR');

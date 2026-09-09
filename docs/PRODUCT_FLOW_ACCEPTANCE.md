@@ -1,0 +1,88 @@
+# Продуктовые маршруты — реализация и приёмка 2026-09-09
+
+Продолжение [постановки владельца](PRODUCT_FLOW_CONTINUATION_PROMPT.md). Работа выполняется поверх сохранённых незакоммиченных изменений предыдущей UX/UI-реализации; отчёт от 7 сентября остаётся историческим доказательством своей проверки.
+
+Классификация: `API_CONTRACT_CHANGE` после явного согласования владельцем адресного чтения активности и owner-only факта отправки отзыва. Новых зависимостей, миграций, изменений auth/session и автоматического удаления пользовательских данных нет. Публикация приложения не выполняется.
+
+Дополнительная проверка по запросу владельца выявила незавершённую цепочку «анкеты → характеристики → профиль пары». Эта приёмка маршрутов не подтверждала её готовность. См. [аудит основной механики](FACTOR_PROFILE_AUDIT.md).
+
+## Воспроизведение и причины
+
+| Маршрут | Ожидание | Подтверждённое исходное поведение |
+| --- | --- | --- |
+| Со своим партнёром до связывания | Приглашение своего партнёра, без поиска новых знакомств | В исходной production-сборке браузер одновременно показал «Начните вместе» и ссылки поиска/входящих/настроек знакомств |
+| Первый вход Solo | Явная цель и продолжение к поиску | Выбор назывался «Сейчас я без пары»; после анкеты основная кнопка вела к личному развитию |
+| Новая карточка → предпочтения | Реальное сохранение и осознанная публикация | Настоящий первый вход через UI воспроизвёл VALIDATION_ERROR: GET DTO preference содержал label/hardAllowed, клиент отправлял их в strict PUT. Подготовленные fixtures этого не выявляли |
+| Доступность поиска | Явный SOLO и отсутствие отношений/активной или paused Pair | Поведенческая регрессия eligibility падала для совершеннолетнего без выбранного cohort. Два сервиса переписывали EXISTING_PARTNER в seeking |
+| Уведомление → действие | Конкретная форма/сводка | DTO-regression: SUMMARY_READY вёл на /main-menu. Генерация парного уведомления не сохраняла идентификатор действия |
+| Первый отзыв в активности | Для автора ожидание, для партнёра форма | Реальная two-user-mvp integration падала: автору уже сохранённого отзыва предлагалось повторно завершить активность |
+| Частичный отзыв из истории | Форма только ещё не ответившему | Браузер выявил лимит истории max20 вместо запрошенных50; дополнительная проверка показала, что history.feedbackSubmitted означает наличие любого отзыва, а не отзыва текущего пользователя |
+
+## Реализованное поведение
+
+- Единая чистая политика `src/lib/contracts/matchingEligibility.ts` используется UI и сервером. Проверяются intent, заявленные отношения, возраст, текущая active/paused Pair и claims. Сервер повторяет проверки перед replay и внутри соответствующих транзакций; кандидаты в отношениях исключаются из выдачи. История и безопасные действия отказа/отзыва сохраняются.
+- Новый путь: entry → явные подтверждения → 12 вопросов → черновик карточки → обязательные предпочтения и отдельные разрешения на подбор → явная публикация → поиск. Ничего из этих действий не выполняется fixture за нового пользователя. Личное развитие остаётся доступным.
+- Меню карточек сохранено. Видимый заголовок «Ваш следующий шаг» поясняет назначение главного блока. Solo-шаг зависит от готовности, парные шаги сохраняют серверный приоритет; автор уже сохранённого отзыва получает ожидание. Приглашение учитывает наличие ожидающего подтверждения владельца.
+- Новые уведомления используют существующее поле resourceId и адресные URL пары/цикла/активности/рекомендации. Прочтение не равно выполнению; ошибка отметки прочтения не мешает навигации. Устаревшие, отсутствующие и завершённые действия объясняются. Исторический цикл загружается через существующий guarded cursor API.
+- По дополнительному запросу владельца принятие кода, ключа или ссылки приглашения добавлено непосредственно в личный профиль с проверкой личности и явным подтверждением. До связывания аккаунтов пользователь принимает приглашение здесь же и видит ожидание подтверждения владельца. Текущая active/paused Pair не заменяется вводом ключа.
+- Согласованный optional `activityId` в GET `/api/pairs/{id}/activities` адресно читает запись, включая старше лимита истории. Возвращается существующий массив из нуля или одной записи с прежними membership/disclosure guards. `feedbackSubmitted` означает только собственный сохранённый ответ текущего участника, без значений или ответов партнёра. После сохранённого отзыва и прерванного завершения доступно отдельное действие завершения без повторного ввода.
+
+## Проверки и границы доказательств
+
+Проверки выполняются на production-сборке и собственных loopback replica set, с подписанными синтетическими сессиями. Первый вход начинается после bootstrap: настоящий Discord OAuth, SDK и iframe этой проверкой не подтверждаются.
+
+### Браузерная приёмка
+
+| Сценарий | Проверенное действие и результат | Итог |
+| --- | --- | --- |
+| Настоящий первый вход двух Solo | Fixture создаёт только identity/session; каждый через UI выбирает цель, возраст/город/пол и подтверждения, проходит 12 вопросов, сохраняет карточку, отдельно разрешает два обязательных фактора и публикует её | PASS |
+| Восстановление анкеты | После шести вопросов reload сохраняет прогресс; пользователь продолжает оставшиеся вопросы | PASS |
+| Карточка и публикация | До предпочтений публикация недоступна; после сохранения предпочтений карточка остаётся неопубликованной до отдельного действия пользователя | PASS |
+| Полный маршрут знакомства | B видит A в выдаче, открывает карточку, отвечает на девять реакций и три вопроса, явно подтверждает отправку; A открывает входящий интерес, отвечает и начинает знакомство; открывается отдельный экран тем и готовности | PASS |
+| Отношения до связывания | Прямой `/search` для EXISTING_PARTNER показывает объяснение и личные действия | PASS |
+| Следующий шаг | Solo после публикации получает поиск; после своего отзыва — ожидание партнёра; меню карточек сохранено, назначение главного блока подписано | PASS |
+| Приглашение в профиле | A создаёт приглашение; B в профиле получает ошибку неверного ключа, проверяет верный, не может принять без согласия; принимает на месте и видит ожидание; после подтверждения A видит связанную пару | PASS |
+| Активная и paused Pair | Поле замены партнёра отсутствует; после паузы это сохраняется; прямой поиск заблокирован | PASS |
+| Старая активность за лимитом | Более 205 новых записей не мешают уведомлению B открыть конкретную старую частичную активность; reload сохраняет адресную форму; после сохранения показывается общий результат | PASS |
+| Уже сохранённый отзыв | A видит завершение с сохранённым отзывом без повторной формы; после отдельного complete виден частичный результат; B отвечает на точную активность, после reload оба видят общий результат | PASS |
+| Недельный цикл | B из уведомления попадает в отдельную форму нужного цикла; после отправки форма исчезает и видно ожидание; ответ A создаёт общую качественную сводку, видимую B после reload | PASS |
+| Готовая сводка | SUMMARY_READY открывает нужный цикл, фокус переходит к сводке; повторная форма отсутствует | PASS |
+| Отсутствующая сущность и Back | Уведомление показывает понятное недоступное состояние без чужой формы; Back возвращает меню | PASS |
+| Пауза и возобновление | Совместные записи недоступны на паузе, уведомления ведут к состоянию пары; после возобновления доступна адресная сводка | PASS |
+| Адаптивность и клавиатура | На фактически измеренной ширине 390 px главное меню и профиль не переполняются; следующий шаг виден, Tab переводит фокус к основной ссылке | PASS |
+
+Основная браузерная матрица проверена на production build `81649`. После неё менялись только ветка следующего шага для отсутствующего города, уточняющая подпись еженедельной отметки и документация/команда selfcheck; эти изменения дополнительно проверены целевыми selfchecks и итоговой сборкой `70370` (78 страниц, exit 0). Браузерные действия не подменялись прямой записью matching-настроек в БД.
+
+### Автоматизированные проверки
+
+- `npm run check:self` — полный набор прошёл. Новые проверки профиля запускаются отдельно через `npm run selfcheck:profile-pair-invite`.
+- `npm run acceptance:local` на собственном MongoDB replica set — прошли шесть интеграционных наборов, включая actor/candidate eligibility, replay после изменения режима, гонки переходов, реальное первое сохранение карточки/явные grants, приватность и разные следующие шаги после первого отзыва. Завершённые наборы очистили свои fixtures.
+- `acceptance:browser --scenario notifications` включает реальные route/DB-проверки: адресное чтение старше 205 записей, различие собственного флага A/B, 401/404/400, чужая пара, private-A недоступна B, отсутствие сырых ответов. Браузерная часть перечислена отдельно выше.
+- Целевые проверки после последних изменений: profile-pair-invite, today-ui, today-request-race, notifications; дополнительно проверены participant-disclosure, activity-flow, weekly-checkin, pair-history, continuation-ui, activity-factor-read-batching, matching-ui и matching-request-race.
+- Итоговые `npm run lint`, `npm run check:types`, `npm run build`, `npm run check:agents` и `git diff --check` — PASS для объединённого дерева; agent checks: 0 ошибок, 0 предупреждений, одно информационное напоминание о context budget. Allowlist не расширялся; зависимости, lockfile, модели и env contract не менялись.
+
+Сетевые гонки и потеря доступа проверены selfchecks/integrations и ревью. Искусственный fault injection ошибки mark-read и гонки weekly summary непосредственно в браузере не выполнялся; UI-приёмка подтверждает успешные переходы, reload, Back и реальные изменения lifecycle.
+
+## Карта изменений этой задачи
+
+Рабочее дерево уже содержало незакоммиченный UX/UI-набор. Ниже перечислены области текущего изменения; общий `git diff` также включает сохранённую предыдущую работу и не является списком исключительно новых правок.
+
+| Область | Основные файлы |
+| --- | --- |
+| Первый вход и главный шаг | `src/app/entry/page.tsx`, `src/app/mvp-onboarding/page.tsx`, `src/app/main-menu/page.tsx`, `src/client/hooks/useTodayJourney.ts`, `src/client/hooks/useTodayDashboard.ts`, `src/client/viewmodels/today.viewmodels.ts` |
+| Общая политика знакомств | `src/lib/contracts/matchingEligibility.ts`, `src/domain/services/matching/matchingEligibility.service.ts`, `matchingApplication.service.ts`, `matchingProfileRuntime.service.ts`, `matchingConversation.service.ts`, `social/matchingSocial.service.ts`, `src/domain/services/entryProfile.service.ts`, `users.service.ts` |
+| API preflight знакомств | `src/app/api/match/accept/route.ts`, `respond/route.ts`, `card/route.ts`, `connections/[id]/conversation/route.ts` |
+| UI знакомств | `src/client/hooks/useMatchingAccess.ts`, `useMatchFeed.ts`, `useMatchLike.ts`, `useMatchProfile.ts`, `useMatchingConnection.ts`, `useInbox.ts`, `useCurrentUser.ts`, `usePair.ts`; `src/components/matching/MatchingAccessGate.tsx`, `MatchingCardForm.tsx`, `MatchingPreferencesForm.tsx`, `MatchingErrorPanel.tsx`; пять страниц `src/features/matching/*Page.tsx`, `src/client/viewmodels/matching/index.ts`, `src/client/api/match.api.ts`, `src/components/profile/today/ContinuationPanel.tsx` |
+| Приглашение в профиле | `src/app/(auth)/profile/page.tsx`, `src/components/profile/ProfilePairInvitation.tsx`, `src/client/hooks/usePairInviteAcceptance.ts`, `src/client/viewmodels/pairInviteAcceptance.ts` |
+| Уведомления и точные цели | `src/domain/services/notification.service.ts`, `weeklyCycle.service.ts`, `activities.service.ts`, `recommendationDecision.service.ts`, `pairDashboardSummary.service.ts`; `src/lib/dto/notification.dto.ts`, `src/components/notifications/NotificationPanel.tsx`, `src/client/api/notifications.api.ts`, `notificationHistory.ts`, `src/client/viewmodels/notificationTargets.ts` |
+| Формы и результаты | `src/app/couple-activity/page.tsx`, `src/components/activities/ActivityCard.tsx`, `RecommendationDecisionPanel.tsx`, `src/components/checkins/PairWeeklyCheckInPanel.tsx`, `src/features/pair/PairProfilePageClient.tsx` |
+| Адресное чтение и собственный ответ | `src/app/api/pairs/[id]/activities/route.ts`, `src/domain/services/pairActivityRead.service.ts`, `src/lib/dto/activity.dto.ts`, `src/client/api/activities.api.ts`, `types.ts`, `src/client/viewmodels/activity.viewmodels.ts` |
+| Регрессии и приёмка | `scripts/profile-pair-invite.selfcheck.ts`, `today-ui.selfcheck.ts`, `today-request-race.selfcheck.ts`, `matching-ui.selfcheck.ts`, `matching-request-race.selfcheck.ts`, `matching-product.selfcheck.ts`, `notifications.selfcheck.ts`, `participant-disclosure.selfcheck.ts`, `continuation-ui.selfcheck.ts`, matching/two-user integrations; `scripts/lib/local-acceptance-notifications.ts`, `local-acceptance-fixtures.ts`, `local-acceptance-options.ts`, `scripts/local-acceptance.ts`, `local-acceptance.selfcheck.ts`, `package.json` |
+| Документация | Этот отчёт, `docs/INDEX.md`, `API_CONTRACTS.md`, `ENTRY_AND_PAIRING_UPDATE.md`, `MATCHING_PRODUCT_UPDATE.md`, `LOCAL_ACCEPTANCE.md`, `TESTING.md`, `CHANGELOG.md` |
+
+## Важные ограничения
+
+- Локальные тесты не подтверждают реальный Discord OAuth/iframe, production MongoDB, реальные уведомления провайдера и настройки опубликованного приложения.
+- Автоматический новый режим поиска после расставания не вводился: существующие lifecycle-правила и сохранённый cohort не заменяются новым продуктовым решением.
+- Старые уведомления без resourceId не могут восстановить утраченный идентификатор; они явно направляют к актуальному состоянию вместо предположения о старой сущности.
+- Остался временный каталог собственного прерванного запуска `C:\Users\Admin\AppData\Local\Temp\vmeste-local-acceptance-AeczmC`: автоматическая проверка отклонила его проверенное удаление с причиной `blocked by policy`. Процессы этого запуска завершены. Запрет не обходился; последующие штатные завершения harness проверены после исправления keep-alive cleanup.

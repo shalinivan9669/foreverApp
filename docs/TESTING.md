@@ -162,6 +162,17 @@ Apply modes require the exact flags/confirmation variables in [RELEASE_RUNBOOK.m
 
 ## Browser/mobile gate
 
+UX/UI regression commands added on 2026-09-07 (all included in `check:self`, with `today-ui` also imported by `frontend-mvp-ui`):
+
+- `selfcheck:today-ui` / `selfcheck:today-request-race`: CTA priority/lifecycle/readiness and delayed responses during a Pair switch.
+- `selfcheck:dialog`: native dialog focus/return, nested lifecycle, busy close guards and scroll-lock ownership using an adapter executing the real component.
+- `selfcheck:unsaved-changes`: the actual hook against event adapters; refusal, pending mutation, multiple forms, Back/navigation approval, cleanup and unload. This does not claim native confirmation UI was controlled inside every embedded host.
+- `selfcheck:ui-contrast`: token contrast against all five actual surfaces and reduced-motion/CSS invariants.
+- `selfcheck:workspace-ui`: task, calendar, budget, goal, memory projections and conflict rebase behavior.
+- `selfcheck:matching-request-race`: stale feed/connection responses, access-loss hiding and mutation locking. `selfcheck:matching-ui` also covers composer steps, hard boundaries and stable retry intent.
+
+Actual browser results and their host limitations are recorded in [UX_UI_ACCEPTANCE.md](UX_UI_ACCEPTANCE.md). Additional guarded fixture modes are documented in [LOCAL_ACCEPTANCE.md](LOCAL_ACCEPTANCE.md).
+
 Verify the exact production build, not only dev mode:
 
 - liveness/readiness, unauthenticated private route, correlation id, cache headers and `/.proxy/api/...` transport;
@@ -180,3 +191,13 @@ An in-app-browser RSC host failure is not an application pass; repeat in Discord
 - A previous release's result is baseline evidence, not proof for a changed tree.
 - Source-string assertions supplement but do not replace behavior/integration tests.
 - Agent warnings need resolution or explicit justification; allowlist additions must be reported.
+
+## Проверки продуктовых маршрутов — 2026-09-09
+
+Отдельная последующая проверка `npm run acceptance:local -- --mongod 'C:\path\to\mongod.exe' --suite factors` запускает три набора аналитической цепочки. Её PASS подтверждает наблюдаемое поведение, включая пять явно отсутствующих продуктовых связей; `questionnaireProfileWorkflowReady` остаётся false. См. [FACTOR_PROFILE_AUDIT.md](FACTOR_PROFILE_AUDIT.md). Этот аудит не входит в обычный release gate; при реализации измеряемых анкет ожидания отсутствия расчёта необходимо заменить целевыми регрессиями.
+
+- `npm run selfcheck:profile-pair-invite` проверяет разбор ключа/кода/ссылки, отдельное согласие, ожидание второго подтверждения, prerequisites, активную пару, повтор мутации и поздний ответ после размонтирования.
+- `selfcheck:matching-ui` включает регрессию сериализации GET preference DTO в strict PUT и отрисовку отдельного шага разрешений/публикации. `matching-social-flow.integration` выполняет первый черновик без готовых matching snapshots/grants, затем явные разрешения и отдельную публикацию.
+- `selfcheck:notifications` проверяет адреса/выполненность/устаревание, выбор формы текущего пользователя, guards и карточку с восстановлением после сохранённого отзыва. `acceptance:browser --scenario notifications` дополнительно проверяет адресное чтение старше205 записей и отрицательные API-случаи на собственном replica set.
+- `selfcheck:today-ui` и `selfcheck:today-request-race` проверяют entry/onboarding/место/карточку/поиск/приглашение, приоритет серверного парного шага, ожидание и гонки.
+- `acceptance:browser --scenario first-entry` не заполняет ни entry, ни onboarding, ни matching за пользователя. Полный маршрут выполняется через UI. Итоговые доказательства и ограничения: [PRODUCT_FLOW_ACCEPTANCE.md](PRODUCT_FLOW_ACCEPTANCE.md).

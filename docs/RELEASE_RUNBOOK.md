@@ -2,6 +2,8 @@
 
 Status: active procedure for the public-free NEW_ONLY + Factor Matching artifact. Local evidence is not deployment authority. Updated 2026-08-13.
 
+Acceptance update, 2026-09-07: [TWO_USER_ACCEPTANCE.md](TWO_USER_ACCEPTANCE.md) records fresh local checks for commit `e7674e0923dd473d2315882a8316db1517dc3652`, including a new synthetic browser build. Real Discord acceptance and target-specific operational evidence remain unverified. This acceptance pass does not authorize production deployment, target database changes, or reuse of its synthetic build as the Discord deploy artifact.
+
 ## Product expansion release note, 2026-09-05
 
 The current artifact adds the [approved product contours](PRODUCT_IMPLEMENTATION.md). No production dependencies, environment variables or lockfile changes are required. Existing session/Discord/Mongo configuration still applies. The public core remains free; the new store spends earned internal coins and is independent of legacy entitlement/billing hooks.

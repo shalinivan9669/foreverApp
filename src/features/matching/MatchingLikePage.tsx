@@ -3,6 +3,7 @@
 import type { MatchPublicCardDTO } from "@/client/api/match.api";
 import type { MatchingAnswers, MatchingStatementReaction } from "@/lib/contracts/matchingProduct";
 import Link from "next/link";
+import MatchingAccessGate from "@/components/matching/MatchingAccessGate";
 import { useMatchLike } from "@/client/hooks/useMatchLike";
 import { useMatchingConnection } from "@/client/hooks/useMatchingConnection";
 import { matchingLikeStatusLabel } from "@/client/viewmodels/matching";
@@ -13,6 +14,10 @@ import MatchingErrorPanel from "@/components/matching/MatchingErrorPanel";
 import LoadingView from "@/components/ui/LoadingView";
 
 export default function MatchingLikePage({ likeId }: { likeId: string }) {
+  return <MatchingAccessGate><MatchingLikePageContent likeId={likeId} /></MatchingAccessGate>;
+}
+
+function MatchingLikePageContent({ likeId }: { likeId: string }) {
   const match = useMatchLike(likeId);
   const like = match.like;
 

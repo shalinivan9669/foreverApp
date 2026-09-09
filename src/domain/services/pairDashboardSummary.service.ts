@@ -1,6 +1,6 @@
 import { Types, type HydratedDocument } from 'mongoose';
 import { connectToDatabase } from '@/lib/mongodb';
-import { PairActivity } from '@/models/PairActivity';
+import { PairActivity, type PairActivityType } from '@/models/PairActivity';
 import { RecommendationDecision } from '@/models/RecommendationDecision';
 import { User, type UserType } from '@/models/User';
 import type { PairType } from '@/models/Pair';
@@ -55,7 +55,13 @@ const fallbackMember = (id: string): PublicPairMemberDTO =>
 const buildNextStep = (input: {
   pairStatus: PairType['status'];
   weekly: CurrentWeeklyCycleDTO;
-  hasCurrentActivity: boolean;
+  currentActivity?: {
+    id: string;
+    pairId: string;
+    status: PairActivityType['status'];
+    ownFeedbackSubmitted: boolean;
+    peerFeedbackSubmitted: boolean;
+  };
 }): PairNextStepDTO => {
   if (input.pairStatus !== 'active') {
     return {
@@ -68,13 +74,37 @@ const buildNextStep = (input: {
     };
   }
 
-  if (input.hasCurrentActivity) {
+  if (input.currentActivity) {
+    const activity = input.currentActivity;
+    const target = new URLSearchParams({ pairId: activity.pairId, activityId: activity.id });
+    if (activity.ownFeedbackSubmitted) {
+      target.set('action', 'result');
+      return {
+        kind: 'complete_current_activity',
+        title: activity.peerFeedbackSubmitted ? 'Отзывы обоих сохранены' : 'Ваш отзыв сохранён — ждём партнёра',
+        description: activity.peerFeedbackSubmitted
+          ? 'Откройте активность, чтобы посмотреть результат. Повторно отвечать не нужно.'
+          : 'Ваш шаг уже выполнен. Партнёр оставит собственный отзыв; повторно отвечать не нужно.',
+        href: `/couple-activity?${target.toString()}`,
+        ctaLabel: activity.peerFeedbackSubmitted ? 'Посмотреть результат' : 'Посмотреть статус',
+      };
+    }
+    if (activity.status === 'awaiting_feedback' || activity.status === 'awaiting_checkin') {
+      target.set('action', 'feedback');
+      return {
+        kind: 'complete_current_activity',
+        title: 'Поделитесь впечатлениями от активности',
+        description: 'Ваш личный отзыв ещё не сохранён. Кнопка откроет форму именно этой активности.',
+        href: `/couple-activity?${target.toString()}`,
+        ctaLabel: 'Оставить отзыв',
+      };
+    }
     return {
       kind: 'complete_current_activity',
       title: 'Завершите текущую активность',
       description:
         'У пары уже есть активная задача. Лучше завершить её, прежде чем брать новую.',
-      href: '/couple-activity',
+      href: `/couple-activity?${target.toString()}`,
       ctaLabel: 'Открыть активность',
     };
   }
@@ -244,7 +274,13 @@ const buildPairDashboardSummaryUncoalesced = async (input: {
   const nextStep = buildNextStep({
     pairStatus: pair.status,
     weekly: currentCycle,
-    hasCurrentActivity: Boolean(current),
+    currentActivity: current ? {
+      id: String(current._id),
+      pairId: String(pairId),
+      status: current.status,
+      ownFeedbackSubmitted: (current.answers ?? []).some((answer) => answer.by === role),
+      peerFeedbackSubmitted: (current.answers ?? []).some((answer) => answer.by !== role),
+    } : undefined,
   });
 
   return {

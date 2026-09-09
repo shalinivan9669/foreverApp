@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import {
-  assertOwnedLocalAcceptanceDirectory, localAcceptanceActor,
+  assertOwnedLocalAcceptanceDirectory, localAcceptanceActor, localAcceptanceHostname,
   localAcceptanceEnvironment, parseLocalAcceptanceOptions,
 } from './lib/local-acceptance-options';
 
@@ -182,8 +182,8 @@ async function main(): Promise<void> {
   }, mongo);
   report('database-ready', { mode: options.mode, mongoPort: options.mongoPort });
   if (options.mode === 'integration') {
-    stage = 'six-integration-suites';
-    const integration = start('integration', process.execPath, ['--import', 'tsx', resolve(workspace, 'scripts/two-user-acceptance.integration.ts')], environment);
+    stage = options.suite === 'factors' ? 'factor-integration-suites' : 'six-integration-suites';
+    const integration = start('integration', process.execPath, ['--import', 'tsx', resolve(workspace, 'scripts/two-user-acceptance.integration.ts'), ...(options.suite === 'factors' ? ['--factors'] : [])], environment);
     let buffered = '';
     integration.child.stdout?.on('data', (chunk: Buffer) => {
       if (stop.signal.aborted) return;
@@ -200,7 +200,9 @@ async function main(): Promise<void> {
       }
     });
     await waitForChild(integration);
-    report('passed', { checks: 6, discordIframeValidated: false, realOAuthValidated: false });
+    report('passed', { checks: options.suite === 'factors' ? 3 : 6,
+      ...(options.suite === 'factors' ? { questionnaireProfileWorkflowReady: false, confirmedProductGaps: 5 } : {}),
+      discordIframeValidated: false, realOAuthValidated: false });
     return;
   }
   stage = 'browser-fixtures';
@@ -210,14 +212,14 @@ async function main(): Promise<void> {
     // Domain analytics remain enabled, but their synthetic event rows are not
     // acceptance evidence and must not appear in this aggregate-only output.
     console.info = () => undefined;
-    try { return await createLocalAcceptanceFixtures(runId); }
+    try { return await createLocalAcceptanceFixtures(runId, options.scenario); }
     finally { console.info = info; }
   })();
   fixtureCleanup = fixtures.cleanup;
   stage = 'next-start';
   const nextServers = (['a', 'b'] as const).map((actor) => ({
     actor, port: actor === 'a' ? options.appPort : options.partnerAppPort,
-    owned: start(`next-${actor}`, process.execPath, ['--import', 'tsx', resolve(workspace, 'scripts/local-acceptance-server.ts'), actor, String(actor === 'a' ? options.appPort : options.partnerAppPort)], environment),
+    owned: start(`next-${actor}`, process.execPath, ['--import', 'tsx', resolve(workspace, 'scripts/local-acceptance-server.ts'), actor, String(actor === 'a' ? options.appPort : options.partnerAppPort), options.hostPrefix], environment),
   }));
   for (const server of nextServers) {
   let lastHealthObservation = '';
@@ -228,7 +230,7 @@ async function main(): Promise<void> {
         // native client preserves the exact Host; fetch may normalize it.
         const request = httpRequest({
           hostname: '127.0.0.1', port: server.port, path: '/api/health/live', method: 'GET',
-          headers: { Host: `vmeste-${server.actor}.localhost:${server.port}` },
+          headers: { Host: `${localAcceptanceHostname(server.actor, options.hostPrefix)}:${server.port}` },
           agent: false, signal: AbortSignal.timeout(2_000),
         }, (result) => {
           result.once('error', reject);
@@ -259,7 +261,7 @@ async function main(): Promise<void> {
     response.setHeader('Referrer-Policy', 'no-referrer');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     const host = request.headers.host;
-    const validHost = [`127.0.0.1:${options.loginPort}`, `localhost:${options.loginPort}`, `vmeste-a.localhost:${options.loginPort}`, `vmeste-b.localhost:${options.loginPort}`].includes(host ?? '');
+    const validHost = [`127.0.0.1:${options.loginPort}`, `localhost:${options.loginPort}`, `${localAcceptanceHostname('a', options.hostPrefix)}:${options.loginPort}`, `${localAcceptanceHostname('b', options.hostPrefix)}:${options.loginPort}`].includes(host ?? '');
     const origin = request.headers.origin;
     const validOrigin = !origin || origin === `http://${host}`;
     if (!validHost || !validOrigin || request.headers['sec-fetch-site'] === 'cross-site') {
@@ -267,15 +269,15 @@ async function main(): Promise<void> {
     }
     if (request.method === 'GET' && request.url === '/status') {
       response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ ready: true, participants: 2, fixture: 'EXISTING_PARTNER_ONBOARDED', realOAuthValidated: false })); return;
+      response.end(JSON.stringify({ ready: true, participants: 2, fixture: options.scenario, realOAuthValidated: false })); return;
     }
     if (request.method === 'POST' && request.url === '/stop' && origin === `http://${host}`) {
       response.writeHead(202).end(); requestStop(); return;
     }
-    const actor = localAcceptanceActor(host, request.url, options.loginPort);
+    const actor = localAcceptanceActor(host, request.url, options.loginPort, options.hostPrefix);
     if (request.method !== 'GET' || !actor) { response.writeHead(404).end(); return; }
     response.setHeader('Set-Cookie', fixtures.sessionCookie(actor));
-    response.writeHead(303, { Location: `http://vmeste-${actor}.localhost:${actor === 'a' ? options.appPort : options.partnerAppPort}/main-menu` }).end();
+    response.writeHead(303, { Location: `http://${localAcceptanceHostname(actor, options.hostPrefix)}:${actor === 'a' ? options.appPort : options.partnerAppPort}/${options.scenario === 'first-entry' ? 'entry' : options.scenario === 'onboarding' ? 'mvp-onboarding' : 'main-menu'}` }).end();
   });
   await new Promise<void>((resolveListen, reject) => {
     bootstrap!.once('error', reject);
@@ -283,7 +285,7 @@ async function main(): Promise<void> {
   });
   stage = 'browser-running';
   report('browser-ready', {
-    participantA: `http://vmeste-a.localhost:${options.loginPort}/a`, participantB: `http://vmeste-b.localhost:${options.loginPort}/b`,
+    participantA: `http://${localAcceptanceHostname('a', options.hostPrefix)}:${options.loginPort}/a`, participantB: `http://${localAcceptanceHostname('b', options.hostPrefix)}:${options.loginPort}/b`,
     statusUrl: `http://127.0.0.1:${options.loginPort}/status`, appPort: options.appPort, partnerAppPort: options.partnerAppPort, loginPort: options.loginPort,
   });
   await Promise.race([
@@ -294,7 +296,12 @@ async function main(): Promise<void> {
 }
 
 async function cleanup(): Promise<void> {
-  if (bootstrap) await new Promise<void>((resolveClose) => bootstrap!.close(() => resolveClose()));
+  if (bootstrap) await new Promise<void>((resolveClose) => {
+    bootstrap!.close(() => resolveClose());
+    // Browser keep-alive/speculative sockets must not keep our disposable
+    // bootstrap open and prevent owned Next/Mongo processes from being stopped.
+    bootstrap!.closeAllConnections();
+  });
   for (const owned of children.filter((child) => child.label !== 'mongodb').reverse()) {
     await stopOwnedProcess(owned).catch(() => { failed = true; });
   }

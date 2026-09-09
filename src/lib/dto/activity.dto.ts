@@ -57,6 +57,8 @@ export type PairActivityDTO = {
   status: PairActivityType['status'];
   checkIns: CheckInTpl[];
   resultSummary?: ActivityResultSummaryDTO;
+  /** Present only for a guarded read with a known viewer role. */
+  feedbackSubmitted?: boolean;
   createdBy: PairActivityType['createdBy'];
   legacy?: boolean;
   legacySource?: 'relationship_activity';
@@ -122,6 +124,7 @@ export type ActivityOfferDTO = {
 };
 
 export type ToPairActivityDtoOptions = {
+  viewerRole?: 'A' | 'B';
   includeLegacyId?: boolean;
   includeAnswers?: boolean;
   legacy?: boolean;
@@ -170,6 +173,7 @@ export function toPairActivityDTO(
     cooldownDays: activity.cooldownDays,
     requiresConsent: activity.requiresConsent,
     status: activity.status,
+    ...(opts.viewerRole ? { feedbackSubmitted: Boolean(activity.answers?.some((answer) => answer.by === opts.viewerRole) || activity.resultSummary?.submittedBy.includes(opts.viewerRole)) } : {}),
     checkIns: effectiveActivityCheckIns(
       activity.checkIns,
       activity.feedbackSchemaVersion

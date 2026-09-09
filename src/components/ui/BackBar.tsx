@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { confirmAppNavigation } from '@/client/hooks/useUnsavedChanges';
 
 type Props = {
   title?: string;
@@ -12,6 +13,7 @@ export default function BackBar({ title, fallbackHref = '/main-menu', rightSlot 
   const router = useRouter();
 
   const goBack = () => {
+    if (!confirmAppNavigation()) return;
     const ref = document.referrer;
     try {
       const sameOrigin = ref && new URL(ref).origin === window.location.origin;
@@ -25,12 +27,12 @@ export default function BackBar({ title, fallbackHref = '/main-menu', rightSlot 
   return (
     <div className="app-panel app-backbar app-reveal sticky top-0 z-10 text-slate-900 backdrop-blur">
       <div className="mx-auto flex h-12 w-full items-center gap-2 px-2 sm:h-14 sm:gap-3 sm:px-4">
-        <button onClick={goBack} aria-label="Назад" className="app-backbar__button">
+        <button type="button" onClick={goBack} aria-label="Назад" className="app-backbar__button">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        {title && <div className="truncate text-[15px] font-semibold sm:text-base">{title}</div>}
+        {title && <div className="min-w-0 text-[15px] font-semibold leading-tight sm:text-base">{title}</div>}
         <div className="ml-auto">{rightSlot}</div>
       </div>
     </div>

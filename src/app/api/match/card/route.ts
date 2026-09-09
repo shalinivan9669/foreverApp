@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import {
   getOwnMatchingCard,
   saveOwnMatchingCard,
+  authorizeMatchingCardMutation,
 } from "@/domain/services/matching/matchingApplication.service";
 import { parseJson } from "@/lib/api/validate";
 import {
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     route: ROUTE,
     currentUserId: request.currentUserId,
     requestBody: body.data,
+    authorize: () => authorizeMatchingCardMutation({ currentUserId: request.currentUserId, active: body.data.active }),
     execute: ({ idempotencyKey }) =>
       saveOwnMatchingCard({
         currentUserId: request.currentUserId,

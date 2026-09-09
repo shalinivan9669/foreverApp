@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { entryApi } from '@/client/api/entry.api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BackBar from '@/components/ui/BackBar';
+import { useUnsavedChanges } from '@/client/hooks/useUnsavedChanges';
 import {
   mvpOnboardingApi,
   type MvpOnboardingAnswerValue,
@@ -53,6 +54,7 @@ function ConsentScreen({
   onStart: () => void;
 }) {
   const allConfirmed = Object.values(consent).every(Boolean);
+  useUnsavedChanges(Object.values(consent).some(Boolean), busy);
 
   return (
     <section className="app-panel app-panel-solid p-4 sm:p-6">
@@ -109,17 +111,24 @@ function ConsentScreen({
       </div>
 
       <div className="app-panel-soft mt-5 p-4 text-sm">
-        <div className="font-medium">Версии согласия</div>
+        <h2 className="font-semibold">Что означает ваш выбор</h2>
+        <ul className="mt-2 space-y-2">{payload.definition.capturePolicies.map((policy) => <li key={policy.id}><strong>{policy.title}.</strong> {policy.description}</li>)}</ul>
+      </div>
+      <details className="app-panel-soft mt-3 p-4 text-sm">
+        <summary className="cursor-pointer font-medium">Технические версии согласия</summary>
         <div className="app-muted mt-1">
           Контент: {payload.definition.contentRevision} · политика:{' '}
           {payload.definition.policyVersion}
         </div>
-      </div>
+      </details>
+
+      {!allConfirmed && <p id="consent-hint" className="app-muted mt-4 text-sm">Чтобы начать, прочитайте условия и отметьте все три подтверждения.</p>}
 
       <button
         type="button"
         onClick={onStart}
         disabled={!allConfirmed || busy}
+        aria-describedby={!allConfirmed ? 'consent-hint' : undefined}
         className="app-btn-primary mt-5 w-full px-4 py-3 text-sm disabled:opacity-50 sm:w-auto"
       >
         {busy ? 'Сохраняем согласие...' : 'Начать'}
@@ -223,7 +232,9 @@ function QuestionScreen({
   const [capturePolicy, setCapturePolicy] =
     useState<MvpOnboardingCapturePolicy | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  useUnsavedChanges(Boolean(singleValue || multiValues.length || booleanValue !== null || capturePolicy), submitting);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -245,8 +256,9 @@ function QuestionScreen({
   }, [booleanValue, multiValues, question.kind, question.minSelections, singleValue]);
 
   const submit = async (value: MvpOnboardingAnswerValue, policy: MvpOnboardingCapturePolicy) => {
-    if (busy || submitting) return;
+    if (busy || submitLock.current) return;
 
+    submitLock.current = true;
     setSubmitting(true);
     onError('');
     try {
@@ -261,6 +273,7 @@ function QuestionScreen({
     } catch {
       onError('Не удалось сохранить ответ. Попробуйте ещё раз.');
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   };
@@ -310,7 +323,7 @@ function QuestionScreen({
         </p>
       )}
 
-      <div className="mt-5">
+      <fieldset disabled={answerPending} className="mt-5">
         <QuestionOptions
           question={question}
           singleValue={singleValue}
@@ -320,12 +333,12 @@ function QuestionScreen({
           onMultiChange={setMultiValues}
           onBooleanChange={setBooleanValue}
         />
-      </div>
+      </fieldset>
 
       <div className="mt-6">
         <h2 className="text-sm font-semibold">Как можно использовать этот ответ?</h2>
         <p className="app-muted mt-1 text-xs">
-          Выбор относится только к этому ответу и его текущей ревизии.
+          Сделайте отдельный выбор для этого ответа. Ничего не выбрано заранее.
         </p>
         <div className="mt-3 grid gap-2 lg:grid-cols-3">
           {payload.definition.capturePolicies
@@ -334,6 +347,7 @@ function QuestionScreen({
               <button
                 key={policy.id}
                 type="button"
+                disabled={answerPending}
                 onClick={() => setCapturePolicy(policy.id)}
                 className={policyButtonClass(capturePolicy === policy.id)}
                 aria-pressed={capturePolicy === policy.id}
@@ -345,6 +359,8 @@ function QuestionScreen({
         </div>
       </div>
 
+      <p id="onboarding-answer-hint" className="app-muted mt-4 text-sm" aria-live="polite">{answerPending ? 'Сохраняем ответ. Дождитесь результата перед уходом.' : !answerValue ? 'Выберите ответ выше, затем укажите, как его разрешено использовать.' : !capturePolicy ? 'Ответ выбран. Укажите, как его разрешено использовать.' : 'Ответ и правило использования выбраны. Можно сохранить и перейти дальше.'}</p>
+      <p className="app-muted mt-2 text-xs">Сохранённые шаги можно продолжить позже. Текущий несохранённый ответ остаётся только на этом экране.</p>
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
         <button
           type="button"
@@ -352,6 +368,7 @@ function QuestionScreen({
             if (answerValue && capturePolicy) void submit(answerValue, capturePolicy);
           }}
           disabled={!answerValue || !capturePolicy || answerPending}
+          aria-describedby="onboarding-answer-hint"
           className="app-btn-primary px-4 py-3 text-sm disabled:opacity-50"
         >
           {answerPending ? 'Сохраняем...' : 'Сохранить и продолжить'}
@@ -390,7 +407,7 @@ export default function MvpOnboardingPage() {
         return;
       }
       if (new URLSearchParams(window.location.hash.slice(1)).get('return') !== 'join' && !entry.hasPair) {
-        setReturnHref(entry.user.entryCohort === 'EXISTING_PARTNER' ? '/invite' : '/profile');
+        setReturnHref(entry.user.entryCohort === 'EXISTING_PARTNER' ? '/invite' : '/match-card/create');
       }
       setPayload(await mvpOnboardingApi.getOwnerState());
     } catch {
@@ -533,17 +550,17 @@ export default function MvpOnboardingPage() {
             Сохранено ответов: {payload.session.answers.length}. Точные ответы не становятся
             общими автоматически и используются согласно выбранному правилу для каждого ответа.
           </p>
-          {returnHref === '/profile' && <p className="app-muted mt-3 text-sm">
-            Теперь можно выбрать личную практику или программу. Поиск партнёра настраивается отдельно, когда вы будете готовы.
+          {returnHref === '/match-card/create' && <p className="app-muted mt-3 text-sm">
+            Следующий шаг — карточка знакомств. Заполните её и отдельно подтвердите публикацию, чтобы перейти к поиску партнёра. Личные занятия доступны уже сейчас.
           </p>}
           <Link
-            href={returnHref === '/profile' ? '/development' : returnHref}
+            href={returnHref}
             className="app-btn-primary mt-5 inline-flex w-full justify-center px-4 py-3 text-sm sm:w-auto"
           >
-            {returnHref.startsWith('/join') ? 'Вернуться к приглашению' : returnHref === '/invite' ? 'Связать аккаунт партнёра' : returnHref === '/profile' ? 'Продолжить личное развитие' : 'Открыть «Вместе»'}
+            {returnHref.startsWith('/join') ? 'Вернуться к приглашению' : returnHref === '/invite' ? 'Связать аккаунт партнёра' : returnHref === '/match-card/create' ? 'Подготовить карточку знакомств' : 'Открыть «Вместе»'}
           </Link>
-          {returnHref === '/profile' && <div className="mt-3 flex flex-wrap gap-2">
-            <Link href="/match-card/create" className="app-btn-secondary px-4 py-3 text-sm">Настроить поиск партнёра</Link>
+          {returnHref === '/match-card/create' && <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/development" className="app-btn-secondary px-4 py-3 text-sm">Личное развитие</Link>
             <Link href="/profile" className="app-btn-secondary px-4 py-3 text-sm">Мой профиль</Link>
           </div>}
         </section>

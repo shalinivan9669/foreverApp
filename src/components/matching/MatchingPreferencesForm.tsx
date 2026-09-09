@@ -10,6 +10,7 @@ import {
   importanceLabel,
   matchingPreferenceLabel,
   matchingPreferencesForSave,
+  matchingCategoryOptions,
 } from "@/client/viewmodels/matching";
 
 type MatchingPreferencesFormProps = {
@@ -29,6 +30,7 @@ export default function MatchingPreferencesForm({
     useState<MatchingPreferenceDTO[]>(initial);
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
+  const incompleteCategories = preferences.filter((preference) => preference.useAllowed && (preference.target.kind === "CATEGORICAL_SET" || preference.target.kind === "CONSTRAINT_SET") && preference.target.allowedValues.length === 0);
 
   const update = (
     factorKey: string,
@@ -44,6 +46,7 @@ export default function MatchingPreferencesForm({
   };
 
   const submit = async (): Promise<void> => {
+    if (saving || incompleteCategories.length > 0) return;
     const ok = await onSave({
       revision,
       preferences: matchingPreferencesForSave(preferences),
@@ -59,13 +62,14 @@ export default function MatchingPreferencesForm({
       className="app-panel p-4 sm:p-6"
       aria-labelledby="preferences-title"
     >
-      <h2 id="preferences-title" className="text-xl font-semibold">
+      <h2 id="preferences-title" tabIndex={-1} className="text-xl font-semibold">
         Предпочтения партнёра
       </h2>
       <p className="app-muted mt-1 text-sm">
         Для каждого пункта отдельно выберите важность, гибкость и разрешение на
         использование в подборе.
       </p>
+      <p className="app-muted mt-2 text-sm">Для поиска обязательны формат знакомства и отношение к детям. Отметьте подходящие вам варианты партнёра и самостоятельно разрешите использование этих двух пунктов. Затем нажмите «Сохранить предпочтения» и вернитесь к публикации карточки.</p>
 
       {preferences.length === 0 ? (
         <div className="app-panel-soft mt-4 p-4 text-sm">
@@ -195,10 +199,11 @@ export default function MatchingPreferencesForm({
           Предпочтения сохранены.
         </p>
       )}
+      {incompleteCategories.length > 0 && <p className="app-alert app-alert-error mt-4" role="alert">Выберите хотя бы один подходящий вариант: {incompleteCategories.map(matchingPreferenceLabel).join(", ")}.</p>}
       <button
         className="app-btn-primary mt-5 w-full sm:w-auto"
         type="button"
-        disabled={!dirty || saving || preferences.length === 0}
+        disabled={!dirty || saving || preferences.length === 0 || incompleteCategories.length > 0}
         onClick={() => void submit()}
       >
         {saving ? "Сохраняем…" : "Сохранить предпочтения"}
@@ -217,6 +222,8 @@ function TargetControl({
   onChange: (target: MatchingPreferenceDTO["target"]) => void;
 }) {
   const target = preference.target;
+  const categoryOptions = matchingCategoryOptions(preference.factorKey);
+  if ((target.kind === "CATEGORICAL_SET" || target.kind === "CONSTRAINT_SET") && categoryOptions) return <fieldset className="text-sm"><legend>Подходящие варианты партнёра</legend><div className="mt-2 space-y-2">{categoryOptions.map((option) => <label key={option.value} className="flex min-h-10 items-center gap-2"><input type="checkbox" disabled={disabled} checked={target.allowedValues.includes(option.value)} onChange={(event) => onChange({ ...target, allowedValues: event.target.checked ? [...target.allowedValues, option.value] : target.allowedValues.filter((value) => value !== option.value) })} />{option.label}</label>)}</div><p className="app-muted mt-2 text-xs">Можно выбрать несколько вариантов. Включите разрешение выше, чтобы изменить выбор.</p></fieldset>;
   if (target.kind === "SCALAR_RANGE") {
     return (
       <fieldset className="text-sm">

@@ -65,7 +65,7 @@ export default function ActivityCard(props: {
   const result = activity.resultSummary;
 
   return (
-    <div className="app-panel app-lift flex h-full min-h-[20rem] flex-col p-4 text-slate-900 sm:p-5">
+    <div id={`activity-${activity._id}`} tabIndex={-1} className="app-panel app-lift flex h-full min-h-[20rem] scroll-mt-4 flex-col p-4 text-slate-900 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -183,6 +183,8 @@ export default function ActivityCard(props: {
               >
                 Начать
               </button>
+            ) : activity.feedbackSubmitted ? (
+              <><p className="app-muted self-center text-sm" role="status">Ваш отзыв уже сохранён. Повторно отвечать не нужно.</p><button type="button" onClick={onComplete} className="app-btn-secondary w-full px-3 py-2 sm:w-auto">Завершить с сохранённым отзывом</button></>
             ) : (
               <button
                 type="button"
@@ -208,7 +210,7 @@ export default function ActivityCard(props: {
               {statusLabels[activity.status] ?? 'Завершено'}
             </span>
             {result?.bothSubmitted === false &&
-              activity.status === 'completed_partial' && (
+              activity.status === 'completed_partial' && !activity.feedbackSubmitted && (
                 <button
                   type="button"
                   onClick={onComplete}
@@ -217,6 +219,7 @@ export default function ActivityCard(props: {
                   Добавить или обновить отзыв
                 </button>
               )}
+            {result?.bothSubmitted === false && activity.feedbackSubmitted && <p className="app-muted self-center text-sm" role="status">Ваш отзыв уже сохранён. Ожидаем ответ партнёра.</p>}
           </>
         )}
       </div>

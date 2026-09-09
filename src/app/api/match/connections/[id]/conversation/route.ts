@@ -26,5 +26,5 @@ export async function POST(req: NextRequest, context: Context) {
   if (!params.ok) return params.response;
   const body = await parseJson(req, bodySchema);
   if (!body.ok) return body.response;
-  return matchingMutationResponse({ req, route: ROUTE, currentUserId: request.currentUserId, requestBody: { ...body.data, connectionId: params.data.id }, authorize: () => authorizeMatchingConversationMutation({ currentUserId: request.currentUserId, connectionId: params.data.id }), execute: () => updateMatchingConversation({ currentUserId: request.currentUserId, connectionId: params.data.id, ...body.data }) });
+  return matchingMutationResponse({ req, route: ROUTE, currentUserId: request.currentUserId, requestBody: { ...body.data, connectionId: params.data.id }, authorize: () => authorizeMatchingConversationMutation({ currentUserId: request.currentUserId, connectionId: params.data.id, requireMatching: body.data.action === "SUBMIT" || (body.data.action === "DISCORD_CONSENT" && body.data.discordConsent) }), execute: () => updateMatchingConversation({ currentUserId: request.currentUserId, connectionId: params.data.id, ...body.data }) });
 }

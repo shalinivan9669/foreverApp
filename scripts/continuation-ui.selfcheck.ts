@@ -293,6 +293,43 @@ const main = async () => {
     assert.equal(cells[0].value, null);
 
     reset();
+    sharedLifeApi.get = async () => workspace;
+    const conflictFlow = renderHook(() => useSharedLife("pair-a")); await tick();
+    const conflictSnapshot = pending<SharedLifeDTO>();
+    let conflictWrites = 0;
+    sharedLifeApi.update = async () => { conflictWrites += 1; throw new ApiClientError({ status: 409, code: "REVISION_CONFLICT", message: "Changed" }); };
+    sharedLifeApi.get = () => conflictSnapshot.promise;
+    const conflictWrite = conflictFlow.update({ action: "SETTINGS", expectedRevision: 1, settings: DEFAULT_SHARED_LIFE_SETTINGS });
+    await tick();
+    assert.equal(await conflictFlow.update({ action: "SETTINGS", expectedRevision: 1, settings: DEFAULT_SHARED_LIFE_SETTINGS }), false, "conflict reload must keep the mutation lock");
+    conflictSnapshot.resolve({ ...workspace, revision: 3 });
+    assert.equal(await conflictWrite, false, "loading a newer revision must never silently retry the mutation");
+    assert.equal(conflictWrites, 1);
+    const conflictReady = renderHook(() => useSharedLife("pair-a"));
+    assert.equal(conflictReady.data?.revision, 3, "a conflict loads the guarded server version for draft comparison");
+    assert.equal(conflictReady.error?.status, 409, "the unsaved conflict stays visible");
+    sharedLifeApi.update = async () => ({ ...workspace, revision: 4 });
+    assert.equal(await conflictReady.update({ action: "SETTINGS", expectedRevision: 3, settings: DEFAULT_SHARED_LIFE_SETTINGS }), true);
+    assert.equal((cellValue(0) as SharedLifeDTO).revision, 4);
+
+    const staleConflict = pending<SharedLifeDTO>();
+    sharedLifeApi.update = async () => { throw new ApiClientError({ status: 409, code: "REVISION_CONFLICT", message: "Changed" }); };
+    sharedLifeApi.get = (id) => id === "pair-a" ? staleConflict.promise : Promise.resolve({ ...workspace, pairId: id, revision: 9 });
+    const staleConflictWrite = conflictReady.update({ action: "SETTINGS", expectedRevision: 4, settings: DEFAULT_SHARED_LIFE_SETTINGS });
+    await tick();
+    renderHook(() => useSharedLife("pair-b")); await tick();
+    staleConflict.resolve({ ...workspace, revision: 5 });
+    assert.equal(await staleConflictWrite, false);
+    const changedPair = renderHook(() => useSharedLife("pair-b"));
+    assert.equal(changedPair.data?.pairId, "pair-b", "a late conflict snapshot must not resurrect the previous Pair");
+    assert.equal(changedPair.data?.revision, 9);
+    sharedLifeApi.get = async () => { throw new ApiClientError({ status: 403, code: "ACCESS_DENIED", message: "Revoked" }); };
+    await changedPair.update({ action: "SETTINGS", expectedRevision: 9, settings: DEFAULT_SHARED_LIFE_SETTINGS });
+    const conflictRevoked = renderHook(() => useSharedLife("pair-b"));
+    assert.equal(conflictRevoked.data, null, "access denial while refreshing a conflict removes protected data");
+    assert.equal(conflictRevoked.error?.status, 403);
+
+    reset();
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
     const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
     const originalNow = Date.now;
@@ -326,11 +363,11 @@ const main = async () => {
   }
   const read = (path: string) => readFileSync(path, "utf8");
   assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /expectedRevision: editing\?\.id === entryId \? editing.revision/);
-  assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /!editing && !deleteId/);
+  assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /!editing && !deleting && !settingsOpen/);
   assert.match(read("src/features/matching/MatchingConnectionPage.tsx"), /Promise\.all\(\[load\(\), connection.refetch\(\)\]\)/);
   assert.match(read("src/app/main-menu/page.tsx"), /<ContinuationPanel/);
   assert.match(read("src/app/mvp-onboarding/page.tsx"), /\/development/);
-  assert.match(read("src/app/couple-activity/page.tsx"), /active=\{accessDenied \? null : activeVm\}/);
+  assert.ok(read("src/app/couple-activity/page.tsx").includes('active={accessDenied || targetPairMismatch ? null : displayedActive}'), 'activity data must be hidden after access denial or a notification pair mismatch');
   assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /data = pairAccessLost \? null : flow.data/);
   assert.match(read("src/features/sharedLife/SharedLifePage.tsx"), /editing = draft\?\.pairId === pair.pairId \? draft : null/);
   assert.doesNotMatch(read("src/client/hooks/useDevelopment.ts") + read("src/features/development/DevelopmentPage.tsx"), /localStorage/);

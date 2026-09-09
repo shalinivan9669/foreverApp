@@ -38,9 +38,9 @@ export function useCurrentUser(options: UseCurrentUserOptions = {}) {
     const fresh = await runSafe(() => usersApi.getCurrentUser(controller.signal), {
       loadingKey: 'current-user',
     });
-    setIsRefreshing(false);
+    if (requestVersion === versionRef.current) setIsRefreshing(false);
 
-    if (!fresh || requestVersion !== versionRef.current) {
+    if (!fresh || controller.signal.aborted || requestVersion !== versionRef.current) {
       return null;
     }
 
@@ -49,14 +49,14 @@ export function useCurrentUser(options: UseCurrentUserOptions = {}) {
   }, [cacheKey, runSafe, setCurrentUser]);
 
   useEffect(() => {
-    if (!enabled) return;
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) void refetch();
+      if (enabled && !cancelled) void refetch();
     });
     return () => {
       cancelled = true;
       abortRef.current?.abort();
+      versionRef.current += 1;
     };
   }, [enabled, refetch]);
 

@@ -9,6 +9,7 @@ import { isApiClientError } from '@/client/api/errors';
 
 type RecommendationDecisionPanelProps = {
   pairId: string;
+  targetDecisionId?: string | null;
   onActivityChanged: () => void;
 };
 
@@ -28,12 +29,14 @@ const actionErrorMessage = (error: unknown): string =>
 
 export default function RecommendationDecisionPanel({
   pairId,
+  targetDecisionId,
   onActivityChanged,
 }: RecommendationDecisionPanelProps) {
   return (
     <RecommendationDecisionPanelSession
       key={pairId}
       pairId={pairId}
+      targetDecisionId={targetDecisionId}
       onActivityChanged={onActivityChanged}
     />
   );
@@ -41,6 +44,7 @@ export default function RecommendationDecisionPanel({
 
 function RecommendationDecisionPanelSession({
   pairId,
+  targetDecisionId,
   onActivityChanged,
 }: RecommendationDecisionPanelProps) {
   const [current, setCurrent] = useState<RecommendationDecisionDTO | null>(null);
@@ -50,6 +54,13 @@ function RecommendationDecisionPanelSession({
   const [message, setMessage] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<'replace' | 'skip' | null>(null);
   const confirmationRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (targetDecisionId && !loading) {
+      panelRef.current?.scrollIntoView({ block: 'start' });
+      panelRef.current?.focus({ preventScroll: true });
+    }
+  }, [targetDecisionId, loading]);
 
   useEffect(() => {
     if (confirmAction) confirmationRef.current?.focus();
@@ -133,8 +144,9 @@ function RecommendationDecisionPanelSession({
   );
 
   return (
-    <section className="app-panel app-panel-solid p-4 sm:p-5" aria-live="polite">
+    <section ref={panelRef} tabIndex={-1} className="app-panel app-panel-solid scroll-mt-4 p-4 sm:p-5" aria-live="polite">
       <div className="app-muted text-xs">Рекомендация текущего цикла</div>
+      {targetDecisionId && !loading && current?.id !== targetDecisionId && <p className="app-alert app-alert-rate mt-3 text-sm" role="status">Предложение из уведомления уже изменилось, принято или завершено. Ниже показано актуальное состояние; повторять прежнее действие не требуется.</p>}
       {loading ? (
         <p className="mt-2 text-sm">Загружаем рекомендацию…</p>
       ) : current ? (

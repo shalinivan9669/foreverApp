@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     route: ROUTE,
     currentUserId: request.currentUserId,
     requestBody: body.data,
-    authorize: () => authorizeMatchingLikeMutation({ currentUserId: request.currentUserId, likeId: body.data.likeId }),
+    authorize: () => authorizeMatchingLikeMutation({ currentUserId: request.currentUserId, likeId: body.data.likeId, requireMatching: true }),
     execute: () =>
       respondMatchingLike({
         currentUserId: request.currentUserId,

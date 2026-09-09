@@ -11,6 +11,7 @@ import BackBar from '@/components/ui/BackBar';
 import EmptyStateView from '@/components/ui/EmptyStateView';
 import ErrorView from '@/components/ui/ErrorView';
 import LoadingView from '@/components/ui/LoadingView';
+import Dialog from '@/components/ui/Dialog';
 
 const STATUS_LABELS: Record<PairInviteStatus, string> = {
   ACTIVE: 'Ожидаем партнёра',
@@ -50,6 +51,8 @@ export default function PairInvitePage() {
   const [partnerCode, setPartnerCode] = useState('');
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const [entryAllowed, setEntryAllowed] = useState(false);
+  const [inviteMode, setInviteMode] = useState<'create' | 'enter'>('create');
+  const [confirmAction, setConfirmAction] = useState<'cancel' | 'reissue' | null>(null);
   const { run, loading, error, clearError } = useApi('pair-invite');
 
   const shareLink = useMemo(() => (rawToken ? makeShareLink(rawToken) : null), [rawToken]);
@@ -148,10 +151,7 @@ export default function PairInvitePage() {
   };
 
   const cancelInvite = async () => {
-    if (!invite) return;
-    if (!window.confirm('Отменить текущую ссылку? После этого она перестанет работать.')) {
-      return;
-    }
+    if (!invite || loading) return;
 
     clearError();
     setNotice(null);
@@ -162,19 +162,14 @@ export default function PairInvitePage() {
       setInvite(cancelled);
       setRawToken(null);
       setNotice('Приглашение отменено.');
+      setConfirmAction(null);
     } catch {
       // useApi exposes a sanitized UI error.
     }
   };
 
   const reissueInvite = async () => {
-    if (!invite) return;
-    if (
-      status === 'ACTIVE' &&
-      !window.confirm('Перевыпустить ссылку? Текущая ссылка сразу перестанет работать.')
-    ) {
-      return;
-    }
+    if (!invite || loading) return;
 
     clearError();
     setNotice(null);
@@ -185,6 +180,7 @@ export default function PairInvitePage() {
       setInvite(reissued);
       setIdentityConfirmed(false);
       setRawToken(reissued.token ?? null);
+      setConfirmAction(null);
       setNotice(
         reissued.token
           ? 'Новая ссылка готова. Предыдущая ссылка больше не работает.'
@@ -241,7 +237,7 @@ export default function PairInvitePage() {
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
           Только для вашей пары
         </p>
-        <h1 className="font-display mt-2 text-2xl font-semibold leading-tight">
+        <h1 className="mt-2 text-2xl font-semibold leading-tight">
           Свяжите ваши аккаунты
         </h1>
         <p className="app-muted mt-2 text-sm leading-relaxed">
@@ -249,7 +245,7 @@ export default function PairInvitePage() {
           Каждый увидит имя и код другого и отдельно подтвердит: «Это мой партнёр».
           Одной ссылки или чужого Discord-имени недостаточно для создания пары.
         </p>
-        {publicId && <div className="app-panel-soft mt-4 space-y-2 p-3">
+        {publicId && inviteMode === 'create' && <div className="app-panel-soft mt-4 space-y-2 p-3">
           <p className="text-sm font-medium">Ваш постоянный код «Вместе»</p>
           <input readOnly aria-label="Ваш код Вместе" value={publicId} onFocus={(event) => event.currentTarget.select()} className="w-full rounded-lg border border-slate-200 p-2 font-mono text-sm" />
           <p className="app-muted text-xs">Код ищет только ваше действующее приглашение. Он не заменяет вход в аккаунт.</p>
@@ -258,9 +254,15 @@ export default function PairInvitePage() {
 
       {!entryAllowed && <section className="app-panel-soft p-4 text-sm"><p>Для связывания реального партнёра сначала выберите этот путь в личной настройке.</p><Link href="/entry" className="app-btn-primary mt-3 inline-flex px-4 py-2">Выбрать путь</Link></section>}
 
-      {entryAllowed && <form onSubmit={(event) => { event.preventDefault(); router.push(`/join#${new URLSearchParams({ partnerCode: partnerCode.trim().toUpperCase() })}`); }} className="app-panel app-panel-solid space-y-3 p-4">
+      {entryAllowed && <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Способ связывания аккаунтов">
+        <button type="button" aria-pressed={inviteMode === 'create'} className={inviteMode === 'create' ? 'app-btn-primary' : 'app-btn-secondary'} onClick={() => setInviteMode('create')}>{invite ? 'Моё приглашение' : 'Пригласить партнёра'}</button>
+        <button type="button" aria-pressed={inviteMode === 'enter'} className={inviteMode === 'enter' ? 'app-btn-primary' : 'app-btn-secondary'} onClick={() => setInviteMode('enter')}>У меня есть код партнёра</button>
+      </div>}
+
+      {entryAllowed && inviteMode === 'enter' && <form onSubmit={(event) => { event.preventDefault(); if (/^VM-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/.test(partnerCode.trim().toUpperCase())) router.push(`/join#${new URLSearchParams({ partnerCode: partnerCode.trim().toUpperCase() })}`); }} className="app-panel app-panel-solid space-y-3 p-4">
         <label className="block text-sm font-medium" htmlFor="partner-code">Партнёр уже создал приглашение? Введите его код</label>
         <input id="partner-code" value={partnerCode} onChange={(event) => setPartnerCode(event.target.value)} placeholder="VM-XXXXXXXX-XXXXXXXX-XXXXXXXX" maxLength={29} autoComplete="off" className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-sm" />
+        <p id="partner-code-hint" className="app-muted text-sm">Введите полный код вида VM-XXXXXXXX-XXXXXXXX-XXXXXXXX. Затем вы увидите имя и сможете сверить человека до подтверждения.</p>
         <button type="submit" disabled={!/^VM-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/.test(partnerCode.trim().toUpperCase())} className="app-btn-secondary px-4 py-2 text-sm disabled:opacity-50">Проверить приглашение</button>
       </form>}
 
@@ -282,7 +284,7 @@ export default function PairInvitePage() {
         </>
       )}
 
-      {!invite && loaded && !error && entryAllowed && (
+      {!invite && loaded && !error && entryAllowed && inviteMode === 'create' && (
         <section className="app-panel-soft app-reveal p-4 sm:p-5">
           <EmptyStateView
             title="Активного приглашения пока нет"
@@ -299,12 +301,12 @@ export default function PairInvitePage() {
         </section>
       )}
 
-      {invite && status && (
+      {invite && status && inviteMode === 'create' && (
         <section className="app-panel app-reveal p-4 text-slate-900 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="app-muted text-xs">Статус</p>
-              <p className="mt-1 text-lg font-semibold">{STATUS_LABELS[status]}</p>
+              <p className="mt-1 text-lg font-semibold" role="status">{status === 'ACTIVE' && invite.awaitingOwnerConfirmation ? 'Партнёр подтвердил. Теперь ваша очередь' : STATUS_LABELS[status]}</p>
             </div>
             <button
               type="button"
@@ -315,6 +317,12 @@ export default function PairInvitePage() {
               Обновить
             </button>
           </div>
+
+          {(status === 'ACTIVE' || status === 'ACCEPTED') && <ol className="mt-4 grid gap-2 text-sm sm:grid-cols-3" aria-label="Этапы создания пары">
+            <li className="app-panel-soft p-3">✓ Приглашение создано</li>
+            <li className="app-panel-soft p-3">{invite.awaitingOwnerConfirmation || status === 'ACCEPTED' ? '✓ Партнёр подтвердил вас' : '2. Партнёр проверяет и подтверждает вас'}</li>
+            <li className="app-panel-soft p-3">{status === 'ACCEPTED' ? '✓ Оба подтвердили. Пара создана' : '3. Вы проверяете и подтверждаете партнёра'}</li>
+          </ol>}
 
           <div className="app-panel-soft mt-4 p-3 text-sm">
             <span className="app-muted">Действует до: </span>
@@ -381,7 +389,7 @@ export default function PairInvitePage() {
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
-                onClick={() => void reissueInvite()}
+                onClick={() => status === 'ACTIVE' ? setConfirmAction('reissue') : void reissueInvite()}
                 disabled={loading}
                 className="app-btn-secondary flex-1 px-4 py-2 disabled:opacity-60"
               >
@@ -390,7 +398,7 @@ export default function PairInvitePage() {
               {status === 'ACTIVE' && (
                 <button
                   type="button"
-                  onClick={() => void cancelInvite()}
+                  onClick={() => setConfirmAction('cancel')}
                   disabled={loading}
                   className="rounded-xl border border-rose-200 bg-white px-4 py-2 font-medium text-rose-700 disabled:opacity-60"
                 >
@@ -401,6 +409,15 @@ export default function PairInvitePage() {
           )}
         </section>
       )}
+
+      {inviteMode === 'create' && status === 'ACTIVE' && !invite?.awaitingOwnerConfirmation && <section className="app-panel-soft p-4">
+        <h2 className="font-semibold">Пока вы ждёте</h2><p className="app-muted mt-2 text-sm">Приглашение сохранено. Можно заняться личной практикой и вернуться сюда, когда партнёр откликнется.</p><Link className="app-btn-secondary mt-3" href="/development">Выбрать личное занятие</Link>
+      </section>}
+
+      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)} busy={loading} title={confirmAction === 'cancel' ? 'Отменить приглашение?' : 'Создать новую ссылку?'} description="Текущая ссылка сразу перестанет работать. Подтверждение откликнувшегося партнёра также нужно будет получить заново.">
+        <div className="flex flex-wrap gap-2"><button type="button" className="app-btn-secondary" disabled={loading} onClick={() => setConfirmAction(null)}>Оставить как есть</button><button type="button" className="app-btn-danger" disabled={loading} onClick={() => void (confirmAction === 'cancel' ? cancelInvite() : reissueInvite())}>{loading ? 'Сохраняем…' : confirmAction === 'cancel' ? 'Отменить приглашение' : 'Перевыпустить ссылку'}</button></div>
+        {error && <ErrorView error={error} />}
+      </Dialog>
 
       {notice && (
         <div className="app-alert app-alert-auth app-reveal" aria-live="polite">

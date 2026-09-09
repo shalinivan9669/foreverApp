@@ -138,8 +138,11 @@ Recommendation/activity participant DTOs omit SafetyGate state, template/interna
 
 ## History and notifications
 
+- Owner-approved addition, 2026-09-09: `GET /api/pairs/[id]/activities?activityId=<24-hex-id>` selects one exact activity before the existing bounded list scan. The response remains a DTO array with zero or one item; the optional `s` filter, when supplied, still intersects the selection. Session authentication, Pair membership, role/visibility/assignment and existing offered-activity disclosure checks all apply. Invalid selectors return `400`, unauthenticated requests `401`, inaccessible Pair contexts `404`; a missing, differently scoped or role-inaccessible activity yields an empty array. Responses remain `private, no-store`.
+- Guarded activity reads include `feedbackSubmitted: boolean` for the current session actor only, derived from that actor's role-presence in stored feedback or completion. It is available before a result summary exists. Other activity DTO producers may omit the field when they have no viewer role; clients must not treat absence as confirmed lack of feedback. No feedback values, raw answers, peer roles, source counts or notes are added. The existing history-item `feedbackSubmitted` remains an aggregate presence flag and must not be interpreted as the viewer's completion.
+
 - `GET /api/pairs/[id]/history?cursor=&limit=` is member-only, `no-store`, cursor-paginated and bounded. It reads published immutable derived artifacts; raw check-ins/notes and current-code recomputation of old history are forbidden.
-- `GET /api/notifications?cursor=&limit=` is owner-only with maximum 50. `POST /api/notifications/[id]/read` is owner-scoped and idempotent. DTO copy is neutral and omits pair/dedupe ids, Factor topics, answers, conclusions and safety state.
+- `GET /api/notifications?cursor=&limit=` is owner-only with maximum 50. `POST /api/notifications/[id]/read` is owner-scoped and idempotent. DTO shape is unchanged; `action.href` now addresses an owned Pair cycle, activity or recommendation. Pair/resource IDs may occur in these navigation URLs; dedupe IDs, Factor topics, answers and safety state remain omitted. Current Pair lifecycle and task completion determine the neutral message/action. Reading does not complete a task. New pair notices populate the existing optional `resourceId`; older notices without an address explicitly direct the user to check the current Pair step without guessing a historical record. URLs confer no access.
 
 ## Safety, export and deletion
 

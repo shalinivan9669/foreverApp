@@ -1,0 +1,92 @@
+[
+  {
+    "animations": [
+      "app-fade-in",
+      "none",
+      "none",
+      "none",
+      "none"
+    ],
+    "client": 305,
+    "height": 760,
+    "overflow": [],
+    "primary": 1,
+    "scroll": 305,
+    "width": 320
+  },
+  {
+    "animations": [
+      "app-fade-in",
+      "none",
+      "none",
+      "none",
+      "none"
+    ],
+    "client": 345,
+    "height": 800,
+    "overflow": [],
+    "primary": 1,
+    "scroll": 345,
+    "width": 360
+  },
+  {
+    "animations": [
+      "app-fade-in",
+      "none",
+      "none",
+      "none",
+      "none"
+    ],
+    "client": 375,
+    "height": 844,
+    "overflow": [],
+    "primary": 1,
+    "scroll": 375,
+    "width": 390
+  },
+  {
+    "animations": [
+      "app-fade-in",
+      "none",
+      "none",
+      "none",
+      "none"
+    ],
+    "client": 415,
+    "height": 900,
+    "overflow": [],
+    "primary": 1,
+    "scroll": 415,
+    "width": 430
+  },
+  {
+    "animations": [
+      "app-fade-in",
+      "none",
+      "none",
+      "none",
+      "none"
+    ],
+    "client": 1425,
+    "height": 1000,
+    "overflow": [],
+    "primary": 1,
+    "scroll": 1425,
+    "width": 1440
+  },
+  {
+    "animations": [
+      "app-fade-in",
+      "none",
+      "none",
+      "none",
+      "none"
+    ],
+    "client": 829,
+    "height": 390,
+    "overflow": [],
+    "primary": 1,
+    "scroll": 829,
+    "width": 844
+  }
+]

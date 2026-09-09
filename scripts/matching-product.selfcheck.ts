@@ -4,7 +4,7 @@ import { assertMatchingConnectionCapacity, matchingRequestExpired, MATCHING_REQU
 import { conversationRoundDTO, MATCHING_CONVERSATION_TOPICS, type ConversationRoundRecord } from "@/domain/model/matching/conversation";
 import { matchingConnectionTransition, socialLikeTransition, type MatchingConnectionSnapshot } from "@/domain/state/matching";
 import { matchingCardBodySchema } from "@/app/api/match/schemas";
-import { mutualMatchingGenderEligible } from "@/domain/services/matching/matchingEligibility.service";
+import { isMatchingPersonEligible, mutualMatchingGenderEligible } from "@/domain/services/matching/matchingEligibility.service";
 
 const now = new Date("2026-09-05T12:00:00Z");
 const card: MatchingSocialCard = { cardVersion: 2, requirements: ["r1", "r2", "r3"], give: ["g1", "g2", "g3"], boundaries: ["b1", "b2", "b3"], boundaryDealbreakers: [true, false, false], questions: ["q1", "q2", "q3"] };
@@ -47,8 +47,13 @@ assert.equal(conversationRoundDTO(topic, both, "a").partnerAnswer, "private-b");
 assert.equal(conversationRoundDTO(topic, both, "b").partnerAnswer, "private-a");
 assert.equal(conversationRoundDTO(topic, { ...both, revealedAt: undefined }, "a").partnerAnswer, undefined, "Two rows alone do not bypass the explicit reveal transition");
 
-const personA = { id: "a", personal: { age: 25, gender: "female" as const } };
-const personB = { id: "b", personal: { age: 26, gender: "male" as const } };
+const personA = { id: "a", entryCohort: "SOLO" as const, personal: { age: 25, gender: "female" as const, relationshipStatus: "seeking" as const } };
+const personB = { id: "b", entryCohort: "SOLO" as const, personal: { age: 26, gender: "male" as const, relationshipStatus: "seeking" as const } };
+assert.equal(isMatchingPersonEligible({ ...personA, entryCohort: undefined }), false, "An adult without an explicitly selected entry route cannot enter matching");
+assert.equal(isMatchingPersonEligible({ ...personA, personal: { ...personA.personal, relationshipStatus: "in_relationship" } }), false, "Declared relationship status excludes matching even before accounts are linked");
+assert.equal(isMatchingPersonEligible({ ...personA, hasPair: true }), false, "A current Pair excludes matching despite stale SOLO demographics");
+assert.equal(isMatchingPersonEligible({ id: "fresh" }), false, "A minimal OAuth identity has no matching eligibility");
+assert.equal(isMatchingPersonEligible({ ...personA, personal: undefined }), false);
 assert.equal(mutualMatchingGenderEligible(personA, personB, { soughtGender: "male" }, { soughtGender: "female" }), true);
 assert.equal(mutualMatchingGenderEligible(personA, personB, { soughtGender: "female" }), false);
 assert.equal(mutualMatchingGenderEligible(personA, { ...personB, entryCohort: "EXISTING_PARTNER" }), false);

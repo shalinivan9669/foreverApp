@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import MatchingAccessGate from "@/components/matching/MatchingAccessGate";
 import { useState } from "react";
 import type { MatchLikeSummaryDTO } from "@/client/api/match.api";
 import { useInbox } from "@/client/hooks/useInbox";
@@ -14,6 +15,10 @@ import LoadingView from "@/components/ui/LoadingView";
 type InboxTab = "incoming" | "outgoing" | "connections";
 
 export default function MatchingInboxPage() {
+  return <MatchingAccessGate><MatchingInboxPageContent /></MatchingAccessGate>;
+}
+
+function MatchingInboxPageContent() {
   const inbox = useInbox();
   const [tab, setTab] = useState<InboxTab>("incoming");
   const items = tab === "incoming" ? inbox.incoming : inbox.outgoing;

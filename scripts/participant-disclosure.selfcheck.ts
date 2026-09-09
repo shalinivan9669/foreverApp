@@ -1003,8 +1003,8 @@ assert.deepEqual(historyLeft, historyRight);
 assertSerializedOmits("history item", historyLeft, RAW_PARTICIPANT_FIELDS);
 assertNoSecrets("history item", historyLeft, ["PRIVATE_HISTORY_"]);
 
-// Notification payload is fixed by semantic type; storage identity and dedupe data
-// cannot become a factor-topic side channel.
+// Addressable actions may identify the recipient's Pair, but private owner and
+// dedupe data cannot change the copy or become a factor-topic side channel.
 const notification = (
   variant: "left" | "right",
 ): NotificationDocumentType & { _id: string } => ({
@@ -1029,7 +1029,9 @@ const notification = (
 });
 const notificationLeft = toNotificationDTO(notification("left"));
 const notificationRight = toNotificationDTO(notification("right"));
-assert.deepEqual(notificationLeft, notificationRight);
+assert.deepEqual({ ...notificationLeft, action: { ...notificationLeft.action, href: '' } }, { ...notificationRight, action: { ...notificationRight.action, href: '' } });
+assert.ok(notificationLeft.action.href.includes('507f1f77bcf86cd799439042'));
+assert.ok(notificationRight.action.href.includes('507f1f77bcf86cd799439043'));
 assertSerializedOmits("notification DTO", notificationLeft, [
   "payload",
   "factorKey",

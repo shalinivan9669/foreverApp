@@ -2,425 +2,64 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePair } from '@/client/hooks/usePair';
-import { useCurrentUser } from '@/client/hooks/useCurrentUser';
-import { pairsApi, type PairSummaryDTO } from '@/client/api/pairs.api';
-import {
-  weeklyCyclesApi,
-  type CurrentWeeklyCycleDTO,
-} from '@/client/api/weeklyCycles.api';
-import {
-  recommendationsApi,
-  type RecommendationDecisionDTO,
-} from '@/client/api/recommendations.api';
+import { useTodayDashboard } from '@/client/hooks/useTodayDashboard';
+import { WEEKLY_COMPLETION_LABELS, WEEKLY_DATA_LABELS, WEEKLY_SIGNAL_LABELS, WEEKLY_SIGNAL_STATUS } from '@/client/viewmodels/today.viewmodels';
 import NotificationPanel from '@/components/notifications/NotificationPanel';
-import { toUiErrorState, type UiErrorState } from '@/client/api/errors';
-import ErrorView from '@/components/ui/ErrorView';
 import ContinuationPanel from '@/components/profile/today/ContinuationPanel';
-import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
-
-const SIGNAL_LABELS: Record<
-  CurrentWeeklyCycleDTO['pair']['signals'][number]['key'],
-  string
-> = {
-  connection: 'Тепло и контакт',
-  tension: 'Напряжение',
-  recovery: 'Восстановление',
-  resource: 'Ритм и ресурс',
-};
-
-const SIGNAL_STATUS: Record<
-  CurrentWeeklyCycleDTO['pair']['signals'][number]['status'],
-  string
-> = {
-  LOW: 'сейчас ниже обычного',
-  STEADY: 'устойчиво',
-  HIGH: 'выражено',
-  MIXED: 'ощущается по-разному',
-};
-
-const PAIR_DATA_STATUS_LABELS: Record<
-  CurrentWeeklyCycleDTO['pair']['dataStatus'],
-  string
-> = {
-  NOT_READY: 'ждём ответы',
-  PARTIAL: 'частичная сводка',
-  ENOUGH: 'сводка готова',
-  INSUFFICIENT: 'недостаточно данных',
-  EXPIRED: 'цикл завершён',
-};
+import ErrorView from '@/components/ui/ErrorView';
 
 export default function MainMenuPage() {
   const router = useRouter();
-  const { data: currentUser } = useCurrentUser();
-  const existingPartnerIntent = currentUser?.entryCohort === 'EXISTING_PARTNER';
-  const {
-    pairId,
-    pairMe,
-    loading: pairLoading,
-    error: pairError,
-    refetchPair,
-    refetchStatus,
-  } = usePair();
-  const [summary, setSummary] = useState<PairSummaryDTO | null>(null);
-  const [cycle, setCycle] = useState<CurrentWeeklyCycleDTO | null>(null);
-  const [recommendation, setRecommendation] =
-    useState<RecommendationDecisionDTO | null>(null);
-  const [loadedPairId, setLoadedPairId] = useState<string | null>(null);
-  const [cycleLoading, setCycleLoading] = useState(false);
-  const [error, setError] = useState<UiErrorState | null>(null);
-  const cycleRequest = useRef(0);
+  const today = useTodayDashboard();
+  const { pairId, pairStatus, cycle, action } = today;
+  const hasCurrentPair = Boolean(pairId && pairStatus !== 'ended');
 
-  const loadCycle = useCallback(async (activePairId: string, signal?: AbortSignal) => {
-    const request = ++cycleRequest.current;
-    setCycleLoading(true);
-    setError(null);
-    try {
-      const [pairSummary, currentCycle, recommendationOverview] =
-        await Promise.all([
-        pairsApi.getSummary(activePairId, signal),
-        weeklyCyclesApi.getCurrent(activePairId, signal),
-        recommendationsApi.getOverview(activePairId, signal),
-      ]);
-      if (!signal?.aborted && request === cycleRequest.current) {
-        setSummary(pairSummary);
-        setCycle(currentCycle);
-        setRecommendation(recommendationOverview.current);
-        setLoadedPairId(activePairId);
-        setError(null);
-      }
-    } catch (caughtError) {
-      if (!signal?.aborted && request === cycleRequest.current) {
-        setSummary(null);
-        setCycle(null);
-        setRecommendation(null);
-        const normalized =
-          caughtError instanceof Error
-            ? caughtError
-            : new Error('Не удалось загрузить текущий цикл.');
-        setError(toUiErrorState(normalized));
-        setLoadedPairId(activePairId);
-      }
-    } finally {
-      if (!signal?.aborted && request === cycleRequest.current) setCycleLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!pairId) return;
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      void loadCycle(pairId, controller.signal);
-    }, 0);
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-      cycleRequest.current += 1;
-    };
-  }, [loadCycle, pairId]);
-
-  const refreshCurrent = useCallback(async () => {
-    cycleRequest.current += 1;
-    setSummary(null);
-    setCycle(null);
-    setRecommendation(null);
-    setCycleLoading(false);
-    setError(null);
-    const [freshPair] = await Promise.all([refetchPair(), refetchStatus()]);
-    if (freshPair?.pair) await loadCycle(freshPair.pair.id);
-  }, [loadCycle, refetchPair, refetchStatus]);
-  useRefreshOnReturn(refreshCurrent, !pairLoading && !cycleLoading);
-
-  const currentDataAvailable = loadedPairId === pairId && !error && !pairError;
-  const activeSummary = currentDataAvailable ? summary : null;
-  const activeCycle = currentDataAvailable ? cycle : null;
-  const activeRecommendation = currentDataAvailable ? recommendation : null;
-
-  const primaryHref = (() => {
-    if (pairMe?.pair?.status === 'paused') return `/pair/${pairId}`;
-    if (activeCycle?.currentUser.completionStatus === 'SKIPPED') return '/couple-activity';
-    if (activeCycle?.pair.dataStatus === 'ENOUGH' && activeRecommendation) {
-      return '/couple-activity';
-    }
-    const href = activeSummary?.nextStep.href;
-    if (!href) return pairId ? `/pair/${pairId}` : '/invite';
-    return href.startsWith('#') && pairId ? `/pair/${pairId}${href}` : href;
-  })();
-
-  const primaryCopy = (() => {
-    if (pairMe?.pair?.status === 'paused') {
-      return {
-        title: 'Пара на паузе',
-        description: 'Совместные действия приостановлены. Можно открыть состояние пары или продолжить личное развитие.',
-        label: 'Открыть состояние пары',
-      };
-    }
-    if (activeCycle?.currentUser.completionStatus === 'SKIPPED') {
-      return {
-        title: 'Эта еженедельная отметка пропущена без штрафа',
-        description:
-          'Причина остаётся личной. Можно выбрать только лёгкий следующий шаг или дождаться нового цикла.',
-        label: 'Посмотреть лёгкие активности',
-      };
-    }
-    if (activeCycle?.pair.dataStatus === 'ENOUGH' && activeRecommendation) {
-      return {
-        title: activeRecommendation.activity.title.ru,
-        description: activeRecommendation.explanation.ru,
-        label: 'Открыть рекомендацию',
-      };
-    }
-    return {
-      title: activeSummary?.nextStep.title ?? 'Продолжить цикл',
-      description: activeSummary?.nextStep.description ?? 'Откройте текущий шаг.',
-      label: activeSummary?.nextStep.ctaLabel ?? 'Продолжить',
-    };
-  })();
-
-  const pageLoading =
-    pairLoading ||
-    cycleLoading ||
-    Boolean(pairId && loadedPairId !== pairId && error === null);
-  const currentPairStatus = activeSummary?.pair.status ?? pairMe?.pair?.status;
-
-  return (
-    <main className="app-shell-menu py-3 sm:py-5 lg:py-7">
-      <NotificationPanel enabled={!pairLoading && !pairError} />
-      <div className="mt-4 flex justify-end">
-        <button type="button" onClick={() => void refreshCurrent()} disabled={pairLoading || cycleLoading} className="app-btn-secondary px-3 py-2 text-sm disabled:opacity-60">
-          {pairLoading || cycleLoading ? 'Обновляем…' : 'Обновить состояние'}
-        </button>
-      </div>
-
-      {!pairLoading && !pairError && <div className="mt-4">
-        <ContinuationPanel pairId={pairId} pairStatus={currentPairStatus} existingPartnerIntent={existingPartnerIntent} />
-      </div>}
-
-      <div className="app-menu-grid mt-4">
-        {pageLoading ? (
-          <section
-            className="app-tile app-tile-rose app-reveal app-menu-hero min-h-[13rem]"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="app-tile-content">
-              <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
-                Текущий цикл
-              </span>
-              <h1 className="app-tile-title mt-6">Загружаем состояние…</h1>
-              <p className="app-tile-description">
-                Остальные разделы уже доступны.
-              </p>
-            </div>
-          </section>
-        ) : error || pairError ? (
-          <section className="app-tile app-tile-rose app-reveal app-menu-hero min-h-[13rem]">
-            <div className="app-tile-content">
-              <div className="w-full">
-                <ErrorView
-                  error={error ?? pairError}
-                  onRetry={() => void refreshCurrent()}
-                  onAuthRequired={() => router.push('/')}
-                />
-              </div>
-            </div>
-          </section>
-        ) : !pairId ? (
-          <Link
-            href={existingPartnerIntent ? '/invite' : '/development'}
-            aria-label={existingPartnerIntent ? 'Связать партнёра' : 'Личное развитие'}
-            className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
-          >
-            <div className="app-tile-content">
-              <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
-                {existingPartnerIntent ? 'Начать вместе' : 'Мой следующий шаг'}
-              </span>
-              <div className="mt-6">
-                <h1 className="app-tile-title">{existingPartnerIntent ? 'Свяжите вашу пару' : 'Начните с себя'}</h1>
-                <p className="app-tile-description">
-                  {existingPartnerIntent ? 'Передайте партнёру свой код или приглашение. Сверьте друг друга и подтвердите пару с обеих сторон.' : 'Исследуйте свои ожидания, выберите посильную практику и подготовьтесь к знакомству.'}
-                </p>
-                <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
-                  {existingPartnerIntent ? 'Связать партнёра' : 'Выбрать личный шаг'}
-                </span>
-              </div>
-            </div>
-          </Link>
-        ) : activeSummary && activeCycle ? (
-            <Link
-              href={primaryHref}
-              aria-label={primaryCopy.label}
-              className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
-            >
-              <div className="app-tile-content">
-                <div className="mb-auto flex flex-wrap items-center justify-between gap-2">
-                  <span className="rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
-                    Текущий цикл
-                  </span>
-                  {currentPairStatus && (
-                    <span className="rounded-full bg-white/65 px-3 py-1 text-xs">
-                      {currentPairStatus === 'active'
-                        ? 'Пара активна'
-                        : currentPairStatus === 'paused'
-                          ? 'Пара на паузе'
-                          : 'Пара завершена'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-6">
-                  <h1 className="app-tile-title">{primaryCopy.title}</h1>
-                  <p className="app-tile-description">{primaryCopy.description}</p>
-
-                  <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
-                    <div className="rounded-xl bg-white/50 px-3 py-2">
-                      <div className="font-medium">Вы</div>
-                      <div className="mt-0.5 opacity-75">
-                        {activeCycle.currentUser.completionStatus === 'SKIPPED'
-                          ? 'Отметка пропущена'
-                          : activeCycle.currentUser.completionStatus === 'SUBMITTED'
-                            ? 'Отметка заполнена'
-                            : 'Ожидает заполнения'}
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-white/50 px-3 py-2">
-                      <div className="font-medium">Партнёр</div>
-                      <div className="mt-0.5 opacity-75">
-                        {activeCycle.peer.completionStatus === 'SKIPPED'
-                          ? 'Отметка пропущена'
-                          : activeCycle.peer.completionStatus === 'SUBMITTED'
-                            ? 'Отметка заполнена'
-                            : 'Ответ ещё не готов'}
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-white/50 px-3 py-2">
-                      <div className="font-medium">Сводка</div>
-                      <div className="mt-0.5 opacity-75">
-                        {PAIR_DATA_STATUS_LABELS[activeCycle.pair.dataStatus]}
-                      </div>
-                    </div>
-                  </div>
-
-                  {activeCycle?.pair.signals.length ? (
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      {activeCycle.pair.signals.map((signal) => (
-                        <span key={signal.key} className="rounded-full bg-white/45 px-2.5 py-1">
-                          {SIGNAL_LABELS[signal.key]}: {SIGNAL_STATUS[signal.status]}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
-                    {primaryCopy.label}
-                  </span>
-                </div>
-              </div>
-            </Link>
-        ) : (
-          <Link
-            href={`/pair/${pairId}`}
-            className="app-tile app-tile-rose app-reveal app-menu-hero group relative min-h-[13rem]"
-          >
-            <div className="app-tile-content">
-              <span className="mb-auto w-fit rounded-full bg-white/65 px-3 py-1 text-xs font-medium">
-                Пара
-              </span>
-              <h1 className="app-tile-title mt-6">Текущий цикл пока недоступен</h1>
-              <p className="app-tile-description">
-                Откройте профиль пары или воспользуйтесь другими разделами.
-              </p>
-              <span className="mt-4 inline-flex w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-semibold shadow-sm">
-                Открыть пару
-              </span>
-            </div>
-          </Link>
-        )}
-
-        <Link
-          href="/profile"
-          className="app-tile app-tile-plum app-reveal app-menu-tile min-h-[11rem]"
-        >
-          <div className="app-tile-content">
-            <span className="app-tile-title">Мой профиль</span>
-            <span className="app-tile-description">
-              Личные ориентиры, состояние и настройки аккаунта.
-            </span>
-          </div>
-        </Link>
-
-        <Link
-          href="/questionnaires"
-          className="app-tile app-tile-mint app-reveal app-menu-tile min-h-[11rem]"
-        >
-          <div className="app-tile-content">
-            <span className="app-tile-title">Анкеты</span>
-            <span className="app-tile-description">
-              Короткие вопросы и ваш выбор приватности для каждого ответа.
-            </span>
-          </div>
-        </Link>
-
-        <Link
-          href="/search"
-          className="app-tile app-tile-spark app-reveal app-menu-tile min-h-[11rem]"
-        >
-          <div className="app-tile-content">
-            <span className="mb-auto w-fit rounded-full bg-white/20 px-3 py-1 text-sm text-white/95">
-              Подбор партнёра
-            </span>
-            <span className="app-tile-title mt-5">Знакомства</span>
-            <span className="app-tile-description text-white/90">
-              Лента, входящие и качественные подсказки без процентов.
-            </span>
-          </div>
-        </Link>
-
-        <Link
-          href="/couple-activity"
-          className="app-tile app-tile-aura app-reveal app-menu-tile min-h-[11rem]"
-        >
-          <div className="app-tile-content">
-            <span className="app-tile-title">Активности пары</span>
-            <span className="app-tile-description">
-              {activeSummary?.currentActivity
-                ? `Продолжить: ${activeSummary.currentActivity.title.ru}`
-                : activeRecommendation
-                  ? `Рекомендация: ${activeRecommendation.activity.title.ru}`
-                  : 'Текущая активность, рекомендации и история ваших шагов.'}
-            </span>
-          </div>
-        </Link>
-      </div>
-
-      <nav className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Дополнительные разделы">
-        <Link href="/development" className="app-btn-secondary px-3 py-2">Развитие и отдых</Link>
-        <Link href="/store" className="app-btn-secondary px-3 py-2">Монеты и магазин</Link>
-        {pairId && <Link href="/shared-life" className="app-btn-secondary px-3 py-2">Наша общая жизнь</Link>}
-        {!pairId && <Link href="/invite" className="app-btn-secondary px-3 py-2">Уже есть партнёр</Link>}
-        {pairId && (
-          <Link href={`/pair/${pairId}`} className="app-btn-secondary px-3 py-2">
-            О паре
-          </Link>
-        )}
-        {pairId && (
-          <Link href="/profile/history" className="app-btn-secondary px-3 py-2">
-            История
-          </Link>
-        )}
-        {pairId && (
-          <Link href="/profile/safety" className="app-btn-secondary px-3 py-2">
-            Приватная безопасность
-          </Link>
-        )}
-        <Link href="/match/inbox" className="app-btn-secondary px-3 py-2">
-          Входящие знакомств
-        </Link>
-        <Link href="/match-card/create" className="app-btn-secondary px-3 py-2">
-          Настройки знакомств
-        </Link>
+  return <main className="app-shell-menu py-4 sm:py-6">
+    <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div><p className="app-muted text-sm">Вместе · ваше пространство</p><h1 className="text-3xl font-semibold">Сегодня</h1></div>
+      <button type="button" onClick={() => void today.refresh()} disabled={today.loading} className="app-btn-secondary px-3 py-2 text-sm">{today.loading ? 'Обновляем…' : 'Обновить состояние'}</button>
+    </header>
+    <section className="app-tile app-tile-rose app-reveal p-5 sm:p-7" aria-label="Ваш следующий шаг" aria-busy={today.loading}>
+      <p className="relative z-10 mb-3 text-sm font-semibold">Ваш следующий шаг</p>
+      {today.loading ? <div role="status" className="py-5"><h2 className="app-heading text-xl font-semibold">Готовим ваш следующий шаг…</h2><p className="app-muted mt-2">Проверяем профиль и текущее состояние.</p></div>
+        : today.error ? <ErrorView error={today.error} onRetry={() => void today.refresh()} onAuthRequired={() => router.push('/')} />
+          : action && <div className="relative z-10 flex flex-col">
+            <span className="w-fit rounded-full bg-white/70 px-3 py-1 text-sm">{pairStatus === 'active' ? 'Ваша пара · вместе' : pairStatus === 'paused' ? 'Ваша пара · на паузе' : pairStatus === 'ended' ? 'Сохранённое' : 'В вашем темпе'}</span>
+            <h2 className="app-heading mt-4 max-w-3xl text-2xl font-semibold sm:text-3xl">{action.title}</h2>
+            <p className="mt-2 max-w-2xl text-base leading-relaxed">{action.description}</p>
+            {cycle && <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2" aria-label="Готовность еженедельной отметки">
+              <p className="font-semibold sm:col-span-2">Еженедельная отметка</p>
+              <p className="rounded-xl bg-white/65 p-3"><strong>Вы:</strong> {WEEKLY_COMPLETION_LABELS[cycle.currentUser.completionStatus]}</p>
+              <p className="rounded-xl bg-white/65 p-3"><strong>Партнёр:</strong> {WEEKLY_COMPLETION_LABELS[cycle.peer.completionStatus]}</p>
+            </div>}
+            {cycle && <details className="mt-3 text-sm">
+              <summary className="cursor-pointer py-2">{WEEKLY_DATA_LABELS[cycle.pair.dataStatus]} · подробнее</summary>
+              {cycle.pair.signals.length ? <ul className="mt-2 space-y-1">{cycle.pair.signals.map(signal => <li key={signal.key}>{WEEKLY_SIGNAL_LABELS[signal.key]}: {WEEKLY_SIGNAL_STATUS[signal.status]}</li>)}</ul> : <p className="mt-2">Здесь появится доступная вам общая сводка. Личные ответы остаются приватными.</p>}
+            </details>}
+            <Link href={action.href} className="app-btn-primary mt-5 w-fit px-5 py-3" data-today-primary>{action.label}</Link>
+          </div>}
+    </section>
+    <section className="mt-6" aria-labelledby="menu-sections">
+      <h2 id="menu-sections" className="app-heading mb-3 text-xl font-semibold">Ваше меню</h2>
+      <nav className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-3" aria-label="Основные разделы">
+        <Link href="/development" className="app-tile app-tile-mint p-4 sm:p-5"><span className="text-xl font-semibold">Библиотека</span><p className="mt-2 text-sm leading-relaxed">Личные занятия, совместные практики, программы и отдых.</p></Link>
+        {hasCurrentPair && pairId && <Link href={`/pair/${encodeURIComponent(pairId)}`} className="app-tile app-tile-rose p-4 sm:p-5"><span className="text-xl font-semibold">Мы</span><p className="mt-2 text-sm leading-relaxed">Ваше совместное пространство: состояние пары, события и сохранённые результаты.</p></Link>}
+        {hasCurrentPair && <Link href="/shared-life" className="app-tile app-tile-aura p-4 sm:p-5"><span className="text-xl font-semibold">Наша общая жизнь</span><p className="mt-2 text-sm leading-relaxed">Дела, покупки, планы, бюджет и общие цели.</p></Link>}
+        <Link href="/questionnaires" className="app-tile app-tile-mint p-4 sm:p-5"><span className="text-xl font-semibold">Анкеты</span><p className="mt-2 text-sm leading-relaxed">Узнать себя через вопросы и выбрать приватность каждого ответа.</p></Link>
+        <Link href="/profile" className="app-tile app-tile-plum p-4 sm:p-5"><span className="text-xl font-semibold">Мой профиль</span><p className="mt-2 text-sm leading-relaxed">Личные ориентиры, состояние и настройки.</p></Link>
+        {today.matchingAllowed && <Link href="/search" className="app-tile app-tile-spark p-4 sm:p-5"><span className="text-xl font-semibold">Знакомства</span><p className="mt-2 text-sm leading-relaxed">Посмотреть людей, проявить интерес и познакомиться через общие темы.</p></Link>}
+        {hasCurrentPair && <Link href="/couple-activity" className="app-tile app-tile-aura p-4 sm:p-5"><span className="text-xl font-semibold">Активности пары</span><p className="mt-2 text-sm leading-relaxed">Текущая активность, рекомендации и история совместных шагов.</p></Link>}
       </nav>
-    </main>
-  );
+    </section>
+    <nav className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Дополнительные разделы">
+      <Link href="/store" className="app-btn-secondary px-3 py-2">Монеты и магазин</Link>
+      {!hasCurrentPair && <Link href="/invite" className="app-btn-secondary px-3 py-2">Уже есть партнёр</Link>}
+      {today.matchingAllowed && <Link href="/match/inbox" className="app-btn-secondary px-3 py-2">Входящие знакомств</Link>}
+      {today.matchingAllowed && <Link href="/match-card/create" className="app-btn-secondary px-3 py-2">Настройки знакомств</Link>}
+      <Link href="/profile/history" className="app-btn-secondary px-3 py-2">История</Link>
+      <Link href="/profile/safety" className="app-btn-secondary px-3 py-2">Приватная безопасность</Link>
+    </nav>
+    <NotificationPanel enabled={today.ready} />
+    {today.ready && <ContinuationPanel pairId={pairId} pairStatus={pairStatus} existingPartnerIntent={today.existingPartnerIntent} compact />}
+  </main>;
 }

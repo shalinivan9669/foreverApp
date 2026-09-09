@@ -1,0 +1,50 @@
+[
+  {
+    "height": 760,
+    "heroHeight": 293.1875,
+    "menuTop": 496.1875,
+    "overflow": [],
+    "primary": 1,
+    "width": 320
+  },
+  {
+    "height": 800,
+    "heroHeight": 267.1875,
+    "menuTop": 470.1875,
+    "overflow": [],
+    "primary": 1,
+    "width": 360
+  },
+  {
+    "height": 844,
+    "heroHeight": 267.1875,
+    "menuTop": 470.1875,
+    "overflow": [],
+    "primary": 1,
+    "width": 390
+  },
+  {
+    "height": 900,
+    "heroHeight": 267.1875,
+    "menuTop": 414.1875,
+    "overflow": [],
+    "primary": 1,
+    "width": 430
+  },
+  {
+    "height": 390,
+    "heroHeight": 265,
+    "menuTop": 420,
+    "overflow": [],
+    "primary": 1,
+    "width": 844
+  },
+  {
+    "height": 1000,
+    "heroHeight": 265,
+    "menuTop": 420,
+    "overflow": [],
+    "primary": 1,
+    "width": 1440
+  }
+]

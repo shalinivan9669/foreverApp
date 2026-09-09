@@ -36,6 +36,7 @@ export type ActivityCardVM = {
   status: PairActivityDTO['status'];
   checkIns: PairActivityDTO['checkIns'];
   resultSummary?: PairActivityDTO['resultSummary'];
+  feedbackSubmitted?: boolean;
   eventSourceBadge?: {
     label: string;
     reason?: string;
@@ -93,6 +94,7 @@ export const toActivityCardVM = (activity: PairActivityDTO): ActivityCardVM => (
   status: activity.status,
   checkIns: activity.checkIns,
   resultSummary: activity.resultSummary,
+  feedbackSubmitted: activity.feedbackSubmitted,
   eventSourceBadge: eventSourceBadge(activity),
   isAwaitingCheckin: isAwaitingCheckinStatus(activity.status),
   isHistory: isHistoryActivityStatus(activity.status),

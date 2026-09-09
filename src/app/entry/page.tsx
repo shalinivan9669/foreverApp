@@ -76,7 +76,7 @@ export default function EntryPage() {
       const returnToJoin = fragment.get('return') === 'join' && (token || partnerCode);
       const nextFragment = returnToJoin ? `#${fragment.toString()}` : '';
       router.replace(next.onboardingCompleted
-        ? returnToJoin ? `/join#${new URLSearchParams(token ? { token } : { partnerCode: partnerCode ?? '' })}` : next.hasPair ? '/main-menu' : cohort === 'EXISTING_PARTNER' ? '/invite' : '/profile'
+        ? returnToJoin ? `/join#${new URLSearchParams(token ? { token } : { partnerCode: partnerCode ?? '' })}` : next.hasPair ? '/main-menu' : cohort === 'EXISTING_PARTNER' ? '/invite' : '/match-card/create'
         : `/mvp-onboarding${nextFragment}`);
     } catch {
       setError('Не удалось сохранить. Проверьте возраст, город и выбранный путь. При активной паре путь поиска недоступен.');
@@ -94,7 +94,7 @@ export default function EntryPage() {
         <p className="app-muted mt-2 text-sm">Личное пространство останется вашим при любом выборе. Пара появится только после подтверждения обоих.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {([
-            ['SOLO', 'Сейчас я без пары', 'Разобраться в себе, подготовиться к отношениям и знакомиться, когда захочу.'],
+            ['SOLO', 'Хочу найти партнёра', 'Пройдём личную настройку, подготовим карточку и откроем поиск. Личное развитие тоже останется доступным.'],
             ['EXISTING_PARTNER', 'У меня уже есть партнёр', 'Сначала личная настройка, затем безопасно свяжем ваши аккаунты.'],
           ] as const).map(([value, title, description]) => (
             <button key={value} type="button" disabled={state?.hasPair && value === 'SOLO'} aria-pressed={cohort === value} onClick={() => setCohort(value)} className={`rounded-xl border p-4 text-left disabled:opacity-50 ${cohort === value ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-white'}`}>
@@ -111,8 +111,8 @@ export default function EntryPage() {
         </div>
         <label className="block text-sm">Город<input required maxLength={100} value={city} onChange={(event) => setCity(event.target.value)} autoComplete="address-level2" className={fieldClass} /></label>
         {cohort === 'SOLO' && <div className="app-panel-soft space-y-3 p-3">
-          <h3 className="font-medium">Где искать людей — по желанию</h3>
-          <p className="app-muted text-sm">Можно заняться собой и настроить поиск позже. Для расстояния используем приблизительное место, не домашний адрес.</p>
+          <h3 className="font-medium">Где искать партнёра</h3>
+          <p className="app-muted text-sm">Для поиска нужно выбрать город или приблизительное место. Можно пропустить этот шаг и вернуться к нему перед публикацией карточки.</p>
           <label className="block text-sm">Город поиска<select value={searchCityId} onChange={(event) => { setSearchCityId(event.target.value); setCoordinates(null); setLocationMode(event.target.value ? 'CITY_CATALOG' : 'NONE'); }} className={fieldClass}>
             <option value="">{locationMode === 'KEEP' ? 'Оставить сохранённое место' : locationMode === 'DEVICE' ? 'Использовать приблизительное местоположение' : 'Настрою позже / моего города нет'}</option>
             {state.searchCities.map((item) => <option key={item.id} value={item.id}>{item.name}, {item.country}</option>)}

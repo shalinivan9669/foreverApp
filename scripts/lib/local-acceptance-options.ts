@@ -1,12 +1,22 @@
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
+export type LocalAcceptanceScenario = 'existing-partner' | 'solo' | 'onboarding' | 'first-entry' | 'matching' | 'matching-connection' | 'notifications';
+export type LocalAcceptanceHostPrefix = 'vmeste' | 'vmeste-workspace' | 'vmeste-matching';
+export const parseLocalAcceptanceHostPrefix = (value: string): LocalAcceptanceHostPrefix => {
+  if (value !== 'vmeste' && value !== 'vmeste-workspace' && value !== 'vmeste-matching') throw new Error('LOCAL_ACCEPTANCE_INVALID_HOST_PREFIX');
+  return value;
+};
+export const localAcceptanceHostname = (actor: 'a' | 'b', prefix: LocalAcceptanceHostPrefix) => `${prefix}-${actor}.localhost`;
 export type LocalAcceptanceOptions = {
   mode: 'integration' | 'browser';
+  suite: 'product' | 'factors';
   mongod: string;
   mongoPort: number;
   appPort: number;
   partnerAppPort: number;
   loginPort: number;
+  scenario: LocalAcceptanceScenario;
+  hostPrefix: LocalAcceptanceHostPrefix;
 };
 
 export const parseLocalAcceptanceOptions = (
@@ -19,7 +29,7 @@ export const parseLocalAcceptanceOptions = (
     const separator = argument.indexOf('=');
     const name = separator < 0 ? argument : argument.slice(0, separator);
     const value = separator < 0 ? args[++index] : argument.slice(separator + 1);
-    if (!['--mode', '--mongod', '--mongo-port', '--app-port', '--partner-app-port', '--login-port'].includes(name)
+    if (!['--mode', '--suite', '--mongod', '--mongo-port', '--app-port', '--partner-app-port', '--login-port', '--scenario', '--host-prefix'].includes(name)
       || !value || value.startsWith('--') || values.has(name)) {
       throw new Error('LOCAL_ACCEPTANCE_INVALID_ARGUMENT');
     }
@@ -27,6 +37,14 @@ export const parseLocalAcceptanceOptions = (
   }
   const mode = values.get('--mode') ?? 'integration';
   if (mode !== 'integration' && mode !== 'browser') throw new Error('LOCAL_ACCEPTANCE_INVALID_MODE');
+  const suite = values.get('--suite') ?? 'product';
+  if (suite !== 'product' && suite !== 'factors') throw new Error('LOCAL_ACCEPTANCE_INVALID_SUITE');
+  if (values.has('--suite') && mode !== 'integration') throw new Error('LOCAL_ACCEPTANCE_SUITE_REQUIRES_INTEGRATION');
+  const scenario = values.get('--scenario') ?? 'existing-partner';
+  if (scenario !== 'existing-partner' && scenario !== 'solo' && scenario !== 'onboarding' && scenario !== 'first-entry' && scenario !== 'matching' && scenario !== 'matching-connection' && scenario !== 'notifications') throw new Error('LOCAL_ACCEPTANCE_INVALID_SCENARIO');
+  if (values.has('--scenario') && mode !== 'browser') throw new Error('LOCAL_ACCEPTANCE_SCENARIO_REQUIRES_BROWSER');
+  const hostPrefix = parseLocalAcceptanceHostPrefix(values.get('--host-prefix') ?? 'vmeste');
+  if (values.has('--host-prefix') && mode !== 'browser') throw new Error('LOCAL_ACCEPTANCE_HOST_PREFIX_REQUIRES_BROWSER');
   const mongod = values.get('--mongod') ?? environment.LOCAL_ACCEPTANCE_MONGOD;
   if (!mongod || !isAbsolute(mongod)) throw new Error('LOCAL_ACCEPTANCE_ABSOLUTE_MONGOD_PATH_REQUIRED');
   const port = (name: string, fallback: number): number => {
@@ -38,7 +56,7 @@ export const parseLocalAcceptanceOptions = (
     return value;
   };
   const options: LocalAcceptanceOptions = {
-    mode, mongod: resolve(mongod), mongoPort: port('--mongo-port', 27039),
+    mode, suite, scenario, hostPrefix, mongod: resolve(mongod), mongoPort: port('--mongo-port', 27039),
     appPort: port('--app-port', 3106), partnerAppPort: port('--partner-app-port', 3108), loginPort: port('--login-port', 3107),
   };
   if (new Set([options.mongoPort, options.appPort, options.partnerAppPort, options.loginPort]).size !== 4) {
@@ -66,8 +84,9 @@ export const localAcceptanceActor = (
   host: string | undefined,
   path: string | undefined,
   port: number,
+  prefix: LocalAcceptanceHostPrefix = 'vmeste',
 ): 'a' | 'b' | null => {
-  if (host === `vmeste-a.localhost:${port}` && path === '/a') return 'a';
-  if (host === `vmeste-b.localhost:${port}` && path === '/b') return 'b';
+  if (host === `${localAcceptanceHostname('a', prefix)}:${port}` && path === '/a') return 'a';
+  if (host === `${localAcceptanceHostname('b', prefix)}:${port}` && path === '/b') return 'b';
   return null;
 };

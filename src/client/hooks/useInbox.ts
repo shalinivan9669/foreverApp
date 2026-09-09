@@ -31,6 +31,7 @@ export function useInbox() {
   const [data, setData] = useState<MatchingInboxDTO | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestVersionRef = useRef(0);
+  const mutationPending = useRef(false);
   const {
     runSafe: runLoadSafe,
     loading: loadLoading,
@@ -44,6 +45,7 @@ export function useInbox() {
 
   const load = useCallback(
     async (cursor?: string): Promise<boolean> => {
+      if (mutationPending.current) return false;
       requestVersionRef.current += 1;
       const requestVersion = requestVersionRef.current;
       abortRef.current?.abort();
@@ -53,7 +55,7 @@ export function useInbox() {
         async () => {
           try { return await matchApi.getInbox(cursor, 20, controller.signal); }
           catch (error) {
-            if (requestVersion === requestVersionRef.current && error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || error.code === "MATCHING_BLOCKED")) setData(null);
+            if (requestVersion === requestVersionRef.current && error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || ["MATCHING_BLOCKED", "MATCHING_SOLO_REQUIRED"].includes(error.code))) setData(null);
             throw error;
           }
         },
@@ -71,17 +73,22 @@ export function useInbox() {
       connectionId: string,
       action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
     ): Promise<boolean> => {
+      if (mutationPending.current) return false;
+      mutationPending.current = true;
+      const version = ++requestVersionRef.current;
+      abortRef.current?.abort();
       const updated = await runActionSafe(
         async () => {
           try { return await matchApi.confirmConnection(connectionId, action); }
           catch (error) {
-            if (error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || error.code === "MATCHING_BLOCKED")) setData(null);
+            if (version === requestVersionRef.current && error instanceof ApiClientError && ([401, 403, 404].includes(error.status) || ["MATCHING_BLOCKED", "MATCHING_SOLO_REQUIRED"].includes(error.code))) setData(null);
             throw error;
           }
         },
         { suppressGlobalError: true },
       );
-      if (!updated) return false;
+      mutationPending.current = false;
+      if (!updated || version !== requestVersionRef.current) return false;
       setData((current) =>
         current
           ? {
@@ -118,6 +125,7 @@ export function useInbox() {
     return () => {
       cancelled = true;
       abortRef.current?.abort();
+      requestVersionRef.current += 1;
     };
   }, [load]);
 

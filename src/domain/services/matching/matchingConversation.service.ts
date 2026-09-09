@@ -8,6 +8,7 @@ import { MatchingConversationRound, type MatchingConversationRoundType } from "@
 import { MatchingBlock } from "@/models/MatchingBlock";
 import { mongoMatchingParticipantFencePort } from "./social/mongoParticipantFence.port";
 import { matchingParticipantIds } from "@/domain/state/matching";
+import { assertMatchingSolo, isMatchingPersonEligible, loadMatchingPeople } from "./matchingEligibility.service";
 
 const conversationTopics = [...MATCHING_CONVERSATION_TOPICS, ...DEVELOPMENT_CATALOG.filter((content) => content.kind === "TOPIC").map((content) => ({ key: content.key, title: content.title, prompt: content.title + ". " + content.steps.join(" ") }))];
 
@@ -26,6 +27,8 @@ export async function getMatchingConversation(input: { currentUserId: string; co
   await connectToDatabase();
   const connection = await ownedConnection(input.currentUserId, input.connectionId);
   // One bounded indexed lookup per catalog topic avoids truncating another topic's history.
+  const people = await loadMatchingPeople(connection.participantIds);
+  const matchingAvailable = connection.participantIds.every((id) => isMatchingPersonEligible(people.get(id)));
   const topics = await Promise.all(conversationTopics.map(async (topic) => {
     const row = await MatchingConversationRound.findOne({ connectionId: connection._id, topicKey: topic.key }).sort({ round: -1 }).select("+answers").lean<MatchingConversationRoundType | null>();
     return conversationRoundDTO(topic, row ?? undefined, input.currentUserId);
@@ -37,10 +40,10 @@ export async function getMatchingConversation(input: { currentUserId: string; co
     { key: "mutual-interest", label: "Поделились интересом к продолжению", complete: complete("mutual-interest") },
     { key: "after-conversation", label: "Обменялись впечатлениями после общения", complete: complete("after-conversation") },
   ];
-  const discordAvailable = connection.status === "ACTIVE" && complete("boundaries") && complete("mutual-interest");
+  const discordAvailable = matchingAvailable && connection.status === "ACTIVE" && complete("boundaries") && complete("mutual-interest");
   const discordConsent = connection.discordConsentBy?.includes(input.currentUserId) ?? false;
   const partnerId = connection.participantIds.find((id) => id !== input.currentUserId);
-  return { topics, checklist, canWrite: connection.status === "ACTIVE" && !connection.pairId, discordAvailable, discordConsent,
+  return { topics, checklist, canWrite: matchingAvailable && connection.status === "ACTIVE" && !connection.pairId, discordAvailable, discordConsent,
     ...(discordAvailable && discordConsent && partnerId && /^\d{5,30}$/.test(partnerId) ? { discordUrl: `https://discord.com/users/${partnerId}` } : {}),
   };
 }
@@ -56,10 +59,11 @@ export type MatchingConversationCommand = {
   discordConsent?: boolean;
 };
 
-export async function authorizeMatchingConversationMutation(input: { currentUserId: string; connectionId: string }): Promise<void> {
+export async function authorizeMatchingConversationMutation(input: { currentUserId: string; connectionId: string; requireMatching?: boolean }): Promise<void> {
   await connectToDatabase();
   const connection = await ownedConnection(input.currentUserId, input.connectionId);
   if (connection.status !== "ACTIVE" || connection.pairId) return fail("MATCHING_CONNECTION_STATE_CONFLICT", 409, "Connection is not active");
+  if (input.requireMatching) await assertMatchingSolo(connection.participantIds);
 }
 
 export async function updateMatchingConversation(input: MatchingConversationCommand): Promise<MatchingConversationDTO> {
@@ -70,6 +74,7 @@ export async function updateMatchingConversation(input: MatchingConversationComm
       const connection = await ownedConnection(input.currentUserId, input.connectionId, session);
       if (connection.status !== "ACTIVE" || connection.pairId) return fail("MATCHING_CONNECTION_STATE_CONFLICT", 409, "Connection is not active");
       await mongoMatchingParticipantFencePort.fence({ participantIds: matchingParticipantIds(...connection.participantIds), session });
+      if (input.action === "SUBMIT" || (input.action === "DISCORD_CONSENT" && input.discordConsent)) await assertMatchingSolo(connection.participantIds, session);
       // Serialize submissions, withdrawal, closure and Pair formation on the same connection revision.
       const fenced = await MatchingConnection.updateOne({ _id: connection._id, revision: connection.revision, status: "ACTIVE", pairId: { $exists: false } }, { $inc: { revision: 1 } }, { session });
       if (fenced.modifiedCount !== 1) return fail("MATCHING_CONNECTION_STATE_CONFLICT", 409, "Connection changed");

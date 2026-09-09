@@ -18,7 +18,7 @@ export type NotificationDTO = {
   message: string;
   action: {
     label: string;
-    href: '/main-menu' | '/couple-activity' | '/match/inbox';
+    href: string;
   };
   isRead: boolean;
   createdAt: string;

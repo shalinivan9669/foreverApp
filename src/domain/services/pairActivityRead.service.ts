@@ -54,12 +54,14 @@ export const pairActivityReadService = {
     currentUserId: string;
     role: PairMemberRole;
     status?: string;
+    activityId?: Types.ObjectId;
   }): Promise<PairActivityDTO[]> {
     const { query, limit } = buildQuery(input.pairId, input.status);
+    if (input.activityId) query._id = input.activityId;
     const [activities, safetyVeto, offeredDecisions] = await Promise.all([
       PairActivity.find(query)
         .sort({ createdAt: -1 })
-        .limit(Math.max(200, limit * 4))
+        .limit(input.activityId ? 1 : Math.max(200, limit * 4))
         .lean(),
       isOwnerSafetyGateActive({
         pairId: String(input.pairId),
@@ -110,6 +112,7 @@ export const pairActivityReadService = {
         toPairActivityDTO(activity, {
           includeLegacyId: true,
           includeAnswers: false,
+          viewerRole: input.role,
         })
       )
       .sort((left, right) => {

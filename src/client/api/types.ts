@@ -598,6 +598,8 @@ export type PairActivityDTO = {
   /** @deprecated Pair-visible activity responses never expose exact feedback scores. */
   successScore?: never;
   resultSummary?: ActivityResultSummaryDTO;
+  /** Whether the current session actor submitted feedback; never the peer's answers. */
+  feedbackSubmitted?: boolean;
   legacy?: boolean;
   legacySource?: 'relationship_activity';
   createdAt?: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { matchingRequiredTopicLabel } from "@/client/viewmodels/matching";
 import type {
   MatchingCardFields,
   SaveMatchingCardRequest,
@@ -102,6 +103,7 @@ export default function MatchingCardForm({
   const [form, setForm] = useState<FormState>(() => initialForm(initial));
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
+  const plansSaved = Boolean(initial?.actual.relationshipIntent && initial?.actual.childrenIntent);
 
   const formComplete = useMemo(() => {
     const minAge = Number(form.minAge);
@@ -346,6 +348,7 @@ export default function MatchingCardForm({
             <label className="text-sm">
               Формат знакомства
               <select
+                id="matching-relationship-intent"
                 className="mt-1 w-full"
                 required
                 value={form.relationshipIntent}
@@ -444,7 +447,8 @@ export default function MatchingCardForm({
             className="mt-1"
             type="checkbox"
             checked={form.active}
-            disabled={!formComplete}
+            id="matching-publish"
+            disabled={!requiredDataReady || !formComplete || saving}
             onChange={(event) => {
               setForm((current) => ({
                 ...current,
@@ -457,15 +461,16 @@ export default function MatchingCardForm({
           <span>
             <span className="block font-semibold">Показывать меня в ленте</span>
             <span className="app-muted mt-1 block text-sm">
-              Активация доступна после заполнения обязательных полей.
+              {requiredDataReady ? "Готовность проверена. Включите показ и сохраните карточку, чтобы опубликовать её." : "Сначала сохраните карточку, затем настройте обязательные предпочтения и разрешения на подбор ниже. После этого можно подтвердить публикацию."}
             </span>
           </span>
         </label>
 
         {!requiredDataReady && missingRequiredTopics.length > 0 && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-            После сохранения мы перепроверим данные для подбора. Сейчас не
-            хватает: {missingRequiredTopics.join(", ")}.
+            <p>Для поиска осталось подготовить: {missingRequiredTopics.map(matchingRequiredTopicLabel).join(", ")}.</p>
+            <p className="mt-2">{plansSaved ? "Ваши ответы о планах сохранены. Теперь выберите подходящие варианты партнёра в разделе «Предпочтения партнёра», прочитайте разрешение «Использовать в подборе» для этих пунктов и сохраните предпочтения. Без вашего разрешения данные не используются для поиска." : "Выберите ответы в разделе «О ваших планах» и нажмите «Сохранить карточку». Затем настройте предпочтения партнёра и отдельно разрешите использование этих данных в подборе."}</p>
+            <a className="mt-2 inline-block underline" href={plansSaved ? "#preferences-title" : "#matching-relationship-intent"}>{plansSaved ? "Настроить предпочтения и разрешения" : "Перейти к обязательным ответам"}</a>
           </div>
         )}
 

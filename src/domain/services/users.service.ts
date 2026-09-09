@@ -82,7 +82,12 @@ const updateUserProfileDocument = async (input: {
       }
       const fields = { ...input.fields };
       if (fields.personal && typeof fields.personal === 'object') {
-        fields.personal = { ...fields.personal, relationshipStatus: hasPair ? 'in_relationship' : 'seeking' };
+        const current = await User.findOne({ id: input.userId }).select({ entryCohort: 1 }).session(session).lean<Pick<UserType, 'entryCohort'> | null>();
+        const cohort = fields.entryCohort ?? current?.entryCohort;
+        fields.personal = {
+          ...fields.personal,
+          ...(hasPair || cohort === 'EXISTING_PARTNER' ? { relationshipStatus: 'in_relationship' } : {}),
+        };
       }
       const user = await User.findOneAndUpdate(
         { id: input.userId },

@@ -14,7 +14,7 @@ export type NotificationDTO = {
   message: string;
   action: {
     label: string;
-    href: '/main-menu' | '/couple-activity' | '/match/inbox';
+    href: string;
   };
   isRead: boolean;
   createdAt: string;
@@ -85,16 +85,70 @@ const COPY: Record<
   },
 };
 
+export type NotificationActionContext = {
+  cycleKey?: string;
+  pairStatus?: 'active' | 'paused' | 'ended' | 'unavailable';
+  resourceState?: 'missing' | 'expired' | 'completed' | 'waiting';
+  matchingEligible?: boolean;
+};
+
 export const toNotificationDTO = (
-  notification: StoredNotification
+  notification: StoredNotification,
+  context: NotificationActionContext = {}
 ): NotificationDTO => {
   const copy = COPY[notification.type];
+  const pairId = notification.pairId ? encodeURIComponent(String(notification.pairId)) : '';
+  const resourceId = notification.resourceId ? encodeURIComponent(notification.resourceId) : '';
+  let action: NotificationDTO['action'] = { label: copy.label, href: copy.href };
+  let message = copy.message;
+  if (pairId) {
+    if (notification.type === 'PAIR_JOINED') {
+      action = { label: 'Открыть первый шаг пары', href: `/pair/${pairId}?action=check-in#weekly-checkin` };
+    } else if (notification.type === 'CYCLE_AVAILABLE' || notification.type === 'SUMMARY_READY') {
+      const intent = notification.type === 'SUMMARY_READY' ? 'summary' : 'check-in';
+      action = {
+        label: intent === 'summary' ? 'Посмотреть сводку цикла' : 'Заполнить отметку недели',
+        href: `/pair/${pairId}?${resourceId ? `cycleId=${resourceId}&` : ''}${context.cycleKey ? `cycleKey=${encodeURIComponent(context.cycleKey)}&` : ''}action=${intent}#weekly-checkin`,
+      };
+    } else {
+      const intent = notification.type === 'FEEDBACK_REQUESTED' ? 'feedback' : 'recommendation';
+      action = {
+        label: intent === 'feedback' ? 'Оставить личный отзыв' : 'Посмотреть рекомендацию',
+        href: `/couple-activity?pairId=${pairId}${resourceId ? `&${intent === 'feedback' ? 'activityId' : 'decisionId'}=${resourceId}` : ''}&action=${intent}`,
+      };
+    }
+    if (!resourceId && notification.type !== 'PAIR_JOINED') {
+      message = 'Это прежнее уведомление без ссылки на конкретную запись. Проверьте актуальный шаг пары; повторять выполненное не требуется.';
+      action = { label: 'Проверить текущий шаг пары', href: `/pair/${pairId}?action=check-in#weekly-checkin` };
+    }
+    if (context.resourceState === 'waiting' || context.resourceState === 'completed') {
+      message = context.resourceState === 'waiting'
+        ? 'Ваш ответ уже сохранён. Повторять его не требуется; общий итог появится после ответа партнёра.'
+        : 'Этот шаг уже выполнен. Можно посмотреть его результат.';
+      action.label = 'Посмотреть состояние и результат';
+      action.href = action.href.replace('action=feedback', 'action=result').replace('action=check-in', 'action=summary');
+    } else if (context.resourceState === 'expired' || context.resourceState === 'missing') {
+      message = context.resourceState === 'expired'
+        ? 'Срок этого шага завершён или предложение уже изменилось. Выполнять прежнее действие не требуется.'
+        : 'Запись из уведомления больше недоступна. Проверьте актуальное состояние пары.';
+      action.label = 'Проверить состояние шага';
+    }
+    if (context.pairStatus && context.pairStatus !== 'active') {
+      message = context.pairStatus === 'paused'
+        ? 'Пара на паузе. Новые совместные ответы сейчас недоступны; проверьте состояние пары.'
+        : 'Уведомление относится к прежней или недоступной паре. Выполнять это действие больше не нужно.';
+      action = { label: 'Открыть состояние пары', href: context.pairStatus === 'paused' ? `/pair/${pairId}` : '/pair' };
+    }
+  } else if (context.matchingEligible === false) {
+    message = 'Это уведомление из прежнего режима знакомств. Сейчас поиск новых партнёров недоступен; история сохраняется.';
+    action = { label: 'Открыть текущий маршрут', href: '/main-menu' };
+  }
   return {
     id: String(notification._id),
     type: notification.type,
     title: copy.title,
-    message: copy.message,
-    action: { label: copy.label, href: copy.href },
+    message,
+    action,
     isRead: Boolean(notification.readAt),
     createdAt: notification.createdAt.toISOString(),
   };

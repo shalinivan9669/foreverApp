@@ -279,6 +279,41 @@ const configureParticipant = async (
   card: CardBody,
   verifyRepairHistory = false,
 ): Promise<void> => {
+  if (actor.userId === userIds.b) {
+    const reportFirstCardStage = (stage: string) => process.stderr.write(`${JSON.stringify({ suite: "matching-social-flow", stage, status: "running" })}\n`);
+    reportFirstCardStage("first card empty matching state");
+    // Genuine first card: onboarding above was completed through its service,
+    // and no matching snapshot, preference or grant was seeded for this user.
+    assert.equal(await IndividualFactorSnapshot.countDocuments({ subjectId: actor.userId, projectionPurpose: "MATCHING" }), 0);
+    assert.equal(await MatchingUseGrant.countDocuments({ ownerId: actor.userId }), 0);
+    reportFirstCardStage("first card draft actual persistence");
+    const firstCard = { ...jsonCard(card), active: false, actual: { relationshipIntent: card.actual.relationshipIntent, childrenIntent: card.actual.childrenIntent } };
+    const draft = await expectOk(await saveOwnCard(mutationRequest(actor, "/api/match/card", "POST", firstCard)));
+    const storedDraft = asObject(draft.card, "first draft");
+    const storedActual = asObject(storedDraft.actual, "first draft actual");
+    assert.equal(storedActual.relationshipIntent, card.actual.relationshipIntent);
+    assert.equal(storedActual.childrenIntent, card.actual.childrenIntent);
+    assert.equal(draft.requiredDataReady, false, "Actual inputs do not supply matching-use consent or desired preferences");
+    assert.equal(storedDraft.active, false);
+    assert.equal(await MatchingUseGrant.countDocuments({ ownerId: actor.userId }), 0, "Saving a card must not grant matching use implicitly");
+    const initialPreferences = await expectOk(await getPreferences(requestFor({ actor, path: "/api/match/preferences" })));
+    reportFirstCardStage("first card explicit grants");
+    const requiredKeys = new Set(["lifePlans.relationship.intent", "lifePlans.family.childrenIntent"]);
+    const explicitPreferences = asArray(initialPreferences.preferences, "first preferences").map((item) => {
+      const preference = asObject(item, "first preference");
+      assert.equal(preference.useAllowed, false, "First entry must require explicit matching-use grants");
+      return { factorKey: preference.factorKey, target: preference.target, importance: preference.importance, flexibility: preference.flexibility, constraintMode: preference.constraintMode, useAllowed: requiredKeys.has(asString(preference.factorKey, "first factor key")) };
+    });
+    await expectOk(await savePreferences(mutationRequest(actor, "/api/match/preferences", "PUT", { revision: initialPreferences.revision, preferences: explicitPreferences })));
+    reportFirstCardStage("first card ready draft inactive");
+    const readyDraft = await expectOk(await getOwnCard(requestFor({ actor, path: "/api/match/card" })));
+    assert.equal(readyDraft.requiredDataReady, true, "Two explicit required preferences and grants are sufficient with the two saved actual values");
+    assert.equal(asObject(readyDraft.card, "ready draft").active, false, "Readiness must not publish a draft");
+    const published = await expectOk(await saveOwnCard(mutationRequest(actor, "/api/match/card", "POST", { ...firstCard, active: true })));
+    reportFirstCardStage("first card explicit publication");
+    assert.equal(asObject(published.card, "published first card").active, true, "Explicit publication activates the genuine first card");
+  }
+  if (verifyRepairHistory) process.stderr.write(`${JSON.stringify({ suite: "matching-social-flow", stage: "optional repair evidence history", status: "running" })}\n`);
   await expectOk(
     await saveOwnCard(
       mutationRequest(actor, "/api/match/card", "POST", jsonCard(card)),
@@ -588,6 +623,37 @@ const runSocialFlow = async (): Promise<void> => {
   await configureParticipant(actorB, cardB);
   await configureParticipant(attacker, cardAttacker);
 
+  // Stale discovery projections and previously issued grants must not override
+  // current entry intent, a declared relationship, or active/paused membership.
+  const publicationKey = randomUUID();
+  await expectOk(await saveOwnCard(mutationRequest(actorB, "/api/match/card", "POST", jsonCard(cardB), publicationKey)));
+  for (const mode of ["missing-entry", "existing-partner", "declared-relationship", "active", "paused", "claim"] as const) {
+    const feed = await expectOk(await getFeed(requestFor({ actor: actorA, path: "/api/match/feed?limit=20" })));
+    const grant = asString(feedItemFor(feed, userIds.b).candidateGrant, "pre-mode candidate grant");
+    let temporaryPairId: Types.ObjectId | undefined;
+    if (mode === "missing-entry") await User.updateOne({ id: userIds.b }, { $unset: { entryCohort: 1 } });
+    if (mode === "existing-partner") await User.updateOne({ id: userIds.b }, { $set: { entryCohort: "EXISTING_PARTNER" } });
+    if (mode === "declared-relationship") await User.updateOne({ id: userIds.b }, { $set: { "personal.relationshipStatus": "in_relationship" } });
+    if (mode === "active" || mode === "paused") {
+      const pair = await Pair.create({ members: [userIds.b, userIds.attacker], key: [userIds.b, userIds.attacker].sort().join("|"), status: mode });
+      temporaryPairId = pair._id;
+    }
+    if (mode === "claim") await PairMembershipClaim.create({ userId: userIds.b, pairId: new Types.ObjectId(), pairKey: `${userIds.b}|claim-fixture` });
+    try {
+      await expectError(await getFeed(requestFor({ actor: actorB, path: "/api/match/feed?limit=20" })), 409, "MATCHING_SOLO_REQUIRED");
+      const filtered = await expectOk(await getFeed(requestFor({ actor: actorA, path: "/api/match/feed?limit=20" })));
+      assert.equal(asArray(filtered.items, "filtered matching items").some((item) => asObject(asObject(item, "item").candidate, "candidate").id === userIds.b), false, `${mode} candidate leaked into discovery`);
+      await expectError(await getCandidateCard(requestFor({ actor: actorA, path: `/api/match/card/${encodeURIComponent(userIds.b)}`, headers: { "X-Candidate-Grant": grant } }), { params: Promise.resolve({ id: userIds.b }) }), 409, "CANDIDATE_GRANT_UNAVAILABLE");
+      await expectError(await saveOwnCard(mutationRequest(actorB, "/api/match/card", "POST", jsonCard(cardB), publicationKey)), 409, "MATCHING_SOLO_REQUIRED");
+      await expectError(await createLike(mutationRequest(actorA, "/api/match/like", "POST", { candidateId: userIds.b, candidateGrant: grant, agreements: [true, true, true], reactions, answers: ["one", "two", "three"] })), 409, "MATCHING_SOLO_REQUIRED");
+    } finally {
+      await User.updateOne({ id: userIds.b }, { $set: { entryCohort: "SOLO", "personal.relationshipStatus": "seeking" } });
+      if (temporaryPairId) await Pair.deleteOne({ _id: temporaryPairId });
+      if (mode === "claim") await PairMembershipClaim.deleteOne({ userId: userIds.b });
+    }
+  }
+  await RateLimitBucket.deleteMany({ key: { $in: allUserIds.map((userId) => `user:${userId}`) }, route: "/api/match/*" });
+
   const cursorSourceFeed = await expectOk(
     await getFeed(
       requestFor({ actor: actorA, path: "/api/match/feed?limit=1" }),
@@ -874,6 +940,11 @@ const runSocialFlow = async (): Promise<void> => {
     ),
   );
   assert.equal(viewedLike.status, "VIEWED");
+  await User.updateOne({ id: userIds.b }, { $set: { "personal.relationshipStatus": "in_relationship" } });
+  await expectError(await createLike(mutationRequest(actorA, "/api/match/like", "POST", likeBody, createLikeKey)), 409, "MATCHING_SOLO_REQUIRED");
+  await expectError(await respondToLike(mutationRequest(actorB, "/api/match/respond", "POST", { likeId, agreements: [true, true, true], reactions, answers: ["one", "two", "three"] })), 409, "MATCHING_SOLO_REQUIRED");
+  assert.equal((await Like.findById(likeId).lean())?.status, "VIEWED", "Ineligible response changed preserved request history");
+  await User.updateOne({ id: userIds.b }, { $set: { "personal.relationshipStatus": "seeking" } });
   const responseKey = randomUUID();
   const respondedLike = await expectOk(
     await respondToLike(
@@ -892,6 +963,9 @@ const runSocialFlow = async (): Promise<void> => {
   assert.equal(respondedLike.status, "MATCHED");
   const responseReplay = await expectOk(await respondToLike(mutationRequest(actorB, "/api/match/respond", "POST", { likeId, agreements: [true, true, true], reactions, answers: ["I also value consistency", "I prefer a short pause, then repair", "I respect a clear boundary"] }, responseKey)));
   assert.equal(responseReplay.connectionId, respondedLike.connectionId, "A recipient response replay does not require another sender acceptance");
+  await User.updateOne({ id: userIds.a }, { $set: { entryCohort: "EXISTING_PARTNER" } });
+  await expectError(await respondToLike(mutationRequest(actorB, "/api/match/respond", "POST", { likeId, agreements: [true, true, true], reactions, answers: ["I also value consistency", "I prefer a short pause, then repair", "I respect a clear boundary"] }, responseKey)), 409, "MATCHING_SOLO_REQUIRED");
+  await User.updateOne({ id: userIds.a }, { $set: { entryCohort: "SOLO" } });
 
 
   const detailForA = await expectOk(
@@ -968,6 +1042,12 @@ const runSocialFlow = async (): Promise<void> => {
   const conversationSubmitKey = randomUUID();
   const firstAnswerBody = { action: "SUBMIT", topicKey: "boundaries", round: 1, text: "owner-round-secret", revealConsent: true };
   const first = await expectOk(await updateConversation(mutationRequest(actorA, conversationPath, "POST", firstAnswerBody, conversationSubmitKey), context));
+  await User.updateOne({ id: userIds.b }, { $set: { "personal.relationshipStatus": "in_relationship" } });
+  await expectError(await updateConversation(mutationRequest(actorA, conversationPath, "POST", firstAnswerBody, conversationSubmitKey), context), 409, "MATCHING_SOLO_REQUIRED");
+  const unavailableConversation = await expectOk(await getConversation(requestFor({ actor: actorA, path: conversationPath }), context));
+  assert.equal(unavailableConversation.canWrite, false);
+  await expectError(await confirmConnection(mutationRequest(actorA, "/api/match/confirm", "POST", { connectionId, action: "REQUEST" })), 409, "MATCHING_SOLO_REQUIRED");
+  await User.updateOne({ id: userIds.b }, { $set: { "personal.relationshipStatus": "seeking" } });
   assert.equal(asObject(asArray(first.topics, "topics")[1], "topic").revealed, false);
   const beforeReveal = await expectOk(await getConversation(requestFor({ actor: actorB, path: conversationPath }), context));
   assert.equal(JSON.stringify(beforeReveal).includes("owner-round-secret"), false, "First answer stays hidden from partner");

@@ -28,6 +28,9 @@ const withMutationIdempotency = (
 });
 
 export const activitiesApi = {
+  getPairActivity: (pairId: string, activityId: string, signal?: AbortSignal): Promise<PairActivityDTO | null> =>
+    http.get<PairActivityDTO[]>(`/api/pairs/${encodeURIComponent(pairId)}/activities?activityId=${encodeURIComponent(activityId)}`, { cache: 'no-store', ...withSignal(signal) })
+      .then((items) => items[0] ?? null),
   getPairActivities: (
     pairId: string,
     bucket: ActivityBucket,

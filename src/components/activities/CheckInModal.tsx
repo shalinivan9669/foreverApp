@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useState } from 'react';
+import Dialog from '@/components/ui/Dialog';
 
 type I18nText = Record<string, string>;
 type CheckIn = {
@@ -44,12 +45,7 @@ function CheckInModalForm(props: CheckInModalProps) {
   const [answers, setAnswers] =
     useState<Partial<Record<string, number>>>({});
   const [allowPairModelUse, setAllowPairModelUse] = useState(false);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const onCloseRef = useRef(onClose);
-  const closeDisabledRef = useRef(false);
-  const titleId = useId();
-  const descriptionId = useId();
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const handleChange = (id: string, ui: number) => {
     if (submitting || pendingComplete) return;
@@ -71,96 +67,63 @@ function CheckInModalForm(props: CheckInModalProps) {
     (checkIn) => typeof answers[checkIn.id] === 'number'
   ) && activityItem.checkIns.length > 0;
 
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    closeDisabledRef.current = closeDisabled;
-  }, [closeDisabled]);
-
-  useEffect(() => {
-    const previouslyFocused = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    closeButtonRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (!closeDisabledRef.current) onCloseRef.current();
-        return;
-      }
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-        )
-      );
-      if (focusable.length === 0) {
-        event.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus();
-    };
-  }, []);
+  const requestClose = () => {
+    if (closeDisabled) return;
+    if (!pendingComplete && (Object.keys(answers).length > 0 || allowPairModelUse)) {
+      setConfirmDiscard(true);
+      return;
+    }
+    onClose();
+  };
 
   return (
-    <div className="app-dialog-layer fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 sm:items-center">
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        aria-busy={submitting || retryCompleteLoading}
-        tabIndex={-1}
-        className="app-panel max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto p-3 text-slate-900 outline-none sm:p-4"
+    <>
+      <Dialog
+        open
+        onClose={requestClose}
+        title={`Оцените: ${t(activityItem.title)}`}
+        description="Ответ нужен, чтобы понять, подошла ли задача вашей паре. Партнёр увидит только общий результат, не ваши отдельные ответы."
+        busy={closeDisabled}
+        closeLabel="Закрыть окно обратной связи"
+        footer={(
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={requestClose}
+              disabled={closeDisabled}
+              className="app-btn-secondary"
+            >
+              Отмена
+            </button>
+            {pendingComplete ? (
+              <button
+                type="button"
+                onClick={onRetryComplete}
+                disabled={!onRetryComplete || retryCompleteLoading}
+                className="app-btn-primary"
+              >
+                {retryCompleteLoading ? 'Завершаем…' : 'Завершить ещё раз'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={submit}
+                disabled={submitting || !allAnswered}
+                className="app-btn-primary"
+              >
+                {submitting ? 'Отправка…' : 'Отправить'}
+              </button>
+            )}
+          </div>
+        )}
       >
-        <div className="flex items-center justify-between">
-          <h3 id={titleId} className="pr-3 text-lg font-semibold">Оцените: {t(activityItem.title)}</h3>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            disabled={closeDisabled}
-            aria-label="Закрыть окно обратной связи"
-            className="app-btn-secondary h-11 w-11 shrink-0 px-2 py-1 text-xl text-slate-700 disabled:opacity-60"
-          >
-            ×
-          </button>
-        </div>
-        <p id={descriptionId} className="app-muted mt-2 text-sm">
-          Ответ нужен, чтобы понять, подошла ли задача вашей паре. Партнёр увидит
-          только общий результат, не ваши отдельные ответы.
-        </p>
-
         {pendingComplete && pendingCompleteMessage && (
           <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
             {pendingCompleteMessage}
           </div>
         )}
 
-        <div className="mt-3 max-h-[60dvh] space-y-4 overflow-y-auto pr-1 sm:max-h-none sm:pr-0">
+        <div className="space-y-4">
           {activityItem.checkIns.map((checkIn) => (
             <fieldset key={checkIn.id} className="space-y-2">
               <legend className="text-sm">{t(checkIn.text)}</legend>
@@ -233,37 +196,27 @@ function CheckInModalForm(props: CheckInModalProps) {
           </span>
         </label>
 
-        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={closeDisabled}
-            className="app-btn-secondary px-3 py-2 text-slate-800 disabled:opacity-60"
-          >
-            Отмена
-          </button>
-          {pendingComplete ? (
-            <button
-              type="button"
-              onClick={onRetryComplete}
-              disabled={!onRetryComplete || retryCompleteLoading}
-              className="app-btn-primary px-3 py-2 text-white disabled:opacity-60"
-            >
-              {retryCompleteLoading ? 'Завершаем...' : 'Завершить еще раз'}
+        {!pendingComplete && !allAnswered && (
+          <p className="app-muted mt-3 text-sm">Чтобы отправить отзыв, ответьте на каждый вопрос.</p>
+        )}
+      </Dialog>
+      <Dialog
+        open={confirmDiscard}
+        onClose={() => setConfirmDiscard(false)}
+        title="Закрыть без отправки?"
+        description="Ответы пока хранятся только в этом окне. При закрытии они не сохранятся."
+        footer={(
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="app-btn-secondary" onClick={() => setConfirmDiscard(false)}>
+              Продолжить отвечать
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={submit}
-              disabled={submitting || !allAnswered}
-              className="app-btn-primary px-3 py-2 text-white disabled:opacity-60"
-            >
-              {submitting ? 'Отправка...' : 'Отправить'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+            <button type="button" className="app-btn-danger" onClick={onClose}>Закрыть без отправки</button>
+          </div>
+        )}
+      >
+        <p className="text-sm">Можно вернуться к отзыву и отправить его, когда будете готовы.</p>
+      </Dialog>
+    </>
   );
 }
 

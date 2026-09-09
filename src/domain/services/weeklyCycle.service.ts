@@ -641,6 +641,7 @@ const ensureCycleNotifications = async (input: {
       pairId: input.pairId,
       type: 'CYCLE_AVAILABLE',
       sourceKey: `cycle:${String(input.cycle._id)}`,
+      resourceId: String(input.cycle._id),
       now: input.now,
       session: input.session,
     });
@@ -651,6 +652,7 @@ const ensureCycleNotifications = async (input: {
       pairId: input.pairId,
       type: 'SUMMARY_READY',
       sourceKey: `snapshot:${String(input.snapshot._id)}`,
+      resourceId: String(input.cycle._id),
       now: input.now,
       session: input.session,
     });

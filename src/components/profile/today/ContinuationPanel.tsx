@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useDevelopment } from "@/client/hooks/useDevelopment";
 import { useInbox } from "@/client/hooks/useInbox";
-import { useCurrentUser } from "@/client/hooks/useCurrentUser";
+import { useMatchingAccess } from "@/client/hooks/useMatchingAccess";
 import { useRefreshOnReturn } from "@/client/hooks/useRefreshOnReturn";
 import { developmentRunHref, developmentRunStatus, resumableDevelopmentRuns } from "@/client/viewmodels/development.viewmodels";
 
@@ -22,20 +22,22 @@ function MatchingContinuations() {
   </div>;
 }
 
-export default function ContinuationPanel({ pairId, pairStatus, existingPartnerIntent }: {
+export default function ContinuationPanel({ pairId, pairStatus, existingPartnerIntent, compact = false }: {
   pairId?: string | null;
   pairStatus?: "active" | "paused" | "ended" | null;
   existingPartnerIntent?: boolean;
+  compact?: boolean;
 }) {
   const flow = useDevelopment();
-  const { data: currentUser } = useCurrentUser();
-  const hasExistingPartnerIntent = existingPartnerIntent ?? currentUser?.entryCohort === "EXISTING_PARTNER";
+  const matchingAccess = useMatchingAccess();
+  const hasExistingPartnerIntent = existingPartnerIntent || matchingAccess.eligibility === "EXISTING_PARTNER";
+  const matchingAllowed = matchingAccess.allowed && !pairId && !hasExistingPartnerIntent;
   const runs = flow.overview ? resumableDevelopmentRuns({ ...flow.overview, recent: flow.unfinishedRuns }, pairId, pairStatus).slice(0, 3) : [];
   const programs = flow.overview?.programs.filter((program) => program.completedSteps > 0 && program.completedSteps < program.contentKeys.length) ?? [];
   useRefreshOnReturn(async () => { await flow.reload(); }, !flow.loading);
   return <section className="app-panel app-panel-solid mt-4 p-4 sm:p-5" aria-label="Продолжить свой путь">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h2 className="text-lg font-semibold">Продолжить свой путь</h2><p className="app-muted mt-1 text-sm">Личное развитие доступно в вашем темпе, в том числе пока вы ждёте другого человека.</p></div>
+      <div><h2 className="app-heading text-lg font-semibold">Продолжить свой путь</h2><p className="app-muted mt-1 text-sm">Личное развитие доступно в вашем темпе, в том числе пока вы ждёте другого человека.</p></div>
       <button type="button" disabled={flow.loading || flow.busy} className="app-btn-secondary px-3 py-2 text-sm" onClick={() => void flow.reload()}>Обновить занятия</button>
     </div>
     {flow.error && <p className="app-muted mt-3 text-sm" role="status">Не удалось проверить сохранённые занятия. Попробуйте обновить.</p>}
@@ -44,11 +46,12 @@ export default function ContinuationPanel({ pairId, pairStatus, existingPartnerI
       <p className="app-muted mt-1 text-sm">{developmentRunStatus(run, pairStatus === "paused")}</p>
       <Link className="mt-2 inline-block text-sm underline" href={developmentRunHref(run.id)}>{run.myCompletion || pairStatus === "paused" && run.pairId ? "Открыть сохранённое занятие" : "Продолжить занятие"}</Link>
     </div>)}
-    {programs.map((program) => <Link key={program.key} href={`/development?program=${encodeURIComponent(program.key)}#programs`} className="mt-3 block text-sm underline">Продолжить программу «{program.title}» · {program.completedSteps} из {program.contentKeys.length}</Link>)}
+    {(compact ? programs.slice(0, Math.max(0, 3 - runs.length)) : programs).map((program) => <Link key={program.key} href={`/development?program=${encodeURIComponent(program.key)}#programs`} className="mt-3 block text-sm underline">Продолжить программу «{program.title}» · {program.completedSteps} из {program.contentKeys.length}</Link>)}
     <div className="mt-4 flex flex-wrap gap-2">
-      <Link href="/development" className="app-btn-primary px-3 py-2">{runs.length ? "Все занятия и программы" : "Выбрать личное занятие"}</Link>
-      {!pairId && (hasExistingPartnerIntent ? <Link href="/invite" className="app-btn-secondary px-3 py-2">Продолжить приглашение партнёра</Link> : <Link href="/match-card/create" className="app-btn-secondary px-3 py-2">Настроить поиск партнёра</Link>)}
+      <Link href="/development" className="app-btn-secondary px-3 py-2">{runs.length ? "Все занятия и программы" : "Выбрать личное занятие"}</Link>
+      {!compact && !pairId && hasExistingPartnerIntent && <Link href="/invite" className="app-btn-secondary px-3 py-2">Продолжить приглашение партнёра</Link>}
+      {!compact && matchingAllowed && <Link href="/match-card/create" className="app-btn-secondary px-3 py-2">Настроить поиск партнёра</Link>}
     </div>
-    {!pairId && !hasExistingPartnerIntent && <MatchingContinuations />}
+    {matchingAllowed && <MatchingContinuations />}
   </section>;
 }

@@ -894,6 +894,7 @@ export const saveMatchingProfile = async (
     }),
   );
   return runTransaction(async (session) => {
+    if (input.discoveryRequested) await assertMatchingSolo([input.ownerId], session);
     await seedDefinitionRegistryRelease(MVP_FACTOR_REGISTRY, now, { session });
     const previous = await MatchingProfile.findOne({ userId: input.ownerId })
       .select("+lastCardOperationKeyHash +lastCardOperationRequestHash")

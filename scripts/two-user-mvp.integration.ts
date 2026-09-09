@@ -5,6 +5,7 @@ import { mock } from 'node:test';
 import mongoose, { Types } from 'mongoose';
 import { DomainError } from '@/domain/errors';
 import { activitiesService } from '@/domain/services/activities.service';
+import { buildPairDashboardSummary } from '@/domain/services/pairDashboardSummary.service';
 import { pairHistoryService } from '@/domain/services/pairHistory.service';
 import { pairInviteService } from '@/domain/services/pairInvite.service';
 import { ensurePublicPairingId } from '@/domain/services/userPublicIdentity.service';
@@ -999,6 +1000,17 @@ const runAcceptance = async (
     );
     assert.equal(partial.dataStatus, 'PARTIAL');
     assert.equal(partial.bothSubmitted, false);
+    const dashboardPair = await Pair.findById(inviteEvidence.pairId);
+    assert.ok(dashboardPair);
+    const ownDashboard = await buildPairDashboardSummary({ pair: dashboardPair, currentUserId: memberA });
+    const peerDashboard = await buildPairDashboardSummary({ pair: dashboardPair, currentUserId: memberB });
+    assert.equal(ownDashboard.nextStep.title, 'Ваш отзыв сохранён — ждём партнёра', 'The next step repeats an activity already submitted by its viewer');
+    assert.equal(new URL(ownDashboard.nextStep.href ?? '', 'http://local.test').searchParams.get('action'), 'result');
+    assert.equal(peerDashboard.nextStep.title, 'Поделитесь впечатлениями от активности');
+    const peerAction = new URL(peerDashboard.nextStep.href ?? '', 'http://local.test');
+    assert.equal(peerAction.searchParams.get('activityId'), activityId);
+    assert.equal(peerAction.searchParams.get('pairId'), inviteEvidence.pairId);
+    assert.equal(peerAction.searchParams.get('action'), 'feedback');
     const partialRetry = await freeCall('cycle 1 feedback A retry', () =>
       activitiesService.checkinActivity({
         activityId,

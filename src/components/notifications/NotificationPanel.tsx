@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
 import {
   notificationsApi,
   type NotificationDTO,
@@ -21,14 +22,22 @@ type NotificationPanelProps = {
 };
 
 export default function NotificationPanel({ enabled = true }: NotificationPanelProps) {
+  return enabled ? <NotificationPanelSession /> : null;
+}
+
+function NotificationPanelSession() {
+  const enabled = true;
   const [items, setItems] = useState<NotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [readFailed, setReadFailed] = useState(false);
+  const pendingRead = useRef(new Set<string>());
+  const refresh = useCallback(async () => { setLoadAttempt((value) => value + 1); }, []);
+  useRefreshOnReturn(refresh, enabled);
 
   useEffect(() => {
-    if (!enabled) return;
     const controller = new AbortController();
     void notificationsApi
       .list(controller.signal)
@@ -54,7 +63,9 @@ export default function NotificationPanel({ enabled = true }: NotificationPanelP
   };
 
   const markRead = (notification: NotificationDTO): void => {
-    if (notification.isRead) return;
+    if (notification.isRead || pendingRead.current.has(notification.id)) return;
+    pendingRead.current.add(notification.id);
+    setReadFailed(false);
     setItems((current) =>
       current.map((item) =>
         item.id === notification.id ? { ...item, isRead: true } : item
@@ -62,13 +73,14 @@ export default function NotificationPanel({ enabled = true }: NotificationPanelP
     );
     setUnreadCount((current) => Math.max(0, current - 1));
     void notificationsApi.markRead(notification.id).catch(() => {
+      setReadFailed(true);
       setItems((current) =>
         current.map((item) =>
           item.id === notification.id ? { ...item, isRead: false } : item
         )
       );
       setUnreadCount((current) => current + 1);
-    });
+    }).finally(() => pendingRead.current.delete(notification.id));
   };
 
   if (!enabled || !loaded) return null;
@@ -104,6 +116,7 @@ export default function NotificationPanel({ enabled = true }: NotificationPanelP
         )}
       </div>
       <div className="mt-3 grid gap-2">
+        {readFailed && <p role="status" className="app-muted text-sm">Переход доступен, но отметку прочтения сохранить не удалось. Состояние обновится при возвращении.</p>}
         {items.map((notification) => (
           <article
             key={notification.id}

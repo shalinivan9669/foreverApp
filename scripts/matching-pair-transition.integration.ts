@@ -78,6 +78,7 @@ const createParticipant = async (
 
   await User.create({
     id: userId,
+    entryCohort: "SOLO",
     username: input.label,
     avatar: "matching-pair-transition-fixture",
     pairMembershipRevision: 0,

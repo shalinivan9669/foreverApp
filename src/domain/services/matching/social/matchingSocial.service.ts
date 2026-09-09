@@ -546,6 +546,8 @@ export const createMatchingSocialService = (
     const now = input.now ?? new Date();
 
     return runTransaction(async (session) => {
+      await dependencies.participantFence.fence({ participantIds, session });
+      await assertMatchingSolo(participantIds, session);
       const replay = await Like.findOne({
         fromId: input.senderId,
         creationKeyHash,
@@ -570,7 +572,6 @@ export const createMatchingSocialService = (
         };
       }
 
-      await dependencies.participantFence.fence({ participantIds, session });
       if (await activeBlockExists(participantKey, session)) return blocked();
       const activeInteraction = await Like.exists({
         fromId: input.senderId,
@@ -1249,7 +1250,7 @@ export const createMatchingSocialService = (
       if (await activeBlockExists(connection.participantKey, session)) {
         return blocked();
       }
-      if (input.action === "REQUEST" || input.action === "CONFIRM") await assertMatchingSolo(connection.participantIds, session);
+      if (!connection.pairId && ["REQUEST", "CONFIRM", "RESUME"].includes(input.action)) await assertMatchingSolo(connection.participantIds, session);
       const action = { type: input.action, at: now } as const;
       const transition = matchingConnectionTransition(
         connectionSnapshot(connection),

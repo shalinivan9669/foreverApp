@@ -1,6 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { findNotificationHistoryItem } from '@/client/api/notificationHistory';
+import type { PairHistoryCycleItemDTO } from '@/client/api/pairHistory.api';
 import { checkinsApi } from '@/client/api/checkins.api';
 import {
   weeklyCyclesApi,
@@ -82,9 +86,10 @@ export default function PairWeeklyCheckInPanel({
   pairStatus,
   onSummaryChanged,
 }: PairWeeklyCheckInPanelProps) {
+  const params = useSearchParams();
   return (
     <PairWeeklyCheckInPanelSession
-      key={pairId}
+      key={`${pairId}:${params.toString()}`}
       pairId={pairId}
       pairStatus={pairStatus}
       onSummaryChanged={onSummaryChanged}
@@ -97,10 +102,38 @@ function PairWeeklyCheckInPanelSession({
   pairStatus,
   onSummaryChanged,
 }: PairWeeklyCheckInPanelProps) {
+  const params = useSearchParams();
+  const targetCycleId = params.get('cycleId');
+  const targetCycleKey = params.get('cycleKey');
+  const targetAction = params.get('action');
+  const [pastCycle, setPastCycle] = useState<PairHistoryCycleItemDTO | null>(null);
+  const [pastLoading, setPastLoading] = useState(true);
+  const [pastError, setPastError] = useState<UiErrorState | null>(null);
+  const [pastAttempt, setPastAttempt] = useState(0);
+  const targetRef = useRef<HTMLDivElement>(null);
+  const summaryVersion = useRef(0);
   const [summary, setSummary] = useState<PairWeeklyCheckInSummaryDTO | null>(null);
   const [cycle, setCycle] = useState<CurrentWeeklyCycleDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<UiErrorState | null>(null);
+  const historicalTarget = Boolean(targetCycleId && cycle && targetCycleId !== cycle.cycleId);
+
+  useEffect(() => {
+    if (!historicalTarget || !targetCycleKey || pairStatus !== 'active') return;
+    const controller = new AbortController();
+    void findNotificationHistoryItem(pairId, 'cycle', targetCycleKey, controller.signal)
+      .then((item) => { if (!controller.signal.aborted) { setPastCycle(item?.kind === 'cycle' ? item : null); setPastError(null); } })
+      .catch((failure: Error) => { if (!controller.signal.aborted) setPastError(toUiErrorState(failure)); })
+      .finally(() => { if (!controller.signal.aborted) setPastLoading(false); });
+    return () => controller.abort();
+  }, [historicalTarget, pairId, pairStatus, targetCycleKey, pastAttempt]);
+
+  useEffect(() => {
+    if (!targetAction || loading || (historicalTarget && pastLoading)) return;
+    const target = targetRef.current;
+    target?.scrollIntoView({ block: 'start' });
+    target?.focus({ preventScroll: true });
+  }, [targetAction, targetCycleId, loading, pastLoading, historicalTarget]);
 
   const fetchSummary = useCallback(
     (signal?: AbortSignal) =>
@@ -113,11 +146,13 @@ function PairWeeklyCheckInPanelSession({
 
   const loadSummary = useCallback(
     (signal?: AbortSignal) => {
+      const version = ++summaryVersion.current;
+      const isCurrent = () => !signal?.aborted && version === summaryVersion.current;
       setLoading(true);
       setError(null);
       return fetchSummary(signal)
         .then(([result, currentCycle]) => {
-          if (!signal?.aborted) {
+          if (isCurrent()) {
             setSummary(result);
             setCycle(currentCycle);
           }
@@ -127,14 +162,14 @@ function PairWeeklyCheckInPanelSession({
             caughtError instanceof Error
               ? caughtError
               : new Error('Не удалось загрузить статус еженедельной отметки.');
-          if (!signal?.aborted) {
+          if (isCurrent()) {
             const nextError = toUiErrorState(normalized);
             setError(nextError);
             if ([401, 403, 404].includes(nextError.status)) { setSummary(null); setCycle(null); }
           }
         })
         .finally(() => {
-          if (!signal?.aborted) setLoading(false);
+          if (isCurrent()) setLoading(false);
         });
     },
     [fetchSummary]
@@ -142,9 +177,11 @@ function PairWeeklyCheckInPanelSession({
 
   useEffect(() => {
     const controller = new AbortController();
+    const version = ++summaryVersion.current;
+    const isCurrent = () => !controller.signal.aborted && version === summaryVersion.current;
     void fetchSummary(controller.signal)
       .then(([result, currentCycle]) => {
-        if (!controller.signal.aborted) {
+        if (isCurrent()) {
           setSummary(result);
           setCycle(currentCycle);
         }
@@ -154,12 +191,12 @@ function PairWeeklyCheckInPanelSession({
           caughtError instanceof Error
             ? caughtError
             : new Error('Не удалось загрузить статус еженедельной отметки.');
-        if (!controller.signal.aborted) setError(toUiErrorState(normalized));
+        if (isCurrent()) setError(toUiErrorState(normalized));
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (isCurrent()) setLoading(false);
       });
-    return () => controller.abort();
+    return () => { summaryVersion.current += 1; controller.abort(); };
   }, [fetchSummary]);
 
   const handleSubmitted = useCallback(async () => {
@@ -186,8 +223,21 @@ function PairWeeklyCheckInPanelSession({
             ? 'Цикл завершён'
           : 'Ожидает ответов';
 
+  if (historicalTarget) {
+    return <div ref={targetRef} tabIndex={-1} className="app-panel p-5 scroll-mt-4">
+      <h2 className="text-lg font-semibold">Цикл из уведомления завершён</h2>
+      <p className="app-muted mt-2 text-sm">Ответ задним числом не требуется. Здесь показано состояние именно прежнего цикла.</p>
+      {pastLoading && targetCycleKey && pairStatus === 'active' ? <p role="status" className="mt-3">Ищем сводку этого цикла...</p> : pastError ? <ErrorView error={pastError} onRetry={() => setPastAttempt((value) => value + 1)} /> : pastCycle ? <>
+        <p className="mt-3 font-medium">{pastCycle.status === 'complete' ? 'Общая сводка готова' : 'Общих данных для полной сводки недостаточно'}</p>
+        <p className="app-muted text-sm">{new Date(pastCycle.date).toLocaleDateString('ru-RU')}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">{pastCycle.summary.signals.map((signal) => <div className="app-panel-soft p-3" key={signal.key}><h3 className="font-medium">{SIGNAL_LABELS[signal.key]}</h3><p className="app-muted mt-1 text-sm">{SIGNAL_COPY[signal.key][signal.status]}</p></div>)}</div>
+      </> : <p className="mt-3" role="status">Сводка этой записи отсутствует или недоступна. Личные ответы не раскрываются.</p>}
+      <Link href={`/pair/${encodeURIComponent(pairId)}?action=check-in#weekly-checkin`} className="app-btn-secondary mt-4 inline-flex">Перейти к текущему циклу</Link>
+    </div>;
+  }
+
   return (
-    <div className="space-y-3">
+    <div ref={targetRef} tabIndex={-1} className="space-y-3 scroll-mt-4">
       <div className="app-panel app-panel-solid p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -289,18 +339,18 @@ function PairWeeklyCheckInPanelSession({
         )}
       </div>
 
-      {pairStatus === 'ended' ? (
+      {pairStatus !== 'active' ? (
         <div className="app-panel-soft app-panel-soft-solid p-4 text-sm">
-          Пара завершена, поэтому новая еженедельная отметка недоступна. Сводка прошлых ответов остаётся видимой.
+          {pairStatus === 'paused' ? 'Пара на паузе: новые совместные ответы сейчас недоступны.' : 'Пара завершена, поэтому новая еженедельная отметка недоступна.'}
         </div>
-      ) : (
+      ) : !loading && !error && cycle && !['SUBMITTED', 'SKIPPED', 'EXPIRED'].includes(currentCompletion ?? '') ? (
         <WeeklyCheckInCard
           pairId={pairId}
           cycleStatus={currentCompletion}
           onSubmitted={handleSubmitted}
           onCycleChanged={handleSubmitted}
         />
-      )}
+      ) : null}
     </div>
   );
 }

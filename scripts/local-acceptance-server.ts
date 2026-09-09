@@ -3,15 +3,17 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import next from 'next';
+import { localAcceptanceHostname, parseLocalAcceptanceHostPrefix } from './lib/local-acceptance-options';
 
 // A child of local-acceptance.ts, not an application entrypoint. Each process
 // serves one exact browser hostname so Next constructs the genuine request URL
 // with that origin while its TCP listener remains strictly on IPv4 loopback.
 async function main(): Promise<void> {
-  const [actor, rawPort] = process.argv.slice(2);
-  if ((actor !== 'a' && actor !== 'b') || !/^\d+$/.test(rawPort ?? '') || process.argv.length !== 4) {
+  const [actor, rawPort, rawPrefix] = process.argv.slice(2);
+  if ((actor !== 'a' && actor !== 'b') || !/^\d+$/.test(rawPort ?? '') || process.argv.length !== 5) {
     throw new Error('LOCAL_ACCEPTANCE_SERVER_ARGUMENTS');
   }
+  const hostPrefix = parseLocalAcceptanceHostPrefix(rawPrefix);
   const port = Number(rawPort);
   if (port < 1024 || port > 65535 || process.env.NODE_ENV !== 'production') throw new Error('LOCAL_ACCEPTANCE_SERVER_ENVIRONMENT');
   const database = new URL(process.env.MONGODB_URI ?? '');
@@ -27,7 +29,7 @@ async function main(): Promise<void> {
     }
     throw new Error('LOCAL_ACCEPTANCE_ENV_FILE_PRESENT');
   }
-  const hostname = `vmeste-${actor}.localhost`;
+  const hostname = localAcceptanceHostname(actor, hostPrefix);
   const application = next({ dev: false, dir: workspace, hostname, port, quiet: true });
   await application.prepare();
   const handle = application.getRequestHandler();

@@ -2,6 +2,7 @@ import type { MatchingAnswers, MatchingStatementReaction } from "@/lib/contracts
 import { z } from "zod";
 import { ApiClientError } from "./errors";
 import { http, type HttpRequestOptions } from "./http";
+import { toIdempotencyHeaders, type IdempotencyRequestOptions } from "./idempotency";
 import type { ApiJsonValue } from "./types";
 
 const textTuple3Schema = z.tuple([z.string(), z.string(), z.string()]);
@@ -221,7 +222,7 @@ export type SaveMatchingCardRequest = Omit<MatchingCardFields, "actual" | "cardV
 };
 export type SaveMatchingPreferencesRequest = {
   revision: number;
-  preferences: MatchingPreferenceDTO[];
+  preferences: Array<Omit<MatchingPreferenceDTO, "label" | "hardAllowed">>;
 };
 export type CreateMatchingLikeRequest = {
   candidateId: string;
@@ -380,22 +381,22 @@ export const matchApi = {
     );
   },
 
-  async createLike(input: CreateMatchingLikeRequest): Promise<MatchLikeDTO> {
+  async createLike(input: CreateMatchingLikeRequest, options?: IdempotencyRequestOptions): Promise<MatchLikeDTO> {
     return normalizeMatchingLike(
       await http.post<ApiJsonValue, CreateMatchingLikeRequest>(
         "/api/match/like",
         input,
-        { idempotency: true },
+        { idempotency: true, headers: toIdempotencyHeaders(options) },
       ),
     );
   },
 
-  async respond(input: RespondMatchingLikeRequest): Promise<MatchLikeDTO> {
+  async respond(input: RespondMatchingLikeRequest, options?: IdempotencyRequestOptions): Promise<MatchLikeDTO> {
     return normalizeMatchingLike(
       await http.post<ApiJsonValue, RespondMatchingLikeRequest>(
         "/api/match/respond",
         input,
-        { idempotency: true },
+        { idempotency: true, headers: toIdempotencyHeaders(options) },
       ),
     );
   },
@@ -470,12 +471,13 @@ export const matchApi = {
   async confirmConnection(
     connectionId: string,
     action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
+    options?: IdempotencyRequestOptions,
   ): Promise<MatchingConnectionDTO> {
     return normalizeMatchingConnection(
       await http.post<
         ApiJsonValue,
         { connectionId: string; action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE" }
-      >("/api/match/confirm", { connectionId, action }, { idempotency: true }),
+      >("/api/match/confirm", { connectionId, action }, { idempotency: true, headers: toIdempotencyHeaders(options) }),
     );
   },
 };

@@ -184,6 +184,7 @@ const userFixture = (input: {
   id: input.userId,
   username: `load-${input.label}`,
   avatar: "matching-load-smoke-avatar",
+  entryCohort: "SOLO" as const,
   pairMembershipRevision: 0,
   personal: {
     gender: input.gender,

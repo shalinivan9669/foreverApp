@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { http } from "./http";
 import { ApiClientError } from "./errors";
+import { toIdempotencyHeaders, type IdempotencyRequestOptions } from "./idempotency";
 import type { ApiJsonValue } from "./types";
 import type { MatchingConversationDTO } from "@/lib/contracts/matchingProduct";
 
@@ -22,7 +23,7 @@ export const matchingConversationApi = {
   async get(connectionId: string, signal?: AbortSignal) {
     return normalize(await http.get<ApiJsonValue>(`/api/match/connections/${encodeURIComponent(connectionId)}/conversation`, { signal, cache: "no-store" }));
   },
-  async update(connectionId: string, body: ConversationCommand) {
-    return normalize(await http.post<ApiJsonValue, ConversationCommand>(`/api/match/connections/${encodeURIComponent(connectionId)}/conversation`, body, { cache: "no-store" }));
+  async update(connectionId: string, body: ConversationCommand, options?: IdempotencyRequestOptions) {
+    return normalize(await http.post<ApiJsonValue, ConversationCommand>(`/api/match/connections/${encodeURIComponent(connectionId)}/conversation`, body, { cache: "no-store", idempotency: true, headers: toIdempotencyHeaders(options) }));
   },
 };

@@ -768,3 +768,66 @@ Summary:
 - Updated current contracts, implementation evidence and the Discord checklist; deferred retrospective consent-policy editing with the required owner decisions. Corrected three architecture-checker false positives for the existing economy session wrapper; no allowlist entries added. Final code-check evidence is recorded in PRODUCT_IMPLEMENTATION.md.
 - Passed all 47 selfchecks (including continuation-ui), full lint, nonincremental TypeScript, final production build and full/changed agent checks. Browser runtime smoke remained unavailable because the existing runtime guard rejects missing Discord/DB/session environment; the attempted HTTP server was stopped and all task-owned ports verified closed.
 Files: src/app/{main-menu,mvp-onboarding,invite,couple-activity}/page.tsx, src/client/hooks/{useDevelopment,useSharedLife,useMatchingConnection,useInbox,useRefreshOnReturn}.ts, src/client/viewmodels/{development.viewmodels.ts,matching/index.ts}, src/components/{profile/today,checkins,matching}, src/features/{development,sharedLife,matching,pair,activities}, src/domain/model/development/**, src/domain/services/development.service.ts, scripts/{agent-checks.ts,product-workspace.selfcheck.ts,product-workspace.integration.ts,matching-social-flow.integration.ts,two-user-mvp.integration.ts,two-user-acceptance.integration.ts}, package.json, docs/{API_CONTRACTS,ARCHITECTURE,ENTRY_AND_PAIRING_UPDATE,INDEX,PRODUCT_IMPLEMENTATION,PRODUCT_WORKSPACE_UPDATE,TESTING,TWO_USER_ACCEPTANCE,CHANGELOG}.md
+
+Date: 2026-09-07
+Summary:
+- Revalidated commit e7674e0923dd473d2315882a8316db1517dc3652 in a clean detached worktree: lint, nonincremental types, all 48 selfchecks, matching code checks, agent checks, fresh build, production dependency audit and six guarded MongoDB suites passed.
+- Repeated browser acceptance on that fresh build using the existing two synthetic sessions: 30-to-35 pagination, personal result/reload, mutual invitation, pair partial/final with private notes, explicit shared-edit conflict resolution, discarded unsaved drafts and stable reward balances. Both owned test runs cleaned up and all four ports were released.
+- Added commit/build-bound readiness evidence and clarified historical results, independent Discord test states and the single owner handoff. Real Discord, fresh SOLO/full Matching browser entry and target operational readiness remain unverified. No application code, API, schema, env, dependency, lockfile, migration or deploy changes.
+Files: docs/TWO_USER_ACCEPTANCE.md, docs/PRODUCT_IMPLEMENTATION.md, docs/RELEASE_RUNBOOK.md, docs/CHANGELOG.md
+
+Date: 2026-09-07
+Summary:
+- Added a documentation-only UX/UI implementation proposal based on the three supplied design materials and scoped validation of the current UI at e7674e0923dd473d2315882a8316db1517dc3652.
+- Split the first delivery into CSS contrast/cascade, shared UI primitives and the main-menu hierarchy; recorded existing route mappings, later flow/motion stages, product decisions and synthetic/Discord acceptance limits.
+- Preserved existing user-authored acceptance documentation. No application code, dependencies, API, schema, security model or runtime environment changed; no implementation or browser acceptance was performed in this planning task.
+Files: docs/UX_UI_IMPLEMENTATION_PLAN.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-09-07
+Summary:
+- Completed UX/UI stages 1–9: accessible contrast and shared states, one prioritized Today action, the owner's preserved card menu, Pair navigation, native shared Dialog, grouped library and all six shared-life views, onboarding/invite/matching form flows, and a reduced-motion CSS dialog pilot.
+- Preserved explicit consent, independent reveal, old run versions and private notes, reciprocal pairing, API/DB/auth contracts. Added in-memory draft guards, explicit revision comparison/retry and immediate protected-data invalidation. No dependencies, lockfile/env changes, migrations or allowlist additions.
+- Browser QA on synthetic two-user production servers covered all twelve onboarding answers, two-sided invitations, composer, independent reveal, 35 continuations, personal and partial/final joint completion, six workspace record types and concurrent edits/deletes/settings. Fixed focus after successful mutations, detached opener, native dialog loading cancellation and matching access-loss races found during review.
+- Full lint, TypeScript, production build, all selfchecks and changed-file agent checks passed; six local MongoDB integration suites passed. Actual measured responsive evidence includes 320/360/390/430,desktop and landscape. Real Discord/OS screen reader/mobile keyboard and CUA native-confirm cancellation are explicitly separate evidence limits.
+- Recorded decisions, reproducible before/after and browser matrix in UX_UI_ACCEPTANCE.md; updated focused guides and local fixture instructions. Existing user documentation edits were preserved. No deployment performed.
+Files: src/app/globals.css, src/app/main-menu/page.tsx, src/app/mvp-onboarding/page.tsx, src/app/invite/page.tsx, src/app/join/page.tsx, src/client/hooks/useTodayDashboard.ts, src/client/hooks/useUnsavedChanges.ts, src/client/hooks/useMatchFeed.ts, src/client/hooks/useMatchLike.ts, src/client/hooks/useMatchingConnection.ts, src/client/hooks/useSharedLife.ts, src/client/api/match.api.ts, src/client/api/matchingConversation.api.ts, src/client/viewmodels/*, src/components/ui/*, src/components/activities/CheckInModal.tsx, src/components/matching/LikeComposer.tsx, src/components/profile/today/ContinuationPanel.tsx, src/features/development/*, src/features/matching/MatchingConnectionPage.tsx, src/features/matching/MatchingFeedPage.tsx, src/features/pair/PairProfilePageClient.tsx, src/features/sharedLife/*, scripts/*-ui.selfcheck.ts, scripts/*-request-race.selfcheck.ts, scripts/dialog.selfcheck.ts, scripts/ui-contrast.selfcheck.ts, scripts/unsaved-changes.selfcheck.ts, scripts/local-acceptance*, scripts/lib/local-acceptance*, package.json, docs/UX_UI_*.md, docs/evidence/ux-ui-2026-09-07/*, docs/INDEX.md, docs/LOCAL_ACCEPTANCE.md, docs/TESTING.md, docs/CHANGELOG.md
+
+Date: 2026-09-09
+Summary:
+- Prepared the owner's new-context implementation prompt for broken notification journeys, true first-entry matching, discovery restrictions for users in relationships, and the meaning/relevance of the main next-step block.
+- Read-only scoped checks confirmed same-page notification destinations, unconditional matching menu links, and pre-completed entry fixtures. Kept the runtime first-entry failure and full backend-policy coverage explicitly unverified.
+- Qualified the 2026-09-07 UX/UI report and indexed the reopened product work. No application code, data, API, schema or dependency changes; no claim that the reported bugs are fixed.
+Files: docs/PRODUCT_FLOW_CONTINUATION_PROMPT.md, docs/UX_UI_ACCEPTANCE.md, docs/INDEX.md, docs/CHANGELOG.md
+
+Date: 2026-09-09
+Summary:
+- Исправлены продуктовые маршруты уведомлений, настоящего первого входа до поиска, доступности знакомств в отношениях и видимого блока «Ваш следующий шаг», поверх сохранённых прежних изменений.
+- Исправлены сериализация preference DTO в strict PUT и объяснение обязательных предпочтений/разрешений; публикация выполняется отдельным действием после готовности.
+- Согласовано адресное чтение активности через optional activityId и owner-only feedbackSubmitted без раскрытия ответов; поддержаны старые записи за лимитом истории и восстановление complete после сохранённого отзыва.
+- По дополнительному запросу владельца добавлены проверка ключа и принятие приглашения непосредственно в личном профиле, с прежними взаимными подтверждениями и защитой текущей active/paused Pair.
+- Добавлены server negative cases, actual-hook/DTO/UI regressions, first-entry/notifications fixtures и проверка полного маршрута двумя браузерными сессиями. Реальный Discord OAuth/iframe и production deployment не подтверждались. Allowlist не расширялся.
+- Исправлено завершение собственного локального bootstrap при открытых keep-alive соединениях. Один проверенный каталог прерванного запуска оставлен после запрета автоматической проверки удаления; путь и ограничение зафиксированы в отчёте.
+Details: docs/PRODUCT_FLOW_ACCEPTANCE.md, docs/API_CONTRACTS.md, docs/ENTRY_AND_PAIRING_UPDATE.md, docs/MATCHING_PRODUCT_UPDATE.md, docs/LOCAL_ACCEPTANCE.md, docs/TESTING.md.
+
+Date: 2026-09-09
+Summary:
+- По запросу владельца проверена цепочка анкеты → личные характеристики → профиль пары. Подтверждены пять продуктовых разрывов; обычные/рефлексивные анкеты сохраняются без Factor evidence, owner DTO не показывает интерпретацию значения, PAIR_MODEL-ответы не входят в owner profile, начальные personal snapshots не формируют общую модель пары, weekly не обновляет owner profile.
+- Подтверждены работающие начальная материализация PRIVATE, повтор без дублей, недельный первый/второй ответ, версии и свежесть расчётов, разделение разных Pair contexts. Через браузер воспроизведено неизменное состояние профиля после сохранения саморефлексии и reload.
+- Добавлен изолированный --suite factors с тремя наборами и явным questionnaireProfileWorkflowReady=false; исправлен устаревший setup теста onboarding-factor-engine (создание аккаунта для награды, адресная очистка).
+- Изменены только проверки и документация. Runtime, формулы, privacy/capture policy, публичный API, модели и зависимости не менялись. Предыдущий отчёт о маршрутах дополнен ссылкой на ограничения основной механики.
+Files: scripts/factor-profile-flow.integration.ts, scripts/onboarding-factor-engine.integration.ts, scripts/two-user-acceptance.integration.ts, scripts/local-acceptance.ts, scripts/lib/local-acceptance-options.ts, scripts/local-acceptance.selfcheck.ts, docs/FACTOR_PROFILE_AUDIT.md, docs/INDEX.md, docs/PRODUCT_FLOW_ACCEPTANCE.md, docs/LOCAL_ACCEPTANCE.md, docs/TESTING.md, docs/CHANGELOG.md.
+
+Date: 2026-09-09
+Summary:
+- Подготовлен черновик промпта полного завершения механики анкеты → личные характеристики → профиль пары на основе подтверждённого аудита.
+- Запрошены четыре решения владельца: представление характеристик, источники обновления, повторное прохождение и видимость в паре. Рекомендуемые варианты явно не считаются утверждёнными.
+- Получен первый ответ: утверждены отдельные характеристики внутри шести областей; остальные три решения остаются открытыми.
+- Зафиксированы требования к шести областям, содержательным значениям, evidence/projection, идемпотентности, разрешениям, восстановлению и браузерной приёмке. Код приложения не менялся.
+Files: docs/FACTOR_PROFILE_IMPLEMENTATION_PROMPT.md, docs/INDEX.md, docs/CHANGELOG.md.
+
+Date: 2026-09-09
+Summary:
+- Финализирован промпт по ответам владельца: тест проходится один раз и закрывается; результаты меняют собственный профиль и используются в matching и/или модели пары по назначению и разрешениям.
+- Удалены требования к пересдаче, в том числе по новой неделе/версии; добавлены серверная одноразовость, продолжение черновика, канонический retry и защита от конфликтующей повторной отправки. Повтор за монеты оставлен только будущей идеей.
+- Matching включён в обязательную приёмку. Видимость партнёру сохраняет действующий контракт без нового раскрытия личных ответов. Код приложения не менялся.
+Files: docs/FACTOR_PROFILE_IMPLEMENTATION_PROMPT.md, docs/INDEX.md, docs/CHANGELOG.md.

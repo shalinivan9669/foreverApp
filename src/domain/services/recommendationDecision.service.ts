@@ -286,6 +286,7 @@ const reconcileActionNotification = async (
         pairId: String(activePair._id),
         type: 'ACTION_AVAILABLE',
         sourceKey: `decision:${String(currentDecision._id)}`,
+        resourceId: String(currentDecision._id),
         session,
       });
     });

@@ -1345,6 +1345,11 @@ export async function saveOwnMatchingCard(input: {
   return getOwnMatchingCard({ currentUserId: input.currentUserId });
 }
 
+export async function authorizeMatchingCardMutation(input: { currentUserId: string; active: boolean }): Promise<void> {
+  await connectToDatabase();
+  if (input.active) await assertMatchingSolo([input.currentUserId]);
+}
+
 export async function getMatchingPreferences(input: { currentUserId: string }) {
   await connectToDatabase();
   const [profiles, grants] = await Promise.all([
@@ -2017,9 +2022,10 @@ export async function authorizeCreateMatchingLikeMutation(input: { currentUserId
   const ids = [...new Set([input.currentUserId, input.candidateId])];
   if (await User.countDocuments({ id: { $in: ids } }) !== ids.length) return error("NOT_FOUND", 404, "Matching resource was not found");
   if (await MatchingBlock.exists({ participantKey: [...ids].sort().join("|"), status: "ACTIVE" })) return error("MATCHING_BLOCKED", 409, "Matching interaction is unavailable");
+  await assertMatchingSolo(ids);
 }
 
-export async function authorizeMatchingLikeMutation(input: { currentUserId: string; likeId: string }): Promise<void> {
+export async function authorizeMatchingLikeMutation(input: { currentUserId: string; likeId: string; requireMatching?: boolean }): Promise<void> {
   await connectToDatabase();
   const like = await getLikeForActor(input.currentUserId, input.likeId);
   if (like.status === "BLOCKED" || await MatchingBlock.exists({ participantKey: [like.fromId, like.toId].sort().join("|"), status: "ACTIVE" })) return error("MATCHING_BLOCKED", 409, "Matching interaction is unavailable");
@@ -2029,6 +2035,7 @@ export async function authorizeMatchingLikeMutation(input: { currentUserId: stri
     await assertConnectionCurrentAccess(connection, input.currentUserId);
   }
   if (like.status === "EXPIRED") return error("MATCHING_STATE_CONFLICT", 409, "Matching request expired");
+  if (input.requireMatching) await assertMatchingSolo([like.fromId, like.toId]);
 }
 
 export async function authorizeMatchingConnectionMutation(input: { currentUserId: string; connectionId: string; action: ConnectionAction }): Promise<void> {
@@ -2037,6 +2044,7 @@ export async function authorizeMatchingConnectionMutation(input: { currentUserId
   const connection = await MatchingConnection.findOne({ _id: new Types.ObjectId(input.connectionId), participantIds: input.currentUserId }).lean<StoredConnection | null>();
   if (!connection) return error("NOT_FOUND", 404, "Matching resource was not found");
   await assertConnectionCurrentAccess(connection, input.currentUserId);
+  if (!connection.pairId && ["REQUEST", "CONFIRM", "RESUME"].includes(input.action)) await assertMatchingSolo(connection.participantIds);
   matchingConnectionTransition({ participantIds: matchingParticipantIds(...connection.participantIds), status: connection.status, stage: connection.stage, coupleConfirmation: connection.coupleConfirmation, revision: connection.revision, ...(connection.pairId ? { pairId: String(connection.pairId) } : {}) }, { type: input.action, at: new Date() }, input.currentUserId);
 }
 

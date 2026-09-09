@@ -129,6 +129,29 @@ export const matchingPreferenceLabel = (
 ): string =>
   preference.label?.trim() || preference.factorKey.replace(/[._-]+/g, " ");
 
+/** Owner-facing names match the fields in the card form, never internal factor IDs. */
+export const matchingRequiredTopicLabel = (topic: string): string => {
+  const labels: Record<string, string> = {
+    "lifePlans.relationship.intent": "Формат знакомства",
+    "lifePlans.family.childrenIntent": "Отношение к детям",
+  };
+  return labels[topic] ?? "Дополнительные данные для подбора";
+};
+
+export const matchingCategoryOptions = (factorKey: string): ReadonlyArray<{ value: string; label: string }> | null => {
+  if (factorKey === "lifePlans.relationship.intent") return [
+    { value: "GETTING_TO_KNOW", label: "Сначала познакомиться" },
+    { value: "OPEN_TO_RELATIONSHIP", label: "Открыт(а) к отношениям" },
+    { value: "LOOKING_FOR_LONG_TERM", label: "Ищет долгосрочные отношения" },
+  ];
+  if (factorKey === "lifePlans.family.childrenIntent") return [
+    { value: "YES", label: "Хочет детей" },
+    { value: "NO", label: "Не планирует детей" },
+    { value: "UNSURE", label: "Пока не уверен(а)" },
+  ];
+  return null;
+};
+
 export const importanceLabel = (
   importance: MatchingPreferenceDTO["importance"],
 ): string => {
@@ -156,4 +179,11 @@ export const flexibilityLabel = (
 export const matchingPreferencesForSave = (
   preferences: readonly MatchingPreferenceDTO[],
 ): MatchingPreferenceDTO[] =>
-  preferences.filter((preference) => preference.useAllowed);
+  preferences.filter((preference) => preference.useAllowed).map((preference) => ({
+    factorKey: preference.factorKey,
+    target: preference.target,
+    importance: preference.importance,
+    flexibility: preference.flexibility,
+    constraintMode: preference.constraintMode,
+    useAllowed: preference.useAllowed,
+  }));

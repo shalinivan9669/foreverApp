@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Spinner from './Spinner';
 
@@ -11,7 +11,7 @@ export default function LoadingView({ label = 'Загрузка...', compact = f
   if (compact) {
     return (
       <div className="app-muted flex items-center gap-2 text-sm" role="status" aria-live="polite">
-        <Spinner size={16} />
+        <Spinner size={16} decorative />
         <span>{label}</span>
       </div>
     );
@@ -20,7 +20,7 @@ export default function LoadingView({ label = 'Загрузка...', compact = f
   return (
     <div className="app-page-state app-muted" role="status" aria-live="polite">
       <div className="app-panel app-reveal flex items-center gap-3 px-4 py-3">
-        <Spinner size={24} />
+        <Spinner size={24} decorative />
         <span className="font-medium">{label}</span>
       </div>
     </div>

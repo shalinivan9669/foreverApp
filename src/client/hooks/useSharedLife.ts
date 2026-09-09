@@ -70,6 +70,22 @@ export function useSharedLife(pairId: string | null) {
       );
       setError(normalized);
       if ([401, 403, 404].includes(normalized.status)) setSnapshot(null);
+      if (normalized.status === 409) {
+        // Keep the local form and its original revision. Fetch only the latest
+        // guarded snapshot; the user must compare it before sending again.
+        try {
+          const current = await sharedLifeApi.get(pairId);
+          if (version === requestVersion.current) setSnapshot(current);
+        } catch (reloadError) {
+          if (version === requestVersion.current) {
+            const reloadFailure = toUiErrorState(reloadError instanceof Error ? reloadError : new Error("Не удалось загрузить актуальную запись."));
+            if ([401, 403, 404].includes(reloadFailure.status)) {
+              setSnapshot(null);
+              setError(reloadFailure);
+            }
+          }
+        }
+      }
       return false;
     } finally {
       if (version === requestVersion.current) {
