@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { developmentLibraryHref, filterDevelopmentCatalog, resumableDevelopmentRuns } from "@/client/viewmodels/development.viewmodels";
+import { developmentLibraryHref, developmentRunStatus, filterDevelopmentCatalog, recentCompletedDevelopmentRuns, resumableDevelopmentRuns } from "@/client/viewmodels/development.viewmodels";
 import { sharedLifeAgenda, sharedLifeEntries, sharedLifeEntryFields } from "@/client/viewmodels/sharedLife.viewmodels";
 import type { DevelopmentCardDTO, DevelopmentOverviewDTO, DevelopmentRunDTO } from "@/lib/dto/development.dto";
 import type { SharedLifeDTO, SharedLifeEntryDTO } from "@/lib/dto/sharedLife.dto";
@@ -12,6 +12,23 @@ assert.deepEqual(filterDevelopmentCatalog(overview, { audience: "personal", doma
 assert.deepEqual(filterDevelopmentCatalog(overview, { audience: "together", domain: "communication", kind: "TOPIC" }).map((item) => item.key), ["together"]);
 assert.equal(filterDevelopmentCatalog(overview, { audience: "personal", domain: "communication", kind: "REFLECTION" }).length, 0);
 assert.equal(resumableDevelopmentRuns(overview, "pair", "active").length, 35, "the library audience filter must not limit the complete continuation list");
+const completedRun = (id: string, completedAt: string, pairId: string | null = null): DevelopmentRunDTO => ({ ...runs[0], id, pairId, status: "COMPLETED", myCompletion: true, partnerCompleted: Boolean(pairId), completedAt });
+const completedOverview: DevelopmentOverviewDTO = { ...overview, recent: [
+  completedRun("personal-old", "2026-09-07T10:00:00Z"),
+  completedRun("current-pair", "2026-09-08T10:00:00Z", "pair"),
+  completedRun("former-pair", "2026-09-09T10:00:00Z", "former"),
+  completedRun("personal-new", "2026-09-09T09:00:00Z"),
+  { ...completedRun("not-my-result", "2026-09-09T12:00:00Z"), myCompletion: false },
+  { ...completedRun("partial", "2026-09-09T12:00:00Z", "pair"), status: "PARTIAL" },
+] };
+const completedIds = (pairId: string | null, status?: "active" | "paused" | "ended") => recentCompletedDevelopmentRuns(completedOverview, pairId, status).map((run) => run.id);
+assert.deepEqual(completedIds("pair", "active"), ["personal-new", "current-pair", "personal-old"]);
+assert.deepEqual(completedIds("pair", "paused"), ["personal-new", "current-pair", "personal-old"], "paused current pair results remain readable");
+for (const status of [undefined, "ended"] as const) assert.deepEqual(completedIds("pair", status), ["personal-new", "personal-old"], "unconfirmed or ended pair context must not expose cached pair results");
+assert.deepEqual(completedIds(null, "active"), ["personal-new", "personal-old"], "loss of pair access removes cached pair results");
+assert.equal(completedOverview.recent[0].id, "personal-old", "recent-result ordering must not mutate the overview");
+assert.equal(recentCompletedDevelopmentRuns({ ...overview, recent: Array.from({ length: 35 }, (_, index) => completedRun(`complete-${index}`, `2026-09-09T10:00:${String(index).padStart(2, "0")}Z`)) }).length, 30, "recent results are bounded and must not imply a complete archive");
+assert.match(developmentRunStatus(completedOverview.recent[1], true), /доступен для просмотра/, "a completed paused result must offer reading rather than resuming");
 const query = "scope=together&format=TOPIC&area=communication&program=two%2Fsteps";
 const opened = developmentLibraryHref(query, { run: "old/run?x=1" });
 const params = new URL(opened, "https://example.test").searchParams;
@@ -39,4 +56,4 @@ const moneyFields = sharedLifeEntryFields({ kind: "BUDGET", title: "Покупк
 assert.match(moneyFields.find((field) => field.label === "Сумма")?.value ?? "", /123,45/);
 const memoryFields = sharedLifeEntryFields(entries[4].data, "A");
 assert.equal(memoryFields.find((field) => field.label === "Ссылка на фото")?.value, "https://example.test/photo");
-console.log("Workspace UI self-check passed: personal/shared filters, all 35 continuations, preserved deep links, agenda ordering and complete conflict comparison fields.");
+console.log("Workspace UI self-check passed: personal/shared filters, all 35 continuations, bounded completed results and pair access, preserved deep links, agenda ordering and complete conflict comparison fields.");

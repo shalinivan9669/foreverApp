@@ -5,6 +5,7 @@ import { conversationRoundDTO, MATCHING_CONVERSATION_TOPICS, type ConversationRo
 import { matchingConnectionTransition, socialLikeTransition, type MatchingConnectionSnapshot } from "@/domain/state/matching";
 import { matchingCardBodySchema } from "@/app/api/match/schemas";
 import { isMatchingPersonEligible, mutualMatchingGenderEligible } from "@/domain/services/matching/matchingEligibility.service";
+import { checkMatchingInboxPausedConnections } from "./lib/matching-inbox-regression";
 
 const now = new Date("2026-09-05T12:00:00Z");
 const card: MatchingSocialCard = { cardVersion: 2, requirements: ["r1", "r2", "r3"], give: ["g1", "g2", "g3"], boundaries: ["b1", "b2", "b3"], boundaryDealbreakers: [true, false, false], questions: ["q1", "q2", "q3"] };
@@ -58,4 +59,6 @@ assert.equal(mutualMatchingGenderEligible(personA, personB, { soughtGender: "mal
 assert.equal(mutualMatchingGenderEligible(personA, personB, { soughtGender: "female" }), false);
 assert.equal(mutualMatchingGenderEligible(personA, { ...personB, entryCohort: "EXISTING_PARTNER" }), false);
 assert.equal(mutualMatchingGenderEligible(personA, { ...personB, personal: { ...personB.personal, age: 17 } }), false);
-console.log("matching-product.selfcheck: ok (reactions, boundaries, expiry, slots, lifecycle, independent reveal, cohort)");
+void checkMatchingInboxPausedConnections().then(() => {
+  console.log("matching-product.selfcheck: ok (reactions, boundaries, expiry, slots, lifecycle, paused inbox reload, independent reveal, cohort)");
+}).catch((error: Error) => { console.error(error); process.exitCode = 1; });

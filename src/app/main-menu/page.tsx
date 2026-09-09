@@ -55,6 +55,7 @@ export default function MainMenuPage() {
       <Link href="/store" className="app-btn-secondary px-3 py-2">Монеты и магазин</Link>
       {!hasCurrentPair && <Link href="/invite" className="app-btn-secondary px-3 py-2">Уже есть партнёр</Link>}
       {today.matchingAllowed && <Link href="/match/inbox" className="app-btn-secondary px-3 py-2">Входящие знакомств</Link>}
+      {today.ready && !today.matchingAllowed && (today.existingPartnerIntent || hasCurrentPair) && <Link href="/match/inbox" className="app-btn-secondary px-3 py-2">Прежние знакомства</Link>}
       {today.matchingAllowed && <Link href="/match-card/create" className="app-btn-secondary px-3 py-2">Настройки знакомств</Link>}
       <Link href="/profile/history" className="app-btn-secondary px-3 py-2">История</Link>
       <Link href="/profile/safety" className="app-btn-secondary px-3 py-2">Приватная безопасность</Link>

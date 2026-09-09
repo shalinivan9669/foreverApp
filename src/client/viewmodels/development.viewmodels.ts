@@ -10,9 +10,19 @@ export function resumableDevelopmentRuns(overview: DevelopmentOverviewDTO, pairI
     .sort((a, b) => Number(a.myCompletion) - Number(b.myCompletion));
 }
 
+/** The existing overview contains a bounded recent list, not a complete archive. */
+export function recentCompletedDevelopmentRuns(overview: DevelopmentOverviewDTO, pairId?: string | null, pairStatus?: PairStatus) {
+  return overview.recent.filter((run) => run.status === "COMPLETED" && run.myCompletion &&
+    (!run.pairId || (run.pairId === pairId && (pairStatus === "active" || pairStatus === "paused"))))
+    .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "") || a.id.localeCompare(b.id))
+    .slice(0, 30);
+}
+
 export function developmentRunStatus(run: DevelopmentRunDTO, paused = false) {
+  if (run.status === "COMPLETED") return run.pairId
+    ? paused ? "Пара на паузе. Сохранённый общий итог доступен для просмотра." : "Общий итог готов: оба участника завершили занятие."
+    : "Личное занятие завершено.";
   if (paused && run.pairId) return "Пара на паузе. Продолжить можно после возобновления.";
-  if (run.status === "COMPLETED") return run.pairId ? "Общий итог готов: оба участника завершили занятие." : "Личное занятие завершено.";
   if (run.myCompletion) return "Частичный итог: ваш результат сохранён, ожидаем партнёра.";
   if (run.partnerCompleted) return "Партнёр завершил занятие. Для общего итога остался ваш результат.";
   return "Занятие начато. Можно продолжить и сохранить личный результат.";

@@ -840,3 +840,24 @@ Summary:
 - Зафиксированы публикации и совместимый мост реестра 7→8 без изменения исходных значений/дат/согласий. Обычные UNMAPPED анкеты и библиотечные рефлексии не выдают фиктивных измерений; закрыто повторное прохождение через неделю, редакцию и новую пару. Парные сессии сохраняют immutable questionnaireVersion.
 - Добавлены точные golden integration cases, проверки приватности, версий и crash recovery; обновлены API, security/testing, матрица измерений и отчёт браузерной приёмки. Новых allowlist entries нет.
 Files: docs/FACTOR_MEASUREMENT_CONTRACT.md, docs/FACTOR_MEASUREMENT_ACCEPTANCE.md и manifest изменённых файлов в отчёте приёмки.
+
+Date: 2026-09-09
+Summary:
+- Выполнен аудит текущих пользовательских маршрутов на 122fed5: девять ошибок/разрывов с точными источниками, отдельный список ограничений версии и явно отложенных функций.
+- Зафиксированы прошедшие targeted selfchecks/typecheck, локальное воспроизведение выбора устаревшего состояния и границы проверки без БД/браузера/Discord. Runtime, контракты и данные не менялись.
+Files: docs/USER_JOURNEY_GAPS.md, docs/INDEX.md, docs/CHANGELOG.md.
+
+Date: 2026-09-09
+Summary:
+- По запросу владельца выполнены безопасные исправления SMALL_FIX из аудита: PAUSED остаётся в inbox; прежние знакомства доступны в режиме безопасных действий без включения поиска/новых ответов; карточка личной нагрузки направляет к отдельному актуальному недельному состоянию.
+- Исправлена очистка дневника только после явного редактирования, с сохранением нетронутого обновлённого текста. Добавлена пагинация уведомлений с retry, устранением дублей и защитой счётчика от гонки прочтения/GET.
+- В библиотеке появились недавние завершённые результаты (до 30, прежний guarded API); одноразовая саморефлексия больше не обещает повтор на следующей неделе. Полная история F08 остаётся отдельной задачей.
+- Выбор политики состояния F01 и owner-only контракт списка блокировок F04 оставлены открытыми. HTTP-контракты, DB schema, auth/session, зависимости, env и реальные данные не менялись; новых allowlist entries нет.
+- Прошли полный lint, TypeScript, production build, agent checks и 11 целевых selfchecks. Новые проверки формы дневника, пагинации/гонок уведомлений и inbox PAUSED включены в существующий check:self. MongoDB/Discord/browser acceptance не выполнялись.
+Files: src/app/main-menu/page.tsx; src/components/profile/today/PersonalTodayDashboard.tsx; src/components/notifications/NotificationPanel.tsx; src/client/api/notifications.api.ts; src/client/hooks/useNotifications.ts; src/client/viewmodels/matchingHistory.ts; src/components/matching/MatchingAccessGate.tsx, MatchingConnectionCard.tsx; src/features/matching/MatchingInboxPage.tsx, MatchingLikePage.tsx, MatchingConnectionPage.tsx; src/domain/services/matching/matchingApplication.service.ts; src/domain/services/measuredPairProfile.service.ts; src/features/measurements/MeasurementPages.tsx; src/client/viewmodels/development.viewmodels.ts; src/features/development/DevelopmentPage.tsx; package.json; scripts/personal-diary-ui.selfcheck.ts, notifications-pagination.selfcheck.ts, lib/matching-inbox-regression.ts, matching-product.selfcheck.ts, matching-ui.selfcheck.ts, matching-request-race.selfcheck.ts, workspace-ui.selfcheck.ts; docs/USER_JOURNEY_GAPS.md, INDEX.md, PRODUCT_WORKSPACE_UPDATE.md, MATCHING_PRODUCT_UPDATE.md, PRODUCT_FLOW_ACCEPTANCE.md, FACTOR_MEASUREMENT_CONTRACT.md, TESTING.md, CHANGELOG.md.
+
+Date: 2026-09-09
+Summary:
+- По вопросу владельца о продолжении подготовлено конкретное предложение по собственному списку блокировок F04 и полной пагинации завершённых занятий F08 с сохранением действующих ограничений доступа.
+- Для F01 описаны три варианта смысла личного состояния и последствия для вычислений/представления. Рекомендуемые изменения явно оставлены проектом до согласования API и продуктового решения; runtime и действующие контракты в этом этапе не менялись.
+Files: docs/USER_JOURNEY_GAPS.md, docs/CHANGELOG.md.

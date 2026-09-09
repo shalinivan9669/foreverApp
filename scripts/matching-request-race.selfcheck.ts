@@ -6,6 +6,7 @@ import { usersApi } from '@/client/api/users.api';
 import { pairsApi } from '@/client/api/pairs.api';
 import type { CurrentUserDTO, PairMeDTO } from '@/client/api/types';
 import { useEntitiesStore } from '@/client/stores/useEntitiesStore';
+import { matchingHistoryAvailable } from '@/client/viewmodels/matchingHistory';
 
 // Actual matching hooks/useApi execute against deferred API calls. Only React's
 // scheduling and store subscription boundary are adapted; no network/DB fixtures.
@@ -261,6 +262,10 @@ async function main() {
       pairsApi.getStatus = async () => ({ hasActive: false });
       pairsApi.getMyPair = async () => ({ pair: null, hasActive: false, hasAny: false, status: null });
       const renderAccess = () => renderHook(() => useMatchingAccess());
+      const historyAvailable = () => {
+        const access = renderAccess();
+        return matchingHistoryAvailable({ verified: access.verified, entryCompleted: Boolean(access.user?.entryCompletedAt), eligibility: access.eligibility });
+      };
       assert.equal(renderAccess().allowed, false, 'cached user data alone cannot authorize the first matching render');
       await tick();
       assert.equal(renderAccess().allowed, true);
@@ -271,22 +276,27 @@ async function main() {
       usersApi.getCurrentUser = async () => ({ ...solo, personal: { ...solo.personal!, relationshipStatus: 'in_relationship' } });
       await renderAccess().refresh(); await tick();
       assert.equal(renderAccess().allowed, false, 'declared relationships must remove matching without linked Pair');
+      assert.equal(historyAvailable(), true, 'Changing to declared relationships preserves only historical entry');
       oldUser.resolve(solo); await oldRefresh; await tick();
       assert.equal(renderAccess().eligibility, 'EXISTING_PARTNER', 'late old user response cannot restore matching');
+      assert.equal(historyAvailable(), true, 'A stale SOLO response cannot revoke the current historical route');
       usersApi.getCurrentUser = async () => solo;
       for (const status of ['active', 'paused'] as const) {
         pairsApi.getMyPair = async () => ({ pair: { id: 'pair', key: 'pair-key', members: ['actor', 'peer'], status }, hasActive: true, hasAny: true, status });
         await renderAccess().refresh(); await tick();
         assert.equal(renderAccess().eligibility, 'PAIR_ACTIVE');
         assert.equal(renderAccess().allowed, false, `${status} Pair cannot authorize matching even while the other pair endpoint is stale`);
+        assert.equal(historyAvailable(), true, `${status} Pair permits historical entry without enabling discovery`);
       }
       pairsApi.getMyPair = async () => ({ pair: null, hasActive: false, hasAny: false, status: null });
       usersApi.getCurrentUser = async () => ({ ...solo, entryCohort: undefined, entryCompletedAt: undefined });
       await renderAccess().refresh(); await tick();
       assert.equal(renderAccess().eligibility, 'ENTRY_REQUIRED');
       assert.equal(renderAccess().allowed, false);
+      assert.equal(historyAvailable(), false, 'Missing entry cannot mount historical pages');
       useEntitiesStore.getState().setCurrentUser('users:me', { ...solo, id: 'different-session' });
       assert.equal(renderAccess().allowed, false, 'a different session requires a fresh complete access check');
+      assert.equal(historyAvailable(), false, 'Historical pages must also unmount for an unverified different session');
       const unmountedUser = deferred<CurrentUserDTO>();
       const unmountedPair = deferred<PairMeDTO>();
       usersApi.getCurrentUser = () => unmountedUser.promise;

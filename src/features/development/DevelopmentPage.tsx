@@ -6,7 +6,7 @@ import { usePair } from "@/client/hooks/usePair";
 import { useDevelopment } from "@/client/hooks/useDevelopment";
 import { useRefreshOnReturn } from "@/client/hooks/useRefreshOnReturn";
 import { confirmAppNavigation, useUnsavedChanges } from "@/client/hooks/useUnsavedChanges";
-import { developmentLibraryHref, developmentRunStatus, isTogetherDevelopment, resumableDevelopmentRuns, type DevelopmentAudience } from "@/client/viewmodels/development.viewmodels";
+import { developmentLibraryHref, developmentRunStatus, isTogetherDevelopment, recentCompletedDevelopmentRuns, resumableDevelopmentRuns, type DevelopmentAudience } from "@/client/viewmodels/development.viewmodels";
 import type {
   DevelopmentCompleteInput,
   DevelopmentDetailDTO,
@@ -134,6 +134,7 @@ export default function DevelopmentPage() {
   const detailUnavailable = pair.error?.status === 401 || Boolean(flow.detail?.run.pairId && (pairAccessLost || pair.pairMe?.pair?.status === "ended" || (pair.pairMe && flow.detail.run.pairId !== pair.pairMe.pair?.id)));
   const detail = detailUnavailable ? null : flow.detail;
   const runs = flow.overview ? resumableDevelopmentRuns({ ...flow.overview, recent: flow.unfinishedRuns }, pairAccessLost ? null : pairId, pair.pairMe?.pair?.status) : [];
+  const completedRuns = flow.overview ? recentCompletedDevelopmentRuns(flow.overview, pairAccessLost ? null : pairId, pair.pairMe?.pair?.status) : [];
   const libraryHref = (changes: Record<string, string | null>) => developmentLibraryHref(searchParams.toString(), changes);
   const close = () => { if (!confirmAppNavigation()) return; flow.close(); router.replace(`${libraryHref({ run: null })}${highlightedProgram ? "#programs" : ""}`, { scroll: false }); };
   const start = async (key: string, selectedPairId?: string) => {
@@ -145,7 +146,7 @@ export default function DevelopmentPage() {
   useRefreshOnReturn(refresh, !flow.busy && (!detail || detail.run.myCompletion));
   const renderRun = (run: (typeof runs)[number]) => <div key={run.id} className="app-panel-soft p-3">
     <Link className="inline-block py-2 font-medium underline" href={libraryHref({ run: run.id })}>{flow.overview?.content.find((card) => card.key === run.contentKey)?.title ?? "Сохранённое занятие"}</Link>
-    <p className="app-muted mt-1 text-sm">Неделя с <time dateTime={run.periodKey}>{run.periodKey}</time> (UTC) · {run.pairId ? "Совместное" : "Личное"} занятие</p>
+    <p className="app-muted mt-1 text-sm">{run.periodKey === "once" ? "Одноразовая анкета" : <>Неделя с <time dateTime={run.periodKey}>{run.periodKey}</time> (UTC)</>} · {run.pairId ? "Совместное" : "Личное"} занятие</p>
     <p className="app-muted mt-1 text-sm">{developmentRunStatus(run, pair.pairMe?.pair?.status === "paused")}</p>
   </div>;
   return (
@@ -173,7 +174,7 @@ export default function DevelopmentPage() {
           Результаты не меняют подбор партнёров автоматически.
         </p>
       </section>
-      {!detail && <nav aria-label="Разделы библиотеки" className="mt-4 flex flex-wrap gap-2"><a href="#unfinished" className="app-btn-secondary px-3 py-2">Продолжить</a><a href="#catalog" className="app-btn-secondary px-3 py-2">Выбрать занятие</a><a href="#programs" className="app-btn-secondary px-3 py-2">Программы</a><Link href="/questionnaires" className="app-btn-secondary px-3 py-2">Все анкеты</Link></nav>}
+      {!detail && <nav aria-label="Разделы библиотеки" className="mt-4 flex flex-wrap gap-2"><a href="#unfinished" className="app-btn-secondary px-3 py-2">Продолжить</a><a href="#completed" className="app-btn-secondary px-3 py-2">Недавние результаты</a><a href="#catalog" className="app-btn-secondary px-3 py-2">Выбрать занятие</a><a href="#programs" className="app-btn-secondary px-3 py-2">Программы</a><Link href="/questionnaires" className="app-btn-secondary px-3 py-2">Все анкеты</Link></nav>}
       {flow.error && (
         <div className="mt-4">
           <ErrorView error={flow.error} onRetry={() => void refresh()} />
@@ -230,8 +231,9 @@ export default function DevelopmentPage() {
                 </p>
               )}
               <p className="app-muted mt-3 text-sm">
-                Можно выбрать практику в этой области. Следующее независимое
-                прохождение доступно с новой календарной недели UTC.
+                {detail.content.kind === "REFLECTION"
+                  ? "Эта анкета проходится один раз. Сохранённый результат доступен при повторном открытии. Можно выбрать практику в этой области."
+                  : "Можно выбрать практику в этой области. Следующее независимое прохождение доступно с новой календарной недели UTC."}
               </p>
               <button className="app-btn-primary mt-3 px-3 py-2" onClick={close}>Выбрать следующий шаг</button>
               {detail.run.pairId && (
@@ -270,6 +272,13 @@ export default function DevelopmentPage() {
                 {flow.hasMoreRuns && <button className="app-btn-secondary mt-4 px-4 py-3" disabled={flow.loading || flow.runsLoading || flow.busy} onClick={() => void flow.loadMoreRuns()}>{flow.runsLoading ? "Загружаем…" : "Показать ещё"}</button>}
               </details>}
               <p className="app-muted mt-3 text-sm" role="status">{flow.runsLoading ? "Загружаем следующую страницу занятий…" : runs.length > 0 ? `Загружено занятий: ${runs.length}${flow.hasMoreRuns ? ". Более ранние занятия доступны по кнопке «Показать ещё» в полном списке." : ". Все доступные незавершённые занятия загружены."}` : ""}</p>
+            </section>
+            <section id="completed" className="app-panel app-panel-solid mt-5 p-5">
+              <h2 className="text-lg font-semibold">Недавние завершённые занятия</h2>
+              <p className="app-muted mt-2 text-sm">Показаны до 30 недавних завершённых занятий. Полный архив более ранних результатов пока недоступен.</p>
+              {!flow.loading && completedRuns.length === 0 && <p className="app-muted mt-3 text-sm">Нет доступных недавних результатов. Сохранённые ответы незавершённого совместного занятия можно открыть в разделе «Продолжить начатое».</p>}
+              <div className="mt-3 space-y-3">{completedRuns.slice(0, 3).map(renderRun)}</div>
+              {completedRuns.length > 3 && <details className="mt-3"><summary className="cursor-pointer py-3 font-medium">Ещё недавние результаты ({completedRuns.length - 3})</summary><div className="mt-2 space-y-3">{completedRuns.slice(3).map(renderRun)}</div></details>}
             </section>
             <DevelopmentCatalog overview={flow.overview} audience={audience} domain={domain} kind={kind} highlightedKey={highlightedKey} highlightedProgram={highlightedProgram} pairId={pairId} pairActive={pairActive} pairLoading={pair.loading} busy={flow.busy} onStart={start} onFilter={(changes) => router.replace(libraryHref(changes), { scroll: false })} />
           </>

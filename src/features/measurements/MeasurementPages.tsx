@@ -70,6 +70,6 @@ export function MeasuredPairPanel({ pairId }: { pairId: string }) {
   return <section className="space-y-3"><h2 className="text-xl font-semibold">Наши договорённости и различия</h2><p className="app-muted">Общие выводы по разрешённым личным данным. Различие не означает плохого партнёра. Совместное проживание не предполагается.</p>{error && <p role="alert">Не удалось обновить общий результат. <button className="app-btn-secondary" onClick={() => setAttempt((value) => value + 1)}>Повторить</button></p>}
     {!data && !error && <p role="status">Обновляем общий результат…</p>}
     {data?.status === 'paused' && <p>Пара на паузе. Общие ориентиры доступны для чтения.</p>}
-    {data?.cards.map((card) => <article key={card.factorKey} className="app-panel p-4 space-y-2"><h3 className="font-semibold">{card.title}</h3><p>{card.meaning}</p><p className="app-muted">{card.nextAction}</p></article>)}<Link className="app-btn-secondary inline-flex" href="/measurements">Личные анкеты и разрешения</Link>
+    {data?.cards.map((card) => <article key={card.factorKey} className="app-panel p-4 space-y-2"><h3 className="font-semibold">{card.title}</h3><p>{card.meaning}</p><p className="app-muted">{card.nextAction}</p>{card.factorKey === 'wellbeing.current.overload' && <Link className="app-btn-secondary inline-flex" href={`/pair/${encodeURIComponent(pairId)}?action=check-in#weekly-checkin`}>Состояние недели</Link>}</article>)}<Link className="app-btn-secondary inline-flex" href="/measurements">Личные анкеты и разрешения</Link>
   </section>;
 }

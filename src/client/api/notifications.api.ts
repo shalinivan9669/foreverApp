@@ -31,8 +31,10 @@ export type NotificationPageDTO = {
 };
 
 export const notificationsApi = {
-  list(signal?: AbortSignal): Promise<NotificationPageDTO> {
-    return http.get<NotificationPageDTO>('/api/notifications?limit=5', {
+  list(signal?: AbortSignal, cursor?: string): Promise<NotificationPageDTO> {
+    const query = new URLSearchParams({ limit: '5' });
+    if (cursor) query.set('cursor', cursor);
+    return http.get<NotificationPageDTO>(`/api/notifications?${query}`, {
       signal,
       cache: 'no-store',
     });

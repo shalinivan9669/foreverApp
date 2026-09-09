@@ -48,6 +48,8 @@ The workspace suite exercises first-create races, immutable completions, exactly
 
 ## Static and database-free gates
 
+Дополнительные регрессии пользовательских маршрутов: `npm run selfcheck:personal-diary-ui` исполняет реальные обработчики формы и схему транспорта для очистки/замены дневника и обновления нетронутого поля; `npm run selfcheck:notifications-pagination` проверяет реальный hook на отложенных ответах API, пагинации, retry, refresh, прочтении, потере доступа и unmount. Оба включены в `check:self`. `selfcheck:matching-product` также выполняет getMatchingInbox с изолированными адаптерами моделей и проверяет сохранение PAUSED при повторном чтении. Эти тесты не являются MongoDB/Discord/browser acceptance.
+
 ```text
 npm run lint
 npm run check:types

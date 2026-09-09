@@ -1,12 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRefreshOnReturn } from '@/client/hooks/useRefreshOnReturn';
-import {
-  notificationsApi,
-  type NotificationDTO,
-} from '@/client/api/notifications.api';
+import { useNotifications } from '@/client/hooks/useNotifications';
 
 const displayDate = (value: string): string => {
   const date = new Date(value);
@@ -26,66 +22,13 @@ export default function NotificationPanel({ enabled = true }: NotificationPanelP
 }
 
 function NotificationPanelSession() {
-  const enabled = true;
-  const [items, setItems] = useState<NotificationDTO[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [loadAttempt, setLoadAttempt] = useState(0);
-  const [readFailed, setReadFailed] = useState(false);
-  const pendingRead = useRef(new Set<string>());
-  const refresh = useCallback(async () => { setLoadAttempt((value) => value + 1); }, []);
-  useRefreshOnReturn(refresh, enabled);
+  const { items, unreadCount, nextCursor, loaded, loading, loadingMore,
+    loadFailed, moreFailed, readFailed, refresh, loadMore, markRead } = useNotifications();
+  useRefreshOnReturn(refresh, !loading && !loadingMore);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void notificationsApi
-      .list(controller.signal)
-      .then((page) => {
-        if (controller.signal.aborted) return;
-        setItems(page.items);
-        setUnreadCount(page.unreadCount);
-        setLoadFailed(false);
-        setLoaded(true);
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-        setLoadFailed(true);
-        setLoaded(true);
-      });
-    return () => controller.abort();
-  }, [enabled, loadAttempt]);
+  if (!loaded) return null;
 
-  const retryLoad = (): void => {
-    setLoaded(false);
-    setLoadFailed(false);
-    setLoadAttempt((current) => current + 1);
-  };
-
-  const markRead = (notification: NotificationDTO): void => {
-    if (notification.isRead || pendingRead.current.has(notification.id)) return;
-    pendingRead.current.add(notification.id);
-    setReadFailed(false);
-    setItems((current) =>
-      current.map((item) =>
-        item.id === notification.id ? { ...item, isRead: true } : item
-      )
-    );
-    setUnreadCount((current) => Math.max(0, current - 1));
-    void notificationsApi.markRead(notification.id).catch(() => {
-      setReadFailed(true);
-      setItems((current) =>
-        current.map((item) =>
-          item.id === notification.id ? { ...item, isRead: false } : item
-        )
-      );
-      setUnreadCount((current) => current + 1);
-    }).finally(() => pendingRead.current.delete(notification.id));
-  };
-
-  if (!enabled || !loaded) return null;
-
-  if (loadFailed) {
+  if (loadFailed && items.length === 0) {
     return (
       <section
         className="app-panel app-panel-solid mt-4 p-5 sm:p-6"
@@ -93,8 +36,8 @@ function NotificationPanelSession() {
       >
         <h2 className="text-lg font-semibold">Уведомления</h2>
         <p className="app-muted mt-2 text-sm">Не удалось загрузить уведомления.</p>
-        <button className="app-btn-secondary mt-3" type="button" onClick={retryLoad}>
-          Повторить
+        <button className="app-btn-secondary mt-3" type="button" disabled={loading} onClick={() => void refresh()}>
+          {loading ? 'Загружаем…' : 'Повторить'}
         </button>
       </section>
     );
@@ -115,6 +58,10 @@ function NotificationPanelSession() {
           </span>
         )}
       </div>
+      <button type="button" className="app-btn-secondary mt-3 px-3 py-2 text-sm" disabled={loading} onClick={() => void refresh()}>
+        {loading ? 'Обновляем…' : 'Обновить уведомления'}
+      </button>
+      {loadFailed && <p role="status" className="app-muted mt-2 text-sm">Не удалось обновить уведомления. Сохранённый список остаётся доступен; повторите обновление.</p>}
       <div className="mt-3 grid gap-2">
         {readFailed && <p role="status" className="app-muted text-sm">Переход доступен, но отметку прочтения сохранить не удалось. Состояние обновится при возвращении.</p>}
         {items.map((notification) => (
@@ -148,6 +95,11 @@ function NotificationPanelSession() {
           </article>
         ))}
       </div>
+      {moreFailed && <p role="status" className="app-muted mt-3 text-sm">Не удалось загрузить более ранние уведомления. Уже загруженные записи сохранены.</p>}
+      {nextCursor && <button type="button" className="app-btn-secondary mt-3 px-3 py-2 text-sm" disabled={loading || loadingMore} onClick={() => void loadMore()}>
+        {loadingMore ? 'Загружаем…' : moreFailed ? 'Повторить загрузку' : 'Показать ещё'}
+      </button>}
+      <p className="app-muted mt-2 text-xs" role="status">Показано уведомлений: {items.length}{nextCursor ? '. Более ранние доступны по кнопке выше.' : '. Все доступные уведомления загружены.'}</p>
     </section>
   );
 }

@@ -35,11 +35,16 @@ export async function materializeMeasuredPairProfile(pairId: string, session: Cl
   const events = rows.filter((row) => row.actorId === row.subjectId && (!row.sourceRef.startsWith('measurement:') || allowed.get(row.sourceRef.split(':')[1]) === row.consentRevision)).map(toDomainEvidenceEvent);
   const at = new Date();
   const cards: MeasuredPairProfileDTO['cards'] = [];
+  const currentStateAction = pair.status === 'paused'
+    ? 'На паузе раздел «Состояние недели» доступен для просмотра. Новую оценку нагрузки можно дать после возобновления пары; пройденная личная анкета остаётся закрытой.'
+    : 'Свежую оценку нагрузки можно дать в текущем цикле пары. Недельные ответы обновляют раздел «Состояние недели»; пройденная личная анкета остаётся закрытой.';
   for (const key of keys) {
     const factor = MVP_FACTOR_REGISTRY.factors.find((item) => item.key === key)!;
+    const isOverload = key === 'wellbeing.current.overload';
+    const title = isOverload ? 'Нагрузка по личным анкетам' : factor.title;
     const a = events.filter((event) => event.subjectId === pair.members[0] && event.factorKey === key);
     const b = events.filter((event) => event.subjectId === pair.members[1] && event.factorKey === key);
-    const waiting = { factorKey: key, title: factor.title, state: 'WAITING' as const, meaning: 'Для общего вывода пока недостаточно актуальных разрешённых данных обоих участников.', nextAction: 'Откройте личные анкеты и проверьте разрешения. Закрытые ответы партнёра не показываются.', revision: null };
+    const waiting = { factorKey: key, title, state: 'WAITING' as const, meaning: 'Для общего вывода пока недостаточно актуальных разрешённых данных обоих участников.', nextAction: isOverload ? currentStateAction : 'Откройте личные анкеты и проверьте разрешения. Закрытые ответы партнёра не показываются.', revision: null };
     if (!a.length || !b.length) { cards.push(waiting); continue; }
     const partnerA = await materializeIndividual({ subjectId: pair.members[0], factor, projectionPurpose: 'PAIR_MODEL', events: a, fallbackCalculatedAt: at, session });
     const partnerB = await materializeIndividual({ subjectId: pair.members[1], factor, projectionPurpose: 'PAIR_MODEL', events: b, fallbackCalculatedAt: at, session });
@@ -51,8 +56,8 @@ export async function materializeMeasuredPairProfile(pairId: string, session: Cl
     if (disclosed.disclosure !== 'SUMMARY_ONLY') { cards.push(waiting); continue; }
     const status = disclosed.status;
     const ready = status !== 'INSUFFICIENT_DATA';
-    cards.push({ factorKey: key, title: factor.title, state: ready ? 'READY' : 'WAITING', meaning: ready ? status === 'ALIGNED' ? 'По разрешённым данным есть общая опора для договорённости.' : 'Есть различия или потребность в поддержке: полезно обсудить удобный для обоих порядок.' : waiting.meaning,
-      nextAction: key === 'wellbeing.current.overload' ? 'Снизьте нагрузку на ближайшую неделю и обсудите доступный объём поддержки. Обновить состояние можно в текущем цикле пары.' : key === 'communication.conflict.repairSkill' ? 'Выберите короткий разговор и согласуйте способ взять паузу и вернуться.' : key.startsWith('intimacy.') ? 'Обсудите удобное время разговора о близости. Каждый сохраняет право отказаться.' : key.startsWith('finance.') ? 'Согласуйте, какие общие расходы обсуждать заранее.' : 'Выберите одно совместное дело и договоритесь о времени и границах гибкости.', revision: stored.revision });
+    cards.push({ factorKey: key, title, state: ready ? 'READY' : 'WAITING', meaning: ready ? status === 'ALIGNED' ? 'По разрешённым данным есть общая опора для договорённости.' : 'Есть различия или потребность в поддержке: полезно обсудить удобный для обоих порядок.' : waiting.meaning,
+      nextAction: isOverload ? `Обсудите доступный объём поддержки. ${currentStateAction}` : key === 'communication.conflict.repairSkill' ? 'Выберите короткий разговор и согласуйте способ взять паузу и вернуться.' : key.startsWith('intimacy.') ? 'Обсудите удобное время разговора о близости. Каждый сохраняет право отказаться.' : key.startsWith('finance.') ? 'Согласуйте, какие общие расходы обсуждать заранее.' : 'Выберите одно совместное дело и договоритесь о времени и границах гибкости.', revision: stored.revision });
   }
   return { status: pair.status === 'paused' ? 'paused' : 'active', cards };
 }

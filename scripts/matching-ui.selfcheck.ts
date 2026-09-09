@@ -17,6 +17,11 @@ import { matchingPreferencesForSave } from "@/client/viewmodels/matching";
 import { matchingComposerReadiness } from "@/client/viewmodels/matchingComposer";
 import type { MatchPublicCardDTO } from "@/client/api/match.api";
 import type { MatchingStatementReaction } from "@/lib/contracts/matchingProduct";
+import { matchingHistoryAvailable, matchingHistoryConnectionActions, matchingHistoryLikeActions } from "@/client/viewmodels/matchingHistory";
+import MatchingInboxPage from "@/features/matching/MatchingInboxPage";
+import MatchingLikePage from "@/features/matching/MatchingLikePage";
+import MatchingConnectionPage, { MatchingDiscordConsentRevocation } from "@/features/matching/MatchingConnectionPage";
+import MatchingFeedPage from "@/features/matching/MatchingFeedPage";
 
 const run = async (): Promise<void> => {
   const cardFormMarkup = renderToStaticMarkup(createElement(MatchingCardForm, {
@@ -118,6 +123,47 @@ const run = async (): Promise<void> => {
   assert.match(connectionMarkup, /Подтвердить отношения/);
   assert.match(connectionMarkup, /Отменить предложение/);
   assert.doesNotMatch(connectionMarkup, /создана автоматически/i);
+
+  for (const eligibility of ["EXISTING_PARTNER", "PAIR_ACTIVE"] as const) {
+    assert.equal(matchingHistoryAvailable({ eligibility, verified: true, entryCompleted: true }), true);
+    assert.equal(matchingHistoryAvailable({ eligibility, verified: false, entryCompleted: true }), false, "Historical entry still requires a fresh authenticated user/pair check");
+    assert.equal(matchingHistoryAvailable({ eligibility, verified: true, entryCompleted: false }), false, "Historical entry does not bypass setup");
+  }
+  for (const eligibility of ["ENTRY_REQUIRED", "ADULT_REQUIRED"] as const) {
+    assert.equal(matchingHistoryAvailable({ eligibility, verified: true, entryCompleted: true }), false);
+  }
+  assert.deepEqual(matchingHistoryLikeActions(["RESPOND", "ACCEPT", "DECLINE", "WITHDRAW", "BLOCK"], false), ["DECLINE", "WITHDRAW", "BLOCK"]);
+  assert.deepEqual(matchingHistoryConnectionActions(["REQUEST", "CONFIRM", "CANCEL", "PAUSE", "RESUME", "CLOSE"], false), ["CANCEL", "PAUSE", "CLOSE"]);
+  assert.deepEqual(matchingHistoryLikeActions([], false), [], "The UI must never add an action absent from the guarded DTO");
+  assert.deepEqual(matchingHistoryConnectionActions([], false), []);
+  const historyConnectionMarkup = renderToStaticMarkup(createElement(MatchingConnectionCard, {
+    connection: { id: "old-connection", participant: { id: "u2", username: "Алекс", avatar: "" }, stage: "TALKING", status: "ACTIVE", confirmation: { state: "PENDING", requestedByMe: false, confirmedByMe: false, confirmedByPartner: true }, allowedActions: ["REQUEST", "CONFIRM", "CANCEL", "PAUSE", "RESUME", "CLOSE"] },
+    canProgress: false,
+    onAction: async () => true,
+  }));
+  assert.match(historyConnectionMarkup, /Темы и готовность/);
+  assert.match(historyConnectionMarkup, /Отменить предложение/);
+  assert.match(historyConnectionMarkup, /Завершить знакомство/);
+  assert.doesNotMatch(historyConnectionMarkup, /Предложить стать парой|Подтвердить отношения|Продолжить знакомство/);
+  assert.equal(MatchingInboxPage().props.allowHistory, true);
+  assert.equal(MatchingLikePage({ likeId: "old-like" }).props.allowHistory, true);
+  assert.equal(MatchingConnectionPage({ connectionId: "old-connection" }).props.allowHistory, true);
+  assert.equal(Object.hasOwn(MatchingFeedPage().props, "allowHistory"), false, "Historical access must never enable discovery");
+  const revokeProps = { historyOnly: true, connection: { status: "ACTIVE" as const }, conversation: { discordConsent: true }, loading: false, onRevoke: async () => true };
+  const revokeMarkup = renderToStaticMarkup(createElement(MatchingDiscordConsentRevocation, revokeProps));
+  assert.match(revokeMarkup, /Отозвать разрешение перехода в Discord/);
+  assert.doesNotMatch(revokeMarkup, /href=|checkbox|Открыть Discord/, "Historical consent recovery must not expose a profile link or new opt-in");
+  for (const status of ["PAUSED", "BLOCKED", "CLOSED"] as const) {
+    assert.equal(renderToStaticMarkup(createElement(MatchingDiscordConsentRevocation, { ...revokeProps, connection: { status } })), "", `${status} cannot mutate conversation consent`);
+  }
+  for (const unavailableProps of [
+    { ...revokeProps, connection: { status: "ACTIVE" as const, pairId: "linked-pair" } },
+    { ...revokeProps, conversation: { discordConsent: false } },
+    { ...revokeProps, conversation: null },
+    { ...revokeProps, connection: null },
+    { ...revokeProps, historyOnly: false },
+  ]) assert.equal(renderToStaticMarkup(createElement(MatchingDiscordConsentRevocation, unavailableProps)), "");
+  assert.match(renderToStaticMarkup(createElement(MatchingDiscordConsentRevocation, { ...revokeProps, loading: true })), /disabled=""/);
 
   const errorMarkup = renderToStaticMarkup(
     createElement(MatchingErrorPanel, {

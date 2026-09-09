@@ -7,10 +7,12 @@ import {
   matchingConnectionStageLabel,
 } from "@/client/viewmodels/matching";
 import MatchingAvatar from "./MatchingAvatar";
+import { matchingHistoryConnectionActions } from "@/client/viewmodels/matchingHistory";
 
 type MatchingConnectionCardProps = {
   connection: MatchingConnectionDTO;
   loading?: boolean;
+  canProgress?: boolean;
   onAction: (
     action: "REQUEST" | "CONFIRM" | "CANCEL" | "PAUSE" | "RESUME" | "CLOSE",
   ) => Promise<boolean> | void;
@@ -28,9 +30,13 @@ const actionCopy = {
 export default function MatchingConnectionCard({
   connection,
   loading = false,
+  canProgress = true,
   onAction,
 }: MatchingConnectionCardProps) {
-  const confirmation = matchingConfirmationCopy(connection);
+  const confirmation = !canProgress && !connection.pairId && ["ACTIVE", "PAUSED"].includes(connection.status)
+    ? { title: connection.status === "PAUSED" ? "Знакомство на паузе" : "Сохранённое знакомство", description: "Доступны сохранённые темы и безопасное завершение. Продолжение знакомства в текущем режиме отношений недоступно." }
+    : matchingConfirmationCopy(connection);
+  const allowedActions = matchingHistoryConnectionActions(connection.allowedActions, canProgress);
   return (
     <article className="app-panel p-4 sm:p-5">
       <div className="flex items-center gap-3">
@@ -64,9 +70,9 @@ export default function MatchingConnectionCard({
         </Link>
       )}
 
-      {!connection.pairId && connection.allowedActions.length > 0 && (
+      {!connection.pairId && allowedActions.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {connection.allowedActions.map((action) => (
+          {allowedActions.map((action) => (
             <button
               className={
                 action === "CANCEL" ? "app-btn-secondary" : "app-btn-primary"

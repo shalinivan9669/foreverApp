@@ -2219,7 +2219,7 @@ export async function getMatchingInbox(input: {
   );
   const connections = await MatchingConnection.find({
     participantIds: input.currentUserId,
-    status: { $in: ["ACTIVE", "BLOCKED"] },
+    status: { $in: ["ACTIVE", "PAUSED", "BLOCKED"] },
   })
     .sort({ updatedAt: -1, _id: -1 })
     .limit(input.limit)

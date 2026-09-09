@@ -3,7 +3,8 @@
 import type { MatchPublicCardDTO } from "@/client/api/match.api";
 import type { MatchingAnswers, MatchingStatementReaction } from "@/lib/contracts/matchingProduct";
 import Link from "next/link";
-import MatchingAccessGate from "@/components/matching/MatchingAccessGate";
+import MatchingAccessGate, { useMatchingProgressAllowed } from "@/components/matching/MatchingAccessGate";
+import { matchingHistoryLikeActions } from "@/client/viewmodels/matchingHistory";
 import { useMatchLike } from "@/client/hooks/useMatchLike";
 import { useMatchingConnection } from "@/client/hooks/useMatchingConnection";
 import { matchingLikeStatusLabel } from "@/client/viewmodels/matching";
@@ -14,12 +15,14 @@ import MatchingErrorPanel from "@/components/matching/MatchingErrorPanel";
 import LoadingView from "@/components/ui/LoadingView";
 
 export default function MatchingLikePage({ likeId }: { likeId: string }) {
-  return <MatchingAccessGate><MatchingLikePageContent likeId={likeId} /></MatchingAccessGate>;
+  return <MatchingAccessGate allowHistory><MatchingLikePageContent likeId={likeId} /></MatchingAccessGate>;
 }
 
 function MatchingLikePageContent({ likeId }: { likeId: string }) {
   const match = useMatchLike(likeId);
   const like = match.like;
+  const canProgress = useMatchingProgressAllowed();
+  const allowedActions = matchingHistoryLikeActions(like?.allowedActions ?? [], canProgress);
 
   return (
     <main className="app-shell-narrow py-4 sm:py-6">
@@ -27,9 +30,9 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
         <Link className="app-btn-secondary" href="/match/inbox">
           ← К интересам
         </Link>
-        <Link className="text-sm underline" href="/search">
+        {canProgress && <Link className="text-sm underline" href="/search">
           Открыть ленту
-        </Link>
+        </Link>}
       </header>
 
       <MatchingErrorPanel
@@ -96,7 +99,7 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
             )}
           </section>
 
-          {like.allowedActions.includes("RESPOND") && (
+          {allowedActions.includes("RESPOND") && (
             <section className="app-panel p-4 sm:p-6">
               <LikeComposer
                 card={like.card}
@@ -108,9 +111,10 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
             </section>
           )}
 
-          {(like.allowedActions.includes("ACCEPT") ||
-            like.allowedActions.includes("DECLINE") ||
-            like.allowedActions.includes("BLOCK")) && (
+          {(allowedActions.includes("ACCEPT") ||
+            allowedActions.includes("DECLINE") ||
+            allowedActions.includes("WITHDRAW") ||
+            allowedActions.includes("BLOCK")) && (
             <section className="app-panel p-4 sm:p-6">
               <h2 className="text-xl font-semibold">Ваше решение</h2>
               <p className="app-muted mt-1 text-sm">
@@ -118,8 +122,8 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
                 Пара требует отдельного подтверждения обоих.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {like.allowedActions.includes("WITHDRAW") && <button className="app-btn-secondary" type="button" disabled={match.actionLoading} onClick={() => void match.withdraw()}>Отозвать интерес</button>}
-                {like.allowedActions.includes("ACCEPT") && (
+                {allowedActions.includes("WITHDRAW") && <button className="app-btn-secondary" type="button" disabled={match.actionLoading} onClick={() => void match.withdraw()}>Отозвать интерес</button>}
+                {allowedActions.includes("ACCEPT") && (
                   <button
                     className="app-btn-success"
                     type="button"
@@ -129,7 +133,7 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
                     Принять ответ
                   </button>
                 )}
-                {like.allowedActions.includes("DECLINE") && (
+                {allowedActions.includes("DECLINE") && (
                   <button
                     className="app-btn-secondary"
                     type="button"
@@ -139,7 +143,7 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
                     Вежливо отказаться
                   </button>
                 )}
-                {like.allowedActions.includes("BLOCK") && (
+                {allowedActions.includes("BLOCK") && (
                   <button
                     className="app-btn-danger"
                     type="button"
@@ -161,7 +165,7 @@ function MatchingLikePageContent({ likeId }: { likeId: string }) {
             </section>
           )}
 
-          {like.connection && <ConnectionSection initial={like.connection} />}
+          {like.connection && <ConnectionSection initial={like.connection} canProgress={canProgress} />}
         </div>
       )}
     </main>
@@ -193,8 +197,10 @@ function AnswerBlock({
 
 function ConnectionSection({
   initial,
+  canProgress,
 }: {
   initial: NonNullable<ReturnType<typeof useMatchLike>["like"]>["connection"];
+  canProgress: boolean;
 }) {
   const connectionState = useMatchingConnection(initial?.id ?? null, initial);
   if (!connectionState.connection) return null;
@@ -203,6 +209,7 @@ function ConnectionSection({
       <MatchingErrorPanel error={connectionState.error} />
       <MatchingConnectionCard
         connection={connectionState.connection}
+        canProgress={canProgress}
         loading={connectionState.actionLoading}
         onAction={connectionState.confirm}
       />

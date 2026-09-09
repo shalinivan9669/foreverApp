@@ -559,7 +559,8 @@ function DailyCheckInCard({
   const [open, setOpen] = useState(!today.checkIn.submittedToday);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [journalText, setJournalText] = useState(today.privateJournal.text ?? '');
+  const [journalDraft, setJournalDraft] = useState<string | null>(null);
+  const journalText = journalDraft ?? today.privateJournal.text ?? '';
   const [answers, setAnswers] = useState<DailyAnswersDraft>(emptyAnswersDraft);
 
   const updateSlider = (key: SliderKey, value: number) => {
@@ -582,7 +583,7 @@ function DailyCheckInCard({
         dateKey: today.date.dateKey,
         timezoneOffsetMin: new Date().getTimezoneOffset(),
         answers: completeAnswers,
-        privateJournal: journalText.trim() ? { text: journalText } : undefined,
+        privateJournal: journalDraft === null ? undefined : { text: journalText.trim() ? journalText : '' },
         share: {
           partnerSignal: {
             enabled: today.pairContext.hasPair,
@@ -598,6 +599,7 @@ function DailyCheckInCard({
       setMessage('Отметка сохранена.');
       setOpen(false);
       await onRefresh?.();
+      setJournalDraft((current) => current === journalDraft ? null : current);
     } catch {
       setMessage('Не удалось сохранить отметку. Можно попробовать ещё раз.');
     } finally {
@@ -692,7 +694,7 @@ function DailyCheckInCard({
               id="personal-today-journal"
               value={journalText}
               maxLength={today.privateJournal.maxLength}
-              onChange={(event) => setJournalText(event.target.value)}
+              onChange={(event) => setJournalDraft(event.target.value)}
               placeholder={today.privateJournal.placeholder}
               className="mt-2 min-h-28 w-full rounded-lg border border-black/10 bg-white/60 p-3 text-sm outline-none focus:border-[var(--app-accent,#8b5cf6)]"
             />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import MatchingAccessGate from "@/components/matching/MatchingAccessGate";
+import MatchingAccessGate, { useMatchingProgressAllowed } from "@/components/matching/MatchingAccessGate";
 import { useState } from "react";
 import type { MatchLikeSummaryDTO } from "@/client/api/match.api";
 import { useInbox } from "@/client/hooks/useInbox";
@@ -15,11 +15,12 @@ import LoadingView from "@/components/ui/LoadingView";
 type InboxTab = "incoming" | "outgoing" | "connections";
 
 export default function MatchingInboxPage() {
-  return <MatchingAccessGate><MatchingInboxPageContent /></MatchingAccessGate>;
+  return <MatchingAccessGate allowHistory><MatchingInboxPageContent /></MatchingAccessGate>;
 }
 
 function MatchingInboxPageContent() {
   const inbox = useInbox();
+  const canProgress = useMatchingProgressAllowed();
   const [tab, setTab] = useState<InboxTab>("incoming");
   const items = tab === "incoming" ? inbox.incoming : inbox.outgoing;
   useRefreshOnReturn(async () => { await inbox.refetch(); }, !inbox.loading && !inbox.actionLoading);
@@ -40,12 +41,12 @@ function MatchingInboxPageContent() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button className="app-btn-secondary" disabled={inbox.loading || inbox.actionLoading} onClick={() => void inbox.refetch()}>Обновить знакомства</button>
-            <Link className="app-btn-secondary" href="/search">
+            {canProgress && <><Link className="app-btn-secondary" href="/search">
               К ленте
             </Link>
             <Link className="app-btn-secondary" href="/match-card/create">
               Моя карточка
-            </Link>
+            </Link></>}
           </div>
         </div>
       </header>
@@ -88,7 +89,7 @@ function MatchingInboxPageContent() {
               : "Исходящих пока нет"}
           </h2>
           <p className="app-muted mt-2 text-sm">
-            {tab === "incoming"
+            {!canProgress ? "Ранее сохранённых интересов в этом разделе пока нет." : tab === "incoming"
               ? "Когда кто-то проявит интерес, карточка появится здесь."
               : "Откройте ленту и начните знакомство с искреннего ответа."}
           </p>
@@ -111,7 +112,7 @@ function MatchingInboxPageContent() {
               Взаимных знакомств пока нет
             </h2>
             <p className="app-muted mt-2 text-sm">
-              Знакомство появится после ответа и явного принятия получателем интереса.
+              {canProgress ? "Знакомство появится после ответа и явного принятия получателем интереса." : "Здесь отображаются доступные активные знакомства и знакомства на паузе."}
             </p>
           </div>
         )}
@@ -122,6 +123,7 @@ function MatchingInboxPageContent() {
             <MatchingConnectionCard
               key={connection.id}
               connection={connection}
+              canProgress={canProgress}
               loading={inbox.actionLoading}
               onAction={(action) =>
                 inbox.confirmConnection(connection.id, action)
