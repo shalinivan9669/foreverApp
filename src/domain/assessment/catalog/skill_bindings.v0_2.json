@@ -1,0 +1,3558 @@
+{
+  "version": "0.2.0",
+  "skills": [
+    {
+      "id": "DOM.S01",
+      "sourceDefinition": {
+        "id": "DOM.S01",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Убирать после отдельной бытовой задачи",
+        "level_1": "После еды или другой задачи приводит использованное место в согласованное состояние.",
+        "level_2": "Учитывает несколько зон и доводит задачу до завершения без постоянного контроля другого.",
+        "level_3": "Подбирает доступный способ и средства, поддерживающие завершение задач при изменении условий.",
+        "practice": "Выбрать одну повторяющуюся задачу и описать, что считается завершением.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S02",
+      "sourceDefinition": {
+        "id": "DOM.S02",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Регулярная уборка",
+        "level_1": "Выполняет знакомую уборочную задачу с подходящими безопасными средствами и инструкцией.",
+        "level_2": "Планирует повторение уборки исходя из состояния пространства и согласованного стандарта.",
+        "level_3": "Перестраивает систему уборки при изменении жилья, нагрузки или доступности, снижая лишние усилия.",
+        "practice": "Составить небольшой план уборки по потребности, а не обязательной частоте.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S03",
+      "sourceDefinition": {
+        "id": "DOM.S03",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Организация хранения",
+        "level_1": "Определяет понятное место для часто используемых вещей.",
+        "level_2": "Организует зоны хранения с учётом удобства всех пользователей пространства.",
+        "level_3": "Пересматривает организацию по реальному использованию, доступности и причинам накопления беспорядка.",
+        "practice": "Переорганизовать одну зону и проверить удобство через выбранный период.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S04",
+      "sourceDefinition": {
+        "id": "DOM.S04",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Подготовка еды",
+        "level_1": "Готовит или организует доступный простой приём пищи с соблюдением базовых правил безопасности.",
+        "level_2": "Организует несколько приёмов пищи с учётом времени, бюджета и согласованных ограничений.",
+        "level_3": "Адаптирует процесс к меняющейся нагрузке и доступным ресурсам без обязательной сложности блюд.",
+        "practice": "Спланировать и выполнить один доступный вариант ужина.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S05",
+      "sourceDefinition": {
+        "id": "DOM.S05",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Закупки и домашние запасы",
+        "level_1": "Проверяет наличие нужных продуктов и предметов перед покупкой.",
+        "level_2": "Согласует список с планом использования, сроками хранения и бюджетом.",
+        "level_3": "Выстраивает пополнение запасов так, чтобы уменьшать пропуски, излишки и ненужные закупки.",
+        "practice": "Провести инвентаризацию одной категории и составить список.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S06",
+      "sourceDefinition": {
+        "id": "DOM.S06",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Уход за одеждой и вещами",
+        "level_1": "Следует инструкции для знакомой вещи или обычной стирки.",
+        "level_2": "Планирует уход, сушку и хранение нескольких категорий вещей.",
+        "level_3": "Подбирает устойчивый и доступный процесс, предотвращая типичные повреждения и накопление задач.",
+        "practice": "Описать полный цикл ухода за одной категорией вещей.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.02",
+          "NEG.DOM.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S07",
+      "sourceDefinition": {
+        "id": "DOM.S07",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Полный цикл бытовой ответственности",
+        "level_1": "Замечает конкретную задачу и выполняет согласованный участок.",
+        "level_2": "Сам организует порученную область: замечает, планирует, выполняет и проверяет результат.",
+        "level_3": "Поддерживает целую область при изменениях, заранее согласуя помощь и не передавая незаметно планирование партнёру.",
+        "practice": "Разложить одну область на замечание, планирование, выполнение и проверку.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.01",
+          "NEG.DOM.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "EXECUTABLE_EXAMPLE",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "DOM.S08",
+      "sourceDefinition": {
+        "id": "DOM.S08",
+        "domain_id": "D01",
+        "type": "SKILL",
+        "name": "Согласование распределения быта",
+        "level_1": "Называет свои доступные обязанности и уточняет ожидания второго.",
+        "level_2": "Сопоставляет задачи, время и ограничения обоих; фиксирует приемлемое распределение.",
+        "level_3": "Пересматривает распределение при изменении нагрузки и проверяет удовлетворённость обоих.",
+        "practice": "Обсудить одну область быта, включая планирование и напоминания.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не выводить готовность или любовь из уборки; учитывать средства, условия жилья, ресурсы и доступность.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.DOM.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S01",
+      "sourceDefinition": {
+        "id": "COM.S01",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Проверка понимания собеседника",
+        "level_1": "Передаёт основную мысль собеседника своими словами и проверяет точность.",
+        "level_2": "Различает содержание, просьбу и переживание; уточняет неоднозначность.",
+        "level_3": "Сохраняет точность понимания в сложном разговоре, не подменяя согласие суждением о правоте.",
+        "practice": "Перефразировать сообщение и спросить, правильно ли оно понято.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S02",
+      "sourceDefinition": {
+        "id": "COM.S02",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Конкретная просьба",
+        "level_1": "Описывает желаемое действие без требования угадывать мысли.",
+        "level_2": "Уточняет контекст, срок и возможность отказа или другого варианта.",
+        "level_3": "Согласует реалистичный запрос при конкурирующих интересах и меняет форму, не скрывая сути.",
+        "practice": "Перевести одну претензию в проверяемую просьбу.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.02",
+          "NEG.AUT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "EXECUTABLE_EXAMPLE",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S03",
+      "sourceDefinition": {
+        "id": "COM.S03",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Разделение фактов и интерпретаций в разговоре",
+        "level_1": "Различает наблюдаемое событие и своё объяснение.",
+        "level_2": "Проверяет предположение вопросом, а не выдаёт его за намерение партнёра.",
+        "level_3": "Сравнивает альтернативные объяснения и обновляет вывод при новых данных.",
+        "practice": "Для одной ситуации записать факт, предположение и уточняющий вопрос.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.04"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S04",
+      "sourceDefinition": {
+        "id": "COM.S04",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Пауза и возврат к трудному разговору",
+        "level_1": "Сообщает о необходимости паузы без угроз и наказания молчанием.",
+        "level_2": "Согласует понятный способ и время возвращения к теме.",
+        "level_3": "Распознаёт повторяющиеся условия перегрузки и совместно меняет организацию разговора.",
+        "practice": "Согласовать сигнал паузы и способ возобновления диалога.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.03",
+          "NEG.REG.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "EXECUTABLE_EXAMPLE",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S05",
+      "sourceDefinition": {
+        "id": "COM.S05",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Восстановление после разногласия",
+        "level_1": "Признаёт конкретное собственное действие и его последствия.",
+        "level_2": "Предлагает соразмерное исправление и проверяет, что осталось нерешённым.",
+        "level_3": "Меняет повторяющийся способ взаимодействия и отслеживает выполнение, не требуя немедленного прощения.",
+        "practice": "Разобрать безопасный прошлый спор: действие, последствия, возможное исправление.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.02",
+          "NEG.COM.03",
+          "NEG.REG.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S06",
+      "sourceDefinition": {
+        "id": "COM.S06",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Обратная связь без нападения и самоуничижения",
+        "level_1": "Выслушивает конкретную обратную связь и уточняет её смысл.",
+        "level_2": "Отделяет полезное содержание от спорной оценки, обозначает свою позицию.",
+        "level_3": "Совместно проверяет повторяющиеся замечания и переводит их в изменения процесса.",
+        "practice": "Попросить обратную связь об одном действии, а не о личности целиком.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.01",
+          "NEG.COM.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S07",
+      "sourceDefinition": {
+        "id": "COM.S07",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Перевод разговора в договорённость",
+        "level_1": "Фиксирует, кто и что согласился сделать.",
+        "level_2": "Уточняет срок, критерий выполнения и действия при препятствии.",
+        "level_3": "Проверяет работоспособность договорённостей и меняет их без односторонней подмены.",
+        "practice": "Составить одну договорённость с условиями пересмотра.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "COM.S08",
+      "sourceDefinition": {
+        "id": "COM.S08",
+        "domain_id": "D02",
+        "type": "SKILL",
+        "name": "Поиск вариантов при конфликте интересов",
+        "level_1": "Может назвать интересы обеих сторон без обязательного согласия.",
+        "level_2": "Предлагает несколько вариантов, не требуя уступки только от одного.",
+        "level_3": "Проверяет последствия вариантов и признаёт отсутствие приемлемого решения, если его нет.",
+        "practice": "Описать две разные потребности и три возможных способа организации.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не считать красноречие, орфографию и отсутствие споров зрелостью; не применять обычные парные практики при сигнале опасности.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.01",
+          "NEG.COM.02",
+          "NEG.AUT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "VAL.S01",
+      "sourceDefinition": {
+        "id": "VAL.S01",
+        "domain_id": "D03",
+        "type": "SKILL",
+        "name": "Формулирование собственных ценностей",
+        "level_1": "Может назвать важное для себя и привести пример.",
+        "level_2": "Отличает собственный выбор от ожидаемого ответа, признаёт неопределённость.",
+        "level_3": "Объясняет приоритеты в неоднозначных ситуациях, не объявляя свои взгляды обязательными для другого.",
+        "practice": "Описать одну ценность через реальные решения.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Оценивается осмысление и обсуждение, не содержание «правильной» цели; неопределённость допустима.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.VAL.01",
+          "NEG.VAL.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "VAL.S02",
+      "sourceDefinition": {
+        "id": "VAL.S02",
+        "domain_id": "D03",
+        "type": "SKILL",
+        "name": "Осмысление конфликта приоритетов",
+        "level_1": "Замечает столкновение двух собственных важных целей.",
+        "level_2": "Сопоставляет последствия и ограничения разных решений.",
+        "level_3": "Пересматривает способ действия при новых обстоятельствах, не выдавая вынужденность за свободный выбор.",
+        "practice": "Сравнить два конкурирующих приоритета и их цену.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Оценивается осмысление и обсуждение, не содержание «правильной» цели; неопределённость допустима.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.VAL.01",
+          "NEG.VAL.02",
+          "NEG.LIF.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "VAL.S03",
+      "sourceDefinition": {
+        "id": "VAL.S03",
+        "domain_id": "D03",
+        "type": "SKILL",
+        "name": "Обсуждение совместного будущего",
+        "level_1": "Озвучивает желаемое направление и то, в чём ещё не определился.",
+        "level_2": "Различает намерение, срок, обязательное условие и обсуждаемый способ.",
+        "level_3": "Согласует этапы и точки пересмотра, признавая непримиримое расхождение целей.",
+        "practice": "Обсудить одну жизненную цель: позицию, сроки и допустимые варианты.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Оценивается осмысление и обсуждение, не содержание «правильной» цели; неопределённость допустима.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.VAL.01",
+          "NEG.VAL.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "FIN.S01",
+      "sourceDefinition": {
+        "id": "FIN.S01",
+        "domain_id": "D04",
+        "type": "SKILL",
+        "name": "Учёт расходов и обязательных платежей",
+        "level_1": "Находит и фиксирует основные собственные расходы и сроки.",
+        "level_2": "Поддерживает понятный учёт регулярных и нерегулярных платежей.",
+        "level_3": "Пересматривает способ учёта при изменении дохода, состава расходов или доступных инструментов.",
+        "practice": "Собрать список ближайших обязательств без передачи реквизитов партнёру.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Уровень не определяется доходом, имуществом, инвестициями или долгом самими по себе; учебные задачи не финансовый совет.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "FIN.S02",
+      "sourceDefinition": {
+        "id": "FIN.S02",
+        "domain_id": "D04",
+        "type": "SKILL",
+        "name": "Планирование бюджета",
+        "level_1": "Сопоставляет доступную сумму с ближайшими обязательными расходами.",
+        "level_2": "Планирует регулярные и нерегулярные траты в заданных ограничениях.",
+        "level_3": "Строит несколько реалистичных сценариев и корректирует план при изменениях.",
+        "practice": "Составить учебный бюджет на вымышленных данных.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Уровень не определяется доходом, имуществом, инвестициями или долгом самими по себе; учебные задачи не финансовый совет.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "FIN.S03",
+      "sourceDefinition": {
+        "id": "FIN.S03",
+        "domain_id": "D04",
+        "type": "SKILL",
+        "name": "Понимание финансовых обязательств",
+        "level_1": "Различает сумму, срок и последствия обязательства на учебном примере.",
+        "level_2": "Проверяет общую стоимость и условия до принятия решения.",
+        "level_3": "Сравнивает сложные условия, замечает пробелы и обращается за подходящим разъяснением.",
+        "practice": "Разобрать два вымышленных варианта обязательства; не выбирать реальный кредит.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Уровень не определяется доходом, имуществом, инвестициями или долгом самими по себе; учебные задачи не финансовый совет.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "FIN.S04",
+      "sourceDefinition": {
+        "id": "FIN.S04",
+        "domain_id": "D04",
+        "type": "SKILL",
+        "name": "Согласование значимой покупки",
+        "level_1": "Проверяет доступность покупки и необходимость общего обсуждения.",
+        "level_2": "Сопоставляет покупку с совместными обязательствами и альтернативами.",
+        "level_3": "Согласует правила решений при разных приоритетах, не ограничивая автономию принуждением.",
+        "practice": "Определить, какие покупки требуют обсуждения и почему.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Уровень не определяется доходом, имуществом, инвестициями или долгом самими по себе; учебные задачи не финансовый совет.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.01",
+          "NEG.FIN.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "FIN.S05",
+      "sourceDefinition": {
+        "id": "FIN.S05",
+        "domain_id": "D04",
+        "type": "SKILL",
+        "name": "Прозрачность совместных денег",
+        "level_1": "Сообщает согласованную информацию о совместных обязательствах.",
+        "level_2": "Поддерживает доступную обоим картину общих средств в пределах разрешённого доступа.",
+        "level_3": "Пересматривает правила прозрачности при изменении совместной ответственности, сохраняя личные границы.",
+        "practice": "Установить состав общей информации без требования паролей и полного контроля.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Уровень не определяется доходом, имуществом, инвестициями или долгом самими по себе; учебные задачи не финансовый совет.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.01",
+          "NEG.FIN.02",
+          "NEG.FIN.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "FIN.S06",
+      "sourceDefinition": {
+        "id": "FIN.S06",
+        "domain_id": "D04",
+        "type": "SKILL",
+        "name": "Адаптация финансового плана",
+        "level_1": "Замечает, что прежний план больше не соответствует обстоятельствам.",
+        "level_2": "Пересматривает приоритеты и обязательства совместно с затронутыми участниками.",
+        "level_3": "Планирует варианты на случай изменения ресурсов и знает, когда нужна профессиональная помощь.",
+        "practice": "Разобрать учебный сценарий временного сокращения доступного бюджета.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Уровень не определяется доходом, имуществом, инвестициями или долгом самими по себе; учебные задачи не финансовый совет.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.01",
+          "NEG.FIN.02",
+          "NEG.FIN.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "SEX.S01",
+      "sourceDefinition": {
+        "id": "SEX.S01",
+        "domain_id": "D05",
+        "type": "SKILL",
+        "name": "Обсуждение интимных предпочтений",
+        "level_1": "Называет желаемое и нежелаемое в удобной для себя форме.",
+        "level_2": "Различает интерес, допустимость, сомнение и отказ; уточняет контекст.",
+        "level_3": "Поддерживает разговор об изменениях без стыда, давления и обязательства расширять практики.",
+        "practice": "Добровольно выбрать формулировки «нравится», «не подходит», «ещё не знаю».",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Согласие и уважение отказа обязательны при любом уровне; добровольный взрослый модуль; никаких интимных доказательств или рейтинга сексуальности.",
+        "priority": "P3 — опциональный модуль",
+        "source_url": "https://www.who.int/teams/sexual-and-reproductive-health-and-research/key-areas-of-work/sexual-health/defining-sexual-health",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.SEX.01",
+          "NEG.SEX.02",
+          "NEG.AUT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "SEX.S02",
+      "sourceDefinition": {
+        "id": "SEX.S02",
+        "domain_id": "D05",
+        "type": "SKILL",
+        "name": "Обсуждение и проверка согласия",
+        "level_1": "Уточняет добровольность и понимает, что отказ или отзыв означает остановку.",
+        "level_2": "Заранее проясняет неоднозначные ожидания и способы сообщить об изменении решения.",
+        "level_3": "Поддерживает ясность в меняющихся условиях и отказывается от взаимодействия при отсутствии ясного согласия.",
+        "practice": "Разобрать нейтральные учебные ситуации согласия; не выполнять интимное задание.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Согласие и уважение отказа обязательны при любом уровне; добровольный взрослый модуль; никаких интимных доказательств или рейтинга сексуальности.",
+        "priority": "P3 — опциональный модуль",
+        "source_url": "https://www.who.int/teams/sexual-and-reproductive-health-and-research/key-areas-of-work/sexual-health/defining-sexual-health",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.SEX.01",
+          "NEG.SEX.02",
+          "NEG.AUT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "SEX.S03",
+      "sourceDefinition": {
+        "id": "SEX.S03",
+        "domain_id": "D05",
+        "type": "SKILL",
+        "name": "Обратная связь об интимном комфорте",
+        "level_1": "Может сообщить о комфорте или дискомфорте и выслушать ответ.",
+        "level_2": "Уточняет удобные способы обратной связи без оценки достоинства партнёра.",
+        "level_3": "Совместно адаптирует взаимодействие к изменяющемуся комфорту без требования продолжать.",
+        "practice": "Согласовать удобный способ говорить о комфорте вне интимной ситуации.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Согласие и уважение отказа обязательны при любом уровне; добровольный взрослый модуль; никаких интимных доказательств или рейтинга сексуальности.",
+        "priority": "P3 — опциональный модуль",
+        "source_url": "https://www.who.int/teams/sexual-and-reproductive-health-and-research/key-areas-of-work/sexual-health/defining-sexual-health",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.SEX.01",
+          "NEG.SEX.02",
+          "NEG.AUT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "SEX.S04",
+      "sourceDefinition": {
+        "id": "SEX.S04",
+        "domain_id": "D05",
+        "type": "SKILL",
+        "name": "Обсуждение различий в желании",
+        "level_1": "Признаёт право на разный уровень желания и на отказ.",
+        "level_2": "Обсуждает различие без обвинений, долга или торговли согласием.",
+        "level_3": "Находит добровольно приемлемые варианты либо признаёт существенное расхождение без принуждения.",
+        "practice": "Обсудить, какие формы близости допустимы, когда желания не совпадают.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Согласие и уважение отказа обязательны при любом уровне; добровольный взрослый модуль; никаких интимных доказательств или рейтинга сексуальности.",
+        "priority": "P3 — опциональный модуль",
+        "source_url": "https://www.who.int/teams/sexual-and-reproductive-health-and-research/key-areas-of-work/sexual-health/defining-sexual-health",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.SEX.01",
+          "NEG.SEX.02",
+          "NEG.AUT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "SEX.S05",
+      "sourceDefinition": {
+        "id": "SEX.S05",
+        "domain_id": "D05",
+        "type": "SKILL",
+        "name": "Обсуждение сексуального здоровья",
+        "level_1": "Знает, что информацию о рисках и мерах защиты нужно уточнять по надёжным источникам.",
+        "level_2": "Может обсудить относящиеся к совместным решениям меры и границы раскрытия.",
+        "level_3": "Распознаёт пределы собственных знаний и согласует обращение к специалисту без самостоятельной диагностики.",
+        "practice": "Сформулировать вопросы к надёжному медицинскому источнику, не собирать диагнозы для ранга.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Согласие и уважение отказа обязательны при любом уровне; добровольный взрослый модуль; никаких интимных доказательств или рейтинга сексуальности.",
+        "priority": "P3 — опциональный модуль",
+        "source_url": "https://www.who.int/teams/sexual-and-reproductive-health-and-research/key-areas-of-work/sexual-health/defining-sexual-health",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.SEX.01",
+          "NEG.SEX.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S01",
+      "sourceDefinition": {
+        "id": "REG.S01",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Распознавание собственного состояния",
+        "level_1": "Называет доступные признаки своего переживания или отмечает, что пока не понимает его.",
+        "level_2": "Различает несколько состояний и связывает их с контекстом без поспешного объяснения.",
+        "level_3": "Замечает динамику и ранние признаки перегрузки, сохраняя право на неопределённость.",
+        "practice": "Описать событие, ощущения и несколько возможных названий переживания.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.REG.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S02",
+      "sourceDefinition": {
+        "id": "REG.S02",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Проверка собственных интерпретаций",
+        "level_1": "Отличает мысль о событии от самого события.",
+        "level_2": "Рассматривает альтернативу первоначальному объяснению.",
+        "level_3": "Меняет интерпретацию при новых данных и замечает повторяющиеся ошибки без самоунижения.",
+        "practice": "Записать одну мысль и факты, которые её поддерживают или ограничивают.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.04",
+          "NEG.REG.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S03",
+      "sourceDefinition": {
+        "id": "REG.S03",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Регуляция действий при сильных эмоциях",
+        "level_1": "Может выбрать безопасную паузу или доступный способ снизить перегрузку.",
+        "level_2": "Подбирает способ под ситуацию и возвращается к важной задаче, когда это возможно.",
+        "level_3": "Заранее организует условия и поддержку, уменьшающие повторную перегрузку.",
+        "practice": "Выбрать безопасный способ паузы, не провоцируя стресс для проверки.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.REG.01",
+          "NEG.REG.02",
+          "NEG.LIF.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S04",
+      "sourceDefinition": {
+        "id": "REG.S04",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Обращение с фрустрацией и импульсом",
+        "level_1": "Замечает побуждение действовать немедленно и может отложить действие.",
+        "level_2": "Проверяет последствия и выбирает альтернативу в знакомой ситуации.",
+        "level_3": "Применяет доступные стратегии в нескольких условиях и разбирает срывы без оправдания вреда.",
+        "practice": "Разобрать неопасную ситуацию импульсивного ответа и альтернативу.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.REG.01",
+          "NEG.REG.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S05",
+      "sourceDefinition": {
+        "id": "REG.S05",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Распознавание повторяющихся сценариев",
+        "level_1": "Замечает повторение конкретного собственного действия.",
+        "level_2": "Описывает условия, действие и последствия в нескольких эпизодах.",
+        "level_3": "Проверяет альтернативное действие и пересматривает гипотезу по последующему опыту.",
+        "practice": "Описать один повторяющийся сценарий без диагностических ярлыков.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.REG.01",
+          "NEG.REG.02",
+          "NEG.REG.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S06",
+      "sourceDefinition": {
+        "id": "REG.S06",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Соразмерная личная ответственность",
+        "level_1": "Различает своё действие и действия другого человека.",
+        "level_2": "Признаёт собственный вклад, не принимая ответственность за чужое насилие или чувства целиком.",
+        "level_3": "Корректирует поведение и границы, отделяя ответственность от глобального самообвинения.",
+        "practice": "Разделить ситуацию на «моё действие», «не моя ответственность», «возможный шаг».",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.REG.01",
+          "NEG.REG.02",
+          "NEG.REG.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "REG.S07",
+      "sourceDefinition": {
+        "id": "REG.S07",
+        "domain_id": "D06",
+        "type": "SKILL",
+        "name": "Обращение за поддержкой",
+        "level_1": "Замечает предел собственных ресурсов и может назвать доступный источник помощи.",
+        "level_2": "Формулирует, какая помощь нужна, и проверяет её доступность.",
+        "level_3": "Подбирает поддержку под задачу и распознаёт необходимость компетентной помощи без обязанности партнёра лечить.",
+        "practice": "Составить личную карту доступной поддержки без обязательного раскрытия партнёру.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не диагностика; состояние и ограничения не дефект личности; регуляция не подавление чувств и не обязанность выдерживать насилие.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.REG.01",
+          "NEG.REG.02",
+          "NEG.AUT.04"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "INT.S01",
+      "sourceDefinition": {
+        "id": "INT.S01",
+        "domain_id": "D07",
+        "type": "SKILL",
+        "name": "Отклик на переживание другого",
+        "level_1": "Признаёт переживание собеседника, не обесценивая его.",
+        "level_2": "Проверяет понимание и различает признание переживания и согласие с выводами.",
+        "level_3": "Поддерживает уважительный отклик при различающихся переживаниях и ограниченных ресурсах.",
+        "practice": "Ответить на безопасный пример переживания без немедленного совета.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Частота и форма заботы не мера любви; нельзя требовать самораскрытия, спасательства или одинаковой поддержки всегда.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.02",
+          "NEG.INT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "INT.S02",
+      "sourceDefinition": {
+        "id": "INT.S02",
+        "domain_id": "D07",
+        "type": "SKILL",
+        "name": "Выяснение нужного вида поддержки",
+        "level_1": "Спрашивает, нужна ли беседа, помощь, присутствие или пространство.",
+        "level_2": "Уточняет предпочтительный объём и момент поддержки.",
+        "level_3": "Проверяет изменения потребности и собственную доступность, не предполагая постоянной одинаковости.",
+        "practice": "Спросить, какая поддержка нужна в одной текущей ситуации.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Частота и форма заботы не мера любви; нельзя требовать самораскрытия, спасательства или одинаковой поддержки всегда.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.INT.01",
+          "NEG.INT.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "INT.S03",
+      "sourceDefinition": {
+        "id": "INT.S03",
+        "domain_id": "D07",
+        "type": "SKILL",
+        "name": "Оказание согласованной поддержки",
+        "level_1": "Предлагает выполнимую помощь и принимает отказ.",
+        "level_2": "Поддерживает согласованный объём и проверяет, помогло ли действие.",
+        "level_3": "Адаптирует поддержку к длительной нагрузке, не создавая обязанность спасать другого.",
+        "practice": "Выбрать небольшой согласованный способ помощи с понятными границами.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Частота и форма заботы не мера любви; нельзя требовать самораскрытия, спасательства или одинаковой поддержки всегда.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.INT.01",
+          "NEG.INT.02",
+          "NEG.LIF.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "INT.S04",
+      "sourceDefinition": {
+        "id": "INT.S04",
+        "domain_id": "D07",
+        "type": "SKILL",
+        "name": "Добровольное самораскрытие",
+        "level_1": "Может поделиться лично значимым в выбранной безопасной форме.",
+        "level_2": "Сообщает о переживаниях и границах раскрытия с учётом контекста.",
+        "level_3": "Поддерживает взаимную открытость без требования полной прозрачности и доступа ко всей истории.",
+        "practice": "Поделиться одной выбранной темой с правом не отвечать на часть вопросов.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Частота и форма заботы не мера любви; нельзя требовать самораскрытия, спасательства или одинаковой поддержки всегда.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.INT.01",
+          "NEG.INT.02",
+          "NEG.AUT.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "INT.S05",
+      "sourceDefinition": {
+        "id": "INT.S05",
+        "domain_id": "D07",
+        "type": "SKILL",
+        "name": "Выражение признательности и разделение радости",
+        "level_1": "Называет конкретное значимое действие или приятное событие.",
+        "level_2": "Выражает отклик способом, который комфортен получателю.",
+        "level_3": "Замечает изменения предпочтений и поддерживает искренний обмен без счёта взаимных услуг.",
+        "practice": "Отметить одно конкретное действие, не требуя ответного признания.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Частота и форма заботы не мера любви; нельзя требовать самораскрытия, спасательства или одинаковой поддержки всегда.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.INT.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "INT.S06",
+      "sourceDefinition": {
+        "id": "INT.S06",
+        "domain_id": "D07",
+        "type": "SKILL",
+        "name": "Поддержание эмоционального контакта",
+        "level_1": "Предлагает доступный добровольный способ побыть в контакте.",
+        "level_2": "Согласует повторяющийся формат и замечает его приемлемость для обоих.",
+        "level_3": "Меняет формат при расстоянии, занятости или усталости без превращения контакта в обязанность.",
+        "practice": "Выбрать маленький совместный ритуал и проверить желание продолжать.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Частота и форма заботы не мера любви; нельзя требовать самораскрытия, спасательства или одинаковой поддержки всегда.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.COM.03",
+          "NEG.INT.01",
+          "NEG.INT.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "AUT.S01",
+      "sourceDefinition": {
+        "id": "AUT.S01",
+        "domain_id": "D08",
+        "type": "SKILL",
+        "name": "Формулирование личной границы",
+        "level_1": "Сообщает о своём согласии, отказе или ограничении доступным способом.",
+        "level_2": "Различает личную границу и попытку управлять другим; уточняет последствия для собственных действий.",
+        "level_3": "Поддерживает границу при изменении ситуации и признаёт, когда соглашения недостаточно.",
+        "practice": "Переформулировать одно ограничение через собственное участие и выбор.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не делать способность защищать себя условием отсутствия насилия; согласие не добывают убеждением; границы не контроль другого.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.AUT.01",
+          "NEG.AUT.04"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "AUT.S02",
+      "sourceDefinition": {
+        "id": "AUT.S02",
+        "domain_id": "D08",
+        "type": "SKILL",
+        "name": "Ответ на границы другого",
+        "level_1": "Принимает отказ без давления и требования объясняться.",
+        "level_2": "Уточняет допустимые варианты только при готовности другого обсуждать.",
+        "level_3": "Сам замечает изменения доступности и не использует уязвимость для получения согласия.",
+        "practice": "Разобрать отказ в нейтральной ситуации и уважительный ответ.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не делать способность защищать себя условием отсутствия насилия; согласие не добывают убеждением; границы не контроль другого.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.FIN.03",
+          "NEG.AUT.01",
+          "NEG.AUT.02",
+          "NEG.AUT.03",
+          "NEG.AUT.04"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "AUT.S03",
+      "sourceDefinition": {
+        "id": "AUT.S03",
+        "domain_id": "D08",
+        "type": "SKILL",
+        "name": "Согласование отношений с окружением",
+        "level_1": "Озвучивает важные связи с друзьями и родственниками.",
+        "level_2": "Согласует участие окружения в общей жизни без изоляции кого-либо.",
+        "level_3": "Пересматривает границы при конфликтах интересов, сохраняя право на внешнюю поддержку.",
+        "practice": "Обсудить один случай участия родственников или друзей.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не делать способность защищать себя условием отсутствия насилия; согласие не добывают убеждением; границы не контроль другого.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.AUT.04"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "AUT.S04",
+      "sourceDefinition": {
+        "id": "AUT.S04",
+        "domain_id": "D08",
+        "type": "SKILL",
+        "name": "Цифровые границы и согласие на публикацию",
+        "level_1": "Спрашивает разрешение на публикацию и доступ к личным данным.",
+        "level_2": "Различает совместные и личные пространства, настраивает согласованный доступ.",
+        "level_3": "Пересматривает доступ и публикации при изменении отношений, не применяя слежку как доказательство доверия.",
+        "practice": "Проверить согласие на одну совместную публикацию или общий доступ.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не делать способность защищать себя условием отсутствия насилия; согласие не добывают убеждением; границы не контроль другого.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.AUT.02",
+          "NEG.AUT.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "AUT.S05",
+      "sourceDefinition": {
+        "id": "AUT.S05",
+        "domain_id": "D08",
+        "type": "SKILL",
+        "name": "Сохранение личных целей и самостоятельности",
+        "level_1": "Называет собственную цель или занятие вне пары.",
+        "level_2": "Согласует место личных целей рядом с общими обязанностями.",
+        "level_3": "Поддерживает автономию обоих при изменениях, не превращая независимость в отказ от согласованной ответственности.",
+        "practice": "Выделить место одной личной цели в совместном расписании.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Не делать способность защищать себя условием отсутствия насилия; согласие не добывают убеждением; границы не контроль другого.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.AUT.04",
+          "NEG.LIF.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "LIF.S01",
+      "sourceDefinition": {
+        "id": "LIF.S01",
+        "domain_id": "D09",
+        "type": "SKILL",
+        "name": "Оценка своего времени и доступности",
+        "level_1": "Называет основные обязательства и свободные интервалы.",
+        "level_2": "Планирует задачи с учётом реальной длительности и ограничений.",
+        "level_3": "Проверяет перегрузку и корректирует обещания до систематических срывов.",
+        "practice": "Сопоставить план и фактическую занятость одного дня.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Сон, нагрузка, здоровье и экономические ограничения — контекст, не моральные качества; средства поддержки допустимы.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.01",
+          "NEG.LIF.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "LIF.S02",
+      "sourceDefinition": {
+        "id": "LIF.S02",
+        "domain_id": "D09",
+        "type": "SKILL",
+        "name": "Согласование совместного времени",
+        "level_1": "Находит добровольно подходящий обоим интервал.",
+        "level_2": "Согласует повторяющийся формат с учётом графиков и потребности в одиночестве.",
+        "level_3": "Адаптирует контакт при сменах, расстоянии и новых обязанностях без санкций за недоступность.",
+        "practice": "Найти один общий интервал без обещания ежедневной доступности.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Сон, нагрузка, здоровье и экономические ограничения — контекст, не моральные качества; средства поддержки допустимы.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.01"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "LIF.S03",
+      "sourceDefinition": {
+        "id": "LIF.S03",
+        "domain_id": "D09",
+        "type": "SKILL",
+        "name": "Перераспределение нагрузки",
+        "level_1": "Может сообщить о доступной нагрузке и необходимости пересмотра.",
+        "level_2": "Сопоставляет временные и постоянные обязанности участников.",
+        "level_3": "Заранее согласует варианты при длительной нагрузке, учитывая внешнюю помощь и ограничения ресурсов.",
+        "practice": "Обсудить временное перераспределение одной обязанности.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Сон, нагрузка, здоровье и экономические ограничения — контекст, не моральные качества; средства поддержки допустимы.",
+        "priority": "P1 — пилот",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.01",
+          "NEG.LIF.02",
+          "NEG.LIF.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "LIF.S04",
+      "sourceDefinition": {
+        "id": "LIF.S04",
+        "domain_id": "D09",
+        "type": "SKILL",
+        "name": "Организация восстановления",
+        "level_1": "Распознаёт потребность в отдыхе и выбирает доступный способ.",
+        "level_2": "Выделяет реалистичное время восстановления среди обязательств.",
+        "level_3": "Перестраивает режим при изменениях и согласует поддержку без медицинских обещаний.",
+        "practice": "Выбрать доступный период отдыха и границу дополнительной нагрузки.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Сон, нагрузка, здоровье и экономические ограничения — контекст, не моральные качества; средства поддержки допустимы.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.02"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "LIF.S05",
+      "sourceDefinition": {
+        "id": "LIF.S05",
+        "domain_id": "D09",
+        "type": "SKILL",
+        "name": "Совместная адаптация к изменениям",
+        "level_1": "Называет, какие задачи меняются при переезде или другом переходе.",
+        "level_2": "Распределяет подготовку, сроки и доступную помощь.",
+        "level_3": "Проверяет последствия после перехода и пересматривает план при непредвиденных обстоятельствах.",
+        "practice": "Разобрать вымышленный переезд как план задач и ограничений.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Сон, нагрузка, здоровье и экономические ограничения — контекст, не моральные качества; средства поддержки допустимы.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.01",
+          "NEG.LIF.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    },
+    {
+      "id": "LIF.S06",
+      "sourceDefinition": {
+        "id": "LIF.S06",
+        "domain_id": "D09",
+        "type": "SKILL",
+        "name": "Согласование досуга",
+        "level_1": "Называет собственные предпочтения и интересуется предпочтениями другого.",
+        "level_2": "Находит общие и отдельные варианты без обязательного совпадения интересов.",
+        "level_3": "Поддерживает приемлемое разнообразие при ограниченных ресурсах и меняющихся желаниях.",
+        "practice": "Выбрать один общий и один индивидуальный вариант досуга.",
+        "status": "PROPOSED_UNVALIDATED",
+        "definition_version": "0.1.0",
+        "level_0": "Базовый критерий пока не освоен по достаточным релевантным данным; не использовать при пропуске, отсутствии возможности или ограничении доступа.",
+        "data_statuses": [
+          "UNKNOWN",
+          "INSUFFICIENT_DATA",
+          "ESTIMATED",
+          "SUPPORTED",
+          "INCOMPARABLE"
+        ],
+        "participation_statuses": [
+          "ANSWERED",
+          "SKIPPED",
+          "NO_OPPORTUNITY",
+          "NOT_APPLICABLE",
+          "RESTRICTED"
+        ],
+        "measurement_protocols": [
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05"
+        ],
+        "rule_ids": [
+          "R07",
+          "R10"
+        ],
+        "limits": "Сон, нагрузка, здоровье и экономические ограничения — контекст, не моральные качества; средства поддержки допустимы.",
+        "priority": "P2 — расширение",
+        "source_url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2018.00149/full",
+        "source_scope": "Общий методологический/этический ориентир. Конкретные критерии уровней — авторское предложение, не валидированная шкала."
+      },
+      "sourceFile": "VMESTE_catalog_v0_1.json",
+      "proposal": {
+        "profileModel": "MULTI_AXIS_SKILL",
+        "negativePatternIds": [
+          "NEG.LIF.01",
+          "NEG.LIF.03"
+        ],
+        "agreementPatternId": "NEG.AGR.01",
+        "positiveRubricStatus": "ORIGINAL_ANCHORS_PRESERVED_REQUIRES_OPERATIONAL_ITEMS",
+        "automaticInverseSkill": false,
+        "automaticSummation": false
+      }
+    }
+  ],
+  "nonSkillDefinitionsPreserved": [
+    {
+      "id": "DOM.P01",
+      "domain_id": "D01",
+      "name": "Приемлемый стандарт порядка",
+      "type": "PREFERENCE",
+      "value_format": "Сценарии по зонам: идеальное и допустимое состояние; не универсальный балл чистоты",
+      "rule_id": "R02",
+      "do_not_infer": "Высокое требование к порядку не равно высокому навыку.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "DOM.P02",
+      "domain_id": "D01",
+      "name": "Приемлемая периодичность уборки",
+      "type": "PREFERENCE",
+      "value_format": "Диапазон или условие по конкретной задаче, при текущих условиях жилья",
+      "rule_id": "R03",
+      "do_not_infer": "Одинаковая частота не гарантирует одинакового результата.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "DOM.P03",
+      "domain_id": "D01",
+      "name": "Пищевые предпочтения и ограничения",
+      "type": "PREFERENCE",
+      "value_format": "Отдельные предпочитаемые, допустимые и исключённые варианты",
+      "rule_id": "R02",
+      "do_not_infer": "Нельзя оценивать личностный уровень по рациону; медицинские ограничения не диагностировать.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "DOM.P04",
+      "domain_id": "D01",
+      "name": "Предлагаемое участие в быту",
+      "type": "OFFER",
+      "value_format": "Для каждой задачи: готовность, объём, условия, период, адресат",
+      "rule_id": "R04",
+      "do_not_infer": "Умение не доказывает готовность; обещание не доказывает выполнение.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "DOM.P05",
+      "domain_id": "D01",
+      "name": "Допустимость делегирования бытовых задач",
+      "type": "PREFERENCE",
+      "value_format": "Допустимые способы и финансовые ограничения, включая внешнюю помощь",
+      "rule_id": "R06",
+      "do_not_infer": "Делегирование не означает отсутствие навыка и не должно зависеть от оценки богатства.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "DOM.P06",
+      "domain_id": "D01",
+      "name": "Совместная жизнь с домашними животными",
+      "type": "GOAL",
+      "value_format": "Текущая ситуация отдельно; желаемый и допустимый будущий вариант",
+      "rule_id": "R02",
+      "do_not_infer": "Любовь к животным не мера доброты; аллергии не минус характера.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "COM.P01",
+      "domain_id": "D02",
+      "name": "Предпочитаемая частота контакта",
+      "type": "PREFERENCE",
+      "value_format": "Желаемый и приемлемый диапазоны отдельно для переписки, встреч и звонков",
+      "rule_id": "R03",
+      "do_not_infer": "Не превращать частоту связи в обязанность отвечать постоянно.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "COM.P02",
+      "domain_id": "D02",
+      "name": "Удобные каналы общения",
+      "type": "PREFERENCE",
+      "value_format": "Набор допустимых и предпочитаемых каналов по контексту",
+      "rule_id": "R02",
+      "do_not_infer": "Голосовое общение не выше текстового; учитывать доступность.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "COM.P03",
+      "domain_id": "D02",
+      "name": "Условия паузы в разговоре",
+      "type": "PREFERENCE",
+      "value_format": "Приемлемый способ уведомления и согласования возвращения к теме",
+      "rule_id": "R02",
+      "do_not_infer": "Не навязывать жёсткий срок, небезопасный для участника.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "COM.P04",
+      "domain_id": "D02",
+      "name": "Условия обсуждения сложных тем",
+      "type": "PREFERENCE",
+      "value_format": "Место, приватность, время и согласованный формат",
+      "rule_id": "R02",
+      "do_not_infer": "Доступность разговора сейчас не отражает общей способности общаться.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P01",
+      "domain_id": "D03",
+      "name": "Намерения относительно родительства",
+      "type": "GOAL",
+      "value_format": "Хочу / не хочу / не определился; уверенность в позиции и допустимые варианты отдельно",
+      "rule_id": "R01",
+      "do_not_infer": "Неопределённость не означает согласие; расхождение не лечится навыком.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P02",
+      "domain_id": "D03",
+      "name": "Сроки значимых жизненных планов",
+      "type": "GOAL",
+      "value_format": "Отдельная цель и диапазон дат либо неизвестный срок",
+      "rule_id": "R03",
+      "do_not_infer": "Без срока нельзя рассчитывать его совпадение; временное окно не обязательство.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P03",
+      "domain_id": "D03",
+      "name": "Формат отношений и эксклюзивность",
+      "type": "AGREEMENT_PREFERENCE",
+      "value_format": "Определённые словами правила допустимого взаимодействия",
+      "rule_id": "R01",
+      "do_not_infer": "Метка формата без расшифровки не означает совпадение договорённостей.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P04",
+      "domain_id": "D03",
+      "name": "Планы совместного проживания",
+      "type": "GOAL",
+      "value_format": "Желаемый и допустимый формат, этап и срок",
+      "rule_id": "R02",
+      "do_not_infer": "Раздельное проживание не меньшая зрелость.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P05",
+      "domain_id": "D03",
+      "name": "Место жизни и готовность к переезду",
+      "type": "GOAL",
+      "value_format": "Допустимые территории, сроки и ограничения; без точной геолокации",
+      "rule_id": "R02",
+      "do_not_infer": "Нельзя обещать переезд за другого или раскрывать точный адрес.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P06",
+      "domain_id": "D03",
+      "name": "Значимые традиции и мировоззрение",
+      "type": "VALUE",
+      "value_format": "Добровольно названные практики и условия отношений; без скрытого вывода о вере",
+      "rule_id": "R02",
+      "do_not_infer": "Ранжировать взгляды по зрелости нельзя.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P07",
+      "domain_id": "D03",
+      "name": "Приоритет карьеры, учёбы и других проектов",
+      "type": "VALUE",
+      "value_format": "Приоритеты в выбранных ситуациях и временные обязательства",
+      "rule_id": "R06",
+      "do_not_infer": "Профессия или престиж не мера качества партнёра.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P08",
+      "domain_id": "D03",
+      "name": "Предпочтения о принятии совместных решений",
+      "type": "AGREEMENT_PREFERENCE",
+      "value_format": "Какие решения общие; способы согласования; право отказа",
+      "rule_id": "R06",
+      "do_not_infer": "Предпочтение роли не даёт права ограничивать свободу другого.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "VAL.P09",
+      "domain_id": "D03",
+      "name": "Планы относительно брака",
+      "type": "GOAL",
+      "value_format": "Желаемый и допустимый формат, значимость, сроки отдельно",
+      "rule_id": "R01",
+      "do_not_infer": "Не подменять намерение о браке фактом юридического статуса.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "FIN.P01",
+      "domain_id": "D04",
+      "name": "Модель общих и личных денег",
+      "type": "AGREEMENT_PREFERENCE",
+      "value_format": "Общий / раздельный / смешанный плюс конкретные правила",
+      "rule_id": "R02",
+      "do_not_infer": "Одинаковое название может скрывать разные условия.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "FIN.P02",
+      "domain_id": "D04",
+      "name": "Границы финансового раскрытия",
+      "type": "BOUNDARY",
+      "value_format": "Какие данные разрешено сообщать и использовать; аудитория и цель",
+      "rule_id": "R02",
+      "do_not_infer": "Доступ к паролям и личным счетам не доказательство доверия.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "FIN.P03",
+      "domain_id": "D04",
+      "name": "Условия материального участия",
+      "type": "OFFER",
+      "value_format": "Что готов предоставлять, в каком объёме и при каких условиях",
+      "rule_id": "R04",
+      "do_not_infer": "Низкий ресурс не низкий навык; предложение не разрешение на контроль.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "FIN.P04",
+      "domain_id": "D04",
+      "name": "Приоритеты совместных расходов",
+      "type": "PREFERENCE",
+      "value_format": "Приоритеты категорий и приемлемые компромиссы при заданном бюджете",
+      "rule_id": "R06",
+      "do_not_infer": "Не суммировать ранги как интервальную полезность без определения модели.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "FIN.P05",
+      "domain_id": "D04",
+      "name": "Допустимые решения с совместными средствами",
+      "type": "BOUNDARY",
+      "value_format": "Что требует предварительного согласования; допустимые условия риска",
+      "rule_id": "R01",
+      "do_not_infer": "Не выводить из ответа финансовую рекомендацию или инвестиционный профиль.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "SEX.P01",
+      "domain_id": "D05",
+      "name": "Желаемый ритм сексуальной близости",
+      "type": "PREFERENCE",
+      "value_format": "Контекстные желаемые и приемлемые диапазоны; возможность отсутствия интереса",
+      "rule_id": "R03",
+      "do_not_infer": "Совпадение диапазонов не квота, обязательство или согласие.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "SEX.P02",
+      "domain_id": "D05",
+      "name": "Предпочтение ведущей роли",
+      "type": "PREFERENCE",
+      "value_format": "Нравится / допустимо / не подходит / не знаю; контекст отдельно",
+      "rule_id": "R05",
+      "do_not_infer": "Высокое значение не означает развитость и не разрешает принуждение.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "SEX.P03",
+      "domain_id": "D05",
+      "name": "Предпочтение следовать в согласованной роли",
+      "type": "PREFERENCE",
+      "value_format": "Нравится / допустимо / не подходит / не знаю; независимо от ведущей роли",
+      "rule_id": "R05",
+      "do_not_infer": "Отсутствие ведущей роли не доказывает желание следовать.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "SEX.P04",
+      "domain_id": "D05",
+      "name": "Допустимые интимные сценарии и границы",
+      "type": "BOUNDARY",
+      "value_format": "Добровольные наборы допустимого и исключённого; ограниченная видимость",
+      "rule_id": "R02",
+      "do_not_infer": "Профиль не является актуальным согласием на конкретное действие.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "SEX.P05",
+      "domain_id": "D05",
+      "name": "Предпочитаемые условия интимного контакта",
+      "type": "PREFERENCE",
+      "value_format": "Приватность, темп, способы обсуждения; без обязательных раскрытий",
+      "rule_id": "R02",
+      "do_not_infer": "Отказ заполнить не считается проблемой или несовместимостью.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "SEX.P06",
+      "domain_id": "D05",
+      "name": "Личная значимость сексуальной близости",
+      "type": "PREFERENCE",
+      "value_format": "Описательная значимость, включая отсутствие потребности",
+      "rule_id": "R04",
+      "do_not_infer": "Низкая потребность или отсутствие сексуального интереса не дефицит развития.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "REG.P01",
+      "domain_id": "D06",
+      "name": "Предпочитаемые способы восстановления",
+      "type": "PREFERENCE",
+      "value_format": "Допустимые способы: пространство, разговор, деятельность и собственный вариант",
+      "rule_id": "R02",
+      "do_not_infer": "Не определять тип личности по одному способу отдыха.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "REG.P02",
+      "domain_id": "D06",
+      "name": "Желаемая помощь при перегрузке",
+      "type": "NEED",
+      "value_format": "Контекст, форма, объём и границы помощи",
+      "rule_id": "R04",
+      "do_not_infer": "Партнёр не обязан постоянно регулировать чужое состояние.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "INT.P01",
+      "domain_id": "D07",
+      "name": "Предпочитаемые проявления заботы",
+      "type": "PREFERENCE",
+      "value_format": "Независимые предпочтения по конкретным действиям; без фиксированных типов любви",
+      "rule_id": "R04",
+      "do_not_infer": "Не сводить человека к одному языку любви.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "INT.P02",
+      "domain_id": "D07",
+      "name": "Желаемые формы эмоциональной поддержки",
+      "type": "NEED",
+      "value_format": "В каких ситуациях и какая поддержка нужна; важность и обсуждаемость отдельно",
+      "rule_id": "R04",
+      "do_not_infer": "Одинаковая поддержка не требуется во всех ситуациях.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "INT.P03",
+      "domain_id": "D07",
+      "name": "Предпочитаемый объём совместного контакта",
+      "type": "PREFERENCE",
+      "value_format": "Желаемые и допустимые способы контакта при данном графике",
+      "rule_id": "R03",
+      "do_not_infer": "Большая потребность в контакте не означает большую любовь.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "INT.P04",
+      "domain_id": "D07",
+      "name": "Темп личного раскрытия и сближения",
+      "type": "PREFERENCE",
+      "value_format": "Условия комфорта и допустимые этапы; право не раскрывать",
+      "rule_id": "R02",
+      "do_not_infer": "Осторожное раскрытие не автоматически недоверие или травма.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "AUT.P01",
+      "domain_id": "D08",
+      "name": "Потребность в личном времени",
+      "type": "NEED",
+      "value_format": "Желаемые и допустимые интервалы по контексту",
+      "rule_id": "R03",
+      "do_not_infer": "Личное время не равно избеганию отношений.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "AUT.P02",
+      "domain_id": "D08",
+      "name": "Личная цифровая приватность",
+      "type": "BOUNDARY",
+      "value_format": "Разрешённый доступ и публикация по типу данных и аудитории",
+      "rule_id": "R01",
+      "do_not_infer": "Приватность не доказывает измену; нельзя рекомендовать слежку.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "AUT.P03",
+      "domain_id": "D08",
+      "name": "Участие родственников в общей жизни",
+      "type": "PREFERENCE",
+      "value_format": "Допустимые варианты визитов, решений и помощи отдельно",
+      "rule_id": "R02",
+      "do_not_infer": "Не обесценивать семейную культуру и не навязывать изоляцию.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "AUT.P04",
+      "domain_id": "D08",
+      "name": "Место друзей и внешних связей",
+      "type": "PREFERENCE",
+      "value_format": "Желаемые и допустимые варианты взаимодействия",
+      "rule_id": "R02",
+      "do_not_infer": "Недопустимо трактовать контроль окружения как заботу.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "AUT.P05",
+      "domain_id": "D08",
+      "name": "Границы личных и совместных решений",
+      "type": "BOUNDARY",
+      "value_format": "Сферы собственного выбора, общего согласования и неприемлемого контроля",
+      "rule_id": "R01",
+      "do_not_infer": "Уступка под давлением не является согласованным дополнением.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "LIF.P01",
+      "domain_id": "D09",
+      "name": "Доступные окна для совместных дел",
+      "type": "CONTEXT",
+      "value_format": "Интервалы времени с часовым поясом, периодом действия и режимом доступности",
+      "rule_id": "R03",
+      "do_not_infer": "Несовпадение расписаний не дефект коммуникации.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "LIF.P02",
+      "domain_id": "D09",
+      "name": "Привычный режим отдыха и сна",
+      "type": "PREFERENCE",
+      "value_format": "Описанный режим и приемлемые условия совместной жизни",
+      "rule_id": "R03",
+      "do_not_infer": "Не диагностировать здоровье и не оценивать режим как моральное качество.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "LIF.P03",
+      "domain_id": "D09",
+      "name": "Интересы и варианты досуга",
+      "type": "PREFERENCE",
+      "value_format": "Допустимые и желаемые занятия; общие интересы не обязательны",
+      "rule_id": "R02",
+      "do_not_infer": "Несходство хобби само по себе не недостаток отношений.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "LIF.P04",
+      "domain_id": "D09",
+      "name": "Условия относительно курения и употребления алкоголя",
+      "type": "BOUNDARY",
+      "value_format": "Добровольные конкретные условия для совместной жизни",
+      "rule_id": "R01",
+      "do_not_infer": "Не диагностировать зависимость по одной отметке.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "LIF.P05",
+      "domain_id": "D09",
+      "name": "Гости и социальная активность дома",
+      "type": "PREFERENCE",
+      "value_format": "Частота, предварительное согласование и приватные зоны",
+      "rule_id": "R06",
+      "do_not_infer": "Экстраверсия и интроверсия не ранги зрелости.",
+      "status": "PROPOSED_UNVALIDATED"
+    },
+    {
+      "id": "LIF.P06",
+      "domain_id": "D09",
+      "name": "Предпочтение планирования и спонтанности",
+      "type": "PREFERENCE",
+      "value_format": "Отдельно по типам дел; допустимые отклонения от плана",
+      "rule_id": "R02",
+      "do_not_infer": "Спонтанность не безответственность, планирование не контроль.",
+      "status": "PROPOSED_UNVALIDATED"
+    }
+  ]
+}

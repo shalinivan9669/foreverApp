@@ -1,0 +1,91 @@
+{
+  "handoffVersion": "handoff-2026-09-09.1",
+  "assessmentModelVersion": "0.2.0",
+  "matchingModelVersion": "0.3.0",
+  "referenceTestCounts": {
+    "skills": 86,
+    "matchingPair": 97
+  },
+  "status": "AUTHOR_REFERENCE_NOT_PSYCHOLOGICALLY_VALIDATED",
+  "files": [
+    {
+      "path": "engine/core.ts",
+      "origin": "reference/VMESTE_skill_engine_v0_2/src/index.ts",
+      "sourceSha256": "7a5110bca84d5c83caf58a2422715d739b76a46e9902444b5a3d2f0758bd4f1b",
+      "adaptations": [
+        "Import paths unified to one core",
+        "Provenance and parser typing justification comment"
+      ]
+    },
+    {
+      "path": "engine/rubrics.ts",
+      "origin": "reference/VMESTE_skill_engine_v0_2/src/rubrics.ts",
+      "sourceSha256": "8c759ce8ccb0a1639178822af22b739c9bc4d9fa6f38ca69a65b5cf1ea920d44",
+      "adaptations": [
+        "Import paths unified to one core",
+        "Provenance and parser typing justification comment"
+      ]
+    },
+    {
+      "path": "engine/matching.ts",
+      "origin": "reference/VMESTE_matching_pair_v0_3/src/matching.ts",
+      "sourceSha256": "a57b5a6fb99f2ed63eb42aad64f238f1577fc2e3984255812fca160e8273d693",
+      "adaptations": [
+        "Import paths unified to one core",
+        "Provenance and parser typing justification comment"
+      ]
+    },
+    {
+      "path": "engine/pair.ts",
+      "origin": "reference/VMESTE_matching_pair_v0_3/src/pair.ts",
+      "sourceSha256": "f4cc0ed9516be0de3386eaa8186683fd954e2396b00f6483fe25049854d4b8a8",
+      "adaptations": [
+        "Import paths unified to one core",
+        "Provenance and parser typing justification comment"
+      ]
+    },
+    {
+      "path": "engine/discovery.ts",
+      "origin": "reference/VMESTE_matching_pair_v0_3/src/discovery.ts",
+      "sourceSha256": "efdaca36b9ddd456a97eba6c67483568489aa15d57fb22e3f9565919fb49e033",
+      "adaptations": [
+        "Import paths unified to one core",
+        "Provenance and parser typing justification comment"
+      ]
+    },
+    {
+      "path": "catalog/negative_patterns.v0_2.json",
+      "origin": "reference/VMESTE_skill_engine_v0_2/catalog/negative_patterns.v0_2.json",
+      "sourceSha256": "7a508100360d28161de27a51eb403886be6d5b639f830ab4ad0ba7f200112c65",
+      "adaptations": []
+    },
+    {
+      "path": "catalog/original_catalog.v0_1.json",
+      "origin": "reference/VMESTE_skill_engine_v0_2/catalog/original_catalog.v0_1.json",
+      "sourceSha256": "86e30735a6e4c9d6fb220aca40886190f9826b61e599c06a1888814b9a6f55b0",
+      "adaptations": []
+    },
+    {
+      "path": "catalog/skill_bindings.v0_2.json",
+      "origin": "reference/VMESTE_skill_engine_v0_2/catalog/skill_bindings.v0_2.json",
+      "sourceSha256": "75fc04f7962e22b6da62b6cfb7d24130cc16d5e2fdc0e7e7bc062fd3a2db663e",
+      "adaptations": []
+    },
+    {
+      "path": "../../../scripts/assessment-reference/engine.test.mjs",
+      "origin": "reference/VMESTE_skill_engine_v0_2/tests/engine.test.mjs",
+      "sourceSha256": "fd69e653e5bcab2b6c7c7657dd613a38aa4755ffa3f4ae6f1c7973202f1fc8bf",
+      "adaptations": [
+        "Application imports only; assertions unchanged"
+      ]
+    },
+    {
+      "path": "../../../scripts/assessment-reference/matching.test.mjs",
+      "origin": "reference/VMESTE_matching_pair_v0_3/tests/matching.test.mjs",
+      "sourceSha256": "7dbf13c50d225c2a9d3530063ab2376c78b92bbd6cf03c04ca2d107e0518b713",
+      "adaptations": [
+        "Application imports only; assertions unchanged"
+      ]
+    }
+  ]
+}

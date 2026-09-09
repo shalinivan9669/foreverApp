@@ -1,0 +1,2283 @@
+{
+  "version": "0.2.0",
+  "status": "PROPOSED_NOT_VALIDATED",
+  "count": 27,
+  "patterns": [
+    {
+      "id": "NEG.AGR.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "CROSS",
+      "name": "Невыполнение действующей договорённости",
+      "kind": "AGREEMENT",
+      "relatedSkillIds": [],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Случай исполнения конкретной версии допустимой договорённости",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.AGR.01:voluntaryValidAgreement",
+          "question": "Была конкретная добровольно принятая и действующая договорённость; она не требует отказа от права на согласие, безопасность или приватность.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AGR.01:dueOpportunity",
+          "question": "Наступил предусмотренный срок или релевантная возможность выполнения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AGR.01:notCompleted",
+          "question": "Согласованное действие не выполнено по описанию автора.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AGR.01:noTimelyReleaseOrRevision",
+          "question": "До срока не было допустимого освобождения от обязательства, отмены или согласованного пересмотра.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.AGR.01:voluntaryValidAgreement"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AGR.01:dueOpportunity"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AGR.01:notCompleted"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AGR.01:noTimelyReleaseOrRevision"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Несовпадение ожиданий без соглашения; невступивший срок; отзыв интимного согласия; небезопасная обязанность. Невыполнение при ограничениях отдельно от доступности альтернативного действия.",
+      "impactKind": "NONFULFILMENT",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.DOM.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D01",
+      "name": "Перенос принятой бытовой ответственности без согласования",
+      "kind": "BREACH",
+      "relatedSkillIds": [
+        "DOM.S07",
+        "DOM.S08"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод принятой бытовой ответственности",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.DOM.01:acceptedTask",
+          "question": "Автор добровольно принял конкретную область быта.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.01:taskShiftedToOther",
+          "question": "Планирование или выполнение фактически передано другому.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.01:noConsentToTransfer",
+          "question": "Другой не согласился на эту передачу.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.01:safeFeasibleCoordination",
+          "question": "Обозначить перенос либо пересмотреть задачу было безопасно и доступно.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.01:coordinationOmitted",
+          "question": "Автор не сообщил и не согласовал перенос при этой возможности.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.01:acceptedTask"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.01:taskShiftedToOther"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.01:noConsentToTransfer"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.01:safeFeasibleCoordination"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.01:coordinationOmitted"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Согласованное делегирование; отсутствие обязанности; чрезвычайное обстоятельство; недоступность коммуникации; помощь по инициативе другого.",
+      "impactKind": "BURDEN_TRANSFER",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.DOM.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D01",
+      "name": "Распоряжение чужими вещами без разрешения",
+      "kind": "BOUNDARY",
+      "relatedSkillIds": [
+        "DOM.S03",
+        "DOM.S06"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод действий с чужими вещами",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.DOM.02:otherOwnsItems",
+          "question": "Речь о личных вещах другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.02:disposedOrRestricted",
+          "question": "Автор выбросил, скрыл либо сделал вещи недоступными.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.02:permissionAbsent",
+          "question": "Разрешения на это не было.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.02:protectiveExceptionAbsent",
+          "question": "Не описана необходимая защитная или экстренная мера.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.02:otherOwnsItems"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.02:disposedOrRestricted"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.02:permissionAbsent"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.02:protectiveExceptionAbsent"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Согласованная уборка или сортировка; действия с собственными вещами; случайная путаница уточняется отдельно.",
+      "impactKind": "PROPERTY_ACCESS",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.DOM.03",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D01",
+      "name": "Преднамеренное уничтожение результата бытовой работы",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "DOM.S01",
+        "DOM.S02",
+        "DOM.S04",
+        "DOM.S05",
+        "DOM.S06",
+        "DOM.S07"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод обращения с готовым результатом",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.DOM.03:completedWorkKnown",
+          "question": "Автор знал, какой результат другой уже получил.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.03:resultDestroyed",
+          "question": "Автор уничтожил или намеренно сделал непригодным этот результат.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.03:intentExplicitlyReported",
+          "question": "Автор прямо сообщил намерение испортить результат; оно не угадано программой.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.DOM.03:notAccidentOrAgreement",
+          "question": "Это не случайность, согласованное изменение или необходимое безопасное действие.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.03:completedWorkKnown"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.03:resultDestroyed"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.03:intentExplicitlyReported"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.DOM.03:notAccidentOrAgreement"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Другой стандарт порядка; неумение; случайное повреждение; необходимая переделка. Рассказ другого не устанавливает намерение автора.",
+      "impactKind": "MATERIAL_DAMAGE",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.COM.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D02",
+      "name": "Повторное прерывание после просьбы дать закончить",
+      "kind": "DISRUPTION",
+      "relatedSkillIds": [
+        "COM.S01",
+        "COM.S06",
+        "COM.S08"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Разговор с явной просьбой дать закончить",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.COM.01:requestToFinishUnderstood",
+          "question": "Была понята просьба дать закончить высказывание.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.01:repeatedInterruption",
+          "question": "После неё автор неоднократно прерывал говорящего.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.01:notMutualFormat",
+          "question": "Такой формат не был взаимно принят.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.01:notEmergencyOrExit",
+          "question": "Это не срочное предупреждение и не собственное прекращение небезопасного разговора.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.COM.01:requestToFinishUnderstood"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.01:repeatedInterruption"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.01:notMutualFormat"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.01:notEmergencyOrExit"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Одиночное наложение реплик; доступный человеку способ коммуникации; добровольный быстрый обмен; право прекратить разговор.",
+      "impactKind": "CONVERSATION_DISRUPTION",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.COM.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D02",
+      "name": "Прямое унижение или оскорбление",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "COM.S02",
+        "COM.S05",
+        "COM.S06",
+        "COM.S08",
+        "INT.S01"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Конкретное взаимодействие",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.COM.02:demeaningStatement",
+          "question": "Автор сообщил о конкретном оскорблении или унижающем обращении с другим.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.02:directedAtPerson",
+          "question": "Слова или действие направлены на достоинство человека, а не только на несогласие с решением.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.02:notConsensualPlay",
+          "question": "Это не взаимно принятый игровой формат; отзыв такого согласия учитывается.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.COM.02:demeaningStatement"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.02:directedAtPerson"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.02:notConsensualPlay"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Несогласие; критика конкретного действия; эмоция раздражения; орфография; отказ продолжать контакт.",
+      "impactKind": "DIGNITY_VIOLATION",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.COM.03",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D02",
+      "name": "Прекращение контакта как прямо заявленное средство давления",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "COM.S04",
+        "COM.S05",
+        "INT.S06"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод прекращения и условий возобновления контакта",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.COM.03:contactWithheld",
+          "question": "Автор прервал контакт.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.03:leverageExplicit",
+          "question": "Автор прямо связал его возобновление с получением подчинения или отказом другого от своего права.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.03:notOwnBoundaryOrSafety",
+          "question": "Это не собственный отказ от отношений, безопасный выход, отдых или обычное условие совместного дела.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.COM.03:contactWithheld"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.03:leverageExplicit"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.03:notOwnBoundaryOrSafety"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Длительность паузы сама по себе ничего не доказывает; отсутствие ресурса; право не общаться; намерение не выводится из молчания.",
+      "impactKind": "COERCIVE_LEVERAGE",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.COM.04",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D02",
+      "name": "Выдача заведомого предположения за установленный мотив другого",
+      "kind": "DISRUPTION",
+      "relatedSkillIds": [
+        "COM.S03",
+        "REG.S02"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод обсуждения приписанного мотива",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.COM.04:motiveAssertedAsFact",
+          "question": "Автор приписал другому конкретный мотив как установленный факт.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.04:uncertaintyExplicitlyKnown",
+          "question": "Автор прямо отметил, что знал об отсутствии подтверждения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.COM.04:continuedAsFactAfterClarification",
+          "question": "После уточнения продолжил представлять это как установленный мотив.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.COM.04:motiveAssertedAsFact"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.04:uncertaintyExplicitlyKnown"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.COM.04:continuedAsFactAfterClarification"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Обычная ошибка понимания; несогласие с объяснением другого; собственное переживание; нет оснований автоматически называть газлайтингом.",
+      "impactKind": "MISREPRESENTATION",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.VAL.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D03",
+      "name": "Заведомо ложное заверение о собственном жизненном намерении",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "VAL.S01",
+        "VAL.S02",
+        "VAL.S03"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод конкретного заверения",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.VAL.01:specificAssuranceGiven",
+          "question": "Автор дал определённое заверение о своей позиции или намерении.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.VAL.01:knewDifferentAtTime",
+          "question": "Автор прямо сообщил, что уже тогда имел другую позицию.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.VAL.01:concealmentExplicit",
+          "question": "Автор сообщил, что сознательно скрыл это различие при заверении.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.VAL.01:specificAssuranceGiven"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.VAL.01:knewDifferentAtTime"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.VAL.01:concealmentExplicit"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Последующее изменение мнения; неопределённость; надежда без обещания; мнение другого не устанавливает прежнее скрытое намерение.",
+      "impactKind": "INFORMED_CHOICE_INTERFERENCE",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.VAL.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D03",
+      "name": "Принуждение к жизненному выбору",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "VAL.S01",
+        "VAL.S02",
+        "VAL.S03"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод обсуждения жизненного решения",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.VAL.02:lifeChoiceDemand",
+          "question": "Автор требовал конкретного жизненного решения другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.VAL.02:coerciveMeans",
+          "question": "Для этого сообщил об угрозе насилия, лишения базовых средств или аналогичном давлении.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.VAL.02:notOwnRelationshipDecision",
+          "question": "Это не сообщение о собственном решении не продолжать несовместимые отношения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.VAL.02:lifeChoiceDemand"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.VAL.02:coerciveMeans"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.VAL.02:notOwnRelationshipDecision"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Разные планы на детей, брак, веру, карьеру; обсуждение последствий; собственное прекращение отношений.",
+      "impactKind": "AUTONOMY_INTERFERENCE",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.FIN.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D04",
+      "name": "Распоряжение общими средствами вопреки действующим правилам",
+      "kind": "BREACH",
+      "relatedSkillIds": [
+        "FIN.S01",
+        "FIN.S02",
+        "FIN.S04",
+        "FIN.S05",
+        "FIN.S06"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Решение об общих средствах",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.FIN.01:validMoneyAgreement",
+          "question": "Существовало конкретное добровольное правило использования общих средств.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.01:spentOutsideAgreement",
+          "question": "Автор распорядился общими средствами за его пределами.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.01:approvalRequiredAndAbsent",
+          "question": "Для этого требовалось согласование, которого не было.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.01:noSafetyException",
+          "question": "Это не безопасный выход из контроля или иная необходимая защитная мера.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.01:validMoneyAgreement"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.01:spentOutsideAgreement"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.01:approvalRequiredAndAbsent"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.01:noSafetyException"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Расходы из личных средств в пределах самостоятельности; недостаток дохода; несогласованные ожидания; вынужденная защитная трата.",
+      "impactKind": "SHARED_RESOURCE_BREACH",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.FIN.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D04",
+      "name": "Сознательное сокрытие согласованной информации об общем обязательстве",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "FIN.S03",
+        "FIN.S05",
+        "FIN.S06"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Случай раскрытия общего обязательства",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.FIN.02:sharedLiability",
+          "question": "Обязательство затрагивает общую согласованную ответственность.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.02:disclosureVoluntarilyAgreed",
+          "question": "Автор добровольно согласился сообщать именно эту информацию.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.02:knownInformationConcealed",
+          "question": "Автор сообщил, что знал информацию и сознательно скрыл либо исказил её.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.02:safeDisclosureAvailable",
+          "question": "Сообщение было безопасно и доступно; защитная приватность не нарушалась.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.02:sharedLiability"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.02:disclosureVoluntarilyAgreed"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.02:knownInformationConcealed"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.02:safeDisclosureAvailable"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Личная финансовая приватность; неизвестные самому автору условия; забытый срок; вынужденное сокрытие ради безопасности.",
+      "impactKind": "SHARED_INFORMATION_BREACH",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.FIN.03",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D04",
+      "name": "Ограничение базовых денег как средство подчинения",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "FIN.S04",
+        "FIN.S05",
+        "FIN.S06",
+        "AUT.S02"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод ограничения доступа к необходимым средствам",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.FIN.03:accessControlled",
+          "question": "Автор контролировал доступ другого к необходимым ему средствам.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.03:basicAccessRestricted",
+          "question": "Автор лишил или ограничил этот доступ.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.03:complianceConditionExplicit",
+          "question": "Доступ был прямо обусловлен подчинением или отказом от самостоятельного решения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.FIN.03:notVoluntaryBudget",
+          "question": "Это не добровольно согласованный и пересматриваемый бюджет с сохранением собственных прав.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.03:accessControlled"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.03:basicAccessRestricted"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.03:complianceConditionExplicit"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.FIN.03:notVoluntaryBudget"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Низкий общий доход; прозрачные общие ограничения бюджета; отказ отдавать свои личные деньги как таковой.",
+      "impactKind": "RESOURCE_COERCION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.SEX.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D05",
+      "name": "Продолжение интимного действия без действующего согласия",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "SEX.S01",
+        "SEX.S02",
+        "SEX.S03",
+        "SEX.S04",
+        "SEX.S05"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод соответствующего взаимодействия; интимные подробности не требуются",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.SEX.01:intimateActionContinued",
+          "question": "Автор сообщил о продолжении конкретного интимного действия.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.SEX.01:activeConsentAbsent",
+          "question": "На тот момент согласие отсутствовало, было отозвано либо его нельзя было дать.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.SEX.01:notOnlyHypothetical",
+          "question": "Речь о сообщённом событии, а не только варианте в учебной сцене.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.SEX.01:intimateActionContinued"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.SEX.01:activeConsentAbsent"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.SEX.01:notOnlyHypothetical"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Отказ самого пользователя от интимности; отсутствие желания; иной темп; согласованная роль; более раннее согласие не заменяет актуального.",
+      "impactKind": "CONSENT_VIOLATION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.SEX.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D05",
+      "name": "Изменение согласованных существенных условий без нового согласия",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "SEX.S01",
+        "SEX.S02",
+        "SEX.S03",
+        "SEX.S04",
+        "SEX.S05"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Случай изменения существенного условия",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.SEX.02:materialConditionKnown",
+          "question": "Автор знал о существенном условии согласия другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.SEX.02:conditionChanged",
+          "question": "Автор изменил это условие.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.SEX.02:continuedWithoutNewConsent",
+          "question": "Продолжил взаимодействие без нового добровольного согласия на изменение.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.SEX.02:materialConditionKnown"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.SEX.02:conditionChanged"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.SEX.02:continuedWithoutNewConsent"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Добровольно согласованное изменение; право передумать и остановиться; анкета не запрашивает доказательства или медицинские данные.",
+      "impactKind": "CONSENT_CONDITION_BREACH",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.REG.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D06",
+      "name": "Угроза причинить вред",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "REG.S01",
+        "REG.S03",
+        "REG.S04",
+        "REG.S05",
+        "REG.S06",
+        "REG.S07",
+        "COM.S04"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Конкретный эпизод взаимодействия",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.REG.01:threatCommunicated",
+          "question": "Автор сообщил о словесной или иной угрозе причинить вред человеку или важному для него объекту.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.REG.01:targetedThreat",
+          "question": "Это обращённая к другому угроза, а не собственное описание эмоции.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.REG.01:notProtectiveWarning",
+          "question": "Это не соразмерное предупреждение о прекращении собственного участия ради безопасности.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.REG.01:threatCommunicated"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.REG.01:targetedThreat"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.REG.01:notProtectiveWarning"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Злость, громкость голоса, просьба о паузе, безопасный уход сами по себе не угроза.",
+      "impactKind": "THREAT_OF_HARM",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.REG.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D06",
+      "name": "Сообщение о физическом нападении",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "REG.S03",
+        "REG.S04",
+        "REG.S05",
+        "REG.S06",
+        "REG.S07"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Сообщённый эпизод; сигнал поддержки не требует завершения классификации",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.REG.02:physicalForceReported",
+          "question": "Автор прямо сообщил о применении физической силы к другому.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.REG.02:notConsensualOrAccidental",
+          "question": "Это не взаимно согласованная активность и не случайный контакт.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.REG.02:notProtectiveAction",
+          "question": "Не описана защитная реакция; неясность сохраняется отдельно.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.REG.02:physicalForceReported"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.REG.02:notConsensualOrAccidental"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.REG.02:notProtectiveAction"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Эмоция; диагноз; случайность; защитное действие требует отдельного контекста и не кодируется как нападение автоматически.",
+      "impactKind": "PHYSICAL_HARM",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.REG.03",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D06",
+      "name": "Возложение ответственности за собственное вредящее действие на получателя",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "REG.S02",
+        "REG.S05",
+        "REG.S06",
+        "COM.S05"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод обсуждения собственного вредящего действия",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.REG.03:ownHarmfulActionAcknowledged",
+          "question": "Автор сообщил о конкретном собственном вредящем действии.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.REG.03:recipientBlamedForAct",
+          "question": "Автор прямо возложил ответственность именно за свой поступок на пострадавшего.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.REG.03:usedToJustifyOrRepeat",
+          "question": "Это использовано для оправдания действия либо требования изменить поведение под угрозой повторения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.REG.03:ownHarmfulActionAcknowledged"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.REG.03:recipientBlamedForAct"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.REG.03:usedToJustifyOrRepeat"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Описание влияния ситуации на эмоции; признание вклада обоих; ответственность за чужое насилие не приписывается получателю.",
+      "impactKind": "RESPONSIBILITY_COERCION",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.INT.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D07",
+      "name": "Использование доверенного раскрытия для унижения или давления",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "INT.S01",
+        "INT.S02",
+        "INT.S03",
+        "INT.S04",
+        "INT.S05",
+        "INT.S06"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод использования личного раскрытия",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.INT.01:privateDisclosureKnown",
+          "question": "Другой доверил автору личную информацию.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.INT.01:usedAgainstPerson",
+          "question": "Автор использовал её для конкретного унижения или давления.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.INT.01:notAgreedDiscussion",
+          "question": "Такое использование не было добровольно принято.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.INT.01:privateDisclosureKnown"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.INT.01:usedAgainstPerson"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.INT.01:notAgreedDiscussion"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Уважительное обсуждение доверенной проблемы; обозначение собственных ограничений; отказ предоставлять поддержку.",
+      "impactKind": "VULNERABILITY_EXPLOITATION",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.INT.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D07",
+      "name": "Давление с целью вынудить личное раскрытие",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "INT.S02",
+        "INT.S03",
+        "INT.S04",
+        "INT.S06"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод явного отказа от раскрытия",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.INT.02:refusalToDiscloseClear",
+          "question": "Другой ясно не согласился раскрывать личную информацию.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.INT.02:pressureToDiscloseContinued",
+          "question": "Автор продолжил именно давление с целью получить раскрытие.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.INT.02:notConsentedClarification",
+          "question": "Это не добровольное уточнение того, что другой готов обсуждать.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.INT.02:refusalToDiscloseClear"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.INT.02:pressureToDiscloseContinued"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.INT.02:notConsentedClarification"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Приглашение поделиться; один вопрос без давления; взаимная договорённость о теме; право другого отказаться.",
+      "impactKind": "DISCLOSURE_COERCION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.AUT.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D08",
+      "name": "Давление после ясного отказа",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "AUT.S01",
+        "AUT.S02",
+        "COM.S02",
+        "COM.S08",
+        "SEX.S01",
+        "SEX.S02",
+        "SEX.S03",
+        "SEX.S04"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод ясного отказа",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.AUT.01:refusalUnderstood",
+          "question": "Автор понял ясный отказ другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.01:pressureContinued",
+          "question": "Продолжил давление или требование согласиться.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.01:noPermissionToNegotiate",
+          "question": "Согласия на дальнейшее обсуждение альтернатив не было.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.01:notOwnBoundary",
+          "question": "Это не выражение собственного предела или решение прекратить отношения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.01:refusalUnderstood"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.01:pressureContinued"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.01:noPermissionToNegotiate"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.01:notOwnBoundary"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Разочарование; уважительное принятие отказа; предложение альтернатив при добровольной готовности обсуждать; собственный выход.",
+      "impactKind": "REFUSAL_OVERRIDE",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.AUT.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D08",
+      "name": "Доступ к личным данным или отслеживание без разрешения",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "AUT.S02",
+        "AUT.S04"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод получения доступа или отслеживания",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.AUT.02:privateAccessOrTracking",
+          "question": "Автор получил доступ к личному пространству данных или отслеживал другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.02:permissionAbsentOrRevoked",
+          "question": "Разрешения не было или оно было отозвано.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.02:notEmergencyProtection",
+          "question": "Не описана необходимая защитная чрезвычайная мера.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.02:privateAccessOrTracking"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.02:permissionAbsentOrRevoked"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.02:notEmergencyProtection"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Добровольный ограниченный и отзываемый общий доступ; открытая публичная информация; приватность не подозрение.",
+      "impactKind": "DIGITAL_PRIVACY_VIOLATION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.AUT.03",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D08",
+      "name": "Публикация чужой личной информации без разрешения",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "AUT.S02",
+        "AUT.S04",
+        "INT.S04"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод передачи личной информации",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.AUT.03:otherPrivateContent",
+          "question": "Материал содержит личную информацию другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.03:publishedOrShared",
+          "question": "Автор передал его аудитории.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.03:audiencePermissionAbsent",
+          "question": "Разрешения именно на эту аудиторию и использование не было.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.03:notProtectiveDisclosure",
+          "question": "Это не необходимое обращение за защитой или поддержкой с соответствующим контекстом.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.03:otherPrivateContent"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.03:publishedOrShared"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.03:audiencePermissionAbsent"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.03:notProtectiveDisclosure"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Согласие на одну аудиторию не разрешает другую; собственное безопасное обращение за помощью не запрещается этим правилом.",
+      "impactKind": "DISCLOSURE_VIOLATION",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.AUT.04",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D08",
+      "name": "Принудительная изоляция от внешней поддержки",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "AUT.S01",
+        "AUT.S02",
+        "AUT.S03",
+        "AUT.S05",
+        "REG.S07"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод вмешательства во внешние связи",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.AUT.04:externalRelationshipTargeted",
+          "question": "Автор стремился ограничить связи другого с друзьями, близкими или помощью.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.04:coerciveRestrictionUsed",
+          "question": "Применил угрозу, запрет через контроль ресурсов или иное принудительное препятствие.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.AUT.04:notVoluntaryBoundary",
+          "question": "Это не добровольное общее решение и не ограничение собственного участия автора.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.04:externalRelationshipTargeted"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.04:coerciveRestrictionUsed"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.AUT.04:notVoluntaryBoundary"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Нежелание самому общаться с родственником; безопасная граница; добровольное сокращение общения; отсутствие компании не дефект.",
+      "impactKind": "SOCIAL_ISOLATION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.LIF.01",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D09",
+      "name": "Одностороннее изменение общего плана при доступном согласовании",
+      "kind": "BREACH",
+      "relatedSkillIds": [
+        "LIF.S01",
+        "LIF.S02",
+        "LIF.S03",
+        "LIF.S05",
+        "LIF.S06",
+        "COM.S07"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод изменения общего плана",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.LIF.01:validSharedPlan",
+          "question": "Существовал актуальный добровольный общий план.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.01:planChangedUnilaterally",
+          "question": "Автор изменил затрагивающее другого условие односторонне.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.01:safeCoordinationAvailable",
+          "question": "Заранее сообщить или согласовать изменение было безопасно и доступно.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.01:coordinationOmitted",
+          "question": "Эта возможность не была использована.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.01:notPermittedChange",
+          "question": "Изменение не относилось к заранее допустимой самостоятельности или праву отзыва участия.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.01:validSharedPlan"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.01:planChangedUnilaterally"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.01:safeCoordinationAvailable"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.01:coordinationOmitted"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.01:notPermittedChange"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Спонтанность как предпочтение; новый взаимный план; непредвиденная недоступность; отзыв согласия; уведомление после срока не переписывает прошлое.",
+      "impactKind": "PLAN_BREACH",
+      "protectiveRouteOnReportedMatch": false,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.LIF.02",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D09",
+      "name": "Намеренное препятствование восстановлению",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "LIF.S03",
+        "LIF.S04",
+        "INT.S03",
+        "REG.S03"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод активного вмешательства в восстановление",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.LIF.02:restNeedCommunicated",
+          "question": "Автор знал о конкретной потребности другого в отдыхе.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.02:restActivelyObstructed",
+          "question": "Автор активно препятствовал отдыху или сну.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.02:purposeToObstructExplicit",
+          "question": "Намерение препятствовать прямо описано автором.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.02:notUnavoidableNeed",
+          "question": "Это не неотложная нужда, согласованная обязанность или неизбежное обстоятельство.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.02:restNeedCommunicated"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.02:restActivelyObstructed"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.02:purposeToObstructExplicit"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.02:notUnavoidableNeed"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Шум по неведению; уход за ребёнком в чрезвычайной ситуации; разные режимы сами по себе не нарушение.",
+      "impactKind": "REST_OBSTRUCTION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    },
+    {
+      "id": "NEG.LIF.03",
+      "version": "0.2.0",
+      "status": "AUTHOR_DRAFT_NOT_VALIDATED",
+      "primaryDomain": "D09",
+      "name": "Активное препятствование самостоятельной работе, учёбе или цели",
+      "kind": "HARM",
+      "relatedSkillIds": [
+        "LIF.S01",
+        "LIF.S03",
+        "LIF.S05",
+        "LIF.S06",
+        "AUT.S05",
+        "VAL.S02"
+      ],
+      "relationMeaning": "Связь содержания и навигации, не отрицание навыка и не автоматический вычет.",
+      "opportunityUnit": "Эпизод вмешательства в самостоятельное занятие",
+      "opportunityDefinitionStatus": "MUST_BE_DEFINED_BY_THE_QUESTIONNAIRE_WINDOW",
+      "requiredFacts": [
+        {
+          "key": "NEG.LIF.03:personalGoalKnown",
+          "question": "Автор знал о самостоятельной работе, учёбе или цели другого.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.03:activeObstruction",
+          "question": "Сообщил о конкретном действии, препятствующем доступу к занятию или нужным ресурсам.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.03:noVoluntaryAgreement",
+          "question": "Другой не принимал такого ограничения.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        },
+        {
+          "key": "NEG.LIF.03:notOwnResourceBoundary",
+          "question": "Это не отказ автора предоставить свои ресурсы и не обозначение собственных обязательств.",
+          "allowedValues": [
+            "T",
+            "F",
+            "U"
+          ]
+        }
+      ],
+      "predicate": {
+        "op": "ALL",
+        "args": [
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.03:personalGoalKnown"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.03:activeObstruction"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.03:noVoluntaryAgreement"
+          },
+          {
+            "op": "FACT",
+            "key": "NEG.LIF.03:notOwnResourceBoundary"
+          }
+        ]
+      },
+      "exclusionsAndLimits": "Разные карьерные приоритеты; несогласие с хобби; отказ участвовать самому; реально ограниченные общие ресурсы.",
+      "impactKind": "AUTONOMY_OBSTRUCTION",
+      "protectiveRouteOnReportedMatch": true,
+      "signedValueMeaning": "Минус доля эпизодов с данным проявлением среди явно очерченных возможностей; не тяжесть и не вероятность будущего вреда.",
+      "minimumEpisodesToReportOccurrence": 1,
+      "repetitionMeaning": ">=2 различных эпизода означает только повтор в сообщённом материале; не устойчивую черту.",
+      "intentPolicy": "Только прямое самоописание, когда намерение входит в критерий; не анализ текста и не догадка по последствиям.",
+      "sourcePolicy": {
+        "SELF_REPORT": "Личный профиль с маркировкой самоотчёта",
+        "TASK": "Только выбор/понимание в учебной ситуации",
+        "PARTNER_REPORT": "Отдельный опыт конкретного автора; не перезапись профиля другого",
+        "KNOWLEDGE": "Только понимание или распознавание в задании; не реальное событие."
+      },
+      "repairPolicy": "Исправление последствий и последующее отсутствие повторов сохраняются отдельно; факт не аннулируется извинением."
+    }
+  ]
+}

@@ -19,6 +19,7 @@ import { User, type UserType } from '@/models/User';
 import { Pair } from '@/models/Pair';
 import { materializeCurrentOwnerFactorSnapshots } from '@/domain/services/activityFactorRuntime.service';
 import { recoverMeasurementResults } from '@/domain/services/measurementTests.service';
+import { getOwnerAssessmentProfile } from '@/domain/services/assessmentRuns.service';
 import { bridgeCompatibleProfileEvidence } from './profileEvidenceCompatibility.service';
 
 type ProfileUserSource = Pick<
@@ -139,8 +140,10 @@ export async function getOwnerFactorProfileSummary(
   const avatarUrl = user.avatar
     ? toDiscordAvatarUrl(user.id, user.avatar)
     : null;
+  const assessments = await getOwnerAssessmentProfile(ownerId);
 
   return {
+    ...(assessments ? { assessments } : {}),
     user: {
       id: user.id,
       name: user.username,

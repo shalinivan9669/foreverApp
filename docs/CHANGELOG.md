@@ -861,3 +861,11 @@ Summary:
 - По вопросу владельца о продолжении подготовлено конкретное предложение по собственному списку блокировок F04 и полной пагинации завершённых занятий F08 с сохранением действующих ограничений доступа.
 - Для F01 описаны три варианта смысла личного состояния и последствия для вычислений/представления. Рекомендуемые изменения явно оставлены проектом до согласования API и продуктового решения; runtime и действующие контракты в этом этапе не менялись.
 Files: docs/USER_JOURNEY_GAPS.md, docs/CHANGELOG.md.
+
+Date: 2026-09-09
+Summary:
+- Added the isolated DOM.S07 assessment vertical: one shared v0.2/v0.3 core, versioned draft publication, authoritative response/presentation records, separate K/D/A and negative components, and a typed extension in the existing owner profile.
+- Added default-off server and synthetic-cohort gates, source-before-snapshot recovery, independent purpose permissions, export/deletion integration and local acceptance support. No legacy score fallback or live-feed switch is introduced.
+- Connected current matching and finite conditional search to permitted canonical sources; added exact viewer/Pair intent binding, bilateral versioned ordinary agreements, independent shared reports and a new observation cycle that preserves the last committed source until finalization.
+- Reproduced 183 reference checks and 45 real HTTP/Mongo acceptance IDs; verified the integrated profile, current/conditional plans, two independent confirmations, different reports and privacy controls in the browser. The 64-ID ledger records 63 PASS and one partial accessibility verification, with remaining native checks explicit.
+Files: docs/ASSESSMENT_INTEGRATION.md, docs/ASSESSMENT_IMPLEMENTATION_STATUS.md, src/domain/assessment, src/domain/services/assessmentRuns.service.ts, src/models/AssessmentRun.ts, src/models/AssessmentParticipant.ts, src/lib/dto/assessment.dto.ts, src/app/api/assessments, scripts/assessment-reference, scripts/assessment-content.selfcheck.ts, scripts/local-acceptance.ts

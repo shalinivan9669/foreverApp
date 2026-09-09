@@ -462,6 +462,13 @@ const executeDeletion = async (input: {
 
       await database.collection("development_completions").deleteMany({ userId: input.ownerUserId }, { session });
       await database.collection('measurement_test_sessions').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection('assessment_runs').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection('assessment_direct').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection('assessment_operations').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection<{ _id: string }>('assessment_participants').deleteOne({ _id: input.ownerUserId }, { session });
+      await database.collection('assessment_comparisons').deleteMany({ actorIds: input.ownerUserId }, { session });
+      await database.collection('assessment_pair_work').deleteMany({ actorIds: input.ownerUserId }, { session });
+      await database.collection('assessment_pair_reports').deleteMany({ ownerId: input.ownerUserId }, { session });
       await database.collection("development_runs").deleteMany({ participantIds: input.ownerUserId }, { session });
       // A workspace is shared only inside its active Pair. No archive policy is
       // introduced; erasure removes this inaccessible shared payload as a unit.

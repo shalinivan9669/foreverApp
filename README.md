@@ -53,6 +53,7 @@ npm run dev
 | Переменная | Обязательность | Назначение |
 | --- | --- | --- |
 | `MONGODB_URI` | да | MongoDB connection string |
+| `ASSESSMENT_SYNTHETIC_ENABLED` | нет, выключен | Только изолированная вертикаль DOM.S07: значение `true` дополнительно требует loopback replica set `vmeste_*_test`, зарегистрированного synthetic участника и штатной сессии. Не включает рабочий Matching. |
 | `NEXT_PUBLIC_DISCORD_CLIENT_ID` | да | Discord application id |
 | `DISCORD_CLIENT_SECRET` | да | Discord OAuth secret |
 | `DISCORD_REDIRECT_URI` | условно | Предпочтительный server-side redirect allowlist; нужен один redirect URI |

@@ -4,10 +4,28 @@ import { tmpdir } from 'node:os';
 import {
   assertOwnedLocalAcceptanceDirectory, localAcceptanceActor, localAcceptanceHostname,
   localAcceptanceEnvironment, parseLocalAcceptanceOptions, parseLocalAcceptanceHostPrefix,
+  localAcceptanceAssessmentEnvironment, localAcceptanceStartPath,
 } from './lib/local-acceptance-options';
 
 const binary = resolve('test-mongod');
 assert.equal(parseLocalAcceptanceOptions(['--mongod', binary, '--suite=factors'], {}).suite, 'factors');
+const assessmentSuite = parseLocalAcceptanceOptions(['--mongod', binary, '--suite=assessment'], {});
+const assessmentBrowser = parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--scenario=assessment'], {});
+const assessmentReadyBrowser = parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--scenario=assessment-ready'], {});
+assert.deepEqual(localAcceptanceAssessmentEnvironment(assessmentSuite), { ASSESSMENT_SYNTHETIC_ENABLED: 'true' });
+assert.deepEqual(localAcceptanceAssessmentEnvironment(assessmentBrowser), { ASSESSMENT_SYNTHETIC_ENABLED: 'true' });
+assert.deepEqual(localAcceptanceAssessmentEnvironment(assessmentReadyBrowser), { ASSESSMENT_SYNTHETIC_ENABLED: 'true' });
+assert.deepEqual(localAcceptanceAssessmentEnvironment(parseLocalAcceptanceOptions(['--mongod', binary], {})), {});
+assert.deepEqual(localAcceptanceAssessmentEnvironment(parseLocalAcceptanceOptions(['--mongod', binary, '--suite=factors'], {})), {});
+assert.deepEqual(localAcceptanceAssessmentEnvironment(parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser'], {})), {});
+assert.equal(localAcceptanceStartPath('assessment'), '/assessments/dom-s07');
+assert.equal(localAcceptanceStartPath('assessment-ready'), '/assessments/dom-s07');
+assert.equal(localAcceptanceStartPath('first-entry'), '/entry');
+assert.equal(localAcceptanceStartPath('onboarding'), '/mvp-onboarding');
+assert.equal(localAcceptanceStartPath('existing-partner'), '/main-menu');
+assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--suite=assessment'], {}));
+assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--scenario=assessment'], {}));
+assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--scenario=assessment-ready'], {}));
 assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--suite=arbitrary'], {}));
 assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--suite=factors'], {}));
 assert.equal(parseLocalAcceptanceOptions(['--mongod', binary], {}).mode, 'integration');
@@ -34,14 +52,14 @@ for (const invalid of ['', 'evil.test', 'localhost', '127.0.0.1', 'vmeste-worksp
   assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--host-prefix', invalid], {}));
 }
 assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--host-prefix=vmeste-workspace'], {}));
-for (const scenario of ['existing-partner', 'solo', 'onboarding', 'first-entry', 'matching', 'matching-connection', 'notifications']) assert.equal(parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--scenario', scenario], {}).scenario, scenario);
+for (const scenario of ['existing-partner', 'solo', 'onboarding', 'first-entry', 'matching', 'matching-connection', 'notifications', 'assessment']) assert.equal(parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--scenario', scenario], {}).scenario, scenario);
 assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--scenario=solo'], {}));
 assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--mode=browser', '--scenario=production'], {}));
 assert.throws(() => parseLocalAcceptanceOptions(['--mongod', binary, '--partner-app-port', '3106'], {}));
 for (const args of [[], ['--mongod', 'relative'], ['--mongod', binary, '--mode', 'production'], ['--mongod', binary, '--mongo-port', '3106'], ['--mongod', binary, '--login-port', '80'], ['--mongod', binary, '--actor', 'someone'], ['--mongod', binary, '--mongod', binary]]) {
   assert.throws(() => parseLocalAcceptanceOptions(args, {}));
 }
-assert.deepEqual(localAcceptanceEnvironment({ PATH: 'runtime', SystemRoot: 'os', JWT_SECRET: 'not-forwarded', MONGODB_URI: 'not-forwarded', NODE_OPTIONS: 'not-forwarded', HTTP_PROXY: 'not-forwarded' }), { PATH: 'runtime', SystemRoot: 'os' });
+assert.deepEqual(localAcceptanceEnvironment({ PATH: 'runtime', SystemRoot: 'os', JWT_SECRET: 'not-forwarded', MONGODB_URI: 'not-forwarded', NODE_OPTIONS: 'not-forwarded', HTTP_PROXY: 'not-forwarded', ASSESSMENT_SYNTHETIC_ENABLED: 'true' }), { PATH: 'runtime', SystemRoot: 'os' });
 assertOwnedLocalAcceptanceDirectory(resolve(tmpdir(), 'vmeste-local-acceptance-Ab12'), tmpdir());
 for (const path of [tmpdir(), resolve(tmpdir(), '..'), resolve(tmpdir(), 'other-data'), resolve(tmpdir(), 'vmeste-local-acceptance-Ab12', 'nested')]) {
   assert.throws(() => assertOwnedLocalAcceptanceDirectory(path, tmpdir()));

@@ -1,0 +1,2459 @@
+{
+  "schemaVersion": "application-assessment-acceptance-1",
+  "status": "IMPLEMENTED_WITH_RECORDED_VERIFICATION_LIMITS",
+  "count": 64,
+  "referenceTestsAreSeparate": {
+    "v02": 86,
+    "v03": 97
+  },
+  "cases": [
+    {
+      "id": "INT-001",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Паритет адаптированного ядра",
+      "given": "Наборы исходных входов v0.2/v0.3 прогоняются через реальные импортируемые модули приложения.",
+      "expected": "Смысловые выходы совпадают либо отличие имеет отдельный bug-reproducer и обоснованный change log; originals не изменены.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node scripts/assessment-reference/run.mjs",
+        "result": "PASS 86 + 97 = 183 retained reference checks on application engine",
+        "scope": "Pure engine evidence; persistence separate"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/run.mjs",
+          "test": "86 + 97 retained reference assertions on actual application engine and catalog hashes",
+          "kind": "RETAINED_REFERENCE_ON_APPLICATION_ENGINE"
+        }
+      ]
+    },
+    {
+      "id": "INT-002",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Одна реализация общих примитивов",
+      "given": "Навыки и Matching импортируют общие truth/rubric функции.",
+      "expected": "Нет двух расходящихся runtime-копий v0.2; сборка не зависит от reference/dist вне приложения.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node scripts/assessment-reference/run.mjs",
+        "result": "PASS 86 + 97 = 183 retained reference checks on application engine",
+        "scope": "Pure engine evidence; persistence separate"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/run.mjs",
+          "test": "One application core imported by both reference suites; no reference dist dependency",
+          "kind": "RETAINED_REFERENCE_ON_APPLICATION_ENGINE"
+        }
+      ]
+    },
+    {
+      "id": "INT-003",
+      "stage": "I01",
+      "layer": "SCHEMA",
+      "title": "Строгий ответ",
+      "given": "Неизвестный item/option, лишнее доверенное поле или не тот тип response.",
+      "expected": "Запрос/публикация отклонены до расчёта; в ошибку не попадают личные ответы.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 38,
+          "test": "Strict response and no server field spoofing",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-004",
+      "stage": "I01",
+      "layer": "SCHEMA",
+      "title": "Проверка публикации",
+      "given": "Дубликаты, пустое ALL/ANY, неизвестные ссылки, недостижимое окончание или превышенный AST budget.",
+      "expected": "Публикация не допускается; авторский файл не считается безопасным только потому, что лежит в Git.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 26,
+          "test": "Publication duplicates, terminal, AST and budgets",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-005",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Неизвестность и отсутствие опыта",
+      "given": "Ответ MISSING/NO_EXPERIENCE/NO_OPPORTUNITY либо системное NOT_PRESENTED.",
+      "expected": "Причины раздельны; нет L0, отрицательного события или среднего по умолчанию.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 162,
+          "test": "INT-005 missing acceptable set differs from explicitly empty set",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 43,
+          "test": "Missing reasons distinct from unknown absence",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-006",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Нет искусственной операционализации",
+      "given": "Запрошен один из 51 навыка без опубликованной исполнимой рубрики.",
+      "expected": "UNKNOWN/UNAVAILABLE_RUBRIC с исходным определением, а не клонированный средний домен.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 49,
+          "test": "Unpublished rubric and original definition",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-007",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Критерии одного эпизода",
+      "given": "Разные части составного критерия выполнены только в разных эпизодах.",
+      "expected": "Не возникает одного полностью выполненного действия путём склейки разных root.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 62,
+          "test": "Criteria in different roots cannot compose one action",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-008",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Дедупликация и ревизии",
+      "given": "Повтор source, новое отображение в домене, исправление и конфликт одной revision.",
+      "expected": "Повтор не увеличивает число эпизодов; исправление заменяет основание; конфликт не игнорируется.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 58,
+          "test": "Deduplication revision replacement and conflict",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-009",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Авторская политика и порядковый уровень",
+      "given": "Синтетические известные критерии дают L2 или множество {2,3}.",
+      "expected": "Сохраняются рубрика/статус/метод; нет перевода L2 в 0.55/2/3 и вымышленного confidence.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 107,
+          "test": "INT-009 {2,3} supports threshold while {1,2} remains unknown",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 118,
+          "test": "INT-009 inconsistent levels never become optimistic support",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 53,
+          "test": "Ordinal result and null confidence",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-010",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Негатив без взаимозачёта",
+      "given": "Учебное выполнение L3 и отдельные сообщения о негативном действии.",
+      "expected": "Оба результата сохранены; отсутствие знаменателя даёт событие без придуманной частоты; положительное не гасит negative.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 82,
+          "test": "Separate positive and negative with unknown denominator",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-011",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Семейства и методы не выдумываются",
+      "given": "Несколько вопросов об одном эпизоде; TASK, KNOWLEDGE, SELF_REPORT, ASSISTED.",
+      "expected": "Группы происхождения раздельны; familyId не генерируется ради достижения minFamilies; TASK не реальное действие.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 104,
+          "test": "Methods, families and phases remain separate",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-012",
+      "stage": "I01",
+      "layer": "UNIT_ADAPTER",
+      "title": "Текст вне scoring",
+      "given": "Меняется только заметка, локализация или порядок вариантов при тех же semantic IDs.",
+      "expected": "Чистый результат по IDs неизменен; нет regex/LLM-интерпретации; это не доказательство психометрической эквивалентности.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npx tsx scripts/assessment-content.selfcheck.ts",
+        "result": "PASS 40 checks",
+        "scope": "Pure production adapter; no browser/persistence/calibration claim"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/contracts.ts",
+        "src/domain/assessment/publication.ts",
+        "src/domain/assessment/profile.ts",
+        "src/domain/assessment/engine/core.ts",
+        "src/domain/assessment/engine/rubrics.ts",
+        "src/domain/assessment/PROVENANCE.json"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-content.selfcheck.ts",
+          "line": 121,
+          "test": "Semantic IDs independent from localized text and ordering",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-013",
+      "stage": "I02",
+      "layer": "HTTP_AUTH",
+      "title": "Чужой Run",
+      "given": "Пользователь B читает/меняет Run пользователя A.",
+      "expected": "Нейтральный отказ без данных/факта существования по policy проекта; профиль A не меняется.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 152,
+          "test": "Session owner and issued receipts",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-014",
+      "stage": "I02",
+      "layer": "HTTP_AUTH",
+      "title": "Подмена серверных полей",
+      "given": "Клиент передаёт owner/subject/root/method/phase/consent/score.",
+      "expected": "Недопустимые поля отвергнуты; соответствующие значения выведены только доверенной оболочкой.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 152,
+          "test": "Session owner and issued receipts",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 104,
+          "test": "INT-014 own direct schema rejects actor, effects and computed scores",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-015",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Выдача и зависимости",
+      "given": "Ответ на непредъявленный item, receipt другого Run или устаревшего контекста.",
+      "expected": "Ответ не принимается; hidden UI не единственная защита.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 152,
+          "test": "Session owner and issued receipts",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-016",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Одинаковый сетевой повтор",
+      "given": "Два запроса с одним idempotencyKey и одинаковым каноническим payload.",
+      "expected": "Один эффект и источник; квитанция прежней операции и актуально разрешённое представление.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 181,
+          "test": "Retries and concurrent edits",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-017",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Конфликт ключа",
+      "given": "Один idempotencyKey используется для разных ответов.",
+      "expected": "Явный conflict без перезаписи первого результата.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 181,
+          "test": "Retries and concurrent edits",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-018",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Две вкладки",
+      "given": "Обе вкладки редактируют одну исходную revision.",
+      "expected": "Старая вкладка получает conflict; актуальный ответ не теряется.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 181,
+          "test": "Retries and concurrent edits",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-019",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Два finalize",
+      "given": "Конкурентные запросы финализации одного Run.",
+      "expected": "Один канонический завершённый источник, без двойной sufficient evidence.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 223,
+          "test": "Canonical source and actual profile bridge",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-020",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Восстановление PENDING",
+      "given": "Сбой после source commit, до materialization.",
+      "expected": "Ответы сохранены; retry восстанавливает расчёт из той же версии, не новую попытку.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 262,
+          "test": "Source commit crash and retry",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-021",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Устаревший worker",
+      "given": "Расчёт начался до допустимой correction; новая revision сохранена первой.",
+      "expected": "Старый worker не записывает результат поверх нового snapshot.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 280,
+          "test": "Delayed computation cannot overwrite correction",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-022",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Исправление ветки опыта",
+      "given": "HAS_EPISODE изменён на NO_EXPERIENCE.",
+      "expected": "Детали и выводы зависимой ветки инвалидированы; после возврата прежний child не воскресает автоматически.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 201,
+          "test": "Dependent branch and exposed correction",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-023",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Исправление после образца",
+      "given": "Ранний ответ изменён после выдачи связанного примера/подсказки.",
+      "expected": "Сохраняется exposure; новый ответ не маркируется наивным baseline.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 201,
+          "test": "Dependent branch and exposed correction",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-024",
+      "stage": "I02",
+      "layer": "BROWSER",
+      "title": "Доступная форма",
+      "given": "Клавиатура, screen reader-подписи, видимый фокус, масштаб, reduced motion.",
+      "expected": "Задание доступно без drag/таймера; средство доступа не начисляет штраф и не превращает автоматически ответ в ASSISTED.",
+      "status": "PARTIALLY_VERIFIED",
+      "evidenceOfExecution": {
+        "method": "Root CUA browser against local synthetic production build",
+        "result": "Keyboard Enter/Space radios; accessible labels in browser tree; 320px viewport scrollWidth305; visible focused outline2px; no drag/timer",
+        "notRun": [
+          "Native screen reader interaction",
+          "OS reduced-motion preference emulation"
+        ],
+        "reviewedSeparately": [
+          "Existing reduced-motion CSS rule",
+          "Use of access aids does not send assessment hint or alter source phase"
+        ]
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx",
+        "src/client/hooks/useAssessmentPrivacy.ts",
+        "src/features/assessments/AssessmentPrivacyControls.tsx"
+      ],
+      "testEvidence": [],
+      "remainingBrowserChecks": [
+        "Native screen reader interaction and OS reduced-motion emulation are not verified in this tool environment."
+      ]
+    },
+    {
+      "id": "INT-025",
+      "stage": "I02",
+      "layer": "BROWSER",
+      "title": "Сохранение и пауза",
+      "given": "Сеть недоступна на save, затем resume/reload после подтверждённой записи.",
+      "expected": "Нет ложного saved; подтверждённые ответы восстановлены; публикация и source identity сохранены.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "method": "Root CUA browser with two owned local server processes",
+        "result": "A saved NO_EXPERIENCE, paused via profile and resumed with1of6 persisted; finalized UNKNOWN appears through real profile. B selected first answer with0saved, owned server stopped through /stop202 and cleanup, actual save failed with no false acknowledgement, selected radio retained, UI showed unconfirmed save and0of6.",
+        "scope": "Real browser network failure and persistence; no mock transport."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx",
+        "src/client/hooks/useAssessmentPrivacy.ts",
+        "src/features/assessments/AssessmentPrivacyControls.tsx"
+      ],
+      "testEvidence": []
+    },
+    {
+      "id": "INT-026",
+      "stage": "I02",
+      "layer": "END_TO_END",
+      "title": "Ответы действительно меняют профиль",
+      "given": "В DOM.S07 сначала недостаточно данных, затем новые допустимые синтетические эпизоды.",
+      "expected": "Из серверных источников появляется PARTIAL/уровень нужного track в настоящем профильном read-model, не fixture и не только текст.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 223,
+          "test": "Canonical source and actual profile bridge",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-027",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Нет второго профиля истины",
+      "given": "Исправление прямого ответа и измерительного источника с последующей материализацией.",
+      "expected": "Один согласованный profile read-model, не независимые редактируемые поля и не silent замена legacy factorKey.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 223,
+          "test": "Canonical source and actual profile bridge",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-028",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Экспорт владельца",
+      "given": "Запрошен export исходных/производных данных с участием другого автора.",
+      "expected": "Собственные разрешённые данные доступны; чужое закрытое не экспортируется.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 309,
+          "test": "Current permissions and owner export",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-029",
+      "stage": "I02",
+      "layer": "SERVICE_DB",
+      "title": "Удаление во время расчёта",
+      "given": "Run/source удалён, когда worker ещё работает.",
+      "expected": "Проекции и кэши инвалидированы/удалены; generation/tombstone не позволяет воскресить источник.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 341,
+          "test": "Deletion tombstone defeats delayed worker",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-030",
+      "stage": "I02",
+      "layer": "HTTP_AUTH",
+      "title": "Отзыв и повтор старого запроса",
+      "given": "Разрешение отозвано после успешной операции, затем повтор с тем же ключом.",
+      "expected": "Старый приватный cached DTO не выдаётся; права проверены заново.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 309,
+          "test": "Current permissions and owner export",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-031",
+      "stage": "I02",
+      "layer": "BROWSER",
+      "title": "Межаккаунтное состояние",
+      "given": "Logout A, login B в том же браузере.",
+      "expected": "В UI/store/query-cache нет ответа/отчёта A; URL и обычная аналитика их не содержат.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "method": "Root CUA browser plus actual cookie-intent DB race and hook tests",
+        "result": "Logout A from actual settings; assessment401 with neutral empty state; B in same browser has new empty publication and no A answers. Server rejects A GET-issued intent when posted under B session on all3 assessment routes. Actual hook clears account state and rejects late fetches.",
+        "limitations": [
+          "Interactive A/B synthetic sessions use distinct test origins; same-origin cookie subject switch is exercised through real handler integration and hook timing tests."
+        ]
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx",
+        "src/client/hooks/useAssessmentPrivacy.ts",
+        "src/features/assessments/AssessmentPrivacyControls.tsx"
+      ],
+      "testEvidence": []
+    },
+    {
+      "id": "INT-032",
+      "stage": "I02",
+      "layer": "REGRESSION",
+      "title": "Legacy FINALIZED и retry",
+      "given": "Прежняя финализированная MeasurementTestSession и её существующий endpoint.",
+      "expected": "Закрытая анкета остаётся закрытой; retry только восстановление; старые согласованные назначения не отключены.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentAccess.service.ts",
+        "src/domain/services/assessmentRuns.service.ts",
+        "src/models/AssessmentRun.ts",
+        "src/models/AssessmentParticipant.ts",
+        "src/lib/dto/assessment.dto.ts",
+        "src/app/api/assessments/dom-s07/route.ts",
+        "src/client/hooks/useAssessment.ts",
+        "src/features/assessments/AssessmentPage.tsx",
+        "src/features/assessments/AssessmentProfile.tsx",
+        "src/client/viewmodels/profile.viewmodels.ts",
+        "src/components/profile/ModeAwareProfileOverview.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment.integration.ts",
+          "line": 363,
+          "test": "Legacy finalized test remains immutable",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-033",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Profile→Problem без ручного факта",
+      "given": "Из реального тестового profile snapshot рассчитывается DOM.S07 threshold.",
+      "expected": "BfullCycle получен из подходящего источника и declared mapper, не constant из examples/fixtures.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 161,
+          "test": "Real source profile to current and scenario",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 119,
+          "test": "INT-033 profile snapshot determines applied fact",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-034",
+      "stage": "I03",
+      "layer": "UNIT_ADAPTER",
+      "title": "Непригодный метод",
+      "given": "TASK L3 при требовании к описанному применению в жизни.",
+      "expected": "Не создаётся положительный applied threshold; запрашивается подходящее основание либо U.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "npm run selfcheck:assessment-boundaries",
+        "result": "PASS65/65 against real application adapters after final intent binding changes",
+        "reportedBy": "contract_audit final run, confirmed root",
+        "scope": "TASK/ASSISTED/foreign-context or incompatible-period data cannot assert applied capacity; pure adapter evidence."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 111,
+          "test": "INT-034 TASK L3 and assisted evidence cannot assert applied capacity",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 115,
+          "test": "INT-034 other context, period or rubric cannot assert applied capacity",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-035",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Высокий навык без OFFER",
+      "given": "Навык поддержан, но автор не предлагает эту роль.",
+      "expected": "Направленный запрос не покрыт; нет автоматического назначения обязанностей.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 188,
+          "test": "Competence does not invent an offer",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 123,
+          "test": "INT-035 high skill without an offer does not cover a role",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-036",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Неизвестный навык",
+      "given": "Существенный threshold не известен.",
+      "expected": "CLARIFY_FIRST/неполнота, а не установленный дефицит и навязанное развитие.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 398,
+          "test": "Unknown suitable self report never invents a skill deficit",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 128,
+          "test": "INT-036 unknown skill asks clarification without prescribed development",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-037",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Один бытовой барьер",
+      "given": "Совпадающие остальные условия; добровольно доступный сценарий достижения DOM.S07; ресурс достаточен.",
+      "expected": "Current барьер виден; отдельный hypothetical общий план и конкретные assumptions; actual не меняется.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 161,
+          "test": "Real source profile to current and scenario",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 133,
+          "test": "INT-037 scenario repairs one stated barrier without changing current",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-038",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Комбинация двух препятствий",
+      "given": "Нужны изменение расписания и достижение одного критерия.",
+      "expected": "Одиночные изменения не объявлены решением; найден допустимый совместный набор в пределах поиска.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 197,
+          "test": "Two barriers require a joint scenario",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 139,
+          "test": "INT-038 two barriers require one combined feasible plan",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-039",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Принципиальные цели",
+      "given": "Противоположные обязательные позиции родительства.",
+      "expected": "Навык/практика не меняет позиции; различие не спрятано средним и не снимает правила доступа/контакта.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 207,
+          "test": "Opposite parenthood remains an immutable barrier",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 145,
+          "test": "INT-039 opposed necessary parenthood positions are not trainable",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-040",
+      "stage": "I03",
+      "layer": "UNIT_ADAPTER",
+      "title": "Общий ресурс",
+      "given": "Обычная задача 180 и бюджет попытки 90 при capacity 240 в том же периоде.",
+      "expected": "Вариант не признан выполнимым; сравнение с capacity 300 даёт другой ресурсный результат; 90 не срок гарантированного освоения.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 216,
+          "test": "Own 28 day budgets include ordinary tasks and attempt",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 264,
+          "test": "Resource failure does not erase either supported direction",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 150,
+          "test": "INT-040 ordinary task and attempt share the same resource budget",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-041",
+      "stage": "I03",
+      "layer": "HTTP_AUTH",
+      "title": "Запрещённая сценарная правка",
+      "given": "Клиент присылает произвольный effects или неподходящий actionId, пытается менять boundary/history/safety/goal.",
+      "expected": "Запрос отвергнут; только опубликованные допустимые IDs; исходный профиль не изменён.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 233,
+          "test": "Only published actions and safe owner DTO",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-042",
+      "stage": "I03",
+      "layer": "END_TO_END",
+      "title": "Отказ и неизвестная готовность",
+      "given": "F на участие в change или U при отсутствии собственного решения.",
+      "expected": "F исключает действие; U оставляет только условный вариант для выбора, не принятое обязательство.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 247,
+          "test": "Refusal excluded unknown willingness remains unchosen",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 156,
+          "test": "INT-042 refusal excludes a scenario and unknown willingness is unchosen",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-043",
+      "stage": "I03",
+      "layer": "UNIT_ADAPTER",
+      "title": "Кванторы одного плана",
+      "given": "В каждом неизвестном расписании есть своя встреча, но нет одной для всех.",
+      "expected": "Не выдан единый подтверждённый план; сохранено отличие forall-exists от exists-forall.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node scripts/assessment-reference/run.mjs",
+        "result": "PASS 86 + 97 = 183 retained reference checks on application engine",
+        "scope": "Pure engine evidence; persistence separate"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/matching.test.mjs",
+          "test": "worldDependent configurations: per-world plan is not one robust plan",
+          "kind": "RETAINED_REFERENCE_ON_APPLICATION_ENGINE"
+        }
+      ]
+    },
+    {
+      "id": "INT-044",
+      "stage": "I03",
+      "layer": "UNIT_ADAPTER",
+      "title": "Бюджет и область поиска",
+      "given": "Превышен maxChecks либо возможный путь длиннее maxActionsPerSet.",
+      "expected": "Явная неполнота/область; нет заявления о доказанной общей невозможности или единственной проблеме.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 258,
+          "test": "Exhausted search retains explicit completeness",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-045",
+      "stage": "I03",
+      "layer": "SERVICE_DB",
+      "title": "Сценарий не начисляет рост",
+      "given": "Выбран сценарий/практика; новый измерительный source ещё не появился.",
+      "expected": "Actual и current Matching не повышены; нет скрытого EvidenceEvent или XP→skill.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 284,
+          "test": "Hypothesis has no source reward or feed effects",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-046",
+      "stage": "I03",
+      "layer": "HTTP_AUTH",
+      "title": "Полная привязка certificate — BP01",
+      "given": "MATCHING меняется на PAIR либо меняются audience, actor binding, одна participant revision, pairId или generation.",
+      "expected": "Старая проекция недействительна; helper v0.3 не используется как единственный guard.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 310,
+          "test": "Internal cache envelope rejects scope and stale bindings",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 24,
+          "test": "INT-046 unchanged complete envelope remains current",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 61,
+          "test": "INT-046 rejects ${name}",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 66,
+          "test": "INT-046 CURRENT envelope cannot acquire scenario effects",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-047",
+      "stage": "I03",
+      "layer": "SERVICE_DB",
+      "title": "Новый source resolver",
+      "given": "assessment-source проходит цепочку Matcher/Pair materialization; consent отзывается.",
+      "expected": "Актуальные права проверены зарегистрированным resolver; неизвестный prefix не обходит старые фильтры.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 362,
+          "test": "Revocation and hidden peer edits are noninterfering",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-048",
+      "stage": "I03",
+      "layer": "HTTP_AUTH",
+      "title": "Скрытые входы и внешний текст",
+      "given": "Меняется только запрещённый данному назначению ответ другого участника.",
+      "expected": "Публичное психологическое содержание/выбор карточки/сценарий не используют этот вход; отдельный protection gate не раскрывает причину.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 362,
+          "test": "Revocation and hidden peer edits are noninterfering",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-049",
+      "stage": "I03",
+      "layer": "HTTP_AUTH",
+      "title": "Нет оракула чужих ответов",
+      "given": "Повторные попытки произвольных сравнений и сценарных overrides; запрос полного certificate/trace.",
+      "expected": "Доступны только разрешённые IDs и минимальные DTO; raw/hidden facts не раскрываются. Один rate limit не считается доказательством защиты.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 233,
+          "test": "Only published actions and safe owner DTO",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-050",
+      "stage": "I03",
+      "layer": "REGRESSION",
+      "title": "Текущая лента и частичный порядок",
+      "given": "Эксперимент выключен; для demo есть несравнимые directional results.",
+      "expected": "Рабочая лента/старые HARD_CONSTRAINT неизменны; potential не прибавлен к current rank; несравнимость не скрыта выдуманным числом.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/assessment/comparison.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/domain/services/assessmentComparison.service.ts",
+        "src/models/AssessmentDirect.ts",
+        "src/models/AssessmentComparison.ts",
+        "src/lib/dto/assessmentComparison.dto.ts",
+        "src/app/api/assessments/comparison/route.ts",
+        "src/client/hooks/useAssessmentComparison.ts",
+        "src/features/assessments/AssessmentComparisonPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-comparison.integration.ts",
+          "line": 284,
+          "test": "Hypothesis has no source reward or feed effects",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-051",
+      "stage": "I04",
+      "layer": "HTTP_AUTH",
+      "title": "Два независимых подтверждения",
+      "given": "A подтверждает agreement, затем B своей сессией ту же revision/hash.",
+      "expected": "После одного только proposal; ACTIVE лишь после двух подлинных подтверждений одной версии.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 88,
+          "test": "Two sessions confirm one version without skill reward",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-052",
+      "stage": "I04",
+      "layer": "HTTP_AUTH",
+      "title": "Нельзя подтвердить за другого",
+      "given": "A отправляет actor B, confirmations обоих или свой contentHash для другого содержания.",
+      "expected": "Чужое подтверждение не принято; actor/hash вычисляются/проверяются сервером.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 88,
+          "test": "Two sessions confirm one version without skill reward",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-053",
+      "stage": "I04",
+      "layer": "SERVICE_DB",
+      "title": "Новая версия договора",
+      "given": "Оба подтвердили v1; опубликована изменённая v2.",
+      "expected": "Согласия v1 не активируют v2 автоматически.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 132,
+          "test": "Changed agreement content needs fresh confirmations",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-054",
+      "stage": "I04",
+      "layer": "HTTP_AUTH",
+      "title": "Смена пары и расставание",
+      "given": "Старый pairId, прекращённая связь или пользователь не входит в пару.",
+      "expected": "Нет доступа к текущему сравнению/сценарию по старой связи; Couple не создаётся из комнаты Discord.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 298,
+          "test": "Ending actual Pair closes historical context",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-055",
+      "stage": "I04",
+      "layer": "UNIT_ADAPTER",
+      "title": "Согласие не долг",
+      "given": "Вид соглашения INTIMATE_ACT/PERSONAL_DISCLOSURE или явный отзыв согласия.",
+      "expected": "Нет отрицательного невыполнения, обязательства контакта или совета уступить.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node scripts/assessment-reference/run.mjs",
+        "result": "PASS 86 + 97 = 183 retained reference checks on application engine",
+        "scope": "Pure engine evidence; persistence separate"
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-reference/engine.test.mjs",
+          "test": "Intimate act or personal disclosure withdrawal never creates performance debt",
+          "kind": "RETAINED_REFERENCE_ON_APPLICATION_ENGINE"
+        }
+      ]
+    },
+    {
+      "id": "INT-056",
+      "stage": "I04",
+      "layer": "END_TO_END",
+      "title": "Два парных отчёта",
+      "given": "A=GOOD, B=NEEDS_CHANGE за одну подходящую версию/период.",
+      "expected": "Оба значения сохранены отдельно; недовольство B не скрыто средним; профиль A/B не переписан чужим отзывом.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 150,
+          "test": "Two separate reports preserve disagreement and privacy",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-057",
+      "stage": "I04",
+      "layer": "HTTP_AUTH",
+      "title": "Закрытый отчёт пары",
+      "given": "Один report не разрешён для shared view.",
+      "expected": "Отчёт и его направление не выводятся из общей карточки; прямое решение автора о видимости проверяется актуально.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 150,
+          "test": "Two separate reports preserve disagreement and privacy",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-058",
+      "stage": "I04",
+      "layer": "UNIT_ADAPTER",
+      "title": "Хронология — BP02",
+      "given": "Обратные даты, неопределённый порядок, одинаковое окно-correction или несовместимые overlapping периоды.",
+      "expected": "Нет мнимого роста; INCOMPARABLE/correction по опубликованной политике. Proper before/after сопоставляется только при совместимой шкале.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 181,
+          "test": "Completed comparable windows support only own ordinal trend",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 76,
+          "test": "INT-058 proper ordered windows compare reported categories",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 77,
+          "test": "INT-058 BP02 reversed dates cannot invent improvement",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 78,
+          "test": "INT-058 same-window correction is not a trend",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 79,
+          "test": "INT-058 overlap is incomparable",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 80,
+          "test": "INT-058 unequal reporting durations are incomparable",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 82,
+          "test": "INT-058 changed ${field} is incomparable",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 87,
+          "test": "INT-058 invalid calendar date is incomparable",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 88,
+          "test": "INT-058 missing value stays unknown",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-059",
+      "stage": "I04",
+      "layer": "SERVICE_DB",
+      "title": "Выполнение практики не измерение",
+      "given": "Событие practice.complete или accepted agreement без новых критерийных наблюдений.",
+      "expected": "Только факт участия/соглашения, не повышение навыка и не автоматическое успешное развитие пары.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 88,
+          "test": "Two sessions confirm one version without skill reward",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-060",
+      "stage": "I04",
+      "layer": "END_TO_END",
+      "title": "Настоящий пересчёт после новых данных",
+      "given": "Новый подходящий синтетический источник после попытки поддерживает требуемый критерий.",
+      "expected": "Новая актуальная профильная ревизия и current comparison; старый scenario маркирован прошлой базой; нет прямой записи из hypothetical.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 214,
+          "test": "New independent followup observation changes actual profile",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-061",
+      "stage": "I04",
+      "layer": "SERVICE_DB",
+      "title": "Отзыв/удаление в зависимостях пары",
+      "given": "Удалён один источник либо отозвано назначение при незавершённом расчёте.",
+      "expected": "Зависимые сценарии/кэши инвалидированы, worker не возвращает их; отдельный допустимый ответ второго не стирается без основания.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 277,
+          "test": "Late pair preparation cannot revive revoked dependencies",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    },
+    {
+      "id": "INT-062",
+      "stage": "I04",
+      "layer": "END_TO_END",
+      "title": "Приоритет безопасного маршрута",
+      "given": "Сервер запрещает действие по действующей block/contact/safety policy.",
+      "expected": "Положительные навыки и сценарные изменения не обходят запрет; приватная причина не раскрывается; нет публичного badge безопасности.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 243,
+          "test": "Actual server block wins over supported positive profiles",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 168,
+          "test": "INT-062 access gate always wins over positive skill and conditional effects",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        },
+        {
+          "path": "scripts/assessment-reference/boundaries.test.mjs",
+          "line": 173,
+          "test": "INT-062 positive skills never compensate a protective route",
+          "kind": "PURE_APPLICATION_ADAPTER"
+        }
+      ]
+    },
+    {
+      "id": "INT-063",
+      "stage": "I04",
+      "layer": "BROWSER",
+      "title": "Понятная сквозная демонстрация",
+      "given": "Два тестовых аккаунта проходят профиль→сравнение→scenario→договор→отчёты.",
+      "expected": "Current/conditional различаются, добровольные действия явны, клавиатура работает; нет постоянного production impersonation bypass.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "date": "2026-09-09",
+        "method": "Actual in-app browser, isolated MongoDB and existing session auth",
+        "scenario": "assessment-ready",
+        "result": "PASS",
+        "observations": [
+          "Fixture saved A=3 B=0 through real published questions/services; no precomputed comparison/scenario/agreement/report.",
+          "UI computed current: A-to-B unsupported, B-to-A supported, common resource supported.",
+          "UI computed a separate supported conditional scenario; current result remained unchanged.",
+          "A proposed the concrete conditional agreement; A and B independently confirmed the same version.",
+          "Private B report did not disclose a value to A. After separate sharing, A GOOD and B NEEDS_CHANGE remained separate.",
+          "Concurrent stale A report was rejected; fresh read and explicit resubmission succeeded without overwriting B.",
+          "New B observation draft retained level 0 in the actual owner profile.",
+          "Final build repeated current/scenario/proposal/two confirmations; observe refreshed the real source to DRAFT without document reload or beforeUnload.",
+          "Final browser UI verified own Run deletion, explicit controls read, own Direct deletion and own agreement withdrawal, all server acknowledged."
+        ]
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx"
+      ],
+      "testEvidence": [],
+      "remainingBrowserChecks": [
+        "Two isolated sessions complete profile/current/conditional/agreement/two reports",
+        "Voluntary participation and keyboard work; no application impersonation bypass"
+      ]
+    },
+    {
+      "id": "INT-064",
+      "stage": "I04",
+      "layer": "END_TO_END",
+      "title": "Отключение и итоговая граница",
+      "given": "Feature выключена после появления тестовых данных; выполнены заявленные команды.",
+      "expected": "Нет нового скрытого сбора/выдачи; export/delete/revoke доступны. Отчёт перечисляет реальные проверки и NOT_RUN; нет production/psychometric claim.",
+      "status": "PASSED",
+      "evidenceOfExecution": {
+        "command": "node --import tsx scripts/local-acceptance.ts --mongod C:/Users/Admin/AppData/Local/Temp/vmeste-mongo-20260905/mongod.exe --suite=assessment",
+        "result": "PASS 45 unique application integration IDs; exit 0 and owned harness cleanup",
+        "reportedBy": "reference_engine final integration run, session 4604",
+        "scope": "Real isolated Mongo replica set and actual HTTP handlers with GET-issued actor/pair intent; includes two real synthetic sessions, stale workers, permission revocation, historical Pair controls and new FOLLOWUP sources."
+      },
+      "origin": "NEW_HANDOFF_INTEGRATION_REQUIREMENT",
+      "covers": [
+        "src/domain/services/assessmentPair.service.ts",
+        "src/domain/assessment/engine/pair.ts",
+        "src/domain/assessment/boundaries.ts",
+        "src/models/AssessmentPairWork.ts",
+        "src/lib/dto/assessmentPair.dto.ts",
+        "src/app/api/assessments/pair/route.ts",
+        "src/client/hooks/useAssessmentPair.ts",
+        "src/features/assessments/AssessmentPairPanel.tsx",
+        "src/client/hooks/useAssessmentPrivacy.ts",
+        "src/features/assessments/AssessmentPrivacyControls.tsx"
+      ],
+      "testEvidence": [
+        {
+          "path": "scripts/assessment-pair.integration.ts",
+          "line": 277,
+          "test": "Late pair preparation cannot revive revoked dependencies",
+          "kind": "REAL_HTTP_AND_MONGO_INTEGRATION"
+        }
+      ]
+    }
+  ],
+  "source": {
+    "artifact": "VMESTE_CODEX_HANDOFF_v1/contracts/ACCEPTANCE.json",
+    "sha256": "6b2181c70d945c2efa3ddf7ebb5dda80b3d200429eff213cf6e039b4b219be15",
+    "preservation": "All 64 original IDs, stages, layers, titles, given and expected retained; execution status is application-specific."
+  },
+  "scope": {
+    "publication": "dom-s07-household-pilot@1.0.0-draft",
+    "environment": "ISOLATED_SYNTHETIC_ONLY",
+    "serverFlag": "ASSESSMENT_SYNTHETIC_ENABLED, default false",
+    "productionEnabled": false,
+    "realMigrationsPerformed": false,
+    "aiEnabled": false,
+    "psychometricValidationClaimed": false
+  },
+  "supportingUIExecution": [
+    {
+      "command": "npx tsx scripts/assessment-ui.selfcheck.ts",
+      "result": "PASS 33 checks",
+      "covers": [
+        "INT-016",
+        "INT-018",
+        "INT-025",
+        "INT-031"
+      ],
+      "scope": "Actual React hook and transport timing adapters, including observe source refresh; separate from browser evidence"
+    },
+    {
+      "command": "npx tsx scripts/assessment-profile-ui.selfcheck.ts",
+      "result": "PASS 18 checks",
+      "covers": [
+        "INT-026",
+        "INT-027",
+        "INT-056",
+        "INT-063"
+      ],
+      "scope": "Actual profile normalizer/component SSR and report absent-vs-explicit-unknown; no browser/DB substitution"
+    },
+    {
+      "command": "npx tsx scripts/assessment-privacy-ui.selfcheck.ts",
+      "result": "PASS 26 checks",
+      "covers": [
+        "INT-025",
+        "INT-031",
+        "INT-064"
+      ],
+      "scope": "Actual controls hook with explicit-only GET, stable server intent retry, blur clears state, stale fetch rejection and post-commit401 clearing; browser/DB acceptance separate."
+    }
+  ],
+  "verificationCommands": [
+    "npm run selfcheck:assessment-reference",
+    "npm run selfcheck:assessment-content",
+    "npm run selfcheck:assessment-boundaries",
+    "npm run selfcheck:assessment-ui",
+    "npm run selfcheck:assessment-profile-ui",
+    "npm run acceptance:local -- --suite=assessment --mongod <local-mongod.exe>",
+    "npm run acceptance:browser -- --scenario=assessment --mongod <local-mongod.exe>",
+    "npx tsx scripts/assessment-privacy-ui.selfcheck.ts"
+  ],
+  "notes": [
+    "Reference 183 is separate from integration IDs; counts are not completed user scenarios.",
+    "Closed and absent partner reports reveal the same shared information; ownRecorded describes only viewer own source existence.",
+    "INT-032 retains the handoff regression for a distinct existing active measurement flow. New DOM.S07 has no legacy conversion or second editable profile.",
+    "Final real integration run passed45 IDs after actor/pair intent binding changes. Browser limitations remain explicit; all64 IDs are not claimed fully verified.",
+    "Final HTTP/Mongo run after own-source deletion privacy fix: 45 IDs PASS, exit 0 and cleanup. Final build, full TypeScript and ESLint PASS. INT-024 retains native accessibility verification limits.",
+    "All owned local test processes and databases were cleaned up after final browser verification. Native accessibility limits remain recorded in INT-024."
+  ],
+  "finalBuildEvidence": {
+    "result": "PASS final production build with TypeScript and84 static routes; targeted lint PASS; agent checks0errors0warnings; privacy hook22/22",
+    "reportedBy": "root final build90740 and lint90562; local only, no deployment"
+  }
+}

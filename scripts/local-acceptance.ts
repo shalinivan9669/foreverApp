@@ -11,7 +11,8 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 import {
   assertOwnedLocalAcceptanceDirectory, localAcceptanceActor, localAcceptanceHostname,
-  localAcceptanceEnvironment, parseLocalAcceptanceOptions,
+  localAcceptanceEnvironment, localAcceptanceAssessmentEnvironment,
+  localAcceptanceStartPath, parseLocalAcceptanceOptions,
 } from './lib/local-acceptance-options';
 
 type OwnedProcess = { child: ChildProcess; closed: Promise<void>; label: string; readonly finished: boolean };
@@ -142,7 +143,7 @@ async function main(): Promise<void> {
   const replicaSet = `vmesteLocal${runId}`;
   const uri = `mongodb://127.0.0.1:${options.mongoPort}/vmeste_local_${runId}_test?replicaSet=${replicaSet}&directConnection=true`;
   const environment: NodeJS.ProcessEnv = {
-    ...localAcceptanceEnvironment(process.env), NODE_ENV: 'production',
+    ...localAcceptanceEnvironment(process.env), ...localAcceptanceAssessmentEnvironment(options), NODE_ENV: 'production',
     MONGODB_URI: uri, MATCHING_TEST_MONGODB_URI: uri, JWT_SECRET: randomBytes(48).toString('hex'),
     NEXT_PUBLIC_DISCORD_CLIENT_ID: '100000000000000001', DISCORD_CLIENT_SECRET: randomBytes(32).toString('hex'),
     DISCORD_REDIRECT_URI: `http://127.0.0.1:${options.appPort}/`, NEXT_PUBLIC_DISCORD_REDIRECT_URI: `http://127.0.0.1:${options.appPort}/`,
@@ -182,25 +183,30 @@ async function main(): Promise<void> {
   }, mongo);
   report('database-ready', { mode: options.mode, mongoPort: options.mongoPort });
   if (options.mode === 'integration') {
-    stage = options.suite === 'factors' ? 'factor-integration-suites' : 'six-integration-suites';
-    const integration = start('integration', process.execPath, ['--import', 'tsx', resolve(workspace, 'scripts/two-user-acceptance.integration.ts'), ...(options.suite === 'factors' ? ['--factors'] : [])], environment);
-    let buffered = '';
-    integration.child.stdout?.on('data', (chunk: Buffer) => {
-      if (stop.signal.aborted) return;
-      buffered += chunk.toString('utf8');
-      if (buffered.length > 8_192) { buffered = ''; return; }
-      const lines = buffered.split('\n');
-      buffered = lines.pop() ?? '';
-      for (const line of lines) {
-        // Only forward fields from the existing aggregate's compact status rows.
-        const suite = /"suite":"([a-z-]+)"/.exec(line)?.[1];
-        const status = /"status":"(running|passed|failed)"/.exec(line)?.[1];
-        const testStage = /"stage":"([A-Za-z0-9 ]{1,80})"/.exec(line)?.[1];
-        if (suite && status) report(status, { check: suite, ...(testStage ? { stage: testStage } : {}) });
-      }
-    });
-    await waitForChild(integration);
-    report('passed', { checks: options.suite === 'factors' ? 3 : 6,
+    stage = options.suite === 'assessment' ? 'assessment-integration-suite'
+      : options.suite === 'factors' ? 'factor-integration-suites' : 'six-integration-suites';
+    const integrationScripts = options.suite === 'assessment'
+      ? ['scripts/assessment.integration.ts', 'scripts/assessment-comparison.integration.ts'] : ['scripts/two-user-acceptance.integration.ts'];
+    for (const integrationScript of integrationScripts) {
+      const integration = start('integration', process.execPath, ['--import', 'tsx', resolve(workspace, integrationScript), ...(options.suite === 'factors' ? ['--factors'] : [])], environment);
+      let buffered = '';
+      integration.child.stdout?.on('data', (chunk: Buffer) => {
+        if (stop.signal.aborted) return;
+        buffered += chunk.toString('utf8');
+        if (buffered.length > 8_192) { buffered = ''; return; }
+        const lines = buffered.split('\n');
+        buffered = lines.pop() ?? '';
+        for (const line of lines) {
+          // Only forward fields from the existing aggregate's compact status rows.
+          const suite = /"suite":"([a-z-]+)"/.exec(line)?.[1];
+          const status = /"status":"(running|passed|failed)"/.exec(line)?.[1];
+          const testStage = /"stage":"([A-Za-z0-9 _-]{1,80})"/.exec(line)?.[1];
+          if (suite && status) report(status, { check: suite, ...(testStage ? { stage: testStage } : {}) });
+        }
+      });
+      await waitForChild(integration);
+    }
+    report('passed', { checks: options.suite === 'assessment' ? 2 : options.suite === 'factors' ? 3 : 6,
       discordIframeValidated: false, realOAuthValidated: false });
     return;
   }
@@ -276,7 +282,7 @@ async function main(): Promise<void> {
     const actor = localAcceptanceActor(host, request.url, options.loginPort, options.hostPrefix);
     if (request.method !== 'GET' || !actor) { response.writeHead(404).end(); return; }
     response.setHeader('Set-Cookie', fixtures.sessionCookie(actor));
-    response.writeHead(303, { Location: `http://${localAcceptanceHostname(actor, options.hostPrefix)}:${actor === 'a' ? options.appPort : options.partnerAppPort}/${options.scenario === 'first-entry' ? 'entry' : options.scenario === 'onboarding' ? 'mvp-onboarding' : 'main-menu'}` }).end();
+    response.writeHead(303, { Location: `http://${localAcceptanceHostname(actor, options.hostPrefix)}:${actor === 'a' ? options.appPort : options.partnerAppPort}${localAcceptanceStartPath(options.scenario)}` }).end();
   });
   await new Promise<void>((resolveListen, reject) => {
     bootstrap!.once('error', reject);
