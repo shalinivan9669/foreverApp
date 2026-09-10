@@ -900,3 +900,8 @@ Summary:
 - Added additive runtime initialization and bounded serverless maintenance; registered owner revocation/deletion works with the existing primary MongoDB configuration. Existing account/session guards, optional sharing, source provenance and explicit stop/restore safety states remain enforced.
 - Added real HTTP/Mongo coverage for self-registration, full questionnaire/profile, isolation, revoke/re-enroll and source/account deletion; CI now also runs on main pushes. Historical private-beta acceptance contracts remain unchanged; ADR-010 records the owner-approved access replacement.
 Files: docs/ADR/ADR-010-registered-assessment-access.md and the task's final Git diff enumerate the access, UI, runtime and verification changes. No existing users, answers or pairs are reset.
+
+Date: 2026-09-10
+Summary:
+- Updated both discovery browser-test selectors to the current registered-user settings label. The first main CI run passed application, access and main browser checks but stopped at the outdated discovery checkbox label; withdrawal and re-enabling remain covered by actual browser interactions.
+Files: scripts/beta-feed-browser.mjs, docs/CHANGELOG.md.

@@ -109,7 +109,7 @@ try {
   await check('browser-feed-empty', 'withdrawing peer discovery produces real accessible empty state with conditions card inbox and settings choices', async () => {
     await peer.goto(`${origin}/profile/settings#assessment-settings`);
     const settings = peer.locator('#assessment-settings');
-    await settings.getByRole('checkbox', { name: /^Включаю поиск в закрытой бете:/ }).uncheck();
+    await settings.getByRole('checkbox', { name: /^Включаю знакомства по моим условиям:/ }).uncheck();
     const withdrawn = peer.waitForResponse(response => response.url().endsWith('/api/assessments/settings') && response.request().method() === 'POST');
     await settings.getByRole('button', { name: 'Сохранить настройки', exact: true }).click();
     assert.equal((await withdrawn).status(), 200);
@@ -121,7 +121,7 @@ try {
     for (const name of ['Мои условия и время', 'Моя карточка знакомства', 'Входящие и контакты', 'Настройки поиска']) assert.equal(await page.getByRole('link', { name, exact: true }).count(), 1);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: resolve(out, 'beta-feed-empty-320.png'), fullPage: true });
-    await settings.getByRole('checkbox', { name: /^Включаю поиск в закрытой бете:/ }).check();
+    await settings.getByRole('checkbox', { name: /^Включаю знакомства по моим условиям:/ }).check();
     await settings.getByRole('button', { name: 'Сохранить настройки', exact: true }).click();
     await settings.getByText('Выбор сохранён на сервере. Он применяется к следующим разрешённым действиям.', { exact: true }).waitFor();
     await page.reload(); await visibleCard(page);
