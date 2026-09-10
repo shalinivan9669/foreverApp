@@ -26,7 +26,7 @@ const json = async (target, path) => {
   assert.equal(result.status, 200); return result.body.data;
 };
 const settled = target => target.getByRole('radio', { name: 'Для себя', exact: true }).waitFor();
-const feed = target => target.getByRole('region', { name: 'Участники закрытой беты', exact: true });
+const feed = target => target.getByRole('region', { name: 'Участники знакомств', exact: true });
 const visibleCard = async target => { await feed(target).getByRole('button', { name: 'Открыть сравнение и карточку', exact: true }).waitFor(); assert.equal(await feed(target).locator(':scope > article').count(), 1); };
 const openCard = async target => { await visibleCard(target); await target.getByRole('button', { name: 'Открыть сравнение и карточку', exact: true }).click(); await target.getByRole('heading', { name: 'Карточка и добровольный контакт', exact: true }).waitFor(); };
 const noPair = async target => { assert.deepEqual(await json(target, '/api/pairs/me'), { pair: null, hasActive: false, hasAny: false, status: null }); };

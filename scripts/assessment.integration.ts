@@ -321,7 +321,7 @@ async function main(): Promise<void> {
     assert.ok(!JSON.stringify(exported).includes(subjects.a));
     const aRow = await source(subjects.a);
     assert.ok(aRow);
-    process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'false';
+    process.env.ASSESSMENT_MODE = 'OFF';
     try {
       await denied(subjects.a, undefined, 404);
       await denied(subjects.a, { action: 'start', idempotencyKey: key() }, 404);
@@ -334,7 +334,7 @@ async function main(): Promise<void> {
       const controlled = await mutate(subjects.a, { action: 'permission', pairUse: false, expectedRevision: aRow.revision, idempotencyKey: key() });
       assert.equal(controlled.pairUse, false);
       assert.equal((await getOwnerFactorProfileSummary(subjects.a))?.assessments, undefined);
-    } finally { process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'true'; }
+    } finally { delete process.env.ASSESSMENT_MODE; }
     await SessionPermissionReplayCheck();
   });
 
@@ -344,9 +344,9 @@ async function main(): Promise<void> {
     const pending = await source(subjects.deleted);
     assert.ok(pending);
     await assert.rejects(() => materializeAssessment(subjects.deleted, { afterComputed: async () => {
-      process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'false';
+      process.env.ASSESSMENT_MODE = 'OFF';
       try { await mutate(subjects.deleted, { action: 'delete', expectedRevision: pending.revision, idempotencyKey: key() }); }
-      finally { process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'true'; }
+      finally { delete process.env.ASSESSMENT_MODE; }
     } }), (error: Error) => error instanceof DomainError && error.code === 'SOURCE_STALE');
     const deleted = await source(subjects.deleted);
     assert.equal(deleted?.status, 'DELETED');
@@ -375,7 +375,7 @@ async function main(): Promise<void> {
     assert.ok(completed.ok);
     const before = await MeasurementTestSession.findOne({ ownerId: subjects.legacy, testKey: 'planning' }).lean();
     const evidence = await EvidenceEvent.countDocuments({ actorId: subjects.legacy });
-    process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'false';
+    process.env.ASSESSMENT_MODE = 'OFF';
     try {
       const reopened = await legacy({ action: 'start' });
       const retried = await legacy({ action: 'retry' });
@@ -384,7 +384,7 @@ async function main(): Promise<void> {
       assert.equal(retried.data.status, 'FINALIZED');
       assert.equal(retried.data.finalizedAt, completed.data.finalizedAt);
       await legacy({ action: 'draft', expectedRevision: completed.data.revision, answers: answers.map(answer => ({ ...answer, choice: 3 })), pairUse: true }, 409);
-    } finally { process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'true'; }
+    } finally { delete process.env.ASSESSMENT_MODE; }
     assert.deepEqual((await MeasurementTestSession.findById(before!._id).lean())?.answers, before?.answers);
     assert.equal(await EvidenceEvent.countDocuments({ actorId: subjects.legacy }), evidence);
   });

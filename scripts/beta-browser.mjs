@@ -46,8 +46,8 @@ let stage = 'bootstrap';
 try {
   await page.goto(`${login}/same-origin/a`); await settled(page);
   await check('browser-product-navigation', 'existing profile links to beta topics and central settings link to private help without completed forms', async () => {
-    await page.goto(`${origin}/profile`); await page.getByRole('link', { name: 'Навыки и анкеты', exact: true }).click(); await settled(page);
-    await page.getByRole('navigation', { name: 'Возможности беты' }).getByRole('link', { name: 'Мои данные', exact: true }).click();
+    await page.goto(`${origin}/profile`); await page.getByRole('link', { name: 'Пройти анкеты и посмотреть навыки', exact: true }).click(); await settled(page);
+    await page.getByRole('navigation', { name: 'Анкеты и отношения' }).getByRole('link', { name: 'Мои данные', exact: true }).click();
     await page.getByRole('link', { name: 'Личная помощь и безопасный выход', exact: true }).click();
     await page.getByRole('heading', { name: 'Как работает Forever', exact: true }).waitFor();
     assert.equal(await page.getByRole('link', { name: 'Данные и аккаунт', exact: true }).isVisible(), true);

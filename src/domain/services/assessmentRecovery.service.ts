@@ -1,6 +1,7 @@
 import mongoose, { type ClientSession } from 'mongoose';
 import { createHmac, randomUUID } from 'node:crypto';
 import { AssessmentParticipant } from '@/models/AssessmentParticipant';
+import { privacySubjectHash } from '@/lib/privacy/subjectHash';
 import { assessmentMode, assessmentTargetId, isAssessmentEnvironment } from './assessmentAccess.service';
 
 export type AssessmentRecoveryEntry = { _id: string; sourceTargetId: string; deleted: boolean; permissionEpoch: number; deletionGeneration: number; recordedAt: Date; expiresAt: Date };
@@ -26,9 +27,24 @@ export async function withAssessmentRecoveryLedger<T>(work: (collection: mongoos
   } finally { await connection.close(); }
 }
 export async function recordAssessmentRevocation(ownerId: string, input: { deleted?: boolean; permissionEpoch?: number; deletionGeneration?: number } = {}): Promise<void> {
-  if (!process.env.ASSESSMENT_RECOVERY_MONGODB_URI && assessmentMode() !== 'PRIVATE_BETA' && isAssessmentEnvironment()) return;
+  if (!process.env.ASSESSMENT_RECOVERY_MONGODB_URI && assessmentMode() !== 'PRIVATE_BETA' && assessmentMode() !== 'REGISTERED' && isAssessmentEnvironment()) return;
   const participant = await AssessmentParticipant.findById(ownerId).lean();
   if (!participant) return;
+  if ((participant.environment === 'REGISTERED' || (assessmentMode() === 'REGISTERED' && participant.environment === 'PRIVATE_BETA')) && !process.env.ASSESSMENT_RECOVERY_MONGODB_URI) {
+    const db = mongoose.connection.db;
+    if (!db) throw new Error('DATABASE_NOT_CONNECTED');
+    // Ordinary account controls must work with the application's existing MongoDB configuration.
+    // This durable journal is not an independent disaster-recovery copy; restore tooling still
+    // requires its separate ledger and never treats this journal as approval to reopen a backup.
+    await db.collection<AssessmentRecoveryEntry>('assessment_registered_revocations').updateOne({
+      _id: privacySubjectHash(`assessment-registered-revocation:${ownerId}`),
+    }, {
+      $set: { sourceTargetId: assessmentTargetId(), recordedAt: new Date(), expiresAt: new Date(Date.now() + 37 * 86400000), ...(input.deleted ? { deleted: true } : {}) },
+      $setOnInsert: { ...(input.deleted ? {} : { deleted: false }) },
+      $max: { permissionEpoch: input.permissionEpoch ?? (participant.permissionEpoch ?? 0) + 1, deletionGeneration: input.deletionGeneration ?? participant.deletionGeneration + (input.deleted ? 1 : 0) },
+    }, { upsert: true });
+    return;
+  }
   await withAssessmentRecoveryLedger(async collection => {
     await collection.updateOne({ _id: recoverySubjectKey(ownerId) }, {
       $set: { sourceTargetId: assessmentTargetId(), recordedAt: new Date(), expiresAt: new Date(Date.now() + 37 * 86400000), ...(input.deleted ? { deleted: true } : {}) },

@@ -40,7 +40,9 @@ if (!process.exitCode) {
   const assessment = new URL('../../src/domain/assessment/', import.meta.url);
   const provenance = JSON.parse(readFileSync(new URL('PROVENANCE.json', assessment), 'utf8'));
   for (const entry of provenance.files.filter((entry) => entry.path.startsWith('catalog/'))) {
-    const bytes = readFileSync(new URL(entry.path, assessment));
+    // Git's Windows checkout can use CRLF; provenance pins the original LF text.
+    // Normalize only line endings, preserving every definition and other byte.
+    const bytes = readFileSync(new URL(entry.path, assessment), 'utf8').replace(/\r\n/g, '\n');
     assert.equal(createHash('sha256').update(bytes).digest('hex'), entry.sourceSha256,
       `${entry.path}: original definitions, wording and authoring status must remain intact`);
   }
@@ -52,6 +54,6 @@ if (!process.exitCode) {
   assert.deepEqual(bindings.skills.map((skill) => skill.sourceDefinition), original.skills);
   assert.deepEqual(bindings.nonSkillDefinitionsPreserved, original.other_characteristics);
   process.stdout.write(`Assessment reference: PASS ${passed}/183; application engine, no database.\n`);
-  process.stdout.write('Catalog preservation: PASS 54 skills + 47 other definitions + 24 context/pair/safety entries; original SHA-256 hashes match.\n');
+  process.stdout.write('Catalog preservation: PASS 54 skills + 47 other definitions + 24 context/pair/safety entries; original SHA-256 hashes match after Git LF normalization.\n');
   process.stdout.write(`${JSON.stringify({ suite: 'assessment-reference', status: 'PASSED', assertion: 'all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged', checks: 183 })}\n`);
 }

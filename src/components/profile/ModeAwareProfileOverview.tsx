@@ -118,13 +118,13 @@ function FactorCards({ summary }: ProfileSummaryProps) {
     <section className="space-y-3" aria-labelledby="factor-profile-title">
       <div>
         <h2 id="factor-profile-title" className="text-lg font-semibold">
-          Личные характеристики
+          Прежние самооценки и характеристики
         </h2>
         <p className="app-muted mt-1 max-w-3xl text-sm">
-          Карточки описывают только ваши данные. Они не являются оценкой личности и не
-          содержат значения другого человека.
+          Это результаты прежних коротких анкет и начальной настройки. Они хранятся
+          отдельно от новых результатов понимания, выполнения и применения навыков.
         </p>
-        <Link className="app-btn-primary mt-3 inline-flex" href="/measurements">Анкеты по шести областям</Link>
+        <Link className="app-btn-secondary mt-3 inline-flex" href="/measurements">Прежние самооценки по шести областям</Link>
       </div>
 
       {!latestCalculatedAt && (
@@ -150,7 +150,7 @@ export default function ModeAwareProfileOverview({ summary }: ProfileSummaryProp
   return (
     <div className="app-page-stack">
       <ProfileIdentity summary={summary} />
-      <Link className="app-btn-primary inline-flex" href="/assessments">Навыки и анкеты</Link>
+      <Link className="app-btn-primary inline-flex" href="/questionnaires">Пройти анкеты и посмотреть навыки</Link>
       {summary.assessments && <AssessmentProfile profile={summary.assessments} />}
       <FactorCards summary={summary} />
     </div>

@@ -59,7 +59,7 @@ export async function checkBetaAdmissionHttp(check: Check): Promise<void> {
     assert.equal(result.status, status, `Expected admission rejection ${code ?? 'VALIDATION'}; received ${result.envelope.ok ? 'OK' : result.envelope.error.code}`); assert.equal(result.envelope.ok, false); if (code && !result.envelope.ok) assert.equal(result.envelope.error.code, code);
   };
   const registration = (settings: AssessmentSettingsDTO): AssessmentRegistration => ({ viewerToken: settings.viewerToken, idempotencyKey: randomUUID(), termsAccepted: true, adultConfirmed: true,
-    termsVersion: 'private-beta-terms-2026-09-10', informationVersion: 'private-beta-data-flow-2026-09-10', ownerAssessment: true, discovery: false, pairSharing: false });
+    termsVersion: 'assessment-terms-2026-09-10', informationVersion: 'assessment-data-flow-2026-09-10', ownerAssessment: true, discovery: false, pairSharing: false });
   let current!: AssessmentSettingsDTO;
   try {
     await check('BETA-082', 'HTTP admission enforces session, same-origin, strict input, invitation and known adult scope', async () => {

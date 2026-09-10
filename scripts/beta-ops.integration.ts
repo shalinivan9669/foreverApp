@@ -43,7 +43,7 @@ async function seed(ownerId: string) {
 async function register(ownerId: string) {
   const current = await assessmentAdmissionService.get(ownerId);
   return assessmentAdmissionService.register(ownerId, { viewerToken: current.viewerToken, idempotencyKey: randomUUID(), termsAccepted: true, adultConfirmed: true,
-    termsVersion: current.termsVersion as 'private-beta-terms-2026-09-10', informationVersion: current.informationVersion as 'private-beta-data-flow-2026-09-10', ownerAssessment: true, discovery: false, pairSharing: false });
+    termsVersion: current.termsVersion as 'assessment-terms-2026-09-10', informationVersion: current.informationVersion as 'assessment-data-flow-2026-09-10', ownerAssessment: true, discovery: false, pairSharing: false });
 }
 async function pendingSource(ownerId: string) {
   const publicationId = 'com-s02-knowledge-beta';
@@ -95,7 +95,7 @@ async function suite(primaryUri: string, restoreUri: string, unavailableUri: str
   await check('BETA-084', 'one persisted choice, idempotent registration response-loss retry, separate purposes and no future scope', async () => {
     const current = await assessmentAdmissionService.get(a);
     const request = { viewerToken: current.viewerToken, idempotencyKey: randomUUID(), termsAccepted: true as const, adultConfirmed: true as const,
-      termsVersion: 'private-beta-terms-2026-09-10' as const, informationVersion: 'private-beta-data-flow-2026-09-10' as const, ownerAssessment: true, discovery: false, pairSharing: false };
+      termsVersion: 'assessment-terms-2026-09-10' as const, informationVersion: 'assessment-data-flow-2026-09-10' as const, ownerAssessment: true, discovery: false, pairSharing: false };
     const first = await assessmentAdmissionService.register(a, request); const repeat = await assessmentAdmissionService.register(a, request);
     assert.equal(first.revision, repeat.revision); assert.equal(first.registration?.acceptedAt, repeat.registration?.acceptedAt);
     const participant = await requireAssessmentOwner(a); assert.equal(assessmentPurposeAllowed(participant, 'OWNER', 'com-s02-knowledge-beta'), true);

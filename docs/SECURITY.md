@@ -1,5 +1,9 @@
 # Security and privacy
 
+## Registered access — 2026-09-10
+
+[ADR-010](ADR/ADR-010-registered-assessment-access.md) заменяет invite-only доступ обычным REGISTERED режимом по прямому решению владельца. Все существующие session/origin/owner guards сохраняются; саморегистрация не является обходом входа. Положительные права требуют актуального выбора владельца и не выдаются чтением, повторным входом или восстановлением копии. Операторские approval/cohort требования относятся только к явно выбранному PRIVATE_BETA. Синтетические записи не становятся реальными. REGISTERED owner data controls используют основную БД без обязательного подключения отдельного beta-ledger; независимое восстановление по-прежнему требует его, обычный журнал не объявляется резервной копией.
+
 ## Private beta continuation — 2026-09-10
 
 Допуск, сохранённые назначения и recovery описаны в [ADR-009](ADR/ADR-009-private-beta-settings-and-recovery.md) и [BETA_OPERATIONS.md](BETA_OPERATIONS.md). Вход по прежней серверной сессии обязателен; membership приглашённой взрослой cohort не заменяет auth. PRIVATE_BETA требует целевых scoped approvals, текущих версий, отдельного ledger и явного оператора. OFF сохраняет аутентифицированные owner controls, не обычную выдачу.

@@ -31,10 +31,12 @@ export function isAssessmentEnvironment(): boolean {
 }
 
 export const ASSESSMENT_MIGRATION_VERSION = 'private-beta-additive-v1';
-export const assessmentMode = (): 'OFF' | 'SYNTHETIC' | 'PRIVATE_BETA' => {
+export const ASSESSMENT_REGISTERED_COHORT = 'registered-users';
+export const assessmentMode = (): 'OFF' | 'SYNTHETIC' | 'PRIVATE_BETA' | 'REGISTERED' => {
   const value = process.env.ASSESSMENT_MODE;
-  if (value === 'PRIVATE_BETA' || value === 'SYNTHETIC') return value;
-  return value === undefined && process.env.ASSESSMENT_SYNTHETIC_ENABLED === 'true' ? 'SYNTHETIC' : 'OFF';
+  if (value === 'PRIVATE_BETA' || value === 'SYNTHETIC' || value === 'REGISTERED') return value;
+  if (value !== undefined) return 'OFF';
+  return process.env.ASSESSMENT_SYNTHETIC_ENABLED === 'true' ? 'SYNTHETIC' : 'REGISTERED';
 };
 /** Identity excludes credentials; this digest is configuration identity, not anonymization. */
 export function assessmentTargetId(uri = process.env.MONGODB_URI ?? ''): string {
@@ -64,8 +66,14 @@ export function readAssessmentBetaApproval(): AssessmentBetaApproval | null {
     return parsed.data;
   } catch { return null; }
 }
-export const isAssessmentEnabled = () => assessmentMode() === 'SYNTHETIC' ? process.env.ASSESSMENT_SYNTHETIC_ENABLED === 'true' && isAssessmentEnvironment()
-  : assessmentMode() === 'PRIVATE_BETA' && readAssessmentBetaApproval() !== null;
+export const isAssessmentEnabled = () => {
+  const mode = assessmentMode();
+  if (mode === 'SYNTHETIC') return process.env.ASSESSMENT_SYNTHETIC_ENABLED === 'true' && isAssessmentEnvironment();
+  if (mode === 'PRIVATE_BETA') return readAssessmentBetaApproval() !== null;
+  if (mode !== 'REGISTERED') return false;
+  try { return ['mongodb:', 'mongodb+srv:'].includes(new URL(process.env.MONGODB_URI ?? '').protocol); }
+  catch { return false; }
+};
 
 export function assessmentPurposeAllowed(participant: AssessmentParticipantType, purpose: 'OWNER' | 'MATCHING' | 'PAIR', publicationId?: string): boolean {
   if (participant.environment === 'ISOLATED_SYNTHETIC') return participant.membershipStatus !== 'REVOKED' && (!participant.settings || (
@@ -81,7 +89,8 @@ export async function requireAssessmentEffect(effect: AssessmentEffect, session?
   if (!isAssessmentEnabled()) assessmentFail('NOT_FOUND', 'Раздел недоступен.', 404);
   await connectToDatabase();
   const control = await AssessmentRuntimeControl.findById(assessmentTargetId()).session(session ?? null).lean();
-  if ((control && !control.recoveryReconciled) || (assessmentMode() === 'PRIVATE_BETA' && (!control || control.migrationVersion !== ASSESSMENT_MIGRATION_VERSION)) || control?.stoppedEffects.includes(effect)) {
+  const requiresControl = assessmentMode() === 'PRIVATE_BETA' || assessmentMode() === 'REGISTERED';
+  if ((control && !control.recoveryReconciled) || (requiresControl && (!control || control.migrationVersion !== ASSESSMENT_MIGRATION_VERSION)) || control?.stoppedEffects.includes(effect)) {
     assessmentFail('BETA_PAUSED', 'Эта возможность временно приостановлена. Управление данными доступно.', 503);
   }
   if (session && control) {
@@ -94,7 +103,8 @@ export async function requireAssessmentEffect(effect: AssessmentEffect, session?
 export async function requireAssessmentRecoveryReadable(): Promise<void> {
   await connectToDatabase();
   const control = await AssessmentRuntimeControl.findById(assessmentTargetId()).select({ recoveryReconciled: 1 }).lean();
-  if (control && !control.recoveryReconciled) assessmentFail('BETA_RECOVERY_RECONCILIATION_REQUIRED', 'Восстановление данных ещё не сверено с журналом удалений. Удаление данных остаётся доступным.', 503);
+  const missingRegisteredControl = !control && assessmentMode() === 'REGISTERED' && Boolean(await AssessmentParticipant.exists({}));
+  if ((control && !control.recoveryReconciled) || missingRegisteredControl) assessmentFail('BETA_RECOVERY_RECONCILIATION_REQUIRED', 'Восстановление данных ещё не сверено с журналом удалений. Удаление данных остаётся доступным.', 503);
 }
 
 export async function assessmentDisabledPublications(session?: ClientSession): Promise<string[]> {
@@ -113,9 +123,13 @@ export async function requireAssessmentOwner(ownerId: string, options: { control
   const subject = await SessionSubject.findOne({ subjectKey: privacySubjectHash(ownerId), $or: [{ accountState: 'ACTIVE' }, { accountState: { $exists: false } }] }).session(session).select({ version: 1 }).lean();
   if (!participant || !subject) return assessmentFail('NOT_FOUND', 'Раздел недоступен.', 404);
   if (!options.control) {
-    const environment = assessmentMode() === 'PRIVATE_BETA' ? 'PRIVATE_BETA' : 'ISOLATED_SYNTHETIC';
-    if (participant.environment !== environment || !assessmentPurposeAllowed(participant, 'OWNER')) assessmentFail('BETA_ENROLLMENT_REQUIRED', 'Завершите приглашение и настройки участия.', 403);
-    if (environment === 'PRIVATE_BETA' && (participant.targetId !== assessmentTargetId() || participant.cohortId !== readAssessmentBetaApproval()?.cohortId)) assessmentFail('NOT_FOUND', 'Раздел недоступен.', 404);
+    const mode = assessmentMode();
+    const environmentAllowed = mode === 'REGISTERED'
+      ? participant.environment === 'REGISTERED' || participant.environment === 'PRIVATE_BETA'
+      : participant.environment === (mode === 'PRIVATE_BETA' ? 'PRIVATE_BETA' : 'ISOLATED_SYNTHETIC');
+    if (!environmentAllowed || !assessmentPurposeAllowed(participant, 'OWNER')) assessmentFail('BETA_ENROLLMENT_REQUIRED', 'Примите условия анкет и сохраните настройки.', 403);
+    if (participant.environment !== 'ISOLATED_SYNTHETIC' && participant.targetId !== assessmentTargetId()) assessmentFail('NOT_FOUND', 'Раздел недоступен.', 404);
+    if (mode === 'PRIVATE_BETA' && participant.cohortId !== readAssessmentBetaApproval()?.cohortId) assessmentFail('NOT_FOUND', 'Раздел недоступен.', 404);
     await requireAssessmentEffect('DISCLOSURE', options.session);
   }
   if (options.fence) {

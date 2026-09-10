@@ -1,7 +1,9 @@
 ﻿'use client';
 
 import QuestionnaireCard from '@/components/QuestionnaireCard';
+import type { ReactNode } from 'react';
 import { MeasurementCatalog } from '@/features/measurements/MeasurementPages';
+import AssessmentHubPage from '@/features/assessments/AssessmentHubPage';
 import LoadingView from '@/components/ui/LoadingView';
 import type {
   QuestionnaireCardVM,
@@ -18,6 +20,7 @@ type QuestionnairesPageViewProps = {
   loadFailed: boolean;
   loadingByQuestionnaireId: Record<string, boolean>;
   onStartQuestionnaire: (questionnaire: QuestionnaireCardVM) => Promise<void> | void;
+  legacyErrors?: ReactNode;
 };
 
 const tabClassName = (active: boolean, disabled = false): string => {
@@ -36,12 +39,19 @@ export default function QuestionnairesPageView({
   loadFailed,
   loadingByQuestionnaireId,
   onStartQuestionnaire,
+  legacyErrors,
 }: QuestionnairesPageViewProps) {
   const cards = activeTab === 'personal' ? personalCards : coupleCards;
   const coupleLockedMessage = 'Доступно после создания активной пары.';
 
   return (
     <div className="app-page-stack">
+      <AssessmentHubPage embedded />
+      <details className="app-panel p-4">
+        <summary className="cursor-pointer text-lg font-semibold">Прежние короткие анкеты и результаты</summary>
+        <div className="mt-4 space-y-4">
+          <p className="app-muted">Здесь сохранены прежние персональные и парные анкеты, включая короткие самооценки по шести областям. Их ответы и характеристики хранятся отдельно от результатов новых анкет выше.</p>
+          {legacyErrors}
       <MeasurementCatalog />
       <div className="app-panel-soft flex flex-wrap items-center gap-2 p-2" role="tablist" aria-label="Тип анкеты">
         <button
@@ -98,6 +108,8 @@ export default function QuestionnairesPageView({
           {activeTab === 'personal' ? 'Нет персональных анкет.' : 'Нет парных анкет.'}
         </p>
       )}
+        </div>
+      </details>
     </div>
   );
 }

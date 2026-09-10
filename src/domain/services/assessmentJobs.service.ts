@@ -56,7 +56,7 @@ export async function executeAssessmentJob(job: AssessmentJobType, hooks: Assess
     return state === 'PENDING' ? 'RETRY' : state;
   }
 }
-export async function runAssessmentWorkerBatch(workerId = randomUUID(), limit = ASSESSMENT_JOB_POLICY.batchSize): Promise<{ claimed: number; completed: number }> {
+export async function runAssessmentWorkerBatch(workerId = randomUUID(), limit: number = ASSESSMENT_JOB_POLICY.batchSize): Promise<{ claimed: number; completed: number }> {
   await connectToDatabase(); let claimed = 0; let completed = 0;
   // OFF stops new effects but leaves operator cleanup available; pending work resumes when enabled.
   if (!isAssessmentEnabled()) return { claimed, completed };

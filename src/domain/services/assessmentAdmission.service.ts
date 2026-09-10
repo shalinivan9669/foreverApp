@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import type { ClientSession } from 'mongoose';
 import { AssessmentParticipant, type AssessmentParticipantType } from '@/models/AssessmentParticipant';
 import { AssessmentSupport, AssessmentOpsEvent, type AssessmentSupportType } from '@/models/AssessmentOperations';
 import { AssessmentRun } from '@/models/AssessmentRun';
@@ -9,21 +10,26 @@ import { privacySubjectHash } from '@/lib/privacy/subjectHash';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ASSESSMENT_DATA_FLOW, ASSESSMENT_INFORMATION_VERSION, ASSESSMENT_REGISTRATION_PUBLICATIONS, ASSESSMENT_TERMS_VERSION, AssessmentWithdrawSchema, type AssessmentWithdraw,
   AssessmentRegistrationSchema, AssessmentSettingsMutationSchema, AssessmentSupportInputSchema, type AssessmentChoices, type AssessmentRegistration, type AssessmentSettingsDTO, type AssessmentSettingsMutation, type AssessmentSupportInput } from '@/domain/assessment/admission';
-import { assessmentFail as fail, assessmentMode, assessmentTargetId, assessmentTransaction, isAssessmentEnabled, readAssessmentBetaApproval, requireAssessmentOwner, requireAssessmentRecoveryReadable } from './assessmentAccess.service';
+import { ASSESSMENT_REGISTERED_COHORT, assessmentFail as fail, assessmentMode, assessmentTargetId, assessmentTransaction, isAssessmentEnabled, readAssessmentBetaApproval, requireAssessmentEffect, requireAssessmentOwner, requireAssessmentRecoveryReadable } from './assessmentAccess.service';
 import { recordAssessmentRevocation } from './assessmentRecovery.service';
 import { enqueueAssessmentProjection } from './assessmentJobs.service';
 
 const digest = (...values: string[]) => createHash('sha256').update(JSON.stringify(values)).digest('hex');
-async function viewerContext(ownerId: string) {
-  const subject = await SessionSubject.findOne({ subjectKey: privacySubjectHash(ownerId) }).select({ version: 1 }).lean();
-  const participant = await AssessmentParticipant.findById(ownerId).select({ deletionGeneration: 1, permissionEpoch: 1 }).lean();
+async function viewerContext(ownerId: string, session?: ClientSession) {
+  const subject = await SessionSubject.findOne({ subjectKey: privacySubjectHash(ownerId) }).session(session ?? null).select({ version: 1 }).lean();
+  const participant = await AssessmentParticipant.findById(ownerId).session(session ?? null).select({ deletionGeneration: 1, permissionEpoch: 1 }).lean();
   return { sessionVersion: subject?.version ?? '', token: digest('assessment-settings-intent-v2', ownerId, subject?.version ?? '', String(participant?.deletionGeneration ?? 0), String(participant?.permissionEpoch ?? 0)) };
 }
 const emptyChoices = (): AssessmentChoices => ({ ownerAssessment: false, discovery: false, pairSharing: false, publicationIds: [] });
 function toDTO(intent: string, participant: AssessmentParticipantType | null): AssessmentSettingsDTO {
   const saved = participant?.registration;
   const registration = saved ? { termsVersion: saved.termsVersion, informationVersion: saved.informationVersion, acceptedAt: saved.acceptedAt, adultPolicy: saved.adultPolicy, choices: saved.choices, operationKey: saved.operationKey } : null;
-  return { mode: assessmentMode(), admission: participant?.membershipStatus ?? (participant?.environment === 'ISOLATED_SYNTHETIC' ? 'ACTIVE' : 'UNAVAILABLE'),
+  const mode = assessmentMode();
+  const wrongRegisteredTarget = mode === 'REGISTERED' && participant && (participant.environment === 'ISOLATED_SYNTHETIC' || participant.targetId !== assessmentTargetId());
+  const needsRegistration = mode === 'REGISTERED' && (participant?.membershipStatus === 'ACTIVE' || participant?.membershipStatus === 'INVITED')
+    && (saved?.termsVersion !== ASSESSMENT_TERMS_VERSION || saved.informationVersion !== ASSESSMENT_INFORMATION_VERSION);
+  const admission = wrongRegisteredTarget ? 'UNAVAILABLE' : needsRegistration ? 'ELIGIBLE' : participant?.membershipStatus ?? (participant?.environment === 'ISOLATED_SYNTHETIC' ? 'ACTIVE' : mode === 'REGISTERED' && !participant ? 'ELIGIBLE' : 'UNAVAILABLE');
+  return { mode, admission,
     revision: participant?.settingsRevision ?? 0, viewerToken: intent, termsVersion: ASSESSMENT_TERMS_VERSION, informationVersion: ASSESSMENT_INFORMATION_VERSION,
     registration, settings: participant?.settings ?? (participant?.environment === 'ISOLATED_SYNTHETIC' ? { ownerAssessment: true, discovery: false, pairSharing: false, publicationIds: [...ASSESSMENT_REGISTRATION_PUBLICATIONS] } : emptyChoices()),
     dataFlow: ASSESSMENT_DATA_FLOW, availablePublicationIds: [...ASSESSMENT_REGISTRATION_PUBLICATIONS] };
@@ -47,8 +53,9 @@ export const assessmentAdmissionService = {
   },
   async get(ownerId: string): Promise<AssessmentSettingsDTO> {
     await connectToDatabase();
-    await requireAssessmentRecoveryReadable();
     if (!await User.exists({ id: ownerId }) || !await SessionSubject.exists({ subjectKey: privacySubjectHash(ownerId), $or: [{ accountState: 'ACTIVE' }, { accountState: { $exists: false } }] })) fail('NOT_FOUND', 'Аккаунт недоступен.', 404);
+    if (assessmentMode() === 'REGISTERED') await (await import('./assessmentRuntime.service')).ensureRegisteredAssessmentRuntime();
+    await requireAssessmentRecoveryReadable();
     return toDTO((await viewerContext(ownerId)).token, await AssessmentParticipant.findById(ownerId).lean<AssessmentParticipantType | null>());
   },
   async register(ownerId: string, input: AssessmentRegistration): Promise<AssessmentSettingsDTO> {
@@ -57,26 +64,47 @@ export const assessmentAdmissionService = {
     const choice = parsed.data;
     const context = await viewerContext(ownerId);
     const prior = await AssessmentParticipant.findById(ownerId).lean();
-    const retry = prior?.registration?.operationKey === choice.idempotencyKey && prior.registration.requestIntent === choice.viewerToken && prior.registration.sessionVersion === context.sessionVersion;
+    const retry = prior?.membershipStatus === 'ACTIVE' && prior.registration?.operationKey === choice.idempotencyKey && prior.registration.requestIntent === choice.viewerToken && prior.registration.sessionVersion === context.sessionVersion;
     if (!retry) await checkIntent(ownerId, choice.viewerToken);
-    if (!isAssessmentEnabled()) fail('BETA_UNAVAILABLE', 'Допуск к бете пока не открыт.', 503);
+    if (!isAssessmentEnabled()) fail('BETA_UNAVAILABLE', 'Анкеты временно недоступны. Управление данными доступно.', 503);
+    const mode = assessmentMode();
+    if (mode === 'REGISTERED') await (await import('./assessmentRuntime.service')).ensureRegisteredAssessmentRuntime();
     await assessmentTransaction(async session => {
-      const participant = await requireAssessmentOwner(ownerId, { control: true, session, fence: true });
-      if (participant.registration?.operationKey === choice.idempotencyKey) {
+      const subject = await SessionSubject.updateOne({ subjectKey: privacySubjectHash(ownerId), version: context.sessionVersion, $or: [{ accountState: 'ACTIVE' }, { accountState: { $exists: false } }] }, { $inc: { writeLeaseRevision: 1 } }, { session });
+      if (subject.matchedCount !== 1) fail('VIEWER_CONTEXT_STALE', 'Аккаунт или настройки изменились. Обновите страницу.');
+      const user = await User.findOneAndUpdate({ id: ownerId }, { $inc: { pairMembershipRevision: 1 } }, { session, new: true }).select({ 'personal.age': 1 }).lean();
+      if (!user) fail('NOT_FOUND', 'Аккаунт недоступен.', 404);
+      const participant = await AssessmentParticipant.findById(ownerId).session(session).lean<AssessmentParticipantType | null>();
+      if (mode === 'REGISTERED') {
+        if (participant && (participant.environment === 'ISOLATED_SYNTHETIC' || participant.targetId !== assessmentTargetId())) fail('BETA_ENROLLMENT_REQUIRED', 'Настройки этого аккаунта недоступны в текущей среде.', 403);
+      } else {
+        if (!participant) fail('NOT_FOUND', 'Раздел недоступен.', 404);
+        if (participant.environment !== (mode === 'PRIVATE_BETA' ? 'PRIVATE_BETA' : 'ISOLATED_SYNTHETIC')) fail('BETA_INVITATION_REQUIRED', 'Требуется действующее приглашение.', 403);
+      }
+      await requireAssessmentEffect('SUBMISSIONS', session);
+      await requireAssessmentEffect('DISCLOSURE', session);
+      if (participant?.membershipStatus === 'ACTIVE' && participant.registration?.operationKey === choice.idempotencyKey && participant.registration.requestIntent === choice.viewerToken && participant.registration.sessionVersion === context.sessionVersion) {
         const previous = participant.registration.choices;
-        if (previous.ownerAssessment !== choice.ownerAssessment || previous.discovery !== choice.discovery || previous.pairSharing !== choice.pairSharing) fail('IDEMPOTENCY_CONFLICT', 'Ключ использован для другого выбора.');
+        if (previous.ownerAssessment !== choice.ownerAssessment || previous.discovery !== choice.discovery || previous.pairSharing !== choice.pairSharing || participant.registration.termsVersion !== choice.termsVersion || participant.registration.informationVersion !== choice.informationVersion) fail('IDEMPOTENCY_CONFLICT', 'Ключ использован для другого выбора.');
         return;
       }
-      const updatedTerms = participant.membershipStatus === 'ACTIVE' && participant.registration && (participant.registration.termsVersion !== choice.termsVersion || participant.registration.informationVersion !== choice.informationVersion);
-      if (participant.membershipStatus !== 'INVITED' && participant.environment !== 'ISOLATED_SYNTHETIC' && !updatedTerms) fail('BETA_INVITATION_REQUIRED', 'Требуется действующее приглашение.', 403);
-      const user = await User.findOne({ id: ownerId }).session(session).select({ 'personal.age': 1 }).lean();
-      if (typeof user?.personal?.age === 'number' && user.personal.age < 18) fail('BETA_ADULT_SCOPE_REQUIRED', 'Закрытая бета доступна только совершеннолетним.', 403);
-      if (participant.inviteExpiresAt && participant.inviteExpiresAt <= new Date()) fail('BETA_INVITATION_EXPIRED', 'Приглашение истекло.', 403);
-      if (participant.environment === 'PRIVATE_BETA' && (participant.targetId !== assessmentTargetId() || participant.cohortId !== readAssessmentBetaApproval()?.cohortId)) fail('BETA_INVITATION_REQUIRED', 'Требуется действующее приглашение.', 403);
+      if (choice.viewerToken !== (await viewerContext(ownerId, session)).token) fail('VIEWER_CONTEXT_STALE', 'Аккаунт или настройки изменились. Обновите страницу.');
+      const updatedTerms = participant?.membershipStatus === 'ACTIVE' && (participant.registration?.termsVersion !== choice.termsVersion || participant.registration.informationVersion !== choice.informationVersion);
+      if (mode !== 'REGISTERED' && participant?.membershipStatus !== 'INVITED' && participant?.environment !== 'ISOLATED_SYNTHETIC' && !updatedTerms) fail('BETA_INVITATION_REQUIRED', 'Требуется действующее приглашение.', 403);
+      if (mode === 'REGISTERED' && participant?.membershipStatus === 'ACTIVE' && !updatedTerms && participant.environment === 'REGISTERED') fail('SETTINGS_STALE', 'Анкеты уже подключены. Обновите страницу и измените настройки.');
+      if (typeof user.personal?.age === 'number' && user.personal.age < 18) fail('BETA_ADULT_SCOPE_REQUIRED', 'Анкеты доступны только совершеннолетним.', 403);
+      if (mode !== 'REGISTERED' && participant?.inviteExpiresAt && participant.inviteExpiresAt <= new Date()) fail('BETA_INVITATION_EXPIRED', 'Приглашение истекло.', 403);
+      if (mode === 'PRIVATE_BETA' && (participant?.targetId !== assessmentTargetId() || participant?.cohortId !== readAssessmentBetaApproval()?.cohortId)) fail('BETA_INVITATION_REQUIRED', 'Требуется действующее приглашение.', 403);
       const choices: AssessmentChoices = { ownerAssessment: choice.ownerAssessment, discovery: choice.ownerAssessment && choice.discovery, pairSharing: choice.ownerAssessment && choice.pairSharing, publicationIds: [...ASSESSMENT_REGISTRATION_PUBLICATIONS] };
-      await AssessmentParticipant.updateOne({ _id: ownerId }, { $set: { membershipStatus: 'ACTIVE', settings: choices, registration: {
+      const registration = {
         termsVersion: choice.termsVersion, informationVersion: choice.informationVersion, acceptedAt: new Date().toISOString(), adultPolicy: 'SELF_DECLARED_18_PLUS', choices, operationKey: choice.idempotencyKey, requestIntent: choice.viewerToken, sessionVersion: context.sessionVersion,
-      } }, $inc: { settingsRevision: 1, permissionEpoch: 1 } }, { session });
+      } as const;
+      if (!participant) {
+        await AssessmentParticipant.create([{ _id: ownerId, environment: 'REGISTERED', cohortId: ASSESSMENT_REGISTERED_COHORT, targetId: assessmentTargetId(), deletionGeneration: 0, membershipStatus: 'ACTIVE', settings: choices, registration, settingsRevision: 1, permissionEpoch: 1 }], { session });
+      } else {
+        const environment = mode === 'REGISTERED' ? { environment: 'REGISTERED' as const, cohortId: ASSESSMENT_REGISTERED_COHORT, targetId: assessmentTargetId(), revokedAt: null } : {};
+        await AssessmentParticipant.updateOne({ _id: ownerId }, { $set: { ...environment, membershipStatus: 'ACTIVE', settings: choices, registration }, $inc: { settingsRevision: 1, permissionEpoch: 1 } }, { session });
+      }
     });
     return this.get(ownerId);
   },
@@ -87,12 +115,18 @@ export const assessmentAdmissionService = {
     const existing = await requireAssessmentOwner(ownerId, { control: true });
     const old = existing.settings ?? emptyChoices();
     const expands = (!old.ownerAssessment && mutation.ownerAssessment) || (!old.discovery && mutation.discovery) || (!old.pairSharing && mutation.pairSharing) || mutation.publicationIds.some(id => !old.publicationIds.includes(id));
-    if (expands && (!isAssessmentEnabled() || (existing.environment === 'PRIVATE_BETA' && (!existing.registration || existing.membershipStatus !== 'ACTIVE')))) fail('BETA_ENROLLMENT_REQUIRED', 'Для включения требуется текущий допуск.', 403);
+    const mode = assessmentMode();
+    const environmentAllowed = mode === 'REGISTERED' ? existing.environment !== 'ISOLATED_SYNTHETIC' && existing.targetId === assessmentTargetId()
+      : mode === 'PRIVATE_BETA' ? existing.environment === 'PRIVATE_BETA' && existing.targetId === assessmentTargetId() && existing.cohortId === readAssessmentBetaApproval()?.cohortId
+      : mode === 'SYNTHETIC' && existing.environment === 'ISOLATED_SYNTHETIC';
+    if (expands && !environmentAllowed) fail('BETA_ENROLLMENT_REQUIRED', 'Настройки этого аккаунта недоступны в текущей среде.', 403);
+    if (expands && (!isAssessmentEnabled() || (existing.environment !== 'ISOLATED_SYNTHETIC' && (existing.membershipStatus !== 'ACTIVE' || existing.registration?.termsVersion !== ASSESSMENT_TERMS_VERSION || existing.registration.informationVersion !== ASSESSMENT_INFORMATION_VERSION)))) fail('BETA_ENROLLMENT_REQUIRED', 'Для включения примите текущие условия анкет.', 403);
     const revokes = (old.ownerAssessment && !mutation.ownerAssessment) || (old.discovery && !mutation.discovery) || (old.pairSharing && !mutation.pairSharing) || old.publicationIds.some(id => !mutation.publicationIds.includes(id));
     if (revokes) await recordAssessmentRevocation(ownerId, { permissionEpoch: (existing.permissionEpoch ?? 0) + 1 });
     await assessmentTransaction(async session => {
       const participant = await requireAssessmentOwner(ownerId, { control: true, session, fence: true });
       if ((participant.settingsRevision ?? 0) !== mutation.expectedRevision) fail('SETTINGS_STALE', 'Настройки изменены в другой вкладке. Обновите страницу.');
+      if (expands) { await requireAssessmentEffect('SUBMISSIONS', session); await requireAssessmentEffect('DISCLOSURE', session); }
       const choices: AssessmentChoices = { ownerAssessment: mutation.ownerAssessment, discovery: mutation.ownerAssessment && mutation.discovery, pairSharing: mutation.ownerAssessment && mutation.pairSharing, publicationIds: mutation.publicationIds };
       await AssessmentParticipant.updateOne({ _id: ownerId }, { $set: { settings: choices }, $inc: { settingsRevision: 1, permissionEpoch: 1 },
         $push: { choiceHistory: { $each: [{ revision: mutation.expectedRevision + 1, recordedAt: new Date().toISOString(), informationVersion: ASSESSMENT_INFORMATION_VERSION, choices }], $slice: -100 } } }, { session });

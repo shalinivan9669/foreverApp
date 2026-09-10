@@ -131,6 +131,10 @@ Weekly form fields start untouched in the UI; the server still requires all mand
 
 The old `/api/pairs/[id]/diagnostics` and insights routes are removed. They are not compatibility sources and cannot return a passport or numeric score.
 
+## Registered assessment access — 2026-09-10
+
+`GET /api/assessments/settings` может возвращать `mode: REGISTERED` (режим по умолчанию) и `admission: ELIGIBLE` для существующего аутентифицированного аккаунта без assessment participation. `POST /api/assessments/register` в этом режиме принимает актуальные условия/совершеннолетие/настройки и создаёт собственное участие без приглашения. Субъект берётся только из сессии. Версии: `assessment-terms-2026-09-10`, `assessment-data-flow-2026-09-10`. Повторное включение после отзыва требует свежего intent и явного выбора; старые сохранённые права не восстанавливаются повтором прежнего POST. Форматы остальных assessment endpoints сохранены. См. [ADR-010](ADR/ADR-010-registered-assessment-access.md).
+
 ## Questionnaires
 
 - `GET /api/questionnaires`, `GET /api/questionnaires/[id]`, `GET /api/questionnaires/cards` and activity-template catalogs require session auth and return only reviewed/published semantic content.

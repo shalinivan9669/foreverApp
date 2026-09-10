@@ -550,6 +550,11 @@ export default function MvpOnboardingPage() {
             Сохранено ответов: {payload.session.answers.length}. Точные ответы не становятся
             общими автоматически и используются согласно выбранному правилу для каждого ответа.
           </p>
+          <div className="app-panel-soft mt-4 p-4 space-y-3">
+            <h2 className="font-semibold">Анкеты и навыки</h2>
+            <p className="app-muted text-sm">Выберите тему и начните в своём темпе. Перед первой новой анкетой один раз сохраните условия и настройки данных; отдельное приглашение не требуется.</p>
+            <Link href="/questionnaires" className="app-btn-primary inline-flex px-4 py-3 text-sm">Открыть анкеты</Link>
+          </div>
           {returnHref === '/match-card/create' && <p className="app-muted mt-3 text-sm">
             Следующий шаг — карточка знакомств. Заполните её и отдельно подтвердите публикацию, чтобы перейти к поиску партнёра. Личные занятия доступны уже сейчас.
           </p>}

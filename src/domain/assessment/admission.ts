@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const ASSESSMENT_TERMS_VERSION = 'private-beta-terms-2026-09-10';
-export const ASSESSMENT_INFORMATION_VERSION = 'private-beta-data-flow-2026-09-10';
+export const ASSESSMENT_TERMS_VERSION = 'assessment-terms-2026-09-10';
+export const ASSESSMENT_INFORMATION_VERSION = 'assessment-data-flow-2026-09-10';
 /** Registration is limited to this explicit, reviewed scope; new registry entries are never implied. */
 export const ASSESSMENT_REGISTRATION_PUBLICATIONS = [
   'dom-s07-household-pilot',
@@ -42,7 +42,7 @@ export const ASSESSMENT_DATA_FLOW = [
 ] as const;
 export type AssessmentRegistrationReceipt = { termsVersion: string; informationVersion: string; acceptedAt: string; adultPolicy: 'SELF_DECLARED_18_PLUS'; choices: AssessmentChoices; operationKey: string; requestIntent?: string; sessionVersion?: string };
 export type AssessmentSettingsDTO = {
-  mode: 'OFF' | 'SYNTHETIC' | 'PRIVATE_BETA'; admission: 'INVITED' | 'ACTIVE' | 'REVOKED' | 'UNAVAILABLE';
+  mode: 'OFF' | 'SYNTHETIC' | 'PRIVATE_BETA' | 'REGISTERED'; admission: 'ELIGIBLE' | 'INVITED' | 'ACTIVE' | 'REVOKED' | 'UNAVAILABLE';
   revision: number; viewerToken: string; termsVersion: string; informationVersion: string;
   registration: AssessmentRegistrationReceipt | null; settings: AssessmentChoices;
   dataFlow: typeof ASSESSMENT_DATA_FLOW; availablePublicationIds: string[];

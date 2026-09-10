@@ -89,24 +89,9 @@ export default function QuestionnairesPage() {
       <div>
         <h1 className="app-page-title font-semibold">Анкеты</h1>
         <p className="app-muted app-reading-width mt-2 text-sm sm:text-base">
-          Выберите персональный или парный формат и продолжайте с текущего прогресса.
+          Проходите анкеты по темам, продолжайте сохранённые ответы и смотрите отдельные результаты навыков.
         </p>
       </div>
-
-      <ErrorView
-        error={cardsError}
-        onRetry={() => void refetch()}
-        onAuthRequired={() => {
-          router.push('/');
-        }}
-      />
-
-      <ErrorView
-        error={error}
-        onAuthRequired={() => {
-          router.push('/');
-        }}
-      />
 
       <QuestionnairesPageView
         activeTab={visibleActiveTab}
@@ -118,6 +103,10 @@ export default function QuestionnairesPage() {
         loadFailed={Boolean(cardsError) && cards.length === 0}
         loadingByQuestionnaireId={loadingByQuestionnaireId}
         onStartQuestionnaire={startQuestionnaire}
+        legacyErrors={<>
+          <ErrorView error={cardsError} onRetry={() => void refetch()} onAuthRequired={() => router.push('/')} />
+          <ErrorView error={error} onAuthRequired={() => router.push('/')} />
+        </>}
       />
     </main>
   );

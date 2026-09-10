@@ -292,7 +292,7 @@ export async function runAssessmentPairIntegration(context: AssessmentPairIntegr
       assert.deepEqual(await AssessmentPairReport.find({ ownerId: fixtures.subjects.b }).lean(), beforeB);
       assert.ok((await AssessmentComparison.find({ actorIds: fixtures.subjects.b }).lean()).every(row => row.scenarios.length === 0));
       const sourceA = await readRun('a');
-      process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'false';
+      process.env.ASSESSMENT_MODE = 'OFF';
       try {
         await denied('a', { action: 'propose', scenarioId: null, expectedRevision: state.revision, idempotencyKey: key() }, 404);
         const exported = await productWorkspacePrivacy.exportOwnerData(fixtures.subjects.b);
@@ -321,7 +321,7 @@ export async function runAssessmentPairIntegration(context: AssessmentPairIntegr
         const controls = await mutate('b', { action: 'revoke-report', periodId, expectedRevision: refreshed.revision, idempotencyKey: key() });
         assert.equal(controls.availability, 'UNAVAILABLE');
         assert.ok((await AssessmentPairReport.find({ ownerId: fixtures.subjects.b }).lean()).every(report => !report.shared));
-      } finally { process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'true'; }
+      } finally { delete process.env.ASSESSMENT_MODE; }
       await assert.rejects(() => context.saveDirect('a'), /COMPARISON_HTTP_409_SOURCE_UNAVAILABLE/);
       await assert.rejects(() => context.grantDirectPair('a', true), /COMPARISON_HTTP_409_SOURCE_UNAVAILABLE/);
     });
@@ -333,7 +333,7 @@ export async function runAssessmentPairIntegration(context: AssessmentPairIntegr
       assert.equal((await readComparison()).availability, 'UNAVAILABLE');
       const queried = await GET(request('a', undefined, `?pairId=${fixtures.assessmentPairId}`)).then(unwrap);
       assert.deepEqual(queried, ended);
-      process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'false';
+      process.env.ASSESSMENT_MODE = 'OFF';
       try {
         const controls = await GET(request('b', undefined, `?view=controls&pairId=${fixtures.assessmentPairId}`)).then(unwrap);
         assert.ok(controls.context);
@@ -342,7 +342,7 @@ export async function runAssessmentPairIntegration(context: AssessmentPairIntegr
         assert.equal(withdrawn.availability, 'UNAVAILABLE');
         assert.deepEqual(withdrawn.reports, []);
         assert.equal((await AssessmentPairWork.findOne({ pairId: fixtures.assessmentPairId }).lean())?.revoked, true);
-      } finally { process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'true'; }
+      } finally { delete process.env.ASSESSMENT_MODE; }
     });
     await AssessmentPairWork.deleteMany({ actorIds: { $in: Object.values(fixtures.subjects) } });
     await AssessmentPairReport.deleteMany({ ownerId: { $in: Object.values(fixtures.subjects) } });

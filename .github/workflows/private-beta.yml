@@ -1,5 +1,7 @@
 name: Private beta implementation checks
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -27,6 +29,10 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/beta-browser-runtime" --no-save --package-lock=false playwright@1.61.0
           node "$RUNNER_TEMP/beta-browser-runtime/node_modules/playwright/cli.js" install --with-deps chromium
           mongod --version
+      - name: Registered account access without invitations
+        run: node --import tsx scripts/assessment-registered.integration.ts --mongod=/usr/bin/mongod
+      - name: Registered questionnaire navigation
+        run: node --import tsx scripts/registered-assessment-ui.selfcheck.ts
       - name: Full synthetic acceptance and source identity
         run: npm run beta:check -- --mongod=/usr/bin/mongod --browser-module="$RUNNER_TEMP/beta-browser-runtime/node_modules/playwright" --output="$RUNNER_TEMP/beta-evidence"
       - name: Preserve acceptance evidence

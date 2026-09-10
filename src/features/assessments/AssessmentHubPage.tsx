@@ -43,7 +43,7 @@ function Portfolio({ portfolio, busy, send }: { portfolio: AssessmentPortfolioDT
     </section>
   </>;
 }
-export default function AssessmentHubPage() {
+export default function AssessmentHubPage({ embedded = false }: { embedded?: boolean }) {
   const resource = useAssessmentResource(readHub);
   const receipt = useRef<{ fingerprint: string; key: string } | null>(null);
   const send = (command: Command) => {
@@ -51,12 +51,21 @@ export default function AssessmentHubPage() {
     if (receipt.current?.fingerprint !== fingerprint) receipt.current = { fingerprint, key: crypto.randomUUID() };
     return resource.run(async (current, signal) => { if (current.portfolio) await assessmentBetaApi.updatePortfolio({ ...command, expectedRevision: current.portfolio.revision, viewerToken: current.portfolio.viewerToken, idempotencyKey: receipt.current!.key }, signal); }).then(ok => { if (ok) receipt.current = null; return ok; });
   };
-  return <main className="app-shell-narrow py-5 space-y-5"><BackBar title="Навыки и анкеты" fallbackHref="/profile" /><h1 className="text-2xl font-semibold">Навыки и анкеты</h1>
-    <p>Выберите одну тему для себя. Общий быт и партнёр не обязательны. Можно читать уже доступный результат, не проходя остальные формы.</p>
-    <nav className="flex flex-wrap gap-3" aria-label="Возможности беты"><Link className="app-btn-secondary" href="/assessments/conditions">Мои условия</Link><Link className="app-btn-secondary" href="/assessments/discovery">Знакомства</Link><Link className="app-btn-secondary" href="/assessments/pair">Договорённости пары</Link><Link className="app-btn-secondary" href="/profile/settings#assessment-settings">Мои данные</Link></nav>
+  const Container = embedded ? 'section' : 'main';
+  const settings = resource.data?.settings;
+  const setupAvailable = settings?.admission === 'ELIGIBLE' || settings?.admission === 'INVITED' || (settings?.mode === 'REGISTERED' && settings.admission === 'REVOKED');
+  return <Container className={embedded ? 'space-y-5' : 'app-shell-narrow py-5 space-y-5'}>
+    {!embedded && <><BackBar title="Анкеты" fallbackHref="/main-menu" /><h1 className="text-2xl font-semibold">Анкеты и навыки</h1></>}
+    <p>Выберите тему: бытовая ответственность, конкретная просьба или пауза и возврат к разговору. В каждой теме отдельно разбираются понимание, выполнение задания и применение в жизни. Партнёр не обязателен; черновики можно продолжить позже.</p>
+    <nav className="flex flex-wrap gap-3" aria-label="Анкеты и отношения"><Link className="app-btn-secondary" href="/assessments/conditions">Мои условия</Link><Link className="app-btn-secondary" href="/assessments/discovery">Знакомства по условиям</Link><Link className="app-btn-secondary" href="/assessments/pair">Договорённости пары</Link><Link className="app-btn-secondary" href="/profile/settings#assessment-settings">Мои данные</Link></nav>
     {resource.error && <div role="alert"><p>{resource.error}</p><button className="app-btn-secondary" onClick={() => void resource.reload()} disabled={resource.busy}>Повторить загрузку</button></div>}
     {resource.saved && <p role="status">Выбор сохранён на сервере.</p>}
     {!resource.data && !resource.error && <p role="status">Загружаем доступные вам темы…</p>}
-    {resource.data && (resource.data.portfolio ? <Portfolio key={resource.ownerId} portfolio={resource.data.portfolio} busy={resource.busy} send={send} /> : <section className="app-panel p-4 space-y-3"><p>{resource.data.settings.admission === 'INVITED' ? 'Для вас есть приглашение. На одном экране можно прочитать условия и выбрать настройки.' : resource.data.settings.mode === 'OFF' ? 'Новый сбор сейчас остановлен. Ваши настройки и управление существующими данными доступны.' : 'Для продолжения нужен действующий допуск и включённая личная обработка.'}</p><Link className="app-btn-primary inline-flex" href="/assessments/start">Условия и участие</Link><Link className="block underline" href="/profile/settings#assessment-settings">Управлять своими данными</Link></section>)}
-  </main>;
+    {resource.data && (resource.data.portfolio ? <Portfolio key={resource.ownerId} portfolio={resource.data.portfolio} busy={resource.busy} send={send} /> : <section className="app-panel p-4 space-y-3">
+      <h2 className="text-xl font-semibold">{setupAvailable ? 'Начните с настройки анкет' : 'Настройки анкет'}</h2>
+      <p>{settings?.mode === 'OFF' ? 'Анкеты временно отключены в настройках приложения. Сохранённые данные остаются доступны в вашем аккаунте.' : setupAvailable ? 'Перед первой анкетой один раз прочитайте условия и выберите использование своих данных. После сохранения откроются темы и формы.' : settings?.admission === 'ACTIVE' ? 'Вы отключили сохранение ответов и личные расчёты. Включите их в настройках, чтобы продолжить анкеты.' : 'Сейчас анкеты недоступны этому аккаунту. Сохранёнными данными можно управлять в настройках.'}</p>
+      {setupAvailable && settings?.mode !== 'OFF' && <Link className="app-btn-primary inline-flex" href="/assessments/start">Настроить и открыть анкеты</Link>}
+      <Link className="block underline" href="/profile/settings#assessment-settings">Управлять своими данными</Link>
+    </section>)}
+  </Container>;
 }

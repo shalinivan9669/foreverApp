@@ -1,9 +1,9 @@
 import mongoose, { Schema } from 'mongoose';
 import type { AssessmentChoices, AssessmentRegistrationReceipt } from '@/domain/assessment/admission';
 
-/** Membership is operator-provisioned; HTTP registration can only accept an existing invitation. */
+/** Registered accounts enroll themselves; explicit private-beta mode retains operator invitations. */
 export type AssessmentParticipantType = {
-  _id: string; environment: 'ISOLATED_SYNTHETIC' | 'PRIVATE_BETA'; cohortId: string;
+  _id: string; environment: 'ISOLATED_SYNTHETIC' | 'PRIVATE_BETA' | 'REGISTERED'; cohortId: string;
   deletionGeneration: number;
   membershipStatus?: 'INVITED' | 'ACTIVE' | 'REVOKED'; permissionEpoch?: number;
   settingsRevision?: number; settings?: AssessmentChoices; registration?: AssessmentRegistrationReceipt | null;
@@ -12,7 +12,7 @@ export type AssessmentParticipantType = {
 };
 const schema = new Schema<AssessmentParticipantType>({
   _id: { type: String, required: true },
-  environment: { type: String, enum: ['ISOLATED_SYNTHETIC', 'PRIVATE_BETA'], required: true },
+  environment: { type: String, enum: ['ISOLATED_SYNTHETIC', 'PRIVATE_BETA', 'REGISTERED'], required: true },
   cohortId: { type: String, required: true },
   deletionGeneration: { type: Number, required: true, default: 0 },
   membershipStatus: { type: String, enum: ['INVITED', 'ACTIVE', 'REVOKED'] },

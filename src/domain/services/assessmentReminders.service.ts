@@ -5,7 +5,7 @@ import { AssessmentPairOccurrence, AssessmentPairWork, type AssessmentPairOccurr
 import { Notification } from '@/models/Notification';
 import { connectToDatabase } from '@/lib/mongodb';
 import { assessmentPairScope } from './assessmentPair.service';
-import { assessmentTransaction, requireAssessmentEffect } from './assessmentAccess.service';
+import { assessmentMode, assessmentTransaction, requireAssessmentEffect } from './assessmentAccess.service';
 
 async function allowed(ownerId: string, occurrence: AssessmentPairOccurrenceType, now: Date, session: ClientSession) {
   await requireAssessmentEffect('NOTIFICATIONS', session);
@@ -16,12 +16,12 @@ async function allowed(ownerId: string, occurrence: AssessmentPairOccurrenceType
   return row.reminderSettings?.find(value => value.ownerId === ownerId && value.settings.enabled)?.settings ?? null;
 }
 /** Durable occurrences are the reminder intent. Unique notification keys make retries and concurrent workers converge. */
-export async function processAssessmentReminders(now = new Date(), limit = 100): Promise<{ inspected: number; inserted: number }> {
+export async function processAssessmentReminders(now = new Date(), limit = 100, recipientId?: string): Promise<{ inspected: number; inserted: number }> {
   await connectToDatabase();
   const bounded = Math.max(1, Math.min(200, Math.trunc(limit)));
-  const occurrences = await AssessmentPairOccurrence.find({ state: 'PLANNED', startsAt: { $lte: new Date(now.getTime() + 1440 * 60000) }, endsAt: { $gt: now } }).sort({ startsAt: 1, _id: 1 }).limit(bounded).lean<AssessmentPairOccurrenceType[]>();
+  const occurrences = await AssessmentPairOccurrence.find({ ...(recipientId ? { actorIds: recipientId } : {}), state: 'PLANNED', startsAt: { $lte: new Date(now.getTime() + 1440 * 60000) }, endsAt: { $gt: now } }).sort({ startsAt: 1, _id: 1 }).limit(bounded).lean<AssessmentPairOccurrenceType[]>();
   let inserted = 0;
-  for (const occurrence of occurrences) for (const ownerId of occurrence.actorIds) {
+  for (const occurrence of occurrences) for (const ownerId of occurrence.actorIds.filter(actor => !recipientId || actor === recipientId)) {
     try {
       inserted += await assessmentTransaction(async session => {
         const current = await AssessmentPairOccurrence.findById(occurrence._id).session(session).lean<AssessmentPairOccurrenceType | null>();
@@ -40,6 +40,7 @@ export async function processAssessmentReminders(now = new Date(), limit = 100):
 }
 /** Reader rechecks current admission, stop switches, membership, version and owner preferences; TTL is not authorization. */
 export async function refreshAssessmentReminderInbox(ownerId: string, now = new Date()): Promise<void> {
+  if (assessmentMode() === 'REGISTERED') await processAssessmentReminders(now, 20, ownerId);
   const rows = await Notification.find({ userId: ownerId, type: 'BETA_PAIR_REMINDER' }).select({ _id: 1, resourceId: 1 }).limit(224).lean();
   for (const row of rows) {
     let visible = false;

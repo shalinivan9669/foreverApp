@@ -886,3 +886,17 @@ Summary:
 - Added data-flow/copy review boundaries and operator start/stop/restore/rollback documentation. No production dependency, lockfile or agent allowlist changes; no real participant invitation, target migration, push, merge or deployment was performed.
 Files: docs/BETA_EXECUTION_STATE.md, docs/BETA_VERIFICATION.md, docs/BETA_OPERATIONS.md, docs/BETA_COMPARISON.md, docs/BETA_COPY_REVIEW.md, docs/API_BETA_CONTRACTS.md, docs/ADR/ADR-009-private-beta-settings-and-recovery.md, docs/assessment/*COVERAGE.json, scripts/beta-*, scripts/lib/beta-*, src/domain/services/assessment*, src/client/hooks/useAssessment*, src/features/assessments, src/models/Assessment*, .github/workflows/private-beta.yml. Exact file inventory and executed results are recorded by the final acceptance manifest and report.
 - Added three actual Chromium source/profile checks through ordinary form controls, complete review/finalize and existing owner profile, with private bounded negative evidence and an independent peer browser. The helper runs inside the general beta-browser pipeline; source coverage now references concrete browser assertions rather than delegated gaps.
+
+Date: 2026-09-10
+Summary:
+- Verified that PR #9 includes the retained assessment commit followed by the complete private-beta commit; merged main has the exact 924-file Git tree from the earlier verified delivery. Updated the clean local main by fast-forward to the already merged remote commit.
+- Fixed a reference-check portability failure exposed by the Windows checkout: catalog provenance now normalizes only CRLF to LF before comparing the unchanged original SHA-256 hashes. Application behavior, catalogs, reference assertions, API and DB schemas are unchanged.
+Files: scripts/assessment-reference/run.mjs, docs/BETA_VERIFICATION.md, docs/CHANGELOG.md.
+
+Date: 2026-09-10
+Summary:
+- Owner clarified that beta means the application is being tested, not an invitation-only cohort. Default REGISTERED access lets existing/new authenticated users enable assessments with one explicit settings submission, without operator invitation or beta approval files.
+- Main questionnaire navigation now opens the new forms; prior short self-reports and results remain in a separate collapsed section. Terms, profile and onboarding links explain the actual user path.
+- Added additive runtime initialization and bounded serverless maintenance; registered owner revocation/deletion works with the existing primary MongoDB configuration. Existing account/session guards, optional sharing, source provenance and explicit stop/restore safety states remain enforced.
+- Added real HTTP/Mongo coverage for self-registration, full questionnaire/profile, isolation, revoke/re-enroll and source/account deletion; CI now also runs on main pushes. Historical private-beta acceptance contracts remain unchanged; ADR-010 records the owner-approved access replacement.
+Files: docs/ADR/ADR-010-registered-assessment-access.md and the task's final Git diff enumerate the access, UI, runtime and verification changes. No existing users, answers or pairs are reset.

@@ -30,12 +30,13 @@ export async function assessmentHealth(now = new Date()) {
   if (pending >= ASSESSMENT_ALERT_POLICY.queueDepth) alerts.push('QUEUE_DEPTH_HIGH');
   if (deadLetters) alerts.push('DEAD_LETTER_PRESENT');
   if (failures >= ASSESSMENT_ALERT_POLICY.failureCount) alerts.push('ERROR_RATE_HIGH');
-  if (isAssessmentEnabled() && (workerAgeMs === null || workerAgeMs > ASSESSMENT_ALERT_POLICY.workerAgeMs)) alerts.push('WORKER_HEARTBEAT_MISSING');
-  const operatorReady = Boolean(readAssessmentBetaApproval() && control?.recoveryReconciled && control.migrationVersion === ASSESSMENT_MIGRATION_VERSION && !alerts.length);
+  const registered = assessmentMode() === 'REGISTERED';
+  if (!registered && isAssessmentEnabled() && (workerAgeMs === null || workerAgeMs > ASSESSMENT_ALERT_POLICY.workerAgeMs)) alerts.push('WORKER_HEARTBEAT_MISSING');
+  const operatorReady = Boolean((registered ? isAssessmentEnabled() : readAssessmentBetaApproval()) && control?.recoveryReconciled && control.migrationVersion === ASSESSMENT_MIGRATION_VERSION && !alerts.length);
   return { version: ASSESSMENT_ALERT_POLICY.version, mode: assessmentMode(), database: 'UP' as const, targetId: assessmentTargetId(),
     pending, pendingAgeMs, deadLetters, workerAgeMs, recentFailures: failures, alerts, operatorReady,
     migrationVersion: control?.migrationVersion ?? null, recoveryReconciled: control?.recoveryReconciled ?? false,
-    stoppedEffects: control?.stoppedEffects ?? [], alertChannelConfigured: Boolean(process.env.ASSESSMENT_ALERT_WEBHOOK_URL) };
+    stoppedEffects: control?.stoppedEffects ?? [], alertChannelConfigured: Boolean(process.env.ASSESSMENT_ALERT_WEBHOOK_URL), maintenance: registered ? 'REQUEST_DRIVEN' as const : 'DEDICATED_WORKER' as const };
 }
 
 /** Only allowlisted aggregate metrics leave the process; no subjects, answers, notes or topic IDs. */
@@ -70,6 +71,7 @@ export async function setAssessmentPublicationStop(publicationId: string, stoppe
 }
 
 export async function inviteAssessmentParticipant(ownerId: string, cohortId: string, now = new Date()): Promise<void> {
+  if (assessmentMode() === 'REGISTERED') throw new Error('ASSESSMENT_SELF_REGISTRATION_AVAILABLE');
   const approval = readAssessmentBetaApproval();
   if (assessmentMode() === 'PRIVATE_BETA' && (!approval || approval.cohortId !== cohortId)) throw new Error('BETA_APPROVAL_REQUIRED');
   await connectToDatabase();
@@ -126,16 +128,20 @@ export async function purgeAssessmentExpired(now = new Date(), limit = 100): Pro
     { status: 'DRAFT', updatedAt: { $lte: new Date(now.getTime() - 30 * 86400000) } },
     { status: 'FINALIZED', finalizedAt: { $lte: new Date(now.getTime() - 180 * 86400000).toISOString() } },
   ] }).limit(Math.min(limit, 100)).lean();
+  let removedSources = 0;
   for (const row of rows) {
     await recordAssessmentRevocation(row.ownerId);
-    await assessmentTransaction(async session => {
-      await AssessmentRun.updateOne({ _id: row._id, revision: row.revision }, { $set: { status: 'DELETED', answers: [], presentations: [], snapshot: null, previousSource: null, pairUse: false, matchingUse: false, materializedRevision: -1 }, $inc: { permissionRevision: 1, revision: 1 } }, { session });
+    const removed = await assessmentTransaction(async session => {
+      const source = await AssessmentRun.updateOne({ _id: row._id, revision: row.revision, status: { $ne: 'DELETED' } }, { $set: { status: 'DELETED', answers: [], presentations: [], snapshot: null, previousSource: null, pairUse: false, matchingUse: false, materializedRevision: -1 }, $inc: { permissionRevision: 1, revision: 1 } }, { session });
+      if (source.matchedCount !== 1) return false;
       await db.collection('assessment_portfolios').deleteMany({ ownerId: row.ownerId }, { session });
       await db.collection('assessment_comparisons').deleteMany({ actorIds: row.ownerId }, { session });
+      return true;
     });
+    if (removed) removedSources++;
   }
   const support = await AssessmentSupport.deleteMany({ expiresAt: { $lte: now } });
   await db.collection('assessment_practices').deleteMany({ updatedAt: { $lte: new Date(now.getTime() - 90 * 86400000) } });
   await db.collection('assessment_operations').deleteMany({ createdAt: { $lte: new Date(now.getTime() - 7 * 86400000) } });
-  return { sources: rows.length, support: support.deletedCount };
+  return { sources: removedSources, support: support.deletedCount };
 }

@@ -295,7 +295,7 @@ async function main(): Promise<void> {
     assert.equal(await EvidenceEvent.countDocuments({ actorId: { $in: Object.values(fixtures.subjects) } }), evidenceBefore);
     assert.deepEqual((await Pair.findById(fixtures.assessmentPairId).lean())?.progress, progressBefore);
     assert.deepEqual(await Promise.all(isolatedCollections.map(name => db.collection(name).countDocuments())), countsBefore);
-    process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'false';
+    process.env.ASSESSMENT_MODE = 'OFF';
     try {
       await denied('a', { action: 'calculate-current', idempotencyKey: key() }, 404);
       const controls = await comparisonGet(request('a', 'comparison', undefined, '?view=controls')).then(unwrap<AssessmentComparisonDTO>);
@@ -303,7 +303,7 @@ async function main(): Promise<void> {
       assert.equal(controls.current, null);
       assert.deepEqual(controls.scenarios, []);
     }
-    finally { process.env.ASSESSMENT_SYNTHETIC_ENABLED = 'true'; }
+    finally { delete process.env.ASSESSMENT_MODE; }
     assert.deepEqual(await Promise.all(isolatedCollections.map(name => db.collection(name).countDocuments())), countsBefore);
   });
 
