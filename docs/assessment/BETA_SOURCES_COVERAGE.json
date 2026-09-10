@@ -1,0 +1,1464 @@
+{
+  "schemaVersion": "beta-sources-coverage-v1",
+  "classification": "Executable assertion map, not a blanket acceptance PASS",
+  "sourceIdentity": "Bound by final root execution record. Exact cross-suite references name implemented assertions; this map does not declare them executed or certify final tree.",
+  "commands": [
+    "node --import tsx scripts/beta-content.selfcheck.ts",
+    "node --import tsx scripts/beta-content-profile-ui.selfcheck.ts",
+    "node --import tsx scripts/local-acceptance.ts --suite beta-sources --mongod=<ABSOLUTE_MONGOD_BINARY> --mongo-port=27069"
+  ],
+  "cases": [
+    {
+      "id": "BETA-009",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "eleven frozen publications / nine core forms plus optional application clarification",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP A1+negative then independent K3 retains application and period",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "source-set CAS rejects source arriving after compute; viewer token bound across forms/owners",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "explicit scope expansion opens real supplementary form and two publications count one referenced episode once",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "optional application clarification has declared compatible pool and distinct immutable identity",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Separate published ID/hash and receipt/token ownership across forms; retained original resolver identity.",
+        "Original publication object/version is retained, cross-form intent is rejected, and actual new supplementary HTTP Run retains a distinct ID/hash while the original source revision stays unchanged. Baseline/final literal diff is independently bound by the root tree record."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-010",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "eleven frozen publications / nine core forms plus optional application clarification",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "all nine registered forms use authenticated HTTP and Mongo persistence",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "All nine independent K/D/A publications use the same runtime and persist their own hash, responses and skill facts."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-011",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "eleven frozen publications / nine core forms plus optional application clarification",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP A1+negative then independent K3 retains application and period",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "operator publication stop excludes source before evaluation and retains controls/export",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "optional application clarification has declared compatible pool and distinct immutable identity",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "saved publication hash mismatch stops owner HTTP instead of silently substituting current content",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Unknown version does not resolve; stored content hash matches publication; operator stop excludes it and leaves owner controls/export.",
+        "Stored pinned hash disagreement yields explicit CONTENT_VERSION_UNAVAILABLE409, leaves answers/revision unchanged and retains owner export; operator retirement also stops collection/composition. Runtime registry mutation is unnecessary to test the actual immutable-version read fence."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-012",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "author config rejects unknown fact keys empty ALL and excessive AST depth before scoring",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "All nine reject duplicate items and invalid backward/cyclic parent references.",
+        "Unknown fact keys, invalid operator, empty ALL and depth beyond AST budget are rejected before scoring in addition to each publication schema/dependency fixture."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-013",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "unsupported ranges/order/multi and nonfinite typed values rejected",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Strict typed STRUCTURED slots reject extra keys, unknown IDs and notes; undeclared MULTI/ORDERED/ranges/nonfinite values are rejected."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-014",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "all nine registered forms use authenticated HTTP and Mongo persistence",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "K and D have distinct authored stimulus/response methods, never create A or negative actual claims; all topics traverse real routes."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-015",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "request no common alternative stays unknown; no fabricated second agreement",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "COM.S02 absent common alternative leaves alternativeFeasible U; unconfirmed COM.S04 return method/time remains U."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-016",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "authored accessible household alternatives retain supported facts without manual execution or memory penalty",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Six explicit missing endings preserve unknown for each publication; internal authored alternatives and safety review documented.",
+        "Authored accessible execution/calendar alternatives preserve the same supported facts. All missing endings are bounded UNKNOWN, no-common alternative and absent second agreement stay unknown. Dated manual source/scenes/practice copy review is recorded in docs/BETA_SOURCES.md; external content approval remains a separate release gate, not inferred from these assertions."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content",
+      "manualReview": {
+        "file": "docs/BETA_SOURCES.md",
+        "section": "Авторский adversarial review",
+        "date": "2026-09-10",
+        "scope": "24 scenes, ten beta publication labels/options/metadata/negative prompts, three practices and planner messages",
+        "claim": "Bounded internal source-copy review, not psychometric approval"
+      }
+    },
+    {
+      "id": "BETA-017",
+      "tests": [
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S06 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition DOM.S08 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition COM.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition COM.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition COM.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition COM.S06 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition COM.S07 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition COM.S08 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition VAL.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition VAL.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition VAL.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition FIN.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition FIN.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition FIN.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition FIN.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition FIN.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition FIN.S06 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition SEX.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition SEX.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition SEX.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition SEX.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition SEX.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S06 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition REG.S07 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition INT.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition INT.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition INT.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition INT.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition INT.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition INT.S06 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition AUT.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition AUT.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition AUT.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition AUT.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition AUT.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition LIF.S01 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition LIF.S02 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition LIF.S03 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition LIF.S04 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition LIF.S05 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "owner HTTP unavailable definition LIF.S06 preserves meaning and unknown without a level",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "assertion": "normalizer and actual owner component retain all51 unavailable definitions without measured levels",
+          "layer": "ACTUAL_NORMALIZER_AND_COMPONENT_SSR_NOT_BROWSER",
+          "file": "scripts/beta-content-profile-ui.selfcheck.ts"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Actual owner profile-summary HTTP returns all51 original definitions verbatim, each UNKNOWN/UNAVAILABLE_RUBRIC without assigned exactLevel; no cloned snapshot skill is emitted; actual normalizer/component preserves all51 entries."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-018",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "all nine registered forms use authenticated HTTP and Mongo persistence",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/lib/beta-profile-browser.mjs",
+          "runner": "scripts/beta-browser.mjs",
+          "suite": "beta-browser",
+          "assertion": "browser-complete-knowledge",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/lib/beta-profile-browser.mjs",
+          "runner": "scripts/beta-browser.mjs",
+          "suite": "beta-browser",
+          "assertion": "browser-complete-application-profile",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "suite": "beta-browser",
+          "assertion": "browser-structured-keyboard",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "All nine forms have real authenticated persistence and completion endpoints.",
+        "Actual Chromium follows ordinary hub publication links, saves all four native OPTION knowledge answers and four dated FACTS application episodes, opens review, finalizes, checks actual owner results and follows next-step link. STRUCTURED input is independently exercised by the main browser case. Shared runtime HTTP assertions retain every registered core form; the helper is called by the general beta-browser runner."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-019",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "independent K3 D3 preserve A1 and negative occurrence period",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP A1+negative then independent K3 retains application and period",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Real A1 plus negative source retains its values and period when independent same-skill K3/D3 completes."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-020",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "independent K3 D3 preserve A1 and negative occurrence period",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "independent runs finalize concurrently; committed sources survive before materialization crash",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Concurrent same-skill K/D completion gives D3 with A unknown when no self report exists.",
+        "Authenticated persisted COM TASK finalization leaves A UNKNOWN; betaAppliedPredicate over that actual owner snapshot yields U, so no applied threshold is created."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-021",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "independent runs finalize concurrently; committed sources survive before materialization crash",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "source-set CAS rejects source arriving after compute; viewer token bound across forms/owners",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Two same-skill runs commit concurrently and source-set CAS rejects computed projection after later source/permission mutation."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-022",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "correction missing replaces old T; same lineage deduplicates roots",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "correction replaces exactly one source and negative result; private purpose before composition",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "assertion": "positive beta correction keeps prior source while draft then replaces actual evidence and stales prepared comparison",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "One actual source is revised from T to MISSING; old criterion is absent, K/D remain and negative values are recalculated."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-023",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "correction missing replaces old T; same lineage deduplicates roots",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "conflicting same-root allowed sources remain unknown with dispute provenance",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "owner episode reference deduplicates real saved answers and unknown eligibility keeps occurrence without exact rate",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-content-profile-ui.selfcheck.ts",
+          "assertion": "actual response component renders selected owner episode reference and missing choices",
+          "layer": "ACTUAL_NORMALIZER_AND_COMPONENT_SSR_NOT_BROWSER"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "explicit scope expansion opens real supplementary form and two publications count one referenced episode once",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "optional application clarification has declared compatible pool and distinct immutable identity",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "real private cross-publication counterexample changes owner composition but permitted pair and matching remain unchanged",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Pure composition deduplicates separately identified sources and retains conflicting facts as U; real route uses issued owner root reference to deduplicate two saved pages and rejects foreign root.",
+        "Two distinct real compatible application publications are completed through authenticated routes with an owner-selected sameEpisodeRootId. Source count becomes2 but canonical roots/denominator remain4 and families remain2; the two-page supplementary form alone cannot satisfy four observations."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-024",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "new unknown period does not renew old level; expired component remains dated history",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "unfinished followup preserves A then completed unknown new window is unknown with history",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Completed new unknown window becomes current unknown; prior exact value/period remains historical; expired value is unknown."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-025",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "unfinished followup preserves A then completed unknown new window is unknown with history",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Unfinished followup retains the prior completed A before the new wave completes."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-026",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "purpose before arithmetic / permissions no oracle / previous pair not portable",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "actual Pair replacement excludes prior pair scoped HTTP completed application from new pair and discovery",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Pure source eligibility excludes old pair context from matching and new relationship.",
+        "The production followup helper scopes a new wave to the live Pair; answers/finalization are HTTP persisted. Actual endPair plus invite/accept/confirm creates a different Pair ID. Its source view and MATCHING exclude the former pair-scoped wave/history; only independently permitted prior INDIVIDUAL history remains. Owner retains its own actual pair source."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-027",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "new unknown period does not renew old level; expired component remains dated history",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "optional application clarification has declared compatible pool and distinct immutable identity",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "real original and beta DOM sources with same period remain separate incompatible instrument scopes",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Periods are separate and dated histories do not refresh current level.",
+        "Original household and beta application are both completed via routes with an identical period. Distinct context/instrument compatibility stays in separate snapshots/history with incomparable marker rather than pooling roots. Same-name is not a compatibility rule."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-028",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "purpose before arithmetic / permissions no oracle / previous pair not portable",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "correction replaces exactly one source and negative result; private purpose before composition",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "operator publication stop excludes source before evaluation and retains controls/export",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "real private cross-publication counterexample changes owner composition but permitted pair and matching remain unchanged",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "private source revision cannot change direct feed semantic cards",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Pure private A counterexample changes owner result to unknown but external allowed A stays3 byte-identically; route permission and retired publication filter before composition.",
+        "An actual private supplemental source contradicts the same allowed root: owner aggregate becomes unknown with dispute provenance, while purpose MATCHING and PAIR keep A3/identity and complete pair HTTP comparison unchanged. Purpose source resolution occurs before arithmetic. Feed integration independently verifies displayed card semantics for private sources."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-029",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "OFF keeps owner export and scoped deletion controls",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "deleting current original source cannot fall back to restricted beta source or private clarification",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "OFF preserves owner export and deletion controls; scoped deletion removes one source while retaining other owner sources.",
+        "With original permitted and beta/supplement restricted, deleting original through HTTP leaves MATCHING/PAIR with no usable source; the owner still retains permitted private forms. No restricted fallback is selected."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-030",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "explanation in one publication marks later form answers assisted",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "A hint in one real publication marks a later publication answer as ASSISTED."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-031",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "deleting explanation source erases payload and new publication declares unknown exposure origin",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Deletion erases answer/hint lists and publication exposure payload; fresh other publication returns UNKNOWN_AFTER_DELETION and actually supplies current assisted explanation."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-032",
+      "tests": [
+        {
+          "file": "scripts/beta-content-profile-ui.selfcheck.ts",
+          "assertion": "normalizer and actual profile component preserve COM negative bounds / dated history / null / inconsistent",
+          "layer": "ACTUAL_NORMALIZER_AND_COMPONENT_SSR_NOT_BROWSER"
+        },
+        {
+          "file": "scripts/lib/beta-profile-browser.mjs",
+          "runner": "scripts/beta-browser.mjs",
+          "suite": "beta-browser",
+          "assertion": "browser-complete-application-profile",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/lib/beta-profile-browser.mjs",
+          "runner": "scripts/beta-browser.mjs",
+          "suite": "beta-browser",
+          "assertion": "browser-profile-private-provenance",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Existing normalizer and profile components retain actual COM negative bounds, dates/history, null and inconsistent display.",
+        "Actual /profile renders the saved API component: A UNKNOWN with four observations and possible0..3, private NEG yes3/unknown1/denominator4/signedRate null and bounds−4/4..−3/4, occurrence period and expanded dated history. DOM K3 preserves prior A. Independent B Chromium profile/API and complete Pair comparison remain unchanged; no owner bound, source id, occurrence roots or signed bounds enters its shared DTO."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-033",
+      "tests": [
+        {
+          "file": "scripts/beta-content-profile-ui.selfcheck.ts",
+          "assertion": "actual response component renders selected owner episode reference and missing choices",
+          "layer": "ACTUAL_NORMALIZER_AND_COMPONENT_SSR_NOT_BROWSER"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-knowledge-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-application-beta: strict structural validation and missing endings",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "SOLO user completes actual COM application with no experience or opportunity and retains unknown A and private negative rates",
+          "layer": "REAL_CHROMIUM_BROWSER_AND_OWNED_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Actual response component renders explicit missing options; all missing reasons yield unknown and K/D stay distinct.",
+        "Actual browser SOLO actor without Pair completes COM.S04 application using alternating NO_EXPERIENCE/NO_OPPORTUNITY, persists unknown A and negative null rates, sees K/D independently and no forced invitation. Final execution is bound by the root browser receipt."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-034",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "planner offers one module and does not repeat declined topic forever",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content-profile-ui.selfcheck.ts",
+          "assertion": "actual response component renders selected owner episode reference and missing choices",
+          "layer": "ACTUAL_NORMALIZER_AND_COMPONENT_SSR_NOT_BROWSER"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-decline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-draft-resume",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Declining selected topic stops repeated suggestion; actual form renders missing option and prior episode.",
+        "Concrete browser assertions are referenced from BETA_CLIENT_COVERAGE.json; execution status comes from the final named browser receipts. HTTP/SSR does not substitute for them."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-035",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "planner offers one module and does not repeat declined topic forever",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "goal and persisted practice/report change no actual source set",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "SELF: planner resume knowledge task enough declined and unavailable matrix",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "DATING: planner resume knowledge task enough declined and unavailable matrix",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "COUPLE: planner resume knowledge task enough declined and unavailable matrix",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Deterministic goal-specific COM suggestion, decline stop and persistent COUPLE goal/practice are asserted.",
+        "Each goal has explicit deterministic assertions for knowledge, saved draft resume, optional task, enough after K/D, fully declined preferred topic and unavailable publications."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-036",
+      "tests": [
+        {
+          "assertion": "HTTP STRUCTURED parent replacement removes child answer and issued receipt permanently",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Real STRUCTURED parent and child are saved; replacing parent with MISSING disables child and removes answer/receipt; restoring parent does not restore child; stale issued child receipt returns409 and remains absent in MongoDB."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-037",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-conflict-limit",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-lost-response",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-offline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "No browser error-state assertion claimed by source suite.",
+        "Concrete browser assertions are referenced from BETA_CLIENT_COVERAGE.json; execution status comes from the final named browser receipts. HTTP/SSR does not substitute for them."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-038",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "goal and persisted practice/report change no actual source set",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP practice report then new real self report changes profile and invalidates prepared beta conditional result",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Persistent practice start/report do not alter actual owner snapshot, source-set revision or source identity.",
+        "HTTP practice/report leaves complete actual PAIR comparison and purpose MATCHING calculation unchanged, including available target/scenario meanings; only subsequent separately completed SELF_REPORT changes actual profile."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-039",
+      "tests": [
+        {
+          "assertion": "HTTP practice report then new real self report changes profile and invalidates prepared beta conditional result",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Actual pair/direct/source fixture begins B.A1 with B_CRITERION+JOINT_SCHEDULE needed. HTTP practice/report leaves source identity and conditional output unchanged. Separate completed SELF_REPORT followup persists B.A3 through routes, reaches owner profile-summary and invalidates a concurrently prepared beta result as ASSESSMENT_COMPARISON_STALE. Fresh HTTP comparison then supports target with JOINT_SCHEDULE alone. No persisted standalone beta certificate exists; the fresh input identity fence is the actual certificate contract."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-040",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: strict slot assembly and method boundary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-knowledge-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-task-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-application-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-knowledge-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-task-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s02-application-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-knowledge-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-task-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "com-s04-application-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "dom-s07-application-clarification-beta: label grammar length and option slot order do not change ID-based result",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "STRUCTURED note cannot enter response scoring; slot IDs alone determine facts.",
+        "Each of ten beta forms changes label grammar/length, field/slot/option order with saved IDs fixed: complete computed skills are identical. No LLM/regex/free-text scoring or psychometric equivalence is claimed."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-044",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "unsupported ranges/order/multi and nonfinite typed values rejected",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "unsupported numeric range is rejected instead of averaged",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Assessment response transport rejects typed ranges/nonfinite values.",
+        "Assessment FACTS ranges/nonfinite values and direct comparison numeric ranges are explicitly rejected, never averaged into a fabricated exact value."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-084",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "purpose before arithmetic / permissions no oracle / previous pair not portable",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "assertion": "permitted beta source private NEG correction preserves external identity and full comparison through draft answer finalize",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "real private cross-publication counterexample changes owner composition but permitted pair and matching remain unchanged",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "one persisted choice, idempotent registration response-loss retry, separate purposes and no future scope",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "explicit central scope applies saved forms; revoke changes epoch and rejects stale settings intent",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Pure private/negative changes do not change eligible external source identity or positive projection.",
+        "During real permitted beta SELF_REPORT private NEG correction, revise and every present/save/finalize preserve PAIR and MATCHING consumed identity, componentVersion and complete HTTP comparison DTO. A prepared comparison also survives NEG-only finalize without a stale error. Owner negative changes independently.",
+        "Registration/central-settings tests pin purposes and scope, reject stale intent and preserve separate choices. Source supplementary form test explicitly excludes the new publication, observes HTTP403 and absent hub entry, then opts in through current settings without silent expansion."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-087",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP A1+negative then independent K3 retains application and period",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "correction replaces exactly one source and negative result; private purpose before composition",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "assertion": "permitted beta source private NEG correction preserves external identity and full comparison through draft answer finalize",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Real answer->source->owner negative result survives K and correction replaces exact source facts.",
+        "During real permitted beta SELF_REPORT private NEG correction, revise and every present/save/finalize preserve PAIR and MATCHING consumed identity, componentVersion and complete HTTP comparison DTO. A prepared comparison also survives NEG-only finalize without a stale error. Owner negative changes independently.",
+        "Actual private NEG-only edits revise/present/answer/finalize the allowed source while complete peer-facing comparison and effective source identity remain identical; owner negative signedRate=-1 persists and A stays3."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-088",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "owner episode reference deduplicates real saved answers and unknown eligibility keeps occurrence without exact rate",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "A real reported occurrence with unknown opportunity eligibility keeps occurrence, exact negative rate=null and no false0."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-094",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "independent runs finalize concurrently; committed sources survive before materialization crash",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "source finalization commits durable job before response failure; automatic worker computes saved source",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Finalized sources plus durable jobs persist before intentional afterSourceCommitted crash; subsequent materialization recovers both components.",
+        "Operations integration independently leases and executes durable job after source-commit response failure without a new participant run. Detailed retry/process-restart assertions remain mapped under their own exact operation requirements."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-060",
+      "supportedSubparts": [
+        "A positive correction retains prior completed source during draft; actual finalize changes source identity and A3 to A1, invalidates prepared comparison with ASSESSMENT_COMPARISON_STALE, and removes a previously sufficient conditional option."
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "tests": [
+        {
+          "assertion": "positive beta correction keeps prior source while draft then replaces actual evidence and stales prepared comparison",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        }
+      ],
+      "owner": "sources_content",
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "BETA-068",
+      "supportedSubparts": [
+        "Real allowed beta SELF_REPORT private-negative changes preserve effective source identity and complete owner-facing comparison response throughout revise/presentation/answer/finalize, including a concurrent computation. Raw internal source-set CAS counters advance but do not enter external consumed identity or DTO.",
+        "Feed HTTP integration creates and answers private COM.S04 K, full STRUCTURED D and real FACTS A through source services. Each answer and each finalize preserve complete candidate count/lane/scenario semantics, while owner observationCount is positive and matchingUse/pairUse stay false. This covers the closed K/D/A series in addition to the separately tested permitted-source private NEG lifecycle."
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "tests": [
+        {
+          "assertion": "permitted beta source private NEG correction preserves external identity and full comparison through draft answer finalize",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        },
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "private source revision cannot change direct feed semantic cards",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "owner": "sources_content",
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "BETA-082",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "explicit scope expansion opens real supplementary form and two publications count one referenced episode once",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [],
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-117",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "all beta metadata declares author policy method purpose and bounded observation frame",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "supportedSubparts": [
+        "Ten beta publications pin AUTHOR_POLICY_NOT_CALIBRATED/INTERNAL_AUTHOR_REVIEW, method-specific allowed purposes and observation sampling frame. Source copy manual review is dated in docs/BETA_SOURCES.md. Full report/scenario/negative UI copy review is separately mapped by root; no automatic whole-product copy claim."
+      ],
+      "unverifiedSubparts": [],
+      "owner": "sources_content",
+      "manualReview": {
+        "file": "docs/BETA_SOURCES.md",
+        "section": "Авторский adversarial review",
+        "date": "2026-09-10",
+        "scope": "24 scenes, ten beta publication labels/options/metadata/negative prompts, three practices and planner messages",
+        "claim": "Bounded internal source-copy review, not psychometric approval"
+      }
+    }
+  ]
+}

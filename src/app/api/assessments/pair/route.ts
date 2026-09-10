@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { requireSession } from '@/lib/auth/guards';
-import { domainResponse } from '@/lib/api/domainResponse';
+import { assessmentResponse as domainResponse } from '@/lib/api/assessmentResponse';
 import { parseJson } from '@/lib/api/validate';
 import { AssessmentPairMutationSchema } from '@/lib/dto/assessmentPair.dto';
 import { assessmentPairService } from '@/domain/services/assessmentPair.service';

@@ -13,6 +13,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { PrivacyRequest } from "@/models/PrivacyRequest";
 import { Pair } from "@/models/Pair";
 import { User } from "@/models/User";
+import { purgeAssessmentOwnedData, recordAssessmentRevocation } from '@/domain/services/assessmentRecovery.service';
 
 const requestProjection = {
   kind: 1,
@@ -463,6 +464,7 @@ const executeDeletion = async (input: {
       await database.collection("development_completions").deleteMany({ userId: input.ownerUserId }, { session });
       await database.collection('measurement_test_sessions').deleteMany({ ownerId: input.ownerUserId }, { session });
       await database.collection('assessment_runs').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await purgeAssessmentOwnedData(input.ownerUserId, session);
       await database.collection('assessment_direct').deleteMany({ ownerId: input.ownerUserId }, { session });
       await database.collection('assessment_operations').deleteMany({ ownerId: input.ownerUserId }, { session });
       await database.collection<{ _id: string }>('assessment_participants').deleteOne({ _id: input.ownerUserId }, { session });
@@ -552,6 +554,7 @@ export const accountDeletionService = {
     }
 
     try {
+      await recordAssessmentRevocation(input.ownerUserId, { deleted: true });
       const barrier = await accountWriteBarrierService.beginDeletion({
         userId: input.ownerUserId,
         sessionVersion: input.sessionVersion,

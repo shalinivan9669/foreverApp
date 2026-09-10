@@ -1,0 +1,763 @@
+{
+  "schemaVersion": "beta-client-coverage-v1",
+  "classification": "Executable assertion references; never a precomputed PASS",
+  "cases": [
+    {
+      "id": "BETA-001",
+      "tests": [
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "unchanged-tested-tree",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "complete-patch-applied-and-blobs-verified",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "actual alternate-index patch replay verifies new deleted renamed binary and CRLF-normalized source blobs without changing user index",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-002",
+      "tests": [
+        {
+          "file": "scripts/beta-delivery.selfcheck.mjs",
+          "assertion": "all 64 original requirements and reported history plus 126 beta requirements and gates remain immutable",
+          "layer": "IMMUTABLE_CONTRACT_AND_RETAINED_SEMANTICS"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "fresh INT definition exposes historical execution only as explicitly prior reported evidence",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-003",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-cross-tab-logout",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-same-origin-switch",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-history",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-late-fetch",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/assessment-ui.selfcheck.ts",
+          "assertion": "owner sandwich rejects cookie-only actor change during actual hook GET",
+          "layer": "ACTUAL_HOOK_ADAPTER"
+        },
+        {
+          "file": "scripts/assessment-ui.selfcheck.ts",
+          "assertion": "owner sandwich rejects cookie-only actor change during actual hook mutation response",
+          "layer": "ACTUAL_HOOK_ADAPTER"
+        },
+        {
+          "file": "scripts/beta-session.selfcheck.ts",
+          "assertion": "cancelled identity preflight cannot enter resource write callback",
+          "layer": "ACTUAL_CLIENT_MODULES_REACT_EVENTTARGET_ADAPTER"
+        },
+        {
+          "file": "scripts/assessment-ui.selfcheck.ts",
+          "assertion": "cancelled identity preflight cannot enter assessment write transport",
+          "layer": "ACTUAL_HOOK_ADAPTER"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root",
+      "evidenceLimitations": [
+        "The separately reported native persisted-bfcache attempt is not replaced by ordinary history evidence; pagehide clearing is also executed in the real-hook adapter."
+      ]
+    },
+    {
+      "id": "BETA-004",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-reduced-motion",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-structured-keyboard",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-005",
+      "tests": [
+        {
+          "file": "scripts/beta-delivery.selfcheck.mjs",
+          "assertion": "all 64 original requirements and reported history plus 126 beta requirements and gates remain immutable",
+          "layer": "IMMUTABLE_CONTRACT_AND_RETAINED_SEMANTICS"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "failed running collided or unattributed receipts cannot satisfy another script; structural passes require runner provenance",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "unchanged-tested-tree",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-006",
+      "tests": [
+        {
+          "file": "scripts/assessment-comparison.integration.ts",
+          "assertion": "INT-047",
+          "layer": "RETAINED_AUTHENTICATED_ROUTE_AND_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-007",
+      "tests": [
+        {
+          "file": "scripts/assessment-comparison.integration.ts",
+          "assertion": "INT-064",
+          "layer": "RETAINED_AUTHENTICATED_ROUTE_AND_MONGODB"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "withdraw and OFF stop new collection but preserve owner export and controls",
+          "layer": "MONGODB_REAL_OPERATOR_CHILD_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-008",
+      "tests": [
+        {
+          "file": "scripts/assessment.integration.ts",
+          "assertion": "INT-032",
+          "layer": "RETAINED_AUTHENTICATED_ROUTE_AND_MONGODB"
+        },
+        {
+          "file": "scripts/assessment-reference/run.mjs",
+          "assertion": "all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged",
+          "layer": "RETAINED_PURE_ENGINE"
+        },
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        },
+        {
+          "file": "scripts/assessment-ui.selfcheck.ts",
+          "assertion": "summary:assessment-ui",
+          "layer": "ACTUAL_HOOK_ADAPTER"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-032",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-product-navigation",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-034",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-decline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-draft-resume",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-037",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-conflict-limit",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-lost-response",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-offline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root",
+      "evidenceLimitations": [
+        "The revision conflict is a real concurrent server mutation; HTTP429 is an explicit browser transport fault injection, not a claim about production rate capacity."
+      ]
+    },
+    {
+      "id": "BETA-048",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-local-dates",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-time-error-focus",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-072",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-authored-agreement",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-089",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-product-navigation",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "bidirectional existing social block overrides issued grant and beta lane",
+          "layer": "REAL_HTTP_AND_MONGODB"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "one participant can stop without violation or acceptance for peer",
+          "layer": "REAL_HTTP_AND_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-091",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-decline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "explicit central scope applies saved forms; revoke changes epoch and rejects stale settings intent",
+          "layer": "MONGODB_REAL_OPERATOR_CHILD_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-092",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-private-traces",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "durable inbox reminder deduplicates concurrent workers and cancels own optout",
+          "layer": "REAL_HTTP_AND_MONGODB"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "old pending creates an aggregate-only HTTP alert with measured delivery",
+          "layer": "MONGODB_REAL_OPERATOR_CHILD_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-108",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-product-navigation",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "browser-feed-current",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "browser-feed-contact",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-authored-agreement",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-109",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-keyboard-option",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-structured-keyboard",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-time-error-focus",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-review-focus",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-110",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-native-zoom",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-pair-reflow",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-mobile",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-111",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-structured-keyboard",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-112",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-offline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-draft-resume",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-lost-response",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-conflict-limit",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-same-origin-switch",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-113",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-current-conditional",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-authored-agreement",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-114",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-private-report",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-shared-disagreement",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-115",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [
+        {
+          "status": "NOT_RUN",
+          "layer": "NATIVE_A11Y",
+          "description": "Actual native screen reader core task, error, review and data-control workflow was not executed; DOM assertions do not replace it."
+        }
+      ],
+      "owner": "root",
+      "evidenceLimitations": [
+        "Native screen reader speech/task/error/review was not executed; DOM and Chromium media are not substituted."
+      ]
+    },
+    {
+      "id": "BETA-116",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "No authorized real Discord OAuth/embedded target and scope-specific platform review."
+        }
+      ]
+    },
+    {
+      "id": "BETA-117",
+      "tests": [
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "all beta metadata declares author policy method purpose and bounded observation frame",
+          "layer": "PURE_AUTHOR_METADATA"
+        },
+        {
+          "file": "scripts/beta-content-profile-ui.selfcheck.ts",
+          "assertion": "summary:beta-content-profile-ui",
+          "layer": "ACTUAL_NORMALIZER_AND_REACT_RENDER"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root",
+      "evidenceLimitations": [
+        "Manual source/component copy review is recorded in docs/BETA_COPY_REVIEW.md and docs/BETA_SOURCES.md; independent content/privacy approval and psychometric calibration are not asserted."
+      ]
+    },
+    {
+      "id": "BETA-118",
+      "tests": [
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "completed teardown cancels long timer and unfinished teardown returns a bounded timeout",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "browser-cleanup",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "browser-feed-cleanup",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-119",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/run.mjs",
+          "assertion": "all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged",
+          "layer": "RETAINED_PURE_ENGINE"
+        },
+        {
+          "file": "scripts/beta-delivery.selfcheck.mjs",
+          "assertion": "retained 86 and 97 original reference assertions have unchanged normalized bytes",
+          "layer": "IMMUTABLE_CONTRACT_AND_RETAINED_SEMANTICS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-120",
+      "tests": [
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "types",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "lint",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "agents",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "build",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "unchanged-tested-tree",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-delivery.selfcheck.mjs",
+          "assertion": "agent boundary allowlist has no additions or concealed exclusions",
+          "layer": "IMMUTABLE_CONTRACT_AND_RETAINED_SEMANTICS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-121",
+      "tests": [
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "failed running collided or unattributed receipts cannot satisfy another script; structural passes require runner provenance",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "unchanged-tested-tree",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "browser-artifact-identity",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "browser-feed-artifact-identity",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "all twelve release gates preserve template and separate current code evidence native NOT_RUN and absent external approvals",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-122",
+      "tests": [
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "failed running collided or unattributed receipts cannot satisfy another script; structural passes require runner provenance",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        },
+        {
+          "file": "scripts/beta-delivery.selfcheck.mjs",
+          "assertion": "all 64 original requirements and reported history plus 126 beta requirements and gates remain immutable",
+          "layer": "IMMUTABLE_CONTRACT_AND_RETAINED_SEMANTICS"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "readiness requires exact 126 and 64 coverage plus every critical execution; synthetic passes never open environment",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "release gates reject missing failed foreign empty or weakened evidence and never let native gap mask failed browser code",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-125",
+      "tests": [
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "complete-patch-applied-and-blobs-verified",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.mjs",
+          "assertion": "unchanged-tested-tree",
+          "layer": "ACTUAL_RUNNER_STRUCTURAL_VERIFICATION"
+        },
+        {
+          "file": "scripts/beta-check.integrity.selfcheck.mjs",
+          "assertion": "actual alternate-index patch replay verifies new deleted renamed binary and CRLF-normalized source blobs without changing user index",
+          "layer": "ADVERSARIAL_HARNESS_INTEGRITY"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-126",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "Actual target operator authorization and signed content privacy platform operational gates are absent; no real opening was authorized."
+        }
+      ]
+    },
+    {
+      "id": "BETA-101",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "expired cursor grant and direct period are rejected while their MongoDB documents still exist",
+          "layer": "REAL_HTTP_AND_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    },
+    {
+      "id": "BETA-018",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-complete-task",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root"
+    }
+  ]
+}

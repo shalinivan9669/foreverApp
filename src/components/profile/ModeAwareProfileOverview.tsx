@@ -150,6 +150,7 @@ export default function ModeAwareProfileOverview({ summary }: ProfileSummaryProp
   return (
     <div className="app-page-stack">
       <ProfileIdentity summary={summary} />
+      <Link className="app-btn-primary inline-flex" href="/assessments">Навыки и анкеты</Link>
       {summary.assessments && <AssessmentProfile profile={summary.assessments} />}
       <FactorCards summary={summary} />
     </div>

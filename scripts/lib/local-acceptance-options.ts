@@ -1,6 +1,6 @@
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
-export type LocalAcceptanceScenario = 'existing-partner' | 'solo' | 'onboarding' | 'first-entry' | 'matching' | 'matching-connection' | 'notifications' | 'assessment' | 'assessment-ready';
+export type LocalAcceptanceScenario = 'existing-partner' | 'solo' | 'onboarding' | 'first-entry' | 'matching' | 'matching-connection' | 'notifications' | 'assessment' | 'assessment-ready' | 'beta-ready' | 'beta-history' | 'beta-feed';
 export type LocalAcceptanceHostPrefix = 'vmeste' | 'vmeste-workspace' | 'vmeste-matching';
 export const parseLocalAcceptanceHostPrefix = (value: string): LocalAcceptanceHostPrefix => {
   if (value !== 'vmeste' && value !== 'vmeste-workspace' && value !== 'vmeste-matching') throw new Error('LOCAL_ACCEPTANCE_INVALID_HOST_PREFIX');
@@ -9,7 +9,7 @@ export const parseLocalAcceptanceHostPrefix = (value: string): LocalAcceptanceHo
 export const localAcceptanceHostname = (actor: 'a' | 'b', prefix: LocalAcceptanceHostPrefix) => `${prefix}-${actor}.localhost`;
 export type LocalAcceptanceOptions = {
   mode: 'integration' | 'browser';
-  suite: 'product' | 'factors' | 'assessment';
+  suite: 'product' | 'factors' | 'assessment' | 'beta' | 'beta-pair' | 'beta-sources' | 'beta-feed' | 'beta-load';
   mongod: string;
   mongoPort: number;
   appPort: number;
@@ -38,10 +38,10 @@ export const parseLocalAcceptanceOptions = (
   const mode = values.get('--mode') ?? 'integration';
   if (mode !== 'integration' && mode !== 'browser') throw new Error('LOCAL_ACCEPTANCE_INVALID_MODE');
   const suite = values.get('--suite') ?? 'product';
-  if (suite !== 'product' && suite !== 'factors' && suite !== 'assessment') throw new Error('LOCAL_ACCEPTANCE_INVALID_SUITE');
+  if (suite !== 'product' && suite !== 'factors' && suite !== 'assessment' && suite !== 'beta' && suite !== 'beta-pair' && suite !== 'beta-sources' && suite !== 'beta-feed' && suite !== 'beta-load') throw new Error('LOCAL_ACCEPTANCE_INVALID_SUITE');
   if (values.has('--suite') && mode !== 'integration') throw new Error('LOCAL_ACCEPTANCE_SUITE_REQUIRES_INTEGRATION');
   const scenario = values.get('--scenario') ?? 'existing-partner';
-  if (scenario !== 'existing-partner' && scenario !== 'solo' && scenario !== 'onboarding' && scenario !== 'first-entry' && scenario !== 'matching' && scenario !== 'matching-connection' && scenario !== 'notifications' && scenario !== 'assessment' && scenario !== 'assessment-ready') throw new Error('LOCAL_ACCEPTANCE_INVALID_SCENARIO');
+  if (scenario !== 'existing-partner' && scenario !== 'solo' && scenario !== 'onboarding' && scenario !== 'first-entry' && scenario !== 'matching' && scenario !== 'matching-connection' && scenario !== 'notifications' && scenario !== 'assessment' && scenario !== 'assessment-ready' && scenario !== 'beta-ready' && scenario !== 'beta-history' && scenario !== 'beta-feed') throw new Error('LOCAL_ACCEPTANCE_INVALID_SCENARIO');
   if (values.has('--scenario') && mode !== 'browser') throw new Error('LOCAL_ACCEPTANCE_SCENARIO_REQUIRES_BROWSER');
   const hostPrefix = parseLocalAcceptanceHostPrefix(values.get('--host-prefix') ?? 'vmeste');
   if (values.has('--host-prefix') && mode !== 'browser') throw new Error('LOCAL_ACCEPTANCE_HOST_PREFIX_REQUIRES_BROWSER');
@@ -76,8 +76,8 @@ export const localAcceptanceEnvironment = (environment: Readonly<Record<string, 
 export const localAcceptanceAssessmentEnvironment = (
   options: Pick<LocalAcceptanceOptions, 'mode' | 'suite' | 'scenario'>,
 ): Record<string, string> => (
-  (options.mode === 'integration' && options.suite === 'assessment')
-  || (options.mode === 'browser' && (options.scenario === 'assessment' || options.scenario === 'assessment-ready'))
+  (options.mode === 'integration' && (options.suite === 'assessment' || options.suite.startsWith('beta')))
+  || (options.mode === 'browser' && (options.scenario === 'assessment' || options.scenario === 'assessment-ready' || options.scenario.startsWith('beta-')))
     ? { ASSESSMENT_SYNTHETIC_ENABLED: 'true' }
     : {}
 );
@@ -85,7 +85,7 @@ export const localAcceptanceAssessmentEnvironment = (
 export const localAcceptanceStartPath = (scenario: LocalAcceptanceScenario): string => (
   scenario === 'first-entry' ? '/entry'
     : scenario === 'onboarding' ? '/mvp-onboarding'
-      : scenario === 'assessment' || scenario === 'assessment-ready' ? '/assessments/dom-s07' : '/main-menu'
+      : scenario.startsWith('beta-') ? '/assessments' : scenario === 'assessment' || scenario === 'assessment-ready' ? '/assessments/dom-s07' : '/main-menu'
 );
 
 export const assertOwnedLocalAcceptanceDirectory = (directory: string, parent: string): void => {

@@ -1,11 +1,13 @@
 import mongoose, { Schema } from 'mongoose';
 import type { AssessmentDirectAnswers } from '@/domain/assessment/comparison';
 import type { AssessmentPeriod } from '@/domain/assessment/contracts';
+import type { BetaDirectPlan } from '@/lib/dto/assessmentBeta.dto';
 
 export type AssessmentDirectType = {
   _id: string; ownerId: string; revision: number; permissionRevision: number;
   deletionGeneration: number; useForComparison: boolean; pairUse: boolean; status: 'ACTIVE' | 'DELETED';
   period: AssessmentPeriod; answers: AssessmentDirectAnswers | null;
+  betaPlan?: BetaDirectPlan | null; betaDiscoveryOptIn?: boolean;
   createdAt: Date; updatedAt: Date;
 };
 // The service validates the complete strict answer schema; Mongo receives only typed own data.
@@ -16,6 +18,7 @@ const schema = new Schema<AssessmentDirectType>({
   pairUse: { type: Boolean, default: false },
   status: { type: String, enum: ['ACTIVE', 'DELETED'], default: 'ACTIVE' },
   period: { type: Schema.Types.Mixed, required: true }, answers: { type: Schema.Types.Mixed, default: null },
+  betaPlan: { type: Schema.Types.Mixed, default: undefined }, betaDiscoveryOptIn: { type: Boolean, default: false },
 }, { collection: 'assessment_direct', timestamps: true, versionKey: false });
 // One canonical owner document relies on built-in _id uniqueness even with autoIndex disabled.
 export const AssessmentDirect = (mongoose.models.AssessmentDirect as mongoose.Model<AssessmentDirectType>) || mongoose.model<AssessmentDirectType>('AssessmentDirect', schema);

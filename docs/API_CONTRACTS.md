@@ -1,5 +1,9 @@
 # API Contracts
 
+## Private beta continuation — 2026-09-10
+
+Дополнительные owner/settings/portfolio/direct/discovery routes, расширения run и pair DTO описаны в [API_BETA_CONTRACTS.md](API_BETA_CONTRACTS.md). Предыдущие I01–I04 routes сохранены. `OwnerAssessmentProfileDTO.unavailableSkills` дополнительно перечисляет исходные неопубликованные определения как UNKNOWN/UNAVAILABLE_RUBRIC. Client imports используют явную DTO facade; HTTP никогда не возвращает Mongoose documents.
+
 ## Synthetic DOM.S07 assessment — 2026-09-09
 
 `GET|POST /api/assessments/dom-s07` uses the ordinary authenticated, same-origin, bounded JSON boundary. It is disabled by default and additionally restricted to registered accounts on an isolated loopback test database. It accepts only strict operations `start`, `present`, `answer`, `hint`, `finalize`, `revise`, `permission`, `matching-permission`, `delete`, `retry`. Mutations carry an idempotency key and expected source revision (except start/retry). Answer payloads contain presentation ID and published option, structured own facts or an explicit missing reason. Identity, root, method, phase, context and period are server-owned. `pairUse` and `matchingUse` are separate permissions, initially false.

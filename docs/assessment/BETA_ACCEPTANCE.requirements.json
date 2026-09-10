@@ -1,0 +1,2801 @@
+{
+  "schemaVersion": "private-beta-acceptance-2",
+  "status": "NEW_REQUIREMENTS_NOT_RUN",
+  "count": 126,
+  "originalIntRequirementsRemainRequired": true,
+  "reportedOriginalAcceptanceIsNotRerun": true,
+  "cases": [
+    {
+      "id": "BETA-001",
+      "workstream": "B01",
+      "layer": "DOC",
+      "title": "Проверенное дерево",
+      "given": "В checkout есть незакоммиченная вертикаль и новые файлы.",
+      "expected": "Manifest покрывает относящиеся к задаче tracked/untracked файлы; оригиналы сохранены; secrets исключены; отчёт связан с точной идентичностью дерева.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-002",
+      "workstream": "B01",
+      "layer": "DOC",
+      "title": "Исходные требования",
+      "given": "Прислан исходный и reported реестр64 INT.",
+      "expected": "ID/stage/layer/title/given/expected сохранены; прежние статусы отдельно от нового исполнения; никакой подмены условий.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-003",
+      "workstream": "B01",
+      "layer": "BROWSER",
+      "title": "Один origin и два аккаунта",
+      "given": "A видит отчёт, logout, B login в том же origin/context; поздний ответ A.",
+      "expected": "Ни flash, ни cache/history, ни незавершённый ответ A не появляются у B; старый submit отклонён.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-004",
+      "workstream": "B01",
+      "layer": "BROWSER",
+      "title": "Media reduced motion",
+      "given": "Реальная страница получает reduce и no-preference через browser API.",
+      "expected": "Проверено фактическое поведение переходов/движения; метод не меняется на ASSISTED; это отдельно от native screen reader.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-005",
+      "workstream": "B01",
+      "layer": "DOC",
+      "title": "Несогласованные записи",
+      "given": "INT-063 содержит stale remainingBrowserChecks; 26 и22 privacy checks.",
+      "expected": "По действительным run artifacts определён финальный результат; история не затёрта, непроверенное не объявлено выполненным.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-006",
+      "workstream": "B01",
+      "layer": "HTTP_DB",
+      "title": "Неизвестный resolver",
+      "given": "Новый source prefix входит в доступную materialization-цепочку.",
+      "expected": "Без зарегистрированного policy resolver источник не получает разрешение и не обходят legacy guards.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-007",
+      "workstream": "B01",
+      "layer": "HTTP_DB",
+      "title": "OFF и data controls",
+      "given": "Есть данные; новая feature выключена.",
+      "expected": "Новый сбор/обычная выдача закрыты; owner export/delete/revoke доступны через обычный auth; источник не воскресает.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-008",
+      "workstream": "B01",
+      "layer": "REGRESSION",
+      "title": "Прежняя вертикаль",
+      "given": "Прогон существующих I01–I04 на финальном adapted runtime.",
+      "expected": "Установленные функции не потеряны; реальные багфиксы снабжены reproducer; pure и HTTP/DB evidence не смешаны.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-031",
+        "INT-047",
+        "INT-049",
+        "INT-063",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-009",
+      "workstream": "B02",
+      "layer": "HTTP_DB",
+      "title": "Две формы одного навыка",
+      "given": "Один пользователь создаёт runs двух DOM.S07 publications.",
+      "expected": "Разные immutable pinned publication identities; receipts нельзя обменять; текущая v1 не переписана.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-010",
+      "workstream": "B02",
+      "layer": "SCHEMA",
+      "title": "Регистрация разных навыков",
+      "given": "DOM.S07, COM.S02, COM.S04 подключены одним registry.",
+      "expected": "Нет трёх копий сервисов auth/persistence; каждый skill с собственными facts/rubric/контентом.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-011",
+      "workstream": "B02",
+      "layer": "SCHEMA",
+      "title": "Замороженная публикация",
+      "given": "Во время draft появляется новая content/rubric version.",
+      "expected": "Run продолжает использовать выданную версию либо получает явный остановленный/миграционный путь; тихой подмены нет.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-012",
+      "workstream": "B02",
+      "layer": "SCHEMA",
+      "title": "Ссылки и AST",
+      "given": "Дубликат ID, неизвестный key, пустое ALL, цикл, превышенный depth.",
+      "expected": "Публикация отклонена до выдачи; случай не нормализован в благоприятный U без ошибки конфигурации.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-013",
+      "workstream": "B02",
+      "layer": "SCHEMA",
+      "title": "Новые response kinds",
+      "given": "MULTI/ORDERED/STRUCTURED получены с лишним полем, несуществующим блоком, NaN/невалидным числом.",
+      "expected": "Строгий parser ограничивает форму; нет casts, превращающих недопустимый JSON в доверенный response.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-014",
+      "workstream": "B02",
+      "layer": "UNIT",
+      "title": "Знание и выполнение",
+      "given": "Готовый вариант плана и самостоятельная структурированная сборка.",
+      "expected": "KNOWLEDGE и TASK различаются; оба не реальное A; только фактически проверенные критерии получают T/F.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-015",
+      "workstream": "B02",
+      "layer": "UNIT",
+      "title": "Непроверяемая альтернатива",
+      "given": "В сценарии нет выполнимого общего варианта или подтверждения второго.",
+      "expected": "Правильное признание отсутствия варианта не L0; нет выдуманного alternativeFeasible/returnTimeAgreed.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-016",
+      "workstream": "B02",
+      "layer": "CONTENT",
+      "title": "Содержательные границы",
+      "given": "Для каждой включённой формы есть альтернативный доступный способ, no-experience, unknown, unsafe exit.",
+      "expected": "Fixtures показывают корректные ограниченные результаты; моральные/гендерные/ресурсные ярлыки не добавлены.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-017",
+      "workstream": "B02",
+      "layer": "HTTP_DB",
+      "title": "51 отсутствующая рубрика",
+      "given": "Запрошен один из остальных исходных54 навыков.",
+      "expected": "Смысл определения сохранён; UNAVAILABLE_RUBRIC/UNKNOWN; нет среднего по домену или клонированных уровней.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-018",
+      "workstream": "B02",
+      "layer": "BROWSER",
+      "title": "Реальные три темы",
+      "given": "Участник открывает каждую из3 тем обычной навигацией.",
+      "expected": "Текст, input, save, review, результат и следующий шаг доступны; JSON blueprint без renderer не считается публикацией.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-003",
+        "INT-004",
+        "INT-006",
+        "INT-011"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-019",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "K не заменяет A",
+      "given": "Сохранён A=1 и негативный source; новый K=3 финализирован.",
+      "expected": "K обновлён; A/negative не исчезли, не повысились, сохранили период и разрешения.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-020",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "D не заменяет A",
+      "given": "Новый TASK L3 у пользователя без SELF_REPORT.",
+      "expected": "D есть, A UNKNOWN; applied threshold не создан.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-021",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Два finalize разных runs",
+      "given": "K и D завершаются конкурентно для одного skill.",
+      "expected": "SourceSet revision/CAS предотвращают потерю компонента; повторная materialization отвечает всему актуальному набору.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-022",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Correction одного lineage",
+      "given": "Поздняя correction меняет T на MISSING в одном событии.",
+      "expected": "Текущий критерий пересчитан; прежнее T не остаётся ради полноты; новый root не начислен.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-023",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Повтор между публикациями",
+      "given": "Один известный эпизод описан в двух forms с общей lineage.",
+      "expected": "Один root в допустимом пуле; N/minFamilies не увеличены от дубля.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-024",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Новый период unknown",
+      "given": "Новая завершённая волна не содержит оценённых эпизодов.",
+      "expected": "Current-window UNKNOWN; прежний результат только с прошлой датой, не refresh и не0.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-025",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Незавершённый новый run",
+      "given": "Followup draft начат при существующем текущем результате.",
+      "expected": "Допустимый completed source не потерян; новая неизвестная волна не создаёт fake update.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-026",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Контекст прежней пары",
+      "given": "Тот же владелец состоит теперь в другом Pair.",
+      "expected": "Старый pair-scoped A/отчёт не используется как текущий второй пары без явного допустимого контракта.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-027",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Несовместимые versions",
+      "given": "Источники имеют разные rubrics/period scopes.",
+      "expected": "Раздельные snapshots или INCOMPARABLE; не pooling по одинаковому названию.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-028",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Per-purpose composition",
+      "given": "Owner источники включают закрытый для Matching контрпример.",
+      "expected": "Matching собирается из собственного допустимого input set; owner aggregate не фильтруется постфактум.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-029",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Удаление и fallback",
+      "given": "Удалён текущий подходящий источник; есть старый restricted/legacy.",
+      "expected": "Нет автоматического использования запрещённого fallback; зависимые outputs отменены/пересчитаны.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-030",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Exposure между формами",
+      "given": "В первой публикации выдан связанный пример, затем создана вторая.",
+      "expected": "Источник второй сохраняет релевантное знакомство; новый runId не гарантирует naive baseline.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-031",
+      "workstream": "B03",
+      "layer": "HTTP_DB",
+      "title": "Удалённая exposure history",
+      "given": "Разрешённая история удалена по policy.",
+      "expected": "Нет скрытой вечной payload истории; происхождение нового ответа UNKNOWN, а не утверждение что образца не было.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-032",
+      "workstream": "B03",
+      "layer": "BROWSER",
+      "title": "DTO normalizer всех компонентов",
+      "given": "Настоящий API возвращает K/D/A/negative/partial/unknown.",
+      "expected": "Поля доходят до owner UI без потерь; закрытый provenance не уходит другому.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-008",
+        "INT-009",
+        "INT-023",
+        "INT-027",
+        "INT-034",
+        "INT-060"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-033",
+      "workstream": "B04",
+      "layer": "BROWSER",
+      "title": "Solo без опыта",
+      "given": "Пользователь выбирает Solo, NO_EXPERIENCE в A.",
+      "expected": "Завершение доступно, K/D доступны отдельно, профиль не0 и нет принудительного приглашения партнёра.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-034",
+      "workstream": "B04",
+      "layer": "BROWSER",
+      "title": "Skip и пауза",
+      "given": "Пользователь пропускает уточнение, останавливается и возвращается.",
+      "expected": "Нет цикла повторного давления; восстановлены подтверждённые ответы, publication identity и корректное состояние.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-035",
+      "workstream": "B04",
+      "layer": "UNIT",
+      "title": "Planner решения",
+      "given": "Разные ответы могут/не могут изменить текущий критерий/достаточность.",
+      "expected": "Выбор обоснован deterministic reasonCode; нерелевантные необязательные вопросы не навязываются.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-036",
+      "workstream": "B04",
+      "layer": "HTTP_DB",
+      "title": "Исправление родителя",
+      "given": "HAS_EPISODE→NO_EXPERIENCE→HAS_EPISODE.",
+      "expected": "Дочерние ответы и receipts инвалидированы; старое child значение не возвращается автоматически.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-037",
+      "workstream": "B04",
+      "layer": "BROWSER",
+      "title": "Network 409 429",
+      "given": "Save получает конфликт/лимит/потерю сети.",
+      "expected": "Ложного saved нет; введённое остаётся пока доступ разрешён; понятны retry/reload без silent overwrite.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-038",
+      "workstream": "B04",
+      "layer": "HTTP_DB",
+      "title": "Практика отдельно",
+      "given": "Пользователь начал/закончил practice или признал полезной.",
+      "expected": "Только practice events; actual skills и Matching не повысились.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-039",
+      "workstream": "B04",
+      "layer": "HTTP_DB",
+      "title": "Новые подходящие наблюдения",
+      "given": "После практики завершён отдельный подходящий SELF_REPORT.",
+      "expected": "Обычный source-driven пересчёт; old conditional certificate stale, не direct hypothetical write.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-040",
+      "workstream": "B04",
+      "layer": "UNIT",
+      "title": "Заметка и грамматика",
+      "given": "Меняется только неоцениваемый текст/подача при semantic IDs.",
+      "expected": "Никакого LLM/regex scoring; вычислительный результат по IDs тот же, без заявления психометрической эквивалентности.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-005",
+        "INT-012",
+        "INT-022",
+        "INT-025",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-041",
+      "workstream": "B05",
+      "layer": "HTTP_DB",
+      "title": "Предложение автором",
+      "given": "Клиент меняет собственный OFFER и пытается прислать willingness второго.",
+      "expected": "Собственный input связан сервером с actor; чужой отвергнут; skill не создаёт offer.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-042",
+      "workstream": "B05",
+      "layer": "UNIT",
+      "title": "Empty и unknown sets",
+      "given": "Явно исключены все каналы; отдельно поле пропущено.",
+      "expected": "Разные результаты: известное отсутствие пересечения против UNKNOWN.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-043",
+      "workstream": "B05",
+      "layer": "HTTP_DB",
+      "title": "Живые ресурсные числа",
+      "given": "Два пользователя задают разные budgets вместо180/300/90.",
+      "expected": "Решение действительно зависит от собственных входов, периода и единиц; fixture constants не служат runtime фактами.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-044",
+      "workstream": "B05",
+      "layer": "UNIT",
+      "title": "Знаменатель и диапазон",
+      "given": "Неизвестна применимость либо числитель/знаменатель даны диапазоном.",
+      "expected": "Нет придуманной точной доли; supported interval schema или явный отказ неподдержанного формата.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-045",
+      "workstream": "B05",
+      "layer": "UNIT",
+      "title": "Временные границы",
+      "given": "Отрицательная длительность, несовместимые zones, ambiguous DST, invalid dates.",
+      "expected": "Валидация/явное уточнение; не скрытый сдвиг времени или выдуманное общее окно.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-046",
+      "workstream": "B05",
+      "layer": "UNIT",
+      "title": "Бюджет и календарь",
+      "given": "Месячного budget хватает, но нет подходящего конкретного окна.",
+      "expected": "Ресурсный и календарный результаты раздельны; общего plan не выдумано.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-047",
+      "workstream": "B05",
+      "layer": "UNIT",
+      "title": "Двойной учёт нагрузки",
+      "given": "Residual budget уже исключает обычную задачу.",
+      "expected": "Задача не вычитается второй раз; модель явно различает total/residual и lineage затрат.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-048",
+      "workstream": "B05",
+      "layer": "HTTP_DB",
+      "title": "Повторяющиеся задачи",
+      "given": "Один occurrence переходит через границу периода/новую версию.",
+      "expected": "Bounded recurrence; стабильные occurrence IDs; нет пересчёта прошлого будущей policy.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-035",
+        "INT-040",
+        "INT-058"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-049",
+      "workstream": "B06",
+      "layer": "UNIT",
+      "title": "Непустое possibleLevels",
+      "given": "{2,3}, {1,2}, ∅ при threshold2.",
+      "expected": "T,U,INCONSISTENT/недопуск соответственно; empty every не даёт T.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-050",
+      "workstream": "B06",
+      "layer": "HTTP_DB",
+      "title": "Два направления",
+      "given": "A←B поддержано, B←A нет.",
+      "expected": "Оба результата видны отдельно; общий resource status не маскирует асимметрию.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-051",
+      "workstream": "B06",
+      "layer": "HTTP_DB",
+      "title": "Один барьер",
+      "given": "Подходящие direct условия и известный недостаток applied criterion.",
+      "expected": "Current препятствие отдельно, conditional witness с assumptions; actual не меняется.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-052",
+      "workstream": "B06",
+      "layer": "HTTP_DB",
+      "title": "Unknown не deficit",
+      "given": "Нужный applied criterion не известен.",
+      "expected": "CLARIFY, не установленная проблема и не обязательное обучение.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-053",
+      "workstream": "B06",
+      "layer": "HTTP_DB",
+      "title": "Два необходимых изменения",
+      "given": "Без навыка или без согласуемого окна отдельно нет решения.",
+      "expected": "Найденный совместный набор проверен целиком; одиночный action не объявлен достаточным.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-054",
+      "workstream": "B06",
+      "layer": "UNIT",
+      "title": "Глобальная выполнимость",
+      "given": "Каждое локальное совпадение есть в разных несовместимых планах.",
+      "expected": "Не выдан общий supported plan; одно z требуется всем ограничениям.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-055",
+      "workstream": "B06",
+      "layer": "UNIT",
+      "title": "Кванторы и пустые worlds",
+      "given": "Для каждого world свой plan; либо Ω противоречиво пусто.",
+      "expected": "Не ROBUST одного плана; inconsistent input не vacuous success.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-056",
+      "workstream": "B06",
+      "layer": "HTTP_DB",
+      "title": "Protected effects",
+      "given": "Client пытается поменять goal/boundary/refusal/history/safety или budget B.",
+      "expected": "Запрос отвергнут; accepted action IDs не обходят protected-key policy.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-057",
+      "workstream": "B06",
+      "layer": "UNIT",
+      "title": "Отказ и U готовность",
+      "given": "F/U на участие в изменении.",
+      "expected": "F исключает action; U может оставаться только unchosen assumption, не accepted agreement.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-058",
+      "workstream": "B06",
+      "layer": "UNIT",
+      "title": "Поиск ограничен",
+      "given": "Проверки остановлены по времени/checks/actionSets.",
+      "expected": "Completeness явно ограничена; отсутствие найденного не общая невозможность; найденный witness не объявлен оптимальным без доказательства.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-059",
+      "workstream": "B06",
+      "layer": "UNIT",
+      "title": "Минимальность и one-domain",
+      "given": "Есть избыточный набор и его достаточный subset; action затрагивает2domains.",
+      "expected": "Не выдаётся избыточный как минимальный; domain определяется canonical keys, не названием.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-060",
+      "workstream": "B06",
+      "layer": "HTTP_DB",
+      "title": "Полный envelope",
+      "given": "Меняется mode/purpose/audience/один sourceSet/consent/gen/pair.",
+      "expected": "Старый current/scenario не используется ни на read, ни на persist; BP01 не возвращается.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-033",
+        "INT-036",
+        "INT-037",
+        "INT-038",
+        "INT-039",
+        "INT-041",
+        "INT-042",
+        "INT-043",
+        "INT-044",
+        "INT-046"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-061",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Настоящая выдача",
+      "given": "В synthetic replica set несколько доступных участников разных условий.",
+      "expected": "Кандидаты получены из живых профилей/допусков, не hardcoded fixtures output; UI читает настоящий feed route.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-062",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Cohort и opt-in",
+      "given": "Участник вне beta или discovery opt-in отозван.",
+      "expected": "Нет нового раскрытия/обработки в beta feed; membership не равно consent.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-063",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Двусторонняя блокировка",
+      "given": "Block в любом направлении появился после получения страницы.",
+      "expected": "Новый read/action проверяет block; высокий skill и cached grant его не отменяют.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-064",
+      "workstream": "B07",
+      "layer": "UNIT",
+      "title": "Lanes",
+      "given": "Есть current supported, conditional, unknown, visible difference.",
+      "expected": "Потенциал не прибавлен к current; disabled candidate не превращён в видимый lane.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-065",
+      "workstream": "B07",
+      "layer": "UNIT",
+      "title": "Частичный порядок",
+      "given": "Два несопоставимых directional vectors.",
+      "expected": "Нет неправильного total comparator; tiers/нейтральная очередь воспроизводимы.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-066",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Пагинация",
+      "given": "Несколько страниц, refresh, изменённый source и stale cursor.",
+      "expected": "Нет недопустимых повторов и старого доступа; bounded результат, честный refresh; token связан с viewer.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-067",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Подмена cursor/peer",
+      "given": "Скопирован token другого actor или передан произвольный peerId.",
+      "expected": "Нейтральный отказ без чужого snapshot/candidate existence сверх разрешённого.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-068",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Noninterference серии",
+      "given": "Меняется только запрещённый peer input, серия собственных допустимых queries.",
+      "expected": "Внешнее psychological content/count/lane/scenario не использует закрытый input; отсутствие raw keys недостаточно.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-069",
+      "workstream": "B07",
+      "layer": "HTTP_DB",
+      "title": "Детали после удаления",
+      "given": "Кандидат удалён/вышел/отозвал permission после выдачи списка.",
+      "expected": "Detail и request contact не получают прежние данные; queued effects отменены.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-070",
+      "workstream": "B07",
+      "layer": "BROWSER",
+      "title": "Пустая выдача",
+      "given": "Никто не допущен/нет достаточных разрешённых данных.",
+      "expected": "Честный empty state и собственные действия, без фиктивных аккаунтов, ложного matching score и принуждения раскрыться.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-071",
+      "workstream": "B07",
+      "layer": "REGRESSION",
+      "title": "Legacy с beta OFF",
+      "given": "Прежние пользователи и старые HARD_CONSTRAINT.",
+      "expected": "Новая beta policy не меняет их режим, feed, желания и согласия.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-048",
+        "INT-049",
+        "INT-050"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-072",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Две подписи",
+      "given": "A подтверждает v1, B подтверждает v1 своим входом.",
+      "expected": "ACTIVE только после двух реальных подтверждений; no skill reward.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-073",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Материальная версия",
+      "given": "После ACTIVE меняется время/объём/состав работы.",
+      "expected": "v2 требует новых подтверждений; история v1 и её occurrences не переписаны.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-074",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Приватная заметка",
+      "given": "Меняется только owner-only note.",
+      "expected": "Не подмена общего договора и не утечка; semantic contentHash не меняется без изменения общего содержания.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-075",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Срок без отчёта",
+      "given": "Наступил occurrence due; пользователь ничего не сообщил.",
+      "expected": "UNKNOWN/PENDING observation, не автоматическое нарушение и не негативный уровень.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-076",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Пересмотр до срока",
+      "given": "Своевременно согласован новый вариант.",
+      "expected": "Операция revision, не нарушение прежнего срока; source history сохранена по policy.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-077",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Два мнения",
+      "given": "A GOOD, B NEEDS_CHANGE, один отчёт закрыт.",
+      "expected": "Два отдельных авторских records; закрытое направление не видно через общий summary.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-078",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Followup history",
+      "given": "Несколько reports windows, correction и overlap.",
+      "expected": "Сопоставимость/хронология проверены; correction не рост; BP02 не возвращается.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-079",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Reminders",
+      "given": "Повтор trigger, quiet hours, отзыв после queue до send.",
+      "expected": "Один допустимый inbox reminder; нет приватной темы; отозванный не доставлен; external transport не включён без своего opt-in.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-080",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Прекращение пары",
+      "given": "Pair ended при queued recurrence/job.",
+      "expected": "Совместные операции прекращены, новые не материализуются; личные data controls сохраняются.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-081",
+      "workstream": "B08",
+      "layer": "HTTP_DB",
+      "title": "Без принудительного долга",
+      "given": "Отказ от контакта/раскрытия/интимного действия.",
+      "expected": "Нет violation score, обязанности уступить, требования прощения и автоматического принятия за второго.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-051",
+        "INT-052",
+        "INT-053",
+        "INT-054",
+        "INT-055",
+        "INT-056",
+        "INT-057",
+        "INT-058",
+        "INT-059"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-082",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Real beta admission",
+      "given": "Нормальная session без invitation либо поддельный isBeta/header.",
+      "expected": "Новый feature доступен только server-admitted subject в разрешённой среде; spoofed trust отклонён.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-083",
+      "workstream": "B09",
+      "layer": "CONFIG",
+      "title": "Нет impersonation в beta",
+      "given": "PRIVATE_BETA build/config с test route/fixture login.",
+      "expected": "Startup/preflight fail closed; synthetic users и обходы не доступны реальному режиму.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-084",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Назначения раздельны",
+      "given": "Есть owner processing consent, но нет matching/research/sharing.",
+      "expected": "Ни одно дополнительное назначение не разрешено; изменение draft terms не расширяет ранее выданные права.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-085",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Вышел из beta",
+      "given": "Membership revoked; actor запросил export/delete/revoke.",
+      "expected": "Контроль данных доступен через owner auth без повторного enrollment; новый сбор закрыт.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-086",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Настоящий account delete",
+      "given": "В аккаунте Run, sources, reports, feed grants, jobs и новый profile section.",
+      "expected": "Фактический общий delete flow охватывает новые сущности и downstream; не только отдельный Run delete.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-087",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Negative end-to-end",
+      "given": "Реальные ответы добровольной ветки удовлетворяют/исключают NEG.AGR.01.",
+      "expected": "Owner component рассчитан из persistence, имеет источник/знаменатель; K/D не компенсируют; чужой профиль не переписан.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-088",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Неизвестный denominator",
+      "given": "Есть одно reported occurrence, полнота возможностей неизвестна.",
+      "expected": "Occurrence сохранён по разрешённому назначению; exact negative rate=null; нет ложного0%.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-089",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Защищённый маршрут",
+      "given": "Явный приватный запрос безопасного выхода/действующий block.",
+      "expected": "Не нужна завершённая анкета; нет совместной провокационной практики или раскрытия причины другому.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-090",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Минимальный support",
+      "given": "Пользователь отправляет feedback без согласия приложить результат.",
+      "expected": "Ticket не содержит ответов/certificate; support имеет только необходимый scope; access audit.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-091",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "Оспаривание",
+      "given": "Пользователь нажимает «не подходит»/скрывает результат.",
+      "expected": "Это не evidence плохого качества человека; использование ограничивается по явному выбору.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-092",
+      "workstream": "B09",
+      "layer": "HTTP_DB",
+      "title": "UI cache и логирование",
+      "given": "Ошибки, trace, analytics, notification, URL и session replay.",
+      "expected": "Новые raw answers/notes/peer facts не попадают в эти поверхности; synthetic traces отдельно.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-093",
+      "workstream": "B09",
+      "layer": "ENVIRONMENT",
+      "title": "Возраст/информирование/platform",
+      "given": "Подготовлен реальный flow с identity и Discord API.",
+      "expected": "Имеется фактический scoped review/необходимое решение и корректное информирование; отсутствие отмечено BLOCKED_EXTERNAL, не forged approved.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_ENVIRONMENT_READINESS",
+      "originalReferences": [
+        "INT-010",
+        "INT-013",
+        "INT-014",
+        "INT-028",
+        "INT-029",
+        "INT-030",
+        "INT-047",
+        "INT-061",
+        "INT-062"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-094",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "Durable pending",
+      "given": "Crash после source commit до результата.",
+      "expected": "Recovery intent сохранён атомарно/доказанным эквивалентом; worker восстанавливает без нового user run.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-095",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "Два workers",
+      "given": "Конкурентный claim одной job.",
+      "expected": "Один актуальный lease/fence, повторный эффект безопасен; duplicated canonical source отсутствует.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-096",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "Stale lease",
+      "given": "Первый worker задержался, второй получил lease и записал результат.",
+      "expected": "Старый token не может persist/ack поверх нового.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-097",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "Retry bounded",
+      "given": "Повторяемая ошибка расчёта/доставки.",
+      "expected": "Контролируемый backoff, maxAttempts, dead-letter и operator visibility; нет бесконечного горячего цикла.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-098",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "Epoch после compute",
+      "given": "Во время computation изменилась sourceSet/permission/deletion.",
+      "expected": "Persist/send отменены либо пересчитаны; старый материал не воскресает.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-099",
+      "workstream": "B10",
+      "layer": "PROCESS",
+      "title": "Настоящий trigger",
+      "given": "User не посещает страницу после сохранённого PENDING.",
+      "expected": "Установленный scheduler/worker сам получает и заканчивает job; один GET retry не считается автоматическим восстановлением.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-100",
+      "workstream": "B10",
+      "layer": "PROCESS",
+      "title": "Restart",
+      "given": "Worker/app остановлены и запущены в owned среде.",
+      "expected": "Очередь восстанавливается; нет потери acknowledged source и бессрочных lease.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-101",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "TTL delay",
+      "given": "ExpiresAt уже прошёл, документ ещё физически существует.",
+      "expected": "Read/access отвергают expired token/source по policy; не ждут TTL deletion.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-102",
+      "workstream": "B10",
+      "layer": "HTTP_DB",
+      "title": "Индексы и explain",
+      "given": "Representative synthetic выборки queries по source/feed/jobs.",
+      "expected": "План индексов проверен; нет необоснованного полного сканирования hot path и startup destructive syncIndexes.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-103",
+      "workstream": "B10",
+      "layer": "MIGRATION",
+      "title": "Dry-run и apply",
+      "given": "Миграция на изолированной копии, затем повтор и прерывание.",
+      "expected": "Scope/target identity проверены; additive изменения идемпотентны, resume работает; production env не подхвачен.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-104",
+      "workstream": "B10",
+      "layer": "RESTORE",
+      "title": "Restore и удаления",
+      "given": "Backup содержит позже удалённые/revoked записи.",
+      "expected": "До открытия readers применены authoritative tombstones/revocations; старые grants и данные не воскресли.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-105",
+      "workstream": "B10",
+      "layer": "RESTORE",
+      "title": "Потерян журнал отзывов",
+      "given": "Основной backup восстановлен без trusted later revocation state.",
+      "expected": "Readiness не разрешает выдавать прежние позитивные права; explicit reconciliation, не уверенный stale access.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-106",
+      "workstream": "B10",
+      "layer": "OPS",
+      "title": "Метрики и alert",
+      "given": "Искусственно создан old pending/job error/privacy safe event.",
+      "expected": "Метрика и операторский alert реально срабатывают без payload; threshold/config/version отражены.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-107",
+      "workstream": "B10",
+      "layer": "LOAD",
+      "title": "Синтетическая нагрузка",
+      "given": "Опубликованный load profile запускается по реальным endpoints.",
+      "expected": "Измерены latency/errors/queue/correctness; environment и duration записаны; benchmark не называется capacity всей системы.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-016",
+        "INT-017",
+        "INT-018",
+        "INT-019",
+        "INT-020",
+        "INT-021",
+        "INT-029"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-108",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Встроенные маршруты",
+      "given": "Пользователь без devtools проходит3 темы/profile/discovery/pair.",
+      "expected": "UI функции доступны обычной навигацией, нет dev-only buttons как единственного завершения.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-109",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Фокус и keyboard",
+      "given": "Формы целиком без мыши, переходы, validation error.",
+      "expected": "Смысловая последовательность, видимый/restored focus, доступные label/legend и объявление статуса без зацикливания.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-110",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Reflow и масштаб",
+      "given": "320 CSS px и увеличение текста/страницы.",
+      "expected": "Критические controls/readouts доступны, текст не обрезан и нет необходимости горизонтального скролла основного текста.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-111",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Без drag-only",
+      "given": "Задание построения плана выполняется кнопками/клавиатурой.",
+      "expected": "Тот же смысл score без требования точного движения мыши.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-112",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Реальные сетевые состояния",
+      "given": "Потеря response после commit, offline, expired session.",
+      "expected": "Повтор не дубль; незаписанное не saved; при чужой сессии очищен sensitive state.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-113",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Current vs conditional",
+      "given": "Есть применимый условный путь и неподдержанный current.",
+      "expected": "В заголовках/статусах/кнопках различие явно; принятие не меняет actual UI.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-114",
+      "workstream": "B11",
+      "layer": "BROWSER",
+      "title": "Пустое против закрытого report",
+      "given": "Сравниваются shared UI absent и restricted peer report.",
+      "expected": "Нельзя определить direction/существование закрытого ответа по общей карточке.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-115",
+      "workstream": "B11",
+      "layer": "NATIVE_A11Y",
+      "title": "Реальное вспомогательное средство",
+      "given": "Native screen reader в разрешённой доступной среде.",
+      "expected": "Задание, ошибки, review и controls реально пройдены; при недоступности NOT_RUN, не PASS по DOM.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_ENVIRONMENT_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-116",
+      "workstream": "B11",
+      "layer": "ENVIRONMENT",
+      "title": "Настоящий Discord контекст",
+      "given": "Разрешённые OAuth credentials и Activity iframe.",
+      "expected": "Проверен реальный вход/bootstrap/cookie/CSRF/CSP маршрут; при отсутствии среды BLOCKED_EXTERNAL; SSR не замена.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_ENVIRONMENT_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-117",
+      "workstream": "B11",
+      "layer": "CONTENT",
+      "title": "Границы пользовательских утверждений",
+      "given": "Отчёты/negative/scenario/practice тексты и slots.",
+      "expected": "Нет диагнозов, гарантий, полного100%, гендерных ролей; авторский/самоотчётный scope соответствует данным.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-024",
+        "INT-025",
+        "INT-031",
+        "INT-056",
+        "INT-057",
+        "INT-063"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-118",
+      "workstream": "B12",
+      "layer": "CI",
+      "title": "Одна команда",
+      "given": "Запуск beta-check из чистой копии финального дерева с pinned lockfile.",
+      "expected": "Suites автоматически собирают evidence, без machine-specific hardcoded path; cleanup и exitcodes достоверны.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-119",
+      "workstream": "B12",
+      "layer": "CI",
+      "title": "Reference parity",
+      "given": "Исходные и adapted функции проверены на retained cases.",
+      "expected": "86+97 не переписаны ради PASS; обоснованные bugfix differences отдельно; runtime один общий.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-120",
+      "workstream": "B12",
+      "layer": "CI",
+      "title": "Полная сборка",
+      "given": "Typecheck, lint, production build, agent checks, diff whitespace.",
+      "expected": "Нет скрытых skips/allowlist exclusions; выполненная версия идентифицирована.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-121",
+      "workstream": "B12",
+      "layer": "DOC",
+      "title": "Матрица доказательств",
+      "given": "Каждый required BETA/INT case имеет final evidence.",
+      "expected": "Назван конкретный test/assertion, layer, environment, runId/tree hash и result; отчёт counts генерируется, не вручную.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-122",
+      "workstream": "B12",
+      "layer": "CONFIG",
+      "title": "Readiness fail-closed",
+      "given": "Отсутствует любой обязательный privacy/auth/platform/ops gate.",
+      "expected": "Нет READY по проценту; отдельно implementation/environment/open; external approval не выдуман.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-123",
+      "workstream": "B12",
+      "layer": "OPS",
+      "title": "Kill switch и rollback",
+      "given": "Публикация/feature выключается при queued work и существующих данных.",
+      "expected": "Новое действие остановлено, controls доступны, stale jobs не выдают, binary rollback не возвращает права.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-124",
+      "workstream": "B12",
+      "layer": "OPS",
+      "title": "Приглашение и отзыв",
+      "given": "Оператор через защищённый механизм добавляет/отзывает synthetic участника.",
+      "expected": "Рабочий bounded cohort lifecycle, audit без сырого payload, нет публичного enrollment bypass.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-125",
+      "workstream": "B12",
+      "layer": "DOC",
+      "title": "Reviewable deliverable",
+      "given": "Коммит отсутствует либо локальный commit разрешён.",
+      "expected": "Полный checkpoint tracked+new source files; secrets исключены; patch и tested identity позволяют воспроизвести финальное состояние.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_IMPLEMENTATION_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    },
+    {
+      "id": "BETA-126",
+      "workstream": "B12",
+      "layer": "ENVIRONMENT",
+      "title": "Реальный допуск",
+      "given": "Оператор проверяет пакет для указанной beta surface.",
+      "expected": "Настоящие внешние evidence/разрешения подтверждены; при их отсутствии код готов отдельно, PRIVATE_BETA_OPEN=false.",
+      "status": "NOT_RUN",
+      "criticality": "BLOCKS_ENVIRONMENT_READINESS",
+      "originalReferences": [
+        "INT-001",
+        "INT-002",
+        "INT-032",
+        "INT-050",
+        "INT-064"
+      ],
+      "evidence": [],
+      "notes": "Повторно использовать конкретные existing assertions, если они действительно покрывают этот случай на финальном дереве; не считать описание теста исполнением."
+    }
+  ],
+  "groups": [
+    {
+      "id": "B01",
+      "caseIds": [
+        "BETA-001",
+        "BETA-002",
+        "BETA-003",
+        "BETA-004",
+        "BETA-005",
+        "BETA-006",
+        "BETA-007",
+        "BETA-008"
+      ],
+      "count": 8,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B02",
+      "caseIds": [
+        "BETA-009",
+        "BETA-010",
+        "BETA-011",
+        "BETA-012",
+        "BETA-013",
+        "BETA-014",
+        "BETA-015",
+        "BETA-016",
+        "BETA-017",
+        "BETA-018"
+      ],
+      "count": 10,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B03",
+      "caseIds": [
+        "BETA-019",
+        "BETA-020",
+        "BETA-021",
+        "BETA-022",
+        "BETA-023",
+        "BETA-024",
+        "BETA-025",
+        "BETA-026",
+        "BETA-027",
+        "BETA-028",
+        "BETA-029",
+        "BETA-030",
+        "BETA-031",
+        "BETA-032"
+      ],
+      "count": 14,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B04",
+      "caseIds": [
+        "BETA-033",
+        "BETA-034",
+        "BETA-035",
+        "BETA-036",
+        "BETA-037",
+        "BETA-038",
+        "BETA-039",
+        "BETA-040"
+      ],
+      "count": 8,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B05",
+      "caseIds": [
+        "BETA-041",
+        "BETA-042",
+        "BETA-043",
+        "BETA-044",
+        "BETA-045",
+        "BETA-046",
+        "BETA-047",
+        "BETA-048"
+      ],
+      "count": 8,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B06",
+      "caseIds": [
+        "BETA-049",
+        "BETA-050",
+        "BETA-051",
+        "BETA-052",
+        "BETA-053",
+        "BETA-054",
+        "BETA-055",
+        "BETA-056",
+        "BETA-057",
+        "BETA-058",
+        "BETA-059",
+        "BETA-060"
+      ],
+      "count": 12,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B07",
+      "caseIds": [
+        "BETA-061",
+        "BETA-062",
+        "BETA-063",
+        "BETA-064",
+        "BETA-065",
+        "BETA-066",
+        "BETA-067",
+        "BETA-068",
+        "BETA-069",
+        "BETA-070",
+        "BETA-071"
+      ],
+      "count": 11,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B08",
+      "caseIds": [
+        "BETA-072",
+        "BETA-073",
+        "BETA-074",
+        "BETA-075",
+        "BETA-076",
+        "BETA-077",
+        "BETA-078",
+        "BETA-079",
+        "BETA-080",
+        "BETA-081"
+      ],
+      "count": 10,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B09",
+      "caseIds": [
+        "BETA-082",
+        "BETA-083",
+        "BETA-084",
+        "BETA-085",
+        "BETA-086",
+        "BETA-087",
+        "BETA-088",
+        "BETA-089",
+        "BETA-090",
+        "BETA-091",
+        "BETA-092",
+        "BETA-093"
+      ],
+      "count": 12,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B10",
+      "caseIds": [
+        "BETA-094",
+        "BETA-095",
+        "BETA-096",
+        "BETA-097",
+        "BETA-098",
+        "BETA-099",
+        "BETA-100",
+        "BETA-101",
+        "BETA-102",
+        "BETA-103",
+        "BETA-104",
+        "BETA-105",
+        "BETA-106",
+        "BETA-107"
+      ],
+      "count": 14,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B11",
+      "caseIds": [
+        "BETA-108",
+        "BETA-109",
+        "BETA-110",
+        "BETA-111",
+        "BETA-112",
+        "BETA-113",
+        "BETA-114",
+        "BETA-115",
+        "BETA-116",
+        "BETA-117"
+      ],
+      "count": 10,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    },
+    {
+      "id": "B12",
+      "caseIds": [
+        "BETA-118",
+        "BETA-119",
+        "BETA-120",
+        "BETA-121",
+        "BETA-122",
+        "BETA-123",
+        "BETA-124",
+        "BETA-125",
+        "BETA-126"
+      ],
+      "count": 9,
+      "status": "PLANNED_NOT_IMPLEMENTED_BY_THIS_PACKET"
+    }
+  ],
+  "executionContract": {
+    "allowedStatuses": [
+      "NOT_RUN",
+      "PASSED",
+      "FAILED",
+      "PARTIALLY_VERIFIED",
+      "BLOCKED_EXTERNAL",
+      "NOT_APPLICABLE"
+    ],
+    "evidenceRequired": [
+      "testPath",
+      "expandedTestName",
+      "layer",
+      "command",
+      "exitCode",
+      "startedAt",
+      "finishedAt",
+      "runId",
+      "testedTreeIdentity",
+      "environment",
+      "artifactPath"
+    ],
+    "notApplicable": "Only with explicit approved scope exclusion, not for a failed required feature.",
+    "noPassWithoutExecution": true,
+    "noTotalsAcrossDifferentLayersAsFeatureCount": true
+  }
+}

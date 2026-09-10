@@ -5,7 +5,7 @@ import {
   type Observation, type PatternDefinition, type Phase, type Scope, type SkillRubric, type Track,
 } from './engine/core';
 import { RUBRICS } from './engine/rubrics';
-import type { AssessmentAnswerRecord, AssessmentPeriod, AssessmentPublication } from './contracts';
+import type { AssessmentAnswerRecord, AssessmentExposureHistory, AssessmentPeriod, AssessmentPublication } from './contracts';
 import { assessmentResponseFacts, DOM_S07_PUBLICATION, isAssessmentItemAvailable, validateAssessmentPublication } from './publication';
 
 export interface AssessmentTrackSnapshot {
@@ -14,6 +14,8 @@ export interface AssessmentTrackSnapshot {
   exactLevel: number | null; possibleLevels: number[];
   result: ReturnType<typeof evaluateSkill>;
   phases: Array<{ phase: Phase; observationCount: number; result: ReturnType<typeof evaluateSkill> }>;
+  provenance?: { sourceIds: string[]; sourceRevisions: number[]; period: AssessmentPeriod; contextIdentity: string; samplingFrame: string; lastObservedAt: string | null; freshness: 'CURRENT' | 'EXPIRED'; componentVersion: string; disputedFactCount: number; exposureHistory?: AssessmentExposureHistory };
+  history?: Array<{ period: AssessmentPeriod; contextIdentity: string; exactLevel: number | null; possibleLevels: number[]; sourceIds: string[]; phase: Phase; comparable: boolean }>;
 }
 export interface AssessmentSkillSnapshot {
   skillId: string; name: string; status: 'UNKNOWN' | 'PARTIAL' | 'SUPPORTED';
@@ -22,6 +24,7 @@ export interface AssessmentSkillSnapshot {
   NMinus: ReturnType<typeof evaluatePattern>[];
   evidenceSource: 'AUTHORED_TASK_AND_STRUCTURED_SELF_REPORT';
   rubricVersion: string; validationStatus: 'AUTHOR_RUBRIC_NOT_VALIDATED';
+  negativeHistory?: Array<{ period: AssessmentPeriod; contextIdentity: string; CMinus: ReturnType<typeof evaluatePattern>; NMinus: ReturnType<typeof evaluatePattern>[] }>;
 }
 export interface AssessmentProfileSnapshot {
   schemaVersion: 'assessment-profile-v1'; sourceId: string; revision: number; generation: number;
@@ -29,20 +32,24 @@ export interface AssessmentProfileSnapshot {
   period: AssessmentPeriod; publicationId: string; publicationVersion: string;
   contextKey: string; policyStatus: 'AUTHOR_POLICY_NOT_CALIBRATED';
   skills: AssessmentSkillSnapshot[];
-  participation: Array<{ itemId: string; state: 'ANSWERED' | 'NOT_PRESENTED' | 'SKIPPED' | 'NO_EXPERIENCE' | 'NO_OPPORTUNITY' | 'UNCLEAR' }>;
+  participation: Array<{ itemId: string; state: 'ANSWERED' | 'NOT_PRESENTED' | 'SKIPPED' | 'NO_EXPERIENCE' | 'NO_OPPORTUNITY' | 'UNCLEAR' | 'NONE_FITS' | 'NOT_APPLICABLE' }>;
+  sourceSetRevision?: number; sourceSetIdentity?: string;
 }
 export interface ComputeAssessmentProfileInput {
   subjectId: string; sourceId: string; revision: number; generation: number; period: AssessmentPeriod;
   answers: readonly AssessmentAnswerRecord[]; publication?: AssessmentPublication;
   observationRound?: number;
+  contextIdentity?: string;
+  exposureHistory?: AssessmentExposureHistory;
 }
 const phases: Phase[] = ['BASELINE', 'ASSISTED', 'FOLLOWUP'];
 const patternIds = ['NEG.AGR.01', 'NEG.DOM.01', 'NEG.DOM.03'];
-const patterns: PatternDefinition[] = patternIds.map(id => {
+export const ASSESSMENT_PATTERNS: PatternDefinition[] = patternIds.map(id => {
   const definition = negativeCatalog.patterns.find(pattern => pattern.id === id);
   if (!definition) throw new Error('ASSESSMENT_PATTERN_UNAVAILABLE');
   return { id, predicate: parseExpr(definition.predicate), impactKind: definition.impactKind, protectiveRouteOnReportedMatch: definition.protectiveRouteOnReportedMatch };
 });
+const patterns = ASSESSMENT_PATTERNS;
 const skillNames: Record<string, string> = {
   'DOM.S07': 'Полный цикл бытовой ответственности', 'COM.S02': 'Конкретная просьба', 'COM.S04': 'Пауза и возврат к трудному разговору',
 };
@@ -60,7 +67,7 @@ function validatePeriod(period: AssessmentPeriod): void {
   if (!period.id || !Number.isFinite(start) || !Number.isFinite(end) || start >= end) throw new Error('ASSESSMENT_INVALID_PERIOD');
 }
 /** Pure adapter accepts only server-bound current answers. No legacy factor conversion. */
-export function computeAssessmentProfile(input: ComputeAssessmentProfileInput): AssessmentProfileSnapshot {
+export function assessmentObservations(input: ComputeAssessmentProfileInput) {
   const publication = validateAssessmentPublication(input.publication ?? DOM_S07_PUBLICATION);
   validatePeriod(input.period);
   const answers = latestAnswers(input.answers);
@@ -79,21 +86,27 @@ export function computeAssessmentProfile(input: ComputeAssessmentProfileInput): 
     const parentAnswer = parent ? answers.find(candidate => candidate.itemId === parent.id) : null;
     // Applicability is trusted context from the currently selected parent, not
     // evidence of competence. Carry it into a corrected child's own phase.
-    const parentEligibility = parent && parentAnswer ? assessmentResponseFacts(parent, parentAnswer.response)['DOM.S07:eligible'] : undefined;
+    const eligibilityKey = `${publication.skillId}:eligible`;
+    const parentEligibility = parent && parentAnswer ? assessmentResponseFacts(parent, parentAnswer.response)[eligibilityKey] : undefined;
     const eligible = item.method === 'SELF_REPORT'
-      ? { ...facts, ...(parentEligibility ? { 'DOM.S07:eligible': parentEligibility } : {}) }
-      : { ...facts, 'DOM.S07:eligible': 'T' as const };
+      ? { ...facts, ...(parentEligibility ? { [eligibilityKey]: parentEligibility } : {}) }
+      : { ...facts, [eligibilityKey]: 'T' as const };
+    const episode = answer.response.kind === 'FACTS' ? answer.response.episode : undefined;
     observations.push({
-      subjectId: input.subjectId, contextKey: publication.contextKey, windowId: input.period.id,
-      track: item.method, phase: answer.phase, instrumentVersion: publication.version,
+      subjectId: input.subjectId, contextKey: `${publication.contextKey}${input.contextIdentity ? `:${input.contextIdentity}` : ''}`, windowId: input.period.id,
+      track: item.method, phase: answer.phase, instrumentVersion: publication.metadata?.compatibilityKey ?? publication.version,
       sourceId: `${input.sourceId}:round:${input.observationRound ?? 0}:${item.id}:${answer.phase}`, revision: answer.revision,
-      rootId: `${input.subjectId}:${input.period.id}:round:${input.observationRound ?? 0}:${item.rootSlot}`, familyId: item.familyId,
-      measureIds: item.method === 'SELF_REPORT' ? ['DOM.S07', ...patternIds] : ['DOM.S07'], facts: eligible,
+      rootId: episode?.sameEpisodeRootId ?? `${input.subjectId}:${input.period.id}:round:${input.observationRound ?? 0}:${publication.metadata ? `${publication.id}:` : ''}${item.rootSlot}`, familyId: item.familyId,
+      measureIds: item.method === 'SELF_REPORT' ? [publication.skillId, ...patternIds] : [publication.skillId], facts: eligible,
     });
   }
+  return { publication, observations, participation };
+}
+export function computeAssessmentProfile(input: ComputeAssessmentProfileInput): AssessmentProfileSnapshot {
+  const { publication, observations, participation } = assessmentObservations(input);
   const scopeFor = (track: Track, phase: Phase): Scope => ({
-    subjectId: input.subjectId, contextKey: publication.contextKey, windowId: input.period.id,
-    track, phase, instrumentVersion: publication.version,
+    subjectId: input.subjectId, contextKey: `${publication.contextKey}${input.contextIdentity ? `:${input.contextIdentity}` : ''}`, windowId: input.period.id,
+    track, phase, instrumentVersion: publication.metadata?.compatibilityKey ?? publication.version,
   });
   function component(rubric: SkillRubric, method: Track): AssessmentTrackSnapshot {
     const phaseResults = phases.map(phase => {
@@ -114,7 +127,7 @@ export function computeAssessmentProfile(input: ComputeAssessmentProfileInput): 
   const skills = RUBRICS.map(rubric => {
     const K = component(rubric, 'KNOWLEDGE'), D = component(rubric, 'TASK'), A = component(rubric, 'SELF_REPORT');
     const scope = scopeFor('SELF_REPORT', A.phase);
-    const roots = rubric.skillId === 'DOM.S07' ? canonicalRoots(observations, scope) : [];
+    const roots = rubric.skillId === publication.skillId ? canonicalRoots(observations, scope) : [];
     return {
       skillId: rubric.skillId, name: skillNames[rubric.skillId],
       status: [K, D, A].some(value => value.status === 'SUPPORTED') ? 'SUPPORTED' as const : [K, D, A].some(value => value.observationCount > 0) ? 'PARTIAL' as const : 'UNKNOWN' as const,
@@ -141,3 +154,9 @@ export function getAssessmentSkillAvailability(skillId: string) {
     reason: RUBRICS.some(rubric => rubric.skillId === skillId) ? null : 'UNAVAILABLE_RUBRIC' as const,
   };
 }
+export function getUnavailableAssessmentSkills() {
+  return originalCatalog.skills.filter(definition => !RUBRICS.some(rubric => rubric.skillId === definition.id)).map(definition => ({
+    definition, availableRubric: false as const, status: 'UNKNOWN' as const, reason: 'UNAVAILABLE_RUBRIC' as const,
+  }));
+}
+export type AssessmentUnavailableSkill = ReturnType<typeof getUnavailableAssessmentSkills>[number];

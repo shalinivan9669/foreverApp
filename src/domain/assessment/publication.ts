@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
 import { parseExpr, type Facts } from './engine/core';
-import { HOUSEHOLD_RUBRIC } from './engine/rubrics';
+import { HOUSEHOLD_RUBRIC, RUBRICS } from './engine/rubrics';
+import { BETA_APPLICATION_CLARIFICATION, BETA_PUBLICATIONS } from './content';
 import {
   AssessmentResponseSchema, type AssessmentAnswerRecord, type AssessmentField,
   type AssessmentItem, type AssessmentPublication, type AssessmentResponse,
@@ -115,18 +117,21 @@ const fieldSchema = z.object({ id: z.string().min(1).max(120), label: z.string()
 const itemSchema = z.object({
   id: z.string().min(1).max(120), title: z.string().min(1).max(300), instructions: z.string().min(1).max(2000),
   method: z.enum(['KNOWLEDGE', 'TASK', 'SELF_REPORT']), track: z.enum(['K', 'D', 'A']),
-  familyId: z.string().min(1).max(120), rootSlot: z.string().min(1).max(120), kind: z.enum(['OPTION', 'FACTS']),
+  familyId: z.string().min(1).max(120), rootSlot: z.string().min(1).max(120), kind: z.enum(['OPTION', 'FACTS', 'STRUCTURED']),
   options: z.array(z.object({ id: z.string().min(1).max(120), label: z.string().min(1).max(1200), facts: z.record(truthSchema) }).strict()).max(20),
-  fields: z.array(fieldSchema).max(40), dependsOn: z.object({ itemId: z.string(), optionId: z.string() }).strict().optional(),
+  fields: z.array(fieldSchema).max(40), dependsOn: z.object({ itemId: z.string(), optionId: z.string().optional() }).strict().optional(),
+  slots: z.array(z.object({ id: z.string().min(1).max(120), label: z.string().min(1).max(300), options: z.array(z.object({ id: z.string().min(1).max(120), label: z.string().min(1).max(1200), facts: z.record(truthSchema) }).strict()).min(2).max(10) }).strict()).min(1).max(16).optional(),
+  changedInstructions: z.string().min(1).max(2000).optional(),
   exposureFor: z.array(z.string()).max(10).optional(),
 }).strict();
 const publicationSchema = z.object({
-  id: z.string().min(1).max(120), version: z.string().min(1).max(80), skillId: z.literal('DOM.S07'),
+  id: z.string().min(1).max(120), version: z.string().min(1).max(80), skillId: z.enum(['DOM.S07', 'COM.S02', 'COM.S04']),
   title: z.string().min(1).max(300), status: z.literal('DRAFT'), policyStatus: z.literal('AUTHOR_POLICY_NOT_CALIBRATED'),
   rubricVersion: z.string().min(1).max(80), contextKey: z.string().min(1).max(160),
   items: z.array(itemSchema).min(1).max(40), terminalItemId: z.string(), maxItems: z.number().int().min(1).max(40),
+  metadata: z.object({ responseSchemaVersion: z.literal('assessment-response-v2'), interpretationVersion: z.literal('author-beta-v1'), usagePolicyVersion: z.literal('beta-purpose-v1'), contentReview: z.literal('INTERNAL_AUTHOR_REVIEW'), allowedPurposes: z.array(z.enum(['OWNER', 'MATCHING', 'PAIR'])).min(1).max(3), compatibilityKey: z.string().min(1).max(160), samplingFrame: z.enum(['ASSIGNED_SCENES', 'SELECTED_DESCRIBED_EPISODES']), freshnessDays: z.number().int().min(1).max(365), explanation: z.string().min(1).max(1200), authoredExplanation: z.string().min(1).max(1200) }).strict().optional(),
 }).strict();
-const knownFacts = new Set(['DOM.S07:eligible', ...HOUSEHOLD_RUBRIC.cumulativeFacts[2], ...DOM_S07_NEGATIVE_FIELDS.map(field => field.factKey)]);
+const knownFacts = new Set([...RUBRICS.flatMap(rubric => [`${rubric.skillId}:eligible`, ...rubric.cumulativeFacts[2]]), ...DOM_S07_NEGATIVE_FIELDS.map(field => field.factKey)]);
 
 /** Unknown is confined to this external publication boundary and validated before use. */
 export function validateAssessmentPublication(input: unknown): AssessmentPublication {
@@ -141,14 +146,18 @@ export function validateAssessmentPublication(input: unknown): AssessmentPublica
     if (rootFamilies.has(rootIdentity) && rootFamilies.get(rootIdentity) !== item.familyId) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
     rootFamilies.set(rootIdentity, item.familyId);
     if (seen.has(item.id) || ({ K: 'KNOWLEDGE', D: 'TASK', A: 'SELF_REPORT' })[item.track] !== item.method) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
-    if (item.kind === 'OPTION' ? item.options.length === 0 || item.fields.length > 0 : item.fields.length === 0 || item.options.length > 0) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
+    if (item.kind === 'OPTION' ? item.options.length === 0 || item.fields.length > 0 || item.slots : item.kind === 'FACTS' ? item.fields.length === 0 || item.options.length > 0 || item.slots : !item.slots?.length || item.options.length > 0 || item.fields.length > 0) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
     if (new Set(item.options.map(option => option.id)).size !== item.options.length || new Set(item.fields.map(field => field.id)).size !== item.fields.length || new Set(item.fields.map(field => field.factKey)).size !== item.fields.length) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
-    const keys = [...item.fields.map(field => field.factKey), ...item.options.flatMap(option => Object.keys(option.facts))];
+    if (item.slots && (new Set(item.slots.map(slot => slot.id)).size !== item.slots.length || item.slots.some(slot => new Set(slot.options.map(option => option.id)).size !== slot.options.length))) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
+    const mappedOptions = [...item.options, ...(item.slots ?? []).flatMap(slot => slot.options)];
+    const keys = [...item.fields.map(field => field.factKey), ...mappedOptions.flatMap(option => Object.keys(option.facts))];
     if (keys.some(key => !knownFacts.has(key))) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
-    for (const option of item.options) parseExpr({ op: 'ALL', args: Object.keys(option.facts).map(key => ({ op: 'FACT', key })) });
+    if (keys.some(key => !key.startsWith(`${publication.skillId}:`) && (!key.startsWith('NEG.') || item.method !== 'SELF_REPORT'))) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
+    for (const option of mappedOptions) parseExpr({ op: 'ALL', args: Object.keys(option.facts).map(key => ({ op: 'FACT', key })) });
+    if (item.method !== 'SELF_REPORT' && keys.some(key => key.startsWith('NEG.'))) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
     if (item.dependsOn) {
       const parent = publication.items.find(candidate => candidate.id === item.dependsOn?.itemId);
-      if (!seen.has(item.dependsOn.itemId) || !parent?.options.some(option => option.id === item.dependsOn?.optionId) || parent.rootSlot !== item.rootSlot || parent.familyId !== item.familyId) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
+      if (!seen.has(item.dependsOn.itemId) || !parent || (item.dependsOn.optionId ? !parent.options.some(option => option.id === item.dependsOn?.optionId) : parent.kind !== 'STRUCTURED') || parent.rootSlot !== item.rootSlot || parent.familyId !== item.familyId) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
     }
     if (item.exposureFor?.some(id => !publication.items.some(candidate => candidate.id === id))) throw new Error('ASSESSMENT_INVALID_PUBLICATION');
     seen.add(item.id);
@@ -165,6 +174,8 @@ export function parseAssessmentResponse(item: AssessmentItem, input: unknown): A
   if (response.kind === 'MISSING') return response;
   if (response.kind === 'OPTION') {
     if (item.kind !== 'OPTION' || !item.options.some(option => option.id === response.optionId)) throw new Error('ASSESSMENT_INVALID_RESPONSE');
+  } else if (response.kind === 'STRUCTURED') {
+    if (item.kind !== 'STRUCTURED' || !item.slots || Object.keys(response.slots).length !== item.slots.length || item.slots.some(slot => !slot.options.some(option => option.id === response.slots[slot.id]))) throw new Error('ASSESSMENT_INVALID_RESPONSE');
   } else {
     if (item.kind !== 'FACTS' || Object.keys(response.values).length !== item.fields.length || item.fields.some(field => !Object.hasOwn(response.values, field.id))) throw new Error('ASSESSMENT_INVALID_RESPONSE');
     // An explicitly described occurrence cannot simultaneously have no eligible
@@ -173,18 +184,50 @@ export function parseAssessmentResponse(item: AssessmentItem, input: unknown): A
     for (const group of negativeGroups) {
       if (response.values[`${group.id}.eligible`] === false && group.fields.filter(([id]) => id !== 'eligible').every(([id]) => response.values[`${group.id}.${id}`] === true)) throw new Error('ASSESSMENT_OPPORTUNITY_CONTRADICTION');
     }
+    if (response.values.eligible === false && RUBRICS.some(rubric => rubric.cumulativeFacts.some(criterion => criterion.every(key => {
+      const field = item.fields.find(field => field.factKey === key);
+      return !!field && response.values[field.id] === true;
+    })))) throw new Error('ASSESSMENT_OPPORTUNITY_CONTRADICTION');
   }
   return response;
 }
 export function isAssessmentItemAvailable(item: AssessmentItem, answers: readonly AssessmentAnswerRecord[]): boolean {
   if (!item.dependsOn) return true;
   const parent = answers.find(answer => answer.itemId === item.dependsOn?.itemId);
+  if (!item.dependsOn.optionId) return parent?.response.kind === 'STRUCTURED';
   return parent?.response.kind === 'OPTION' && parent.response.optionId === item.dependsOn.optionId;
 }
 export function assessmentResponseFacts(item: AssessmentItem, input: AssessmentResponse): Facts {
   const response = parseAssessmentResponse(item, input);
   if (response.kind === 'MISSING') return {};
   if (response.kind === 'OPTION') return item.options.find(option => option.id === response.optionId)!.facts;
+  if (response.kind === 'STRUCTURED') {
+    const facts: Record<string, 'T' | 'F' | 'U'> = {};
+    for (const slot of item.slots ?? []) for (const [key, truth] of Object.entries(slot.options.find(option => option.id === response.slots[slot.id])!.facts)) {
+      if (facts[key] && facts[key] !== truth) facts[key] = 'U'; else facts[key] = truth;
+    }
+    return facts;
+  }
   return Object.fromEntries(item.fields.map(field => [field.factKey, response.values[field.id] === true ? 'T' : response.values[field.id] === false ? 'F' : 'U']));
 }
 validateAssessmentPublication(DOM_S07_PUBLICATION);
+for (const publication of BETA_PUBLICATIONS) validateAssessmentPublication(publication);
+validateAssessmentPublication(BETA_APPLICATION_CLARIFICATION);
+const registry = [DOM_S07_PUBLICATION, ...BETA_PUBLICATIONS, BETA_APPLICATION_CLARIFICATION];
+if (new Set(registry.map(publication => `${publication.id}@${publication.version}`)).size !== registry.length) throw new Error('ASSESSMENT_DUPLICATE_PUBLICATION');
+export function getAssessmentPublication(id: string, version?: string): AssessmentPublication | null {
+  return registry.find(publication => publication.id === id && (!version || publication.version === version)) ?? null;
+}
+export function assessmentPublicationHash(publication: AssessmentPublication): string {
+  return createHash('sha256').update(JSON.stringify(publication)).digest('hex');
+}
+/** Compatibility is explicitly published, never inferred from a shared skill label. */
+export function compatibleAssessmentApplications(left: AssessmentPublication, right: AssessmentPublication): boolean {
+  if (left.id === right.id && left.version === right.version) return true;
+  return !!left.metadata && !!right.metadata && left.skillId === right.skillId && left.contextKey === right.contextKey && left.rubricVersion === right.rubricVersion
+    && left.metadata.compatibilityKey === right.metadata.compatibilityKey && left.metadata.samplingFrame === right.metadata.samplingFrame
+    && left.items.every(item => item.method === 'SELF_REPORT') && right.items.every(item => item.method === 'SELF_REPORT');
+}
+export function listAssessmentPublications() {
+  return registry.map(publication => ({ id: publication.id, version: publication.version, skillId: publication.skillId, title: publication.title, status: publication.status, policyStatus: publication.policyStatus, tracks: [...new Set(publication.items.map(item => item.track))], contentHash: assessmentPublicationHash(publication), explanation: publication.metadata?.explanation ?? 'Историческая авторская публикация. Новые формы доступны отдельно; ответы не переносятся автоматически.', samplingFrame: publication.metadata?.samplingFrame ?? 'SELECTED_DESCRIBED_EPISODES' }));
+}

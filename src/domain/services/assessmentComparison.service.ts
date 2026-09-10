@@ -17,7 +17,7 @@ import type { AssessmentParticipantType } from '@/models/AssessmentParticipant';
 import { MatchingBlock } from '@/models/MatchingBlock';
 import { Pair } from '@/models/Pair';
 import { SessionSubject } from '@/models/SessionSubject';
-import { assessmentFail as fail, assessmentTransaction, isAssessmentEnabled, requireAssessmentOwner } from './assessmentAccess.service';
+import { assessmentFail as fail, assessmentTransaction, isAssessmentEnabled, requireAssessmentOwner, requireAssessmentRecoveryReadable } from './assessmentAccess.service';
 import { currentAssessmentSource } from './assessmentRuns.service';
 
 const identity = (...values: string[]) => createHash('sha256').update(JSON.stringify(values)).digest('hex');
@@ -344,9 +344,13 @@ async function calculate(ownerId: string, mutation: Extract<AssessmentComparison
 
 /** Direct owner data remains exportable with the feature off. Shared projections require a fresh consumer context instead. */
 export async function exportOwnerAssessmentComparisonData(ownerId: string) {
+  await requireAssessmentRecoveryReadable();
   await connectToDatabase();
   const row = await AssessmentDirect.findOne({ _id: ownerId, ownerId, status: 'ACTIVE' }).lean<AssessmentDirectType | null>();
-  return row ? { revision: row.revision, permissionRevision: row.permissionRevision, period: row.period, answers: row.answers, useForComparison: row.useForComparison, pairUse: row.pairUse } : null;
+  const beta = await AssessmentDirect.findOne({ _id: `beta:${ownerId}`, ownerId, status: 'ACTIVE' }).lean<AssessmentDirectType | null>();
+  const source = row ?? beta;
+  return source ? { revision: source.revision, permissionRevision: source.permissionRevision, period: source.period, answers: row?.answers ?? null, useForComparison: row?.useForComparison ?? false, pairUse: source.pairUse,
+    beta: beta ? { revision: beta.revision, plan: beta.betaPlan ?? null, discoveryOptIn: beta.betaDiscoveryOptIn === true, pairUse: beta.pairUse } : null } : null;
 }
 
 export const assessmentComparisonService = {

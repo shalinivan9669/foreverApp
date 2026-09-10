@@ -1,0 +1,475 @@
+{
+  "schemaVersion": "beta-operations-coverage-v1",
+  "classification": "Executable assertion map, not a blanket acceptance PASS",
+  "sourceIdentity": "Bound by the final root execution record; exploratory runs do not certify final tree",
+  "opsCommand": "node --import tsx scripts/beta-ops.integration.ts --mongod=<ABSOLUTE_MONGOD_BINARY>",
+  "loadCommand": "node --import tsx scripts/local-acceptance.ts --mode=integration --suite=beta-load --mongod=<ABSOLUTE_MONGOD_BINARY>",
+  "loadEvidence": "BETA_EVIDENCE_DIR/BETA_LOAD_RESULT.json, outside repository",
+  "cases": [
+    {
+      "id": "BETA-082",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "unlisted owner and forged registration membership cannot enter private mode",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/lib/beta-admission-http.ts",
+          "runner": "scripts/beta-ops.integration.ts",
+          "assertion": "HTTP admission enforces session, same-origin, strict input, invitation and known adult scope",
+          "layer": "HTTP_NEXT_ROUTE_EXPORT_ADAPTER_OWNED_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "Positive real target admission and real OAuth are deliberately not fabricated. Actual HTTP route/guard/service/Mongo admission is executed for invited known-adult synthetic participants and denied for unauthorized/unlisted/known-underage inputs."
+        }
+      ]
+    },
+    {
+      "id": "BETA-083",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "synthetic toggle and local test target fail PRIVATE_BETA startup guard",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "Actual target deployment inspection and platform approval are external; the built app has no synthetic login route. Configuration rejection is executed."
+        }
+      ]
+    },
+    {
+      "id": "BETA-084",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "one persisted choice, idempotent registration response-loss retry, separate purposes and no future scope",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "explicit central scope applies saved forms; revoke changes epoch and rejects stale settings intent",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/lib/beta-admission-http.ts",
+          "runner": "scripts/beta-ops.integration.ts",
+          "assertion": "HTTP registration retry is idempotent; settings persist separate purposes and reject foreign or stale intent",
+          "layer": "HTTP_NEXT_ROUTE_EXPORT_ADAPTER_OWNED_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-085",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "withdraw and OFF stop new collection but preserve owner export and controls",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/lib/beta-admission-http.ts",
+          "runner": "scripts/beta-ops.integration.ts",
+          "assertion": "HTTP withdrawal revokes collection and stale settings while retaining owner controls and support receipt",
+          "layer": "HTTP_NEXT_ROUTE_EXPORT_ADAPTER_OWNED_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-086",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "actual account deletion removes new sources/jobs/grants/settings and preserves independent peer report",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-087",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP A1+negative then independent K3 retains application and period",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "correction replaces exactly one source and negative result; private purpose before composition",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "assertion": "permitted beta source private NEG correction preserves external identity and full comparison through draft answer finalize",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET",
+          "file": "scripts/beta-sources.integration.ts"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-088",
+      "tests": [
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "owner episode reference deduplicates real saved answers and unknown eligibility keeps occurrence without exact rate",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "sources_content"
+    },
+    {
+      "id": "BETA-089",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root_and_comparison_pair",
+      "supportedSubparts": [
+        "Exact live browser/client or expiry assertions are mapped in BETA_CLIENT_COVERAGE.json; root execution requires them to pass."
+      ]
+    },
+    {
+      "id": "BETA-090",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "private support has no automatic source attachment and rejects foreign result",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/lib/beta-admission-http.ts",
+          "runner": "scripts/beta-ops.integration.ts",
+          "assertion": "HTTP support creates only explicit text receipt, idempotent retry and isolated owner list",
+          "layer": "HTTP_NEXT_ROUTE_EXPORT_ADAPTER_OWNED_MONGODB"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "protected operator support CLI writes one private ticket and records audit without payload in stdout",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "The synthetic protected operator CLI is exercised. Actual production operator access/ACL and scoped support review require the authorized target environment."
+        }
+      ]
+    },
+    {
+      "id": "BETA-091",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "sources_content",
+      "supportedSubparts": [
+        "Exact live browser/client or expiry assertions are mapped in BETA_CLIENT_COVERAGE.json; root execution requires them to pass."
+      ]
+    },
+    {
+      "id": "BETA-092",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root_and_comparison_pair",
+      "supportedSubparts": [
+        "Exact live browser/client or expiry assertions are mapped in BETA_CLIENT_COVERAGE.json; root execution requires them to pass."
+      ]
+    },
+    {
+      "id": "BETA-093",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "No scoped platform permission, real OAuth/iframe approval, independent adult-policy/legal decision or psychometric validation is asserted."
+        }
+      ]
+    },
+    {
+      "id": "BETA-094",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "source finalization commits durable job before response failure; automatic worker computes saved source",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-095",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "two concurrent workers claim one semantic source-set job only once",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-096",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "expired lease takeover fences old persist and acknowledge",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-097",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "retry uses bounded attempts and terminal dead-letter visible to health",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-098",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "membership revocation after computation fences projection persistence",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "source-set CAS rejects source arriving after compute; viewer token bound across forms/owners",
+          "layer": "AUTHENTICATED_ROUTE_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "beta comparison rejects permission withdrawal committed after calculation before return",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-099",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "separate runnable worker process recovers without participant read or retry",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-100",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "process restart after claim and after computation recovers expired lease",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "Separate CLI process restart/takeover and post-compute acknowledgement failure executed; abrupt OS crash of the target environment remains a separate operator exercise."
+        }
+      ]
+    },
+    {
+      "id": "BETA-101",
+      "tests": [],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "root_and_comparison_pair",
+      "supportedSubparts": [
+        "Exact live browser/client or expiry assertions are mapped in BETA_CLIENT_COVERAGE.json; root execution requires them to pass."
+      ]
+    },
+    {
+      "id": "BETA-102",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "representative source and queue hot queries use indexes with bounded inspected documents",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "actual bounded feed geo preselection and opaque cursor lookup use indexes on representative synthetic rows",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-103",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "migration dry run changes no runtime control; interrupted additive apply resumes and repeats",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-104",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "distinct backup restore replays independent deletion journal and resets prior positive choices before reads",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "Restored separate database and application-level owner data controls tested with independent ledger. Physical target-host loss, encrypted storage/ACL and target RPO/RTO are external operator checks."
+        }
+      ]
+    },
+    {
+      "id": "BETA-105",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "missing authoritative recovery ledger leaves persistent disclosure gate closed",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "corrupt retained recovery metadata and changed identity key keep restore and export fenced",
+          "layer": "MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops"
+    },
+    {
+      "id": "BETA-106",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "old pending creates an aggregate-only HTTP alert with measured delivery",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "externalPrerequisites": [
+        {
+          "status": "BLOCKED_EXTERNAL",
+          "description": "Real local HTTP alert receipt is asserted; the actual operator notification channel and response procedure remain external."
+        }
+      ]
+    },
+    {
+      "id": "BETA-107",
+      "tests": [
+        {
+          "file": "scripts/beta-load.integration.ts",
+          "assertion": "25 VU 10 offered HTTP requests per second for 120 seconds; measured goals and persisted integrity assertions",
+          "layer": "HTTP_TCP_ROUTE_EXPORTS_MONGODB_WORKER_PROCESSES"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "admission_ops",
+      "evidenceLimitations": [
+        "Actual TCP to Next route exports, 25 VUs, 10 offered requests/s, 120 seconds, two worker processes. This is not a production Next hosting capacity measurement. Scenario computes synchronously under bounded solver limits; reported scenario latency is end-to-end completion."
+      ]
+    },
+    {
+      "id": "BETA-123",
+      "owner": "admission_ops",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "operator publication and feature stops fence queued work; OFF restart preserves revoked permissions and controls",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "actual retained baseline release rollback fences reads writes comparisons and recomputation without restoring revoked rights",
+          "layer": "ACTUAL_PINNED_BASELINE_NODE_PROCESS_AND_OWNED_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "evidenceLimitations": [
+        "Actual baseline e61642a3b78b9c088dfb0496677c00cf2217ab3f source modules execute twice in separate Node/tsx processes from an owned external Git archive against the real synthetic database. Safe supported rollback persists all stops and forces both ASSESSMENT_MODE=OFF and the baseline's ASSESSMENT_SYNTHETIC_ENABLED=false. It is a prior-release runtime compatibility check, not a deployed target traffic switch."
+      ]
+    },
+    {
+      "id": "BETA-124",
+      "owner": "admission_ops",
+      "tests": [
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "protected operator CLI invites and revokes synthetic participant; concurrent cohort admission stays bounded with safe audit",
+          "layer": "MONGODB_OWNED_REPLICA_SET_AND_CLI_PROCESS"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": []
+    }
+  ],
+  "clientSessionCommand": "node --import tsx scripts/beta-session.selfcheck.ts",
+  "clientSessionEvidence": "Nine named actual-client-module/React/EventTarget adapter assertions; supplementary to BETA-003 browser evidence, not a browser-layer PASS."
+}

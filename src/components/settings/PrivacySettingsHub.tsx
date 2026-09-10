@@ -9,6 +9,7 @@ import {
   type PrivacyDeletionRequestDTO,
 } from '@/client/api/privacy.api';
 import { clearEmbeddedSessionBearerToken } from '@/client/api/http';
+import AssessmentSettingsPanel from '@/features/assessments/AssessmentSettingsPanel';
 
 type Operation = 'export' | 'request' | 'cancel' | 'execute' | 'refresh' | 'logout';
 type StatusPhase = 'loading' | 'ready' | 'error';
@@ -475,6 +476,7 @@ export default function PrivacySettingsHub() {
         )}
         {error && <div className="app-alert app-alert-error text-sm">{error}</div>}
       </div>
+      <AssessmentSettingsPanel />
     </main>
   );
 }

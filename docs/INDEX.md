@@ -1,5 +1,15 @@
 # Documentation Index
 
+## Private beta B01–B12 — 2026-09-10
+
+- [Контур выполнения и baseline](BETA_EXECUTION_STATE.md).
+- [Публикации, источники и практики](BETA_SOURCES.md), [условия, выдача и пара](BETA_COMPARISON.md).
+- [Допуск, worker, stop/restore и операторские команды](BETA_OPERATIONS.md).
+- [Версии настроек и recovery ADR](ADR/ADR-009-private-beta-settings-and-recovery.md).
+- [API закрытой беты](API_BETA_CONTRACTS.md), [приёмка, CI и evidence](BETA_VERIFICATION.md).
+- [Границы внутреннего review текста и внешних решений](BETA_COPY_REVIEW.md).
+- [126 исходных требований](assessment/BETA_ACCEPTANCE.requirements.json), [исходные release gates](assessment/BETA_RELEASE_GATES.requirements.json), [незавершённый внешний data-flow review](assessment/BETA_DATA_FLOW_REVIEW.json).
+
 ## Current source of truth
 
 - [Изолированная вертикаль DOM.S07](ASSESSMENT_INTEGRATION.md) — канонические ответы, раздельный профиль, текущий и условный расчёт, договорённости; [фактический статус](ASSESSMENT_IMPLEMENTATION_STATUS.md).

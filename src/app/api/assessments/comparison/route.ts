@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireSession } from '@/lib/auth/guards';
 import { parseJson } from '@/lib/api/validate';
-import { domainResponse } from '@/lib/api/domainResponse';
+import { assessmentResponse as domainResponse } from '@/lib/api/assessmentResponse';
 import { AssessmentComparisonMutationSchema } from '@/lib/dto/assessmentComparison.dto';
 import { assessmentComparisonService } from '@/domain/services/assessmentComparison.service';
 

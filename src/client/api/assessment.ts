@@ -4,9 +4,9 @@ import type { AssessmentComparisonDTO, AssessmentComparisonMutation } from '@/li
 import type { AssessmentPairDTO, AssessmentPairMutation } from '@/lib/dto/assessmentPair.dto';
 
 export const assessmentApi = {
-  get: (signal?: AbortSignal): Promise<AssessmentRunDTO> => http.get('/api/assessments/dom-s07', { signal, cache: 'no-store' }),
+  get: (signal?: AbortSignal, publicationId?: string): Promise<AssessmentRunDTO> => http.get(publicationId ? `/api/assessments/runs?publicationId=${encodeURIComponent(publicationId)}` : '/api/assessments/dom-s07', { signal, cache: 'no-store' }),
   controls: (signal?: AbortSignal): Promise<AssessmentRunDTO> => http.get('/api/assessments/dom-s07?view=controls', { signal, cache: 'no-store' }),
-  mutate: (body: AssessmentMutation, signal?: AbortSignal): Promise<AssessmentRunDTO> => http.post<AssessmentRunDTO, AssessmentMutation>('/api/assessments/dom-s07', body, { signal }),
+  mutate: (body: AssessmentMutation, signal?: AbortSignal): Promise<AssessmentRunDTO> => http.post<AssessmentRunDTO, AssessmentMutation>('publicationId' in body ? '/api/assessments/runs' : '/api/assessments/dom-s07', body, { signal }),
   comparison: (signal?: AbortSignal): Promise<AssessmentComparisonDTO> => http.get('/api/assessments/comparison', { signal, cache: 'no-store' }),
   comparisonControls: (signal?: AbortSignal): Promise<AssessmentComparisonDTO> => http.get('/api/assessments/comparison?view=controls', { signal, cache: 'no-store' }),
   compare: (body: AssessmentComparisonMutation, signal?: AbortSignal): Promise<AssessmentComparisonDTO> => http.post<AssessmentComparisonDTO, AssessmentComparisonMutation>('/api/assessments/comparison', body, { signal }),

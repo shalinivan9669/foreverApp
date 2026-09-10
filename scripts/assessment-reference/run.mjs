@@ -31,6 +31,9 @@ for (const suite of suites) {
     break;
   }
   passed += totals.pass;
+  for (const match of output.matchAll(/^\s*ok \d+ - (.+)$/gm)) {
+    process.stdout.write(`${JSON.stringify({ suite: 'assessment-reference', file: suite.file, test: match[1], status: 'PASSED' })}\n`);
+  }
   process.stdout.write(`${suite.file}: PASS ${totals.pass}/${totals.tests}\n`);
 }
 if (!process.exitCode) {
@@ -50,4 +53,5 @@ if (!process.exitCode) {
   assert.deepEqual(bindings.nonSkillDefinitionsPreserved, original.other_characteristics);
   process.stdout.write(`Assessment reference: PASS ${passed}/183; application engine, no database.\n`);
   process.stdout.write('Catalog preservation: PASS 54 skills + 47 other definitions + 24 context/pair/safety entries; original SHA-256 hashes match.\n');
+  process.stdout.write(`${JSON.stringify({ suite: 'assessment-reference', status: 'PASSED', assertion: 'all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged', checks: 183 })}\n`);
 }

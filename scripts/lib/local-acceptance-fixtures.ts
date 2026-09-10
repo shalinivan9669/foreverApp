@@ -37,7 +37,7 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
   const secret = process.env.JWT_SECRET;
   assert.ok(secret && secret.length >= 32);
   const subjects = { a: `local-acceptance-${runId}-a`, b: `local-acceptance-${runId}-b` };
-  const assessmentScenario = scenario === 'assessment' || scenario === 'assessment-ready';
+  const assessmentScenario = scenario === 'assessment' || scenario === 'assessment-ready' || (scenario.startsWith('beta-') && scenario !== 'beta-feed');
   await mongoose.connect(uri.toString(), { autoIndex: false, serverSelectionTimeoutMS: 5_000 });
   for (const model of Object.values(mongoose.models)) {
     await model.createCollection();
@@ -80,7 +80,7 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
       assert.equal(entry.user.profile?.matchCard, undefined);
     }
   }
-  if (scenario === 'matching' || scenario === 'matching-connection') await seedLocalAcceptanceMatching(subjects, scenario);
+  if (scenario === 'matching' || scenario === 'matching-connection' || scenario === 'beta-feed') await seedLocalAcceptanceMatching(subjects, scenario === 'beta-feed' ? 'matching' : scenario);
   if (scenario === 'notifications') await seedLocalAcceptanceNotifications(subjects);
   const assessmentPairId = assessmentScenario ? await seedLocalAcceptanceAssessment(subjects, runId) : null;
   const versions = {
@@ -88,6 +88,15 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
     b: await sessionRevocationService.getOrCreateVersion(subjects.b),
   };
   if (scenario === 'assessment-ready') await prepareLocalAcceptanceAssessmentComparison(subjects, runId);
+  if (scenario === 'beta-ready' || scenario === 'beta-history') {
+    const { prepareLocalAcceptanceBeta, prepareLocalAcceptanceBetaPairHistory } = await import('./local-acceptance-beta');
+    await prepareLocalAcceptanceBeta(subjects, runId);
+    if (scenario === 'beta-history') await prepareLocalAcceptanceBetaPairHistory(subjects, runId);
+  }
+  if (scenario === 'beta-feed') {
+    const { prepareLocalAcceptanceBetaFeed } = await import('./local-acceptance-beta-feed');
+    await prepareLocalAcceptanceBetaFeed(subjects, runId);
+  }
   // A long-lived account fixture exercises the complete continuation list. These
   // are real published v1 activities from distinct historical weekly periods,
   // without submitted answers, completions or rewards.
@@ -108,6 +117,7 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
     // Tokens stay inside the process and Set-Cookie headers. They are never
     // returned in JSON, URLs, logs, files, or the command line.
     sessionCookie: (actor: 'a' | 'b') => `session=${signJwt(subjects[actor], secret, 7_200, versions[actor])}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`,
+    freshSessionCookie: async (actor: 'a' | 'b') => `session=${signJwt(subjects[actor], secret, 7_200, await sessionRevocationService.getOrCreateVersion(subjects[actor]))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`,
     cleanup: async () => {
       if (assessmentScenario) await deleteLocalAcceptanceAssessment(subjects, runId);
       await Promise.all([

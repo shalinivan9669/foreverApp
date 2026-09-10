@@ -134,7 +134,12 @@
     "selfcheck:continuation-ui": "tsx ./scripts/continuation-ui.selfcheck.ts",
     "selfcheck:local-acceptance": "tsx ./scripts/local-acceptance.selfcheck.ts",
     "acceptance:local": "tsx ./scripts/local-acceptance.ts",
-    "acceptance:browser": "tsx ./scripts/local-acceptance.ts --mode=browser"
+    "acceptance:browser": "tsx ./scripts/local-acceptance.ts --mode=browser",
+    "beta:check": "node scripts/beta-check.mjs",
+    "beta:browser": "node scripts/beta-browser.mjs",
+    "beta:worker": "tsx scripts/beta-worker.ts",
+    "beta:ops": "tsx scripts/beta-ops.ts",
+    "beta:restore": "tsx scripts/beta-restore.ts"
   },
   "dependencies": {
     "@discord/embedded-app-sdk": "^2.5.0",
