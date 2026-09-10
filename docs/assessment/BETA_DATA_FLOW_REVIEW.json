@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "private-beta-scoped-data-flow-review-v1",
+  "status": "BLOCKED_EXTERNAL",
+  "implementationScope": ["DOM.S07", "COM.S02", "COM.S04"],
+  "identity": "Existing Discord OAuth identify and server session subject link the participant to explicitly supplied form data",
+  "collected": ["Versioned terms and purpose choices", "Owner-authored form responses and episode dates", "Separate K/D/A and negative component derivations", "Explicit direct conditions and time windows", "Voluntary practice notes", "Pair proposal signatures and separately authored reports", "Support text and explicitly selected own result attachment"],
+  "purposes": ["Owner assessment and dated history", "Optional authorized discovery", "Optional current-pair comparison and separately confirmed agreement", "Requested support", "Security, operational recovery and deletion"],
+  "recipients": ["Authenticated owner", "Authorized candidate/current partner: only purpose-specific aggregate DTO", "Authorized support operator: ticket plus optional chosen attachment", "Operator alert channel: aggregate technical codes only"],
+  "excluded": ["Reading Discord messages, contact graphs or guild content", "Automatic research or marketing consent", "Automatic disclosure of raw answers or negative components", "AI inference", "Runtime synthetic fixtures in production"],
+  "platformPolicySource": "https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy",
+  "reviewIssue": "Discord policy restrictions concerning use of API Data to profile people or relationships require competent scoped review of the actual identity-to-assessment flow. A checkbox or separate domain is not platform approval.",
+  "privacyReview": { "reviewer": null, "evidenceRef": null, "approved": false },
+  "contentReview": { "reviewer": null, "evidenceRef": null, "approved": false },
+  "platformReview": { "reviewer": null, "evidenceRef": null, "approved": false },
+  "targetId": null,
+  "retentionPolicyAdopted": false,
+  "realOAuthValidated": false,
+  "operatorOpeningAuthorized": false,
+  "privateBetaOpen": false
+}

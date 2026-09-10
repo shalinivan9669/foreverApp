@@ -108,6 +108,14 @@
     "lint": "eslint .",
     "check:lint": "npm run lint",
     "check:types": "tsc --noEmit",
+    "selfcheck:assessment-reference": "node scripts/assessment-reference/run.mjs",
+    "selfcheck:assessment-content": "tsx scripts/assessment-content.selfcheck.ts",
+    "selfcheck:assessment-boundaries": "node --import tsx --test scripts/assessment-reference/boundaries.test.mjs",
+    "selfcheck:assessment-ui": "tsx scripts/assessment-ui.selfcheck.ts",
+    "selfcheck:assessment-profile-ui": "tsx scripts/assessment-profile-ui.selfcheck.ts",
+    "selfcheck:assessment-privacy-ui": "tsx scripts/assessment-privacy-ui.selfcheck.ts",
+    "integration:assessment": "tsx scripts/assessment.integration.ts",
+    "integration:assessment-comparison": "tsx scripts/assessment-comparison.integration.ts",
     "check:build": "next build",
     "check:self": "npm run selfcheck:factor-engine && npm run selfcheck:matching-boundaries && npm run selfcheck:matching-factor-policy && npm run selfcheck:matching-golden-cases && npm run selfcheck:matching-social && npm run selfcheck:matching-api-contract && npm run selfcheck:matching-ui && npm run selfcheck:matching-request-race && npm run selfcheck:matching-disclosure && npm run selfcheck:matching-test-database && npm run selfcheck:matching-migration && npm run selfcheck:matching-release && npm run selfcheck:matching-load-smoke && npm run selfcheck:discord-bootstrap && npm run selfcheck:pair-strategy-contract && npm run selfcheck:legacy-cutover && npm run selfcheck:activity-flow && npm run selfcheck:pair-activity-decision && npm run selfcheck:client-errors && npm run selfcheck:client-request-race && npm run selfcheck:beta-questionnaires && npm run selfcheck:weekly-checkin && npm run selfcheck:weekly-cycle && npm run selfcheck:pair-invite && npm run selfcheck:mvp-onboarding && npm run selfcheck:pair-history && npm run selfcheck:safety-gate && npm run selfcheck:user-profile-summary && npm run selfcheck:personal-today && npm run selfcheck:personal-diary-ui && npm run selfcheck:pair-events && npm run selfcheck:pair-event-new-only && npm run selfcheck:pair-questionnaire-integrity && npm run selfcheck:participant-disclosure && npm run selfcheck:frontend-mvp-ui && npm run selfcheck:today-request-race && npm run selfcheck:dialog && npm run selfcheck:unsaved-changes && npm run selfcheck:ui-contrast && npm run selfcheck:security-critical && npm run selfcheck:notifications && npm run selfcheck:notifications-pagination && npm run selfcheck:entitlement-webhook && npm run selfcheck:content-publication && npm run selfcheck:product-analytics && npm run selfcheck:operational-events && npm run selfcheck:thin-api-routes && npm run selfcheck:activity-factor-read-batching && npm run selfcheck:release-readiness && npm run selfcheck:entry-pairing && npm run selfcheck:matching-product && npm run selfcheck:economy && npm run selfcheck:product-workspace && npm run selfcheck:workspace-ui && npm run selfcheck:continuation-ui && npm run selfcheck:local-acceptance",
     "check:agents": "tsx ./scripts/agent-checks.ts --compact",
@@ -126,7 +134,12 @@
     "selfcheck:continuation-ui": "tsx ./scripts/continuation-ui.selfcheck.ts",
     "selfcheck:local-acceptance": "tsx ./scripts/local-acceptance.selfcheck.ts",
     "acceptance:local": "tsx ./scripts/local-acceptance.ts",
-    "acceptance:browser": "tsx ./scripts/local-acceptance.ts --mode=browser"
+    "acceptance:browser": "tsx ./scripts/local-acceptance.ts --mode=browser",
+    "beta:check": "node scripts/beta-check.mjs",
+    "beta:browser": "node scripts/beta-browser.mjs",
+    "beta:worker": "tsx scripts/beta-worker.ts",
+    "beta:ops": "tsx scripts/beta-ops.ts",
+    "beta:restore": "tsx scripts/beta-restore.ts"
   },
   "dependencies": {
     "@discord/embedded-app-sdk": "^2.5.0",

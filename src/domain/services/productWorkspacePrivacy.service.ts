@@ -3,6 +3,10 @@ import { MeasurementTestSession } from '@/models/MeasurementTestSession';
 import { PairWorkspace } from "@/models/PairWorkspace";
 import { Pair } from "@/models/Pair";
 import { toSharedLifeDTO } from "@/lib/dto/sharedLife.dto";
+import { exportOwnerAssessmentData } from '@/domain/services/assessmentRuns.service';
+import { exportOwnerAssessmentPairData } from '@/domain/services/assessmentPairPrivacy.service';
+import { exportOwnerAssessmentComparisonData } from '@/domain/services/assessmentComparison.service';
+import { assessmentAdmissionService } from '@/domain/services/assessmentAdmission.service';
 
 /** Export contains owner answers and currently accessible shared records, never peer reflections. */
 export const productWorkspacePrivacy = {
@@ -24,6 +28,10 @@ export const productWorkspacePrivacy = {
     const today = new Date().toISOString().slice(0, 10);
     return {
       version: "product-workspace-owner-v1",
+      assessments: await exportOwnerAssessmentData(userId),
+      assessmentSettings: await assessmentAdmissionService.exportOwnerData(userId),
+      assessmentPairReports: await exportOwnerAssessmentPairData(userId),
+      assessmentDirect: await exportOwnerAssessmentComparisonData(userId),
       measurementTests: measurementTests.map((row) => ({ testKey: row.testKey, contentRevision: row.contentRevision, registryVersion: row.registryVersion, status: row.status, answers: row.answers.map(({ questionId, choice }) => ({ questionId, choice })), pairUse: row.pairUse, permissionRevision: row.permissionRevision, finalizedAt: row.finalizedAt?.toISOString() ?? null })),
       completions: {
         limit: 500,

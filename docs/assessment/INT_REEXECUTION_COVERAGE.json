@@ -1,0 +1,280 @@
+{
+  "schemaVersion": "int-fresh-reexecution-v1",
+  "classification": "Complements exact passed INT IDs emitted by retained HTTP suites; prior reported fields stay separate",
+  "cases": [
+    {
+      "id": "INT-001",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/run.mjs",
+          "assertion": "all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged",
+          "layer": "RETAINED_PURE_ENGINE"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-002",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/run.mjs",
+          "assertion": "all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged",
+          "layer": "RETAINED_PURE_ENGINE"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-043",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/run.mjs",
+          "assertion": "all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged",
+          "layer": "RETAINED_PURE_ENGINE"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-055",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/run.mjs",
+          "assertion": "all 183 retained reference assertions and original 54 plus 47 plus 24 catalog definitions pass unchanged",
+          "layer": "RETAINED_PURE_ENGINE"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-003",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-004",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-005",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-006",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-007",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-008",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-009",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-010",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-011",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-012",
+      "tests": [
+        {
+          "file": "scripts/assessment-content.selfcheck.ts",
+          "assertion": "summary:assessment-content",
+          "layer": "RETAINED_PURE_CONTENT"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-024",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-keyboard-option",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-native-zoom",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-reduced-motion",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-structured-keyboard",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-025",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-offline",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-lost-response",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-draft-resume",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-031",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-cross-tab-logout",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-same-origin-switch",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-history",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-late-fetch",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-private-traces",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-034",
+      "tests": [
+        {
+          "file": "scripts/beta-delivery.selfcheck.mjs",
+          "assertion": "INT-034 TASK L3 and assisted evidence cannot assert applied capacity",
+          "layer": "IMMUTABLE_CONTRACT_AND_RETAINED_SEMANTICS"
+        }
+      ],
+      "unverifiedSubparts": []
+    },
+    {
+      "id": "INT-063",
+      "tests": [
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-current-conditional",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-authored-agreement",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-private-report",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-shared-disagreement",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-browser.mjs",
+          "assertion": "browser-keyboard-option",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "unverifiedSubparts": []
+    }
+  ]
+}

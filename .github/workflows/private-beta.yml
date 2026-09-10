@@ -1,0 +1,39 @@
+name: Private beta implementation checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-acceptance:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install application exactly from lockfile
+        run: npm ci
+      - name: Install isolated test tools
+        run: |
+          curl -fsSL https://pgp.mongodb.com/server-8.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo 'deb [ arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/8.0 multiverse' | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update -qq
+          sudo apt-get install -y mongodb-org-server
+          npm install --prefix "$RUNNER_TEMP/beta-browser-runtime" --no-save --package-lock=false playwright@1.61.0
+          node "$RUNNER_TEMP/beta-browser-runtime/node_modules/playwright/cli.js" install --with-deps chromium
+          mongod --version
+      - name: Full synthetic acceptance and source identity
+        run: npm run beta:check -- --mongod=/usr/bin/mongod --browser-module="$RUNNER_TEMP/beta-browser-runtime/node_modules/playwright" --output="$RUNNER_TEMP/beta-evidence"
+      - name: Preserve acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-beta-evidence
+          path: ${{ runner.temp }}/beta-evidence
+          if-no-files-found: error
+          retention-days: 14

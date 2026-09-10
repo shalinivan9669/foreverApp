@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { AssessmentProfile } from '@/features/assessments/AssessmentProfile';
 import type {
   FactorProfileStatus,
   FactorSemanticCardDTO,
@@ -149,6 +150,8 @@ export default function ModeAwareProfileOverview({ summary }: ProfileSummaryProp
   return (
     <div className="app-page-stack">
       <ProfileIdentity summary={summary} />
+      <Link className="app-btn-primary inline-flex" href="/assessments">Навыки и анкеты</Link>
+      {summary.assessments && <AssessmentProfile profile={summary.assessments} />}
       <FactorCards summary={summary} />
     </div>
   );

@@ -1,5 +1,6 @@
 import { ApiClientError, readRetryAfterMs } from './errors';
 import type { ApiJsonObject, ApiJsonValue } from './types';
+import { announceSessionChange, observeSessionSubject, sessionRevision } from './sessionEvents';
 import {
   createIdempotencyKey,
   IDEMPOTENCY_KEY_HEADER,
@@ -35,9 +36,11 @@ export type HttpRequestOptions = {
 
 const MUTATION_METHODS: HttpMethod[] = ['POST', 'PATCH', 'PUT', 'DELETE'];
 let embeddedSessionBearerToken: string | null = null;
+let embeddedTokenRevision: number | null = null;
 
 export const clearEmbeddedSessionBearerToken = (): void => {
   embeddedSessionBearerToken = null;
+  embeddedTokenRevision = null;
 };
 
 const toProxyPath = (path: string): string => {
@@ -63,6 +66,7 @@ const rememberEmbeddedSessionBearer = (value: ApiJsonValue): void => {
   const token = value.session_token;
   if (typeof token === 'string' && token.length > 0) {
     embeddedSessionBearerToken = token;
+    embeddedTokenRevision = sessionRevision();
   }
 };
 
@@ -113,6 +117,8 @@ const request = async <TResponse>(
   body?: HttpBody,
   options?: HttpRequestOptions
 ): Promise<TResponse> => {
+  const capturedSessionRevision = sessionRevision();
+  if (embeddedTokenRevision !== null && embeddedTokenRevision !== capturedSessionRevision) clearEmbeddedSessionBearerToken();
   const url = toProxyPath(path);
   const headers = new Headers(options?.headers);
 
@@ -161,6 +167,9 @@ const request = async <TResponse>(
 
   const payload = await parseJson(response);
   if (options?.signal?.aborted) throw Object.assign(new Error('Request aborted'), { name: 'AbortError' });
+  if (isInternalApiPath(url) && capturedSessionRevision !== sessionRevision()) {
+    throw new ApiClientError({ status: 401, code: 'SESSION_CHANGED', message: 'Session changed during request' });
+  }
   const envelope = parseEnvelope<TResponse>(payload);
   if (!envelope) {
     throw new ApiClientError({
@@ -171,7 +180,13 @@ const request = async <TResponse>(
   }
 
   if (envelope.ok && isExchangeCodePath(url)) {
+    announceSessionChange();
     rememberEmbeddedSessionBearer(envelope.data as ApiJsonValue);
+  }
+
+  if (envelope.ok && /^\/(?:\.proxy\/)?api\/users\/me(?:\?|$)/.test(url)) {
+    const user = envelope.data as ApiJsonValue;
+    if (isObject(user) && typeof user.id === 'string') observeSessionSubject(user.id);
   }
 
   if (!envelope.ok) {

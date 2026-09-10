@@ -53,6 +53,7 @@ npm run dev
 | Переменная | Обязательность | Назначение |
 | --- | --- | --- |
 | `MONGODB_URI` | да | MongoDB connection string |
+| `ASSESSMENT_SYNTHETIC_ENABLED` | нет, выключен | Только изолированная вертикаль DOM.S07: значение `true` дополнительно требует loopback replica set `vmeste_*_test`, зарегистрированного synthetic участника и штатной сессии. Не включает рабочий Matching. |
 | `NEXT_PUBLIC_DISCORD_CLIENT_ID` | да | Discord application id |
 | `DISCORD_CLIENT_SECRET` | да | Discord OAuth secret |
 | `DISCORD_REDIRECT_URI` | условно | Предпочтительный server-side redirect allowlist; нужен один redirect URI |
@@ -104,3 +105,19 @@ Startup валидирует контракт. Не включайте `x-forwar
 - [Project map](./docs/PROJECT_MAP.md)
 
 Для работы Codex начните с `AGENTS.md` и [docs/INDEX.md](./docs/INDEX.md).
+
+## Закрытая бета навыков
+
+Продолжение I01–I04 доступно через `/assessments`: три выбранные темы, отдельные понимание / учебное выполнение / описанное применение, личный профиль с историей, добровольные практики, прямые условия, ограниченная выдача и договорённости пары. Авторские показатели не имеют психометрической калибровки. Остальные исходные определения не получают выдуманных уровней.
+
+Новый env contract: `ASSESSMENT_MODE=OFF|SYNTHETIC|PRIVATE_BETA` (по умолчанию OFF), `ASSESSMENT_BETA_APPROVALS_PATH`, `ASSESSMENT_RECOVERY_MONGODB_URI`, `ASSESSMENT_RECOVERY_IDENTITY_KEY` (отдельный стабильный секрет ≥32 символов), `ASSESSMENT_ALERT_WEBHOOK_URL`. Старый `ASSESSMENT_SYNTHETIC_ENABLED=true` совместим только с изолированным synthetic target. Реальная среда требует обычного входа, подлинных scoped approvals, отдельного ledger и worker. Настройка флага сама по себе не подтверждает готовность и не приглашает участников.
+
+Для локальной приёмки приложение устанавливается по `npm ci`; отдельный путь к `mongod` передаётся через `--mongod` или `LOCAL_ACCEPTANCE_MONGOD`, Playwright — через `--browser-module` или `BETA_PLAYWRIGHT_MODULE`. Инструменты не читают рабочие `.env`, не мигрируют рабочую БД и не добавляют synthetic login в приложение.
+
+```text
+npm run beta:check -- --mongod=<ABSOLUTE_MONGOD_BINARY> --browser-module=<ABSOLUTE_PLAYWRIGHT_MODULE> --output=<EXTERNAL_EVIDENCE_DIRECTORY>
+node --import tsx scripts/beta-worker.ts
+node --import tsx scripts/beta-ops.ts preflight
+```
+
+Порядок допуска, stop switches, миграция, alert, support и restore: [BETA_OPERATIONS.md](./docs/BETA_OPERATIONS.md). Контракты источников: [BETA_SOURCES.md](./docs/BETA_SOURCES.md); условия и пара: [BETA_COMPARISON.md](./docs/BETA_COMPARISON.md); методика evidence и CI: [BETA_VERIFICATION.md](./docs/BETA_VERIFICATION.md). Запуск реальных людей остаётся отдельным операторским решением.

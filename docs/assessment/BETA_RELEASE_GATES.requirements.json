@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "beta-release-gates-1",
+  "status": "REQUIREMENTS_TEMPLATE_NOT_ACTUAL_APPROVAL",
+  "implementationReady": false,
+  "environmentReady": false,
+  "privateBetaOpen": false,
+  "gates": [
+    {
+      "id": "G01",
+      "title": "Финальный implementation scope",
+      "type": "CODE",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Все required B01–B12 кодовые функции реализованы, включённый manifest соответствует реальным routes/UI/jobs, исходные regression не сломаны.",
+      "responsibleRole": "Codex",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G02",
+      "title": "Проверяемая identity и CI",
+      "type": "CODE",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Все automatic results относятся к final tested tree/build; обязательные auto cases PASSED, no silent skips.",
+      "responsibleRole": "Codex",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G03",
+      "title": "Publication и usage contracts",
+      "type": "CODE",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Строгие схемы/контент/mappings готовы; авторская область и конкретные consumers обозначены; непроверенные54 шкалы не выданы как готовые.",
+      "responsibleRole": "Codex",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G04",
+      "title": "Privacy и доступ",
+      "type": "CODE",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Purpose-before-composition, межаккаунтный UI, source resolver, deletion, inference и participant permissions проверены; неизвестный доступ fail closed.",
+      "responsibleRole": "Codex",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G05",
+      "title": "Восстановление и операционность",
+      "type": "CODE_AND_ENVIRONMENT",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Durable jobs, scheduled runner, индексы, synthetic migration/restore, alerts и overload path реально выполнены; для target среды настройки подтверждены.",
+      "responsibleRole": "Codex + оператор",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G06",
+      "title": "Доступность",
+      "type": "CODE_AND_EXTERNAL",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Клавиатура/reflow/reduced-motion пройдены; native AT core flow действительно проверен. Нельзя заменить последнее DOM snapshot.",
+      "responsibleRole": "Codex + тестировщик доступности",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G07",
+      "title": "Настоящая identity/поверхность",
+      "type": "ENVIRONMENT_EXTERNAL",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "OAuth/iframe/обычная авторизация испытаны на разрешённой target поверхности; test bypass исключён.",
+      "responsibleRole": "Оператор с доступом + Codex по разрешённой среде",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G08",
+      "title": "Допустимость data flow",
+      "type": "EXTERNAL_DECISION",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Есть актуальный scoped разбор platform/правовых требований для фактического потока, необходимое внешнее решение/разъяснение получено; сам consent не исключает запрет.",
+      "responsibleRole": "Ответственный оператор/компетентный review при необходимости",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G09",
+      "title": "Информирование и поддержка",
+      "type": "CODE_AND_EXTERNAL",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Пользователю доступно корректное информирование, owner data controls, приватный support contact и принятая retention/processor policy; фиктивного адреса/контакта нет.",
+      "responsibleRole": "Codex + владелец продукта",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G10",
+      "title": "Готовность целевой среды",
+      "type": "ENVIRONMENT",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Разрешённая БД/индексы, transport/runner, резервирование/восстановление и alerts настроены; synthetic-only настройки не переименованы в production.",
+      "responsibleRole": "Оператор",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G11",
+      "title": "Осознанное включение",
+      "type": "OPERATOR_ACTION",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Оператор разрешил конкретную версию/поверхность/cohort; фактический rollout зарегистрирован, kill switches доступны.",
+      "responsibleRole": "Уполномоченный оператор",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    },
+    {
+      "id": "G12",
+      "title": "Граница психологических утверждений",
+      "type": "CODE_AND_CONTENT",
+      "required": true,
+      "initialStatus": "NOT_RUN",
+      "condition": "Нет клинических/предсказательных обещаний, confidence личности или скрытого рейтинга из авторской шкалы; beta content review не назван психометрической калибровкой.",
+      "responsibleRole": "Codex + content owner",
+      "evidence": [],
+      "approvalForgeryForbidden": true
+    }
+  ],
+  "aggregation": {
+    "implementationReady": "All required code parts implemented and executed successfully; external approvals may remain separate without falsely claiming launch.",
+    "environmentReady": "All applicable target-environment and external-decision gates genuinely passed.",
+    "privateBetaOpen": "Implementation and environment ready, explicit operator authorization, and rollout actually performed.",
+    "percentPassNeverOverridesRequiredFailure": true
+  },
+  "missingEvidenceIsNotPass": true
+}

@@ -4,14 +4,15 @@ import { access, mkdir, mkdtemp, realpath, rm, stat } from 'node:fs/promises';
 import { createServer as createHttpServer, request as httpRequest, type Server as HttpServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import {
   assertOwnedLocalAcceptanceDirectory, localAcceptanceActor, localAcceptanceHostname,
-  localAcceptanceEnvironment, parseLocalAcceptanceOptions,
+  localAcceptanceEnvironment, localAcceptanceAssessmentEnvironment,
+  localAcceptanceStartPath, parseLocalAcceptanceOptions,
 } from './lib/local-acceptance-options';
 
 type OwnedProcess = { child: ChildProcess; closed: Promise<void>; label: string; readonly finished: boolean };
@@ -142,12 +143,17 @@ async function main(): Promise<void> {
   const replicaSet = `vmesteLocal${runId}`;
   const uri = `mongodb://127.0.0.1:${options.mongoPort}/vmeste_local_${runId}_test?replicaSet=${replicaSet}&directConnection=true`;
   const environment: NodeJS.ProcessEnv = {
-    ...localAcceptanceEnvironment(process.env), NODE_ENV: 'production',
+    ...localAcceptanceEnvironment(process.env), ...localAcceptanceAssessmentEnvironment(options), NODE_ENV: 'production',
     MONGODB_URI: uri, MATCHING_TEST_MONGODB_URI: uri, JWT_SECRET: randomBytes(48).toString('hex'),
     NEXT_PUBLIC_DISCORD_CLIENT_ID: '100000000000000001', DISCORD_CLIENT_SECRET: randomBytes(32).toString('hex'),
     DISCORD_REDIRECT_URI: `http://127.0.0.1:${options.appPort}/`, NEXT_PUBLIC_DISCORD_REDIRECT_URI: `http://127.0.0.1:${options.appPort}/`,
     BILLING_MODE: 'disabled', TRUSTED_PROXY_MODE: 'disabled', NEXT_TELEMETRY_DISABLED: '1',
   };
+  if (process.env.BETA_EVIDENCE_DIR) {
+    const output = resolve(process.env.BETA_EVIDENCE_DIR), pathFromSource = relative(workspace, output);
+    if (pathFromSource !== '..' && !pathFromSource.startsWith(`..${sep}`) && !isAbsolute(pathFromSource)) throw new Error('LOCAL_ACCEPTANCE_EVIDENCE_MUST_BE_EXTERNAL');
+    environment.BETA_EVIDENCE_DIR = output;
+  }
   // The fixture services run in this process; they see exactly the same isolated
   // environment as Next and the suite children, never inherited application env.
   process.env = environment;
@@ -182,25 +188,40 @@ async function main(): Promise<void> {
   }, mongo);
   report('database-ready', { mode: options.mode, mongoPort: options.mongoPort });
   if (options.mode === 'integration') {
-    stage = options.suite === 'factors' ? 'factor-integration-suites' : 'six-integration-suites';
-    const integration = start('integration', process.execPath, ['--import', 'tsx', resolve(workspace, 'scripts/two-user-acceptance.integration.ts'), ...(options.suite === 'factors' ? ['--factors'] : [])], environment);
-    let buffered = '';
-    integration.child.stdout?.on('data', (chunk: Buffer) => {
-      if (stop.signal.aborted) return;
-      buffered += chunk.toString('utf8');
-      if (buffered.length > 8_192) { buffered = ''; return; }
-      const lines = buffered.split('\n');
-      buffered = lines.pop() ?? '';
-      for (const line of lines) {
-        // Only forward fields from the existing aggregate's compact status rows.
-        const suite = /"suite":"([a-z-]+)"/.exec(line)?.[1];
-        const status = /"status":"(running|passed|failed)"/.exec(line)?.[1];
-        const testStage = /"stage":"([A-Za-z0-9 ]{1,80})"/.exec(line)?.[1];
-        if (suite && status) report(status, { check: suite, ...(testStage ? { stage: testStage } : {}) });
-      }
-    });
-    await waitForChild(integration);
-    report('passed', { checks: options.suite === 'factors' ? 3 : 6,
+    stage = options.suite.startsWith('beta') ? 'beta-integration-suite' : options.suite === 'assessment' ? 'assessment-integration-suite'
+      : options.suite === 'factors' ? 'factor-integration-suites' : 'six-integration-suites';
+    const retainedAssessment = ['scripts/assessment.integration.ts', 'scripts/assessment-comparison.integration.ts'];
+    const integrationScripts = options.suite === 'beta'
+      ? [...retainedAssessment, 'scripts/beta-sources.integration.ts', 'scripts/beta-pair.integration.ts', 'scripts/beta-feed.integration.ts']
+      : options.suite === 'beta-pair' ? ['scripts/beta-pair.integration.ts']
+      : options.suite === 'beta-sources' ? ['scripts/beta-sources.integration.ts']
+      : options.suite === 'beta-feed' ? ['scripts/beta-feed.integration.ts']
+      : options.suite === 'beta-load' ? ['scripts/beta-load.integration.ts']
+      : options.suite === 'assessment' ? retainedAssessment : ['scripts/two-user-acceptance.integration.ts'];
+    for (const integrationScript of integrationScripts) {
+      const integration = start('integration', process.execPath, ['--import', 'tsx', resolve(workspace, integrationScript), ...(options.suite === 'factors' ? ['--factors'] : [])], environment);
+      let buffered = '';
+      integration.child.stdout?.on('data', (chunk: Buffer) => {
+        if (stop.signal.aborted) return;
+        buffered += chunk.toString('utf8');
+        if (buffered.length > 8_192) { buffered = ''; return; }
+        const lines = buffered.split('\n');
+        buffered = lines.pop() ?? '';
+        for (const line of lines) {
+          // Forward only named test receipts, never bodies, credentials or diagnostics.
+          const receipt = z.object({ suite: z.string().regex(/^[a-z-]+$/), status: z.enum(['running', 'passed', 'failed', 'PASS', 'PASSED', 'FAIL']),
+            id: z.string().max(80).optional(), stage: z.string().max(500).optional(), test: z.string().max(500).optional(), assertion: z.string().max(500).optional(),
+            acceptanceIds: z.array(z.string().regex(/^(INT|BETA)-\d{3}$/)).optional(), completedCases: z.number().int().optional(), tests: z.number().int().optional(), checks: z.number().int().optional(),
+          });
+          try { const parsed = receipt.safeParse(JSON.parse(line)); if (parsed.success) process.stdout.write(`${JSON.stringify({ ...parsed.data, sourceFile: integrationScript })}\n`); } catch { /* Other child output is not evidence. */ }
+        }
+      });
+      await waitForChild(integration);
+      // Each independent suite starts without durable fixtures from the previous
+      // one. This exact random database belongs to our verified owned replica set.
+      await databaseClient.db(new URL(uri).pathname.slice(1)).dropDatabase();
+    }
+    report('passed', { checks: options.suite.startsWith('beta') ? integrationScripts.length : options.suite === 'assessment' ? 2 : options.suite === 'factors' ? 3 : 6,
       discordIframeValidated: false, realOAuthValidated: false });
     return;
   }
@@ -273,10 +294,20 @@ async function main(): Promise<void> {
     if (request.method === 'POST' && request.url === '/stop' && origin === `http://${host}`) {
       response.writeHead(202).end(); requestStop(); return;
     }
+    // Explicit disposable fixture login on one cookie host for account-switch
+    // history tests. This listener is never part of the application deployment.
+    const sameOriginActor = /^\/same-origin\/([ab])$/.exec(request.url ?? '')?.[1];
+    if (request.method === 'GET' && (sameOriginActor === 'a' || sameOriginActor === 'b') && host === `${localAcceptanceHostname('a', options.hostPrefix)}:${options.loginPort}`) {
+      void fixtures.freshSessionCookie(sameOriginActor).then(cookie => {
+        response.setHeader('Set-Cookie', cookie);
+        response.writeHead(303, { Location: `http://${localAcceptanceHostname('a', options.hostPrefix)}:${options.appPort}/assessments` }).end();
+      }).catch(() => response.writeHead(500).end());
+      return;
+    }
     const actor = localAcceptanceActor(host, request.url, options.loginPort, options.hostPrefix);
     if (request.method !== 'GET' || !actor) { response.writeHead(404).end(); return; }
     response.setHeader('Set-Cookie', fixtures.sessionCookie(actor));
-    response.writeHead(303, { Location: `http://${localAcceptanceHostname(actor, options.hostPrefix)}:${actor === 'a' ? options.appPort : options.partnerAppPort}/${options.scenario === 'first-entry' ? 'entry' : options.scenario === 'onboarding' ? 'mvp-onboarding' : 'main-menu'}` }).end();
+    response.writeHead(303, { Location: `http://${localAcceptanceHostname(actor, options.hostPrefix)}:${actor === 'a' ? options.appPort : options.partnerAppPort}${localAcceptanceStartPath(options.scenario)}` }).end();
   });
   await new Promise<void>((resolveListen, reject) => {
     bootstrap!.once('error', reject);

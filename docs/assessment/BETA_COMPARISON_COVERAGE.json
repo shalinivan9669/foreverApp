@@ -1,0 +1,773 @@
+{
+  "schemaVersion": "beta-comparison-coverage-v1",
+  "classification": "Executable assertion map, not a blanket acceptance PASS",
+  "sourceIdentity": "Bound by final root execution record; exploratory runs do not certify final tree",
+  "commands": [
+    "node --import tsx scripts/beta-comparison.selfcheck.ts",
+    "node scripts/assessment-reference/run.mjs",
+    "node --import tsx scripts/local-acceptance.ts --suite beta --mongod=<ABSOLUTE_MONGOD_BINARY>"
+  ],
+  "cases": [
+    {
+      "id": "BETA-041",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "strict direct author shape rejects actor and effects",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "HTTP own direct input binds token and persists real authored resource",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-042",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "empty known offers differ from unknown offers",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-043",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "resource uses own entered finite values",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "HTTP own direct input binds token and persists real authored resource",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-044",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "unsupported numeric range is rejected instead of averaged",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-045",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "half-open intervals and DST reject ambiguity and nonexistent time",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-046",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "monthly resource cannot create an evening availability",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-047",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "residual budget is not charged ordinary work twice",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-048",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "bounded recurring identity survives repeated expansion",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "future material revision resets signatures and preserves past occurrence version",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Bounded recurrence, stable occurrence identity, past material version and original timezone are exercised. General browser error-focus requirements are mapped under B11."
+      ]
+    },
+    {
+      "id": "BETA-049",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "possible levels reject empty and preserve unknown instead of vacuous support",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-050",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "two individually satisfied directions survive shared resource failure",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-051",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "achieved criterion preserves offer and actual snapshot",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "COM pause template never requires COM request as global criterion",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "real beta-ready source services establish separate current and joint conditional pair views",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-052",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "unknown skill asks for clarification without remedial criterion action",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-053",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "criterion and schedule must be jointly feasible",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "real beta-ready source services establish separate current and joint conditional pair views",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-054",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "combined skill and schedule costs can defeat all plans",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-055",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "different feasible plan per world is NOT one agreed robust plan",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "contradictory current facts and world invariants produce input error",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "mutually exclusive individually possible conditions do not create a feasible conjunction",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-056",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "unpublished action and peer resource overrides are rejected",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-057",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "declined action excluded while unknown willingness remains unchosen",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-058",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "bounded search reports exhausted computation budget",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-059",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "inclusion-minimal solution sets do not include irrelevant extra action",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "one-domain route is a sufficient model route, not proof of one real psychological cause",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "side-effect burden can affect another domain without adding fake independent benefit",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-060",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "prepared beta comparison cannot survive a real own direct revision race",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/assessment-comparison.integration.ts",
+          "assertion": "INT-046",
+          "layer": "RETAINED_HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "beta comparison rejects permission withdrawal committed after calculation before return",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "beta comparison rejects account session generation changed before return",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "beta comparison rejects real Pair pause and does not reuse it after resume",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "account deletion before comparison return cancels actual issued reminders and future intents for both sides",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "positive beta correction keeps prior source while draft then replaces actual evidence and stales prepared comparison",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP practice report then new real self report changes profile and invalidates prepared beta conditional result",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Fresh beta fences are exercised for direct revisions, permission withdrawal, account session generation, real Pair pause/resume, deletion, positive source correction and new completed followup. Retained envelope tests additionally verify cached I03 binding fields. Beta current/scenario has no persistable cached certificate."
+      ]
+    },
+    {
+      "id": "BETA-061",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "HTTP feed uses actual authorized matching profiles and direct inputs",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "real beta discovery renders one authorized current lane and opens actual two-direction comparison",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "voluntary LikeComposer submit is authored only by current B and reaches A inbox without automatic Pair",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-062",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "candidate optout and cohort revocation close current and cached access",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "withdrawing peer discovery produces real accessible empty state with conditions card inbox and settings choices",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-063",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "bidirectional existing social block overrides issued grant and beta lane",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-064",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "live current conditional unknown difference and disabled lanes remain separate",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-065",
+      "tests": [
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "asymmetric gain does not dominate mutual moderate alignment",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "known advantage in both directions supports partial ordering",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "missingness bounds do not become a point score",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "different comparison basis means incomparable, not zero or worse",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/assessment-reference/matching.test.mjs",
+          "assertion": "conditional potential cannot compete as current alignment",
+          "layer": "RETAINED_APPLICATION_ENGINE",
+          "runner": "scripts/assessment-reference/run.mjs",
+          "suite": "assessment-reference"
+        },
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "private source revision cannot change direct feed semantic cards",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Beta feed keeps authorized legacy order and never sorts a partial definitelyDominates comparator. Retained engine assertions cover partial order; real feed assertions verify stable semantic order and current/conditional separation."
+      ]
+    },
+    {
+      "id": "BETA-066",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "opaque cursor pages do not repeat and bind actor limits and direct revision",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-067",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "forged cursor and arbitrary peer id cannot reveal a candidate",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-068",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "feed direct-only output does not depend on hidden skill values",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "private source revision cannot change direct feed semantic cards",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "permitted beta source private NEG correction preserves external identity and full comparison through draft answer finalize",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-content.selfcheck.ts",
+          "assertion": "purpose before arithmetic / permissions no oracle / previous pair not portable",
+          "layer": "PURE_DOMAIN"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Purpose filtering is tested before composition, closed private A updates preserve actual feed semantics, and permitted source negative-only revise/present/answer/finalize preserves PAIR and MATCHING identities plus full HTTP conditional DTO while owner negative evidence changes."
+      ]
+    },
+    {
+      "id": "BETA-069",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "real account deletion invalidates issued beta detail and existing contact grant",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "account deletion before comparison return cancels actual issued reminders and future intents for both sides",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-ops.integration.ts",
+          "assertion": "actual account deletion removes new sources/jobs/grants/settings and preserves independent peer report",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Actual account deletion fences prepared comparison, cancels real issued reminders and future intents for both participants, rejects old detail/contact grants and removes queued owner projection data while preserving independent peer reports."
+      ]
+    },
+    {
+      "id": "BETA-070",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "real empty state has no fixture fallback",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "withdrawing peer discovery produces real accessible empty state with conditions card inbox and settings choices",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        },
+        {
+          "file": "scripts/beta-feed-browser.mjs",
+          "assertion": "failed real detail fetch shows retry with no cached contact and retry recovers authorized content",
+          "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-071",
+      "tests": [
+        {
+          "file": "scripts/beta-feed.integration.ts",
+          "assertion": "beta OFF leaves existing legacy allowed matching policy unchanged",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-072",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "two independent version confirmations create recurrence without skill source",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-073",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "future material revision resets signatures and preserves past occurrence version",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-074",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "own private note cannot change peer DTO or shared content hash",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-075",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "elapsed occurrence without answer remains unknown",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-076",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "future material revision resets signatures and preserves past occurrence version",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-077",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "hidden partner report values cannot change shared summary",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "two independent reports preserve disagreement and hide private direction",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-078",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "occurrence trend requires same author context version metric and comparable instants",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "own comparable occurrences show category trend and corrections replace the same observation",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "unfinished followup preserves A then completed unknown new window is unknown with history",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        },
+        {
+          "file": "scripts/beta-sources.integration.ts",
+          "assertion": "HTTP practice report then new real self report changes profile and invalidates prepared beta conditional result",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Independent reports, ordinal chronology, correction replacement, unfinished and completed source followup history, and real practice-report/new-observation/current-conditional separation are covered by named executed assertions."
+      ]
+    },
+    {
+      "id": "BETA-079",
+      "tests": [
+        {
+          "file": "scripts/beta-comparison.selfcheck.ts",
+          "assertion": "quiet hours respect participant timezone including midnight",
+          "layer": "PURE_DOMAIN"
+        },
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "durable inbox reminder deduplicates concurrent workers and cancels own optout",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair",
+      "supportedSubparts": [
+        "Real concurrent reminder inserts, exact generic DTO title/message and pair target, owner quiet hours, opt-out and notification stop switch are exercised. External delivery is not enabled by this feature and is not claimed."
+      ]
+    },
+    {
+      "id": "BETA-080",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "ending actual Pair closes new work and reminder effects while owner controls remain",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    },
+    {
+      "id": "BETA-081",
+      "tests": [
+        {
+          "file": "scripts/beta-pair.integration.ts",
+          "assertion": "one participant can stop without violation or acceptance for peer",
+          "layer": "HTTP_AND_MONGODB_OWNED_REPLICA_SET"
+        }
+      ],
+      "executionStatus": "BOUND_BY_FINAL_EXECUTION_RECORD_NOT_THIS_MAP",
+      "unverifiedSubparts": [],
+      "owner": "comparison_pair"
+    }
+  ]
+}

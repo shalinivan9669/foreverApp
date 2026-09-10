@@ -26,6 +26,7 @@ import '@/models/PairEvent';
 import type { LocalAcceptanceScenario } from './local-acceptance-options';
 import { seedLocalAcceptanceMatching } from './local-acceptance-matching';
 import { seedLocalAcceptanceNotifications } from './local-acceptance-notifications';
+import { seedLocalAcceptanceAssessment, deleteLocalAcceptanceAssessment, prepareLocalAcceptanceAssessmentComparison } from './local-acceptance-assessment';
 
 export const createLocalAcceptanceFixtures = async (runId: string, scenario: LocalAcceptanceScenario = 'existing-partner') => {
   assert.match(runId, /^[a-f0-9]{12}$/);
@@ -36,6 +37,7 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
   const secret = process.env.JWT_SECRET;
   assert.ok(secret && secret.length >= 32);
   const subjects = { a: `local-acceptance-${runId}-a`, b: `local-acceptance-${runId}-b` };
+  const assessmentScenario = scenario === 'assessment' || scenario === 'assessment-ready' || (scenario.startsWith('beta-') && scenario !== 'beta-feed');
   await mongoose.connect(uri.toString(), { autoIndex: false, serverSelectionTimeoutMS: 5_000 });
   for (const model of Object.values(mongoose.models)) {
     await model.createCollection();
@@ -48,7 +50,7 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
       avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
     } });
     if (scenario !== 'first-entry') await entryProfileService.save({ currentUserId: userId, profile: {
-      cohort: scenario === 'existing-partner' || scenario === 'notifications' ? 'EXISTING_PARTNER' : 'SOLO', age: 25, gender: actor === 'a' ? 'female' : 'male',
+      cohort: scenario === 'existing-partner' || scenario === 'notifications' || assessmentScenario ? 'EXISTING_PARTNER' : 'SOLO', age: 25, gender: actor === 'a' ? 'female' : 'male',
       city: 'Тестовый город', locationMode: 'NONE',
     } });
     if (scenario !== 'onboarding' && scenario !== 'first-entry') {
@@ -78,18 +80,29 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
       assert.equal(entry.user.profile?.matchCard, undefined);
     }
   }
-  if (scenario === 'matching' || scenario === 'matching-connection') await seedLocalAcceptanceMatching(subjects, scenario);
+  if (scenario === 'matching' || scenario === 'matching-connection' || scenario === 'beta-feed') await seedLocalAcceptanceMatching(subjects, scenario === 'beta-feed' ? 'matching' : scenario);
   if (scenario === 'notifications') await seedLocalAcceptanceNotifications(subjects);
+  const assessmentPairId = assessmentScenario ? await seedLocalAcceptanceAssessment(subjects, runId) : null;
   const versions = {
     a: await sessionRevocationService.getOrCreateVersion(subjects.a),
     b: await sessionRevocationService.getOrCreateVersion(subjects.b),
   };
+  if (scenario === 'assessment-ready') await prepareLocalAcceptanceAssessmentComparison(subjects, runId);
+  if (scenario === 'beta-ready' || scenario === 'beta-history') {
+    const { prepareLocalAcceptanceBeta, prepareLocalAcceptanceBetaPairHistory } = await import('./local-acceptance-beta');
+    await prepareLocalAcceptanceBeta(subjects, runId);
+    if (scenario === 'beta-history') await prepareLocalAcceptanceBetaPairHistory(subjects, runId);
+  }
+  if (scenario === 'beta-feed') {
+    const { prepareLocalAcceptanceBetaFeed } = await import('./local-acceptance-beta-feed');
+    await prepareLocalAcceptanceBetaFeed(subjects, runId);
+  }
   // A long-lived account fixture exercises the complete continuation list. These
   // are real published v1 activities from distinct historical weekly periods,
   // without submitted answers, completions or rewards.
   const contentKey = 'communication.solo_practice.1';
   assert.ok(DEVELOPMENT_CONTENT_REPOSITORY.findRevision(contentKey, 1));
-  if (scenario !== 'onboarding' && scenario !== 'first-entry') await DevelopmentRun.create(Array.from({ length: 35 }, (_, index) => {
+  if (scenario !== 'onboarding' && scenario !== 'first-entry' && !assessmentScenario) await DevelopmentRun.create(Array.from({ length: 35 }, (_, index) => {
     const createdAt = new Date(Date.UTC(2025, 0, 6 - index * 7));
     return {
       _id: createHash('sha256').update(`${runId}:browser-run:${index}`).digest('hex'),
@@ -99,10 +112,14 @@ export const createLocalAcceptanceFixtures = async (runId: string, scenario: Loc
     };
   }));
   return {
+    subjects,
+    assessmentPairId,
     // Tokens stay inside the process and Set-Cookie headers. They are never
     // returned in JSON, URLs, logs, files, or the command line.
     sessionCookie: (actor: 'a' | 'b') => `session=${signJwt(subjects[actor], secret, 7_200, versions[actor])}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`,
+    freshSessionCookie: async (actor: 'a' | 'b') => `session=${signJwt(subjects[actor], secret, 7_200, await sessionRevocationService.getOrCreateVersion(subjects[actor]))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200`,
     cleanup: async () => {
+      if (assessmentScenario) await deleteLocalAcceptanceAssessment(subjects, runId);
       await Promise.all([
         User.deleteMany({ id: { $in: Object.values(subjects) } }),
         SessionSubject.deleteMany({ subjectKey: { $in: Object.values(subjects).map(privacySubjectHash) } }),

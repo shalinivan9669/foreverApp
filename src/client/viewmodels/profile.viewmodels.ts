@@ -38,6 +38,7 @@ export const normalizeProfileSummary = (
   summary: ProfileSummaryDTO
 ): ProfileSummaryDTO => ({
   user: { ...summary.user },
+  ...(summary.assessments ? { assessments: summary.assessments } : {}),
   factorProfile: {
     ...summary.factorProfile,
     cards: summary.factorProfile.cards.map(normalizeCard),

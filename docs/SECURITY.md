@@ -1,5 +1,17 @@
 # Security and privacy
 
+## Private beta continuation — 2026-09-10
+
+Допуск, сохранённые назначения и recovery описаны в [ADR-009](ADR/ADR-009-private-beta-settings-and-recovery.md) и [BETA_OPERATIONS.md](BETA_OPERATIONS.md). Вход по прежней серверной сессии обязателен; membership приглашённой взрослой cohort не заменяет auth. PRIVATE_BETA требует целевых scoped approvals, текущих версий, отдельного ledger и явного оператора. OFF сохраняет аутентифицированные owner controls, не обычную выдачу.
+
+Личные источники фильтруются по owner/назначению/аудитории/версии и текущим правам до вычисления. Центральный явный выбор применяет описанный scope к выбранным сохранённым и будущим формам; простой deploy/registration не расширяет прежние разрешения. Source-set revision, permission epoch, session version, deletion generation и lease fence предотвращают возврат устаревших эффектов. Только кандидат с действующим grant или текущий участник Pair допускается к сравнительному DTO. Closed negative components и private pair report не входят в чужую выдачу.
+
+Клиент очищает private state перед pagehide, при logout/storage invalidation и перепроверяет owner перед возобновлением и записью. Межвкладочное событие содержит только случайный маркер. Старый встроенный bearer не переживает смену локальной версии сессии. Одна лишь клиентская проверка не является границей доступа: сервер отвергает чужой viewer intent.
+
+Операционные события содержат агрегатные коды/длительность, а не payload. Support не прикладывает результаты автоматически; выбранная собственная ревизия проверяется сервером. Ledger хранится отдельно от основной БД и применяется перед разрешением выдачи после восстановления. Отдельный стабильный recovery key не равен JWT secret. Удаление собственного источника не переписывает авторство чужого отчёта.
+
+Платформенный допуск остаётся внешним: [scoped review](assessment/BETA_DATA_FLOW_REVIEW.json) не имеет выдуманных approval. [Discord Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy) содержит ограничения обработки API Data для профилирования людей и отношений; согласие пользователя само по себе не заменяет проверку применимости политики к реальному потоку данных.
+
 ## Measurement sources — 2026-09-09
 
 Measurement routes use existing session/resource guards. Owner SELF projections require actor=subject and exclude SYSTEM_ONLY and OBSERVER_REPORT. Pair use is separately revocable per test and checked against current permission revision on each shared calculation. Shared DTOs pass through central disclosure and contain no peer answers, scalar/mastery values or evidence metadata. Matching still requires MatchingUseGrant plus matchingPolicy. Owner access does not grant either consumer access. Former pair-scoped evidence is excluded from the current owner profile and new pair. Measurement sources appear only in the owner's export and are deleted by existing account execution. No session/auth or environment mechanism changes.

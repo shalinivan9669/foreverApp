@@ -13,6 +13,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { PrivacyRequest } from "@/models/PrivacyRequest";
 import { Pair } from "@/models/Pair";
 import { User } from "@/models/User";
+import { purgeAssessmentOwnedData, recordAssessmentRevocation } from '@/domain/services/assessmentRecovery.service';
 
 const requestProjection = {
   kind: 1,
@@ -462,6 +463,14 @@ const executeDeletion = async (input: {
 
       await database.collection("development_completions").deleteMany({ userId: input.ownerUserId }, { session });
       await database.collection('measurement_test_sessions').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection('assessment_runs').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await purgeAssessmentOwnedData(input.ownerUserId, session);
+      await database.collection('assessment_direct').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection('assessment_operations').deleteMany({ ownerId: input.ownerUserId }, { session });
+      await database.collection<{ _id: string }>('assessment_participants').deleteOne({ _id: input.ownerUserId }, { session });
+      await database.collection('assessment_comparisons').deleteMany({ actorIds: input.ownerUserId }, { session });
+      await database.collection('assessment_pair_work').deleteMany({ actorIds: input.ownerUserId }, { session });
+      await database.collection('assessment_pair_reports').deleteMany({ ownerId: input.ownerUserId }, { session });
       await database.collection("development_runs").deleteMany({ participantIds: input.ownerUserId }, { session });
       // A workspace is shared only inside its active Pair. No archive policy is
       // introduced; erasure removes this inaccessible shared payload as a unit.
@@ -545,6 +554,7 @@ export const accountDeletionService = {
     }
 
     try {
+      await recordAssessmentRevocation(input.ownerUserId, { deleted: true });
       const barrier = await accountWriteBarrierService.beginDeletion({
         userId: input.ownerUserId,
         sessionVersion: input.sessionVersion,

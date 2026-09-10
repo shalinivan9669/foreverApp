@@ -29,6 +29,12 @@ const COPY: Record<
     href: NotificationDTO['action']['href'];
   }
 > = {
+  BETA_PAIR_REMINDER: {
+    title: 'Ваше напоминание',
+    message: 'Можно открыть выбранную вами договорённость, когда будет удобно.',
+    label: 'Открыть договорённость',
+    href: '/assessments/pair',
+  },
   PAIR_JOINED: {
     title: 'Вы вместе',
     message: 'Партнёр присоединился. Можно перейти к следующему шагу.',
@@ -110,6 +116,8 @@ export const toNotificationDTO = (
         label: intent === 'summary' ? 'Посмотреть сводку цикла' : 'Заполнить отметку недели',
         href: `/pair/${pairId}?${resourceId ? `cycleId=${resourceId}&` : ''}${context.cycleKey ? `cycleKey=${encodeURIComponent(context.cycleKey)}&` : ''}action=${intent}#weekly-checkin`,
       };
+    } else if (notification.type === 'BETA_PAIR_REMINDER') {
+      action = { label: 'Открыть договорённость', href: '/assessments/pair' };
     } else {
       const intent = notification.type === 'FEEDBACK_REQUESTED' ? 'feedback' : 'recommendation';
       action = {

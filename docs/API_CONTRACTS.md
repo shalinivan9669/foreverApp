@@ -1,5 +1,23 @@
 # API Contracts
 
+## Private beta continuation — 2026-09-10
+
+Дополнительные owner/settings/portfolio/direct/discovery routes, расширения run и pair DTO описаны в [API_BETA_CONTRACTS.md](API_BETA_CONTRACTS.md). Предыдущие I01–I04 routes сохранены. `OwnerAssessmentProfileDTO.unavailableSkills` дополнительно перечисляет исходные неопубликованные определения как UNKNOWN/UNAVAILABLE_RUBRIC. Client imports используют явную DTO facade; HTTP никогда не возвращает Mongoose documents.
+
+## Synthetic DOM.S07 assessment — 2026-09-09
+
+`GET|POST /api/assessments/dom-s07` uses the ordinary authenticated, same-origin, bounded JSON boundary. It is disabled by default and additionally restricted to registered accounts on an isolated loopback test database. It accepts only strict operations `start`, `present`, `answer`, `hint`, `finalize`, `revise`, `permission`, `matching-permission`, `delete`, `retry`. Mutations carry an idempotency key and expected source revision (except start/retry). Answer payloads contain presentation ID and published option, structured own facts or an explicit missing reason. Identity, root, method, phase, context and period are server-owned. `pairUse` and `matchingUse` are separate permissions, initially false.
+
+Owner profile gains optional typed `assessments`; this field is omitted outside the enabled synthetic cohort. `FINALIZED` source commits before derived snapshot materialization. Repeated identical operations are reauthorized; stale revisions, conflicting keys and invalidated presentation receipts fail closed. Export, source deletion and permission revocation remain reachable when capture is disabled. See [assessment integration](ASSESSMENT_INTEGRATION.md) and [executed checks](ASSESSMENT_IMPLEMENTATION_STATUS.md).
+
+Every questionnaire mutation echoes `viewerToken` from the owner DTO. This token binds the intent to the displayed owner; it never selects the authenticated subject. `GET ?view=controls` returns only the owner's revision, flags and context, without answers/profile, even when capture is disabled.
+
+`GET|POST /api/assessments/comparison` saves strictly typed own direct positions, offers, resource budgets and separate `useForComparison`/`pairUse` permissions. It calculates current conditions or searches conditional plans over a finite published action catalog, with explicit limits and completeness. All mutations echo `intentToken` bound to the authenticated account generation and actual Pair context. `GET ?view=controls` returns only own direct settings and a current intent token. Current results and conditional scenarios are different DTO branches. The two need/offer directions and common resource feasibility are separate predicates. No peer budget, private certificate, missing-answer reason or solver trace is returned. Request inputs cannot replace goals, consent, negative history or current skill.
+
+`GET|POST /api/assessments/pair` supports `propose`, `revise`, `confirm`, `revoke`, `report`, `revoke-report`, `observe`. Every mutation carries `expectedRevision`, an idempotency key, and `context: { pairId, viewerToken }` from the returned DTO. The server derives the acting participant from session and verifies membership. `confirm` additionally names `expectedContentRevision`; it cannot confirm the other participant. `report` names a server-published period and one own ordinal category or explicit null, plus its own sharing choice. `ownRecorded` distinguishes an absent report from a deliberately saved unknown report. `GET ?view=controls&pairId=...` permits owner-controlled withdrawal from that historical Pair and returns no peer data, including after source removal or flag shutdown. Without `pairId`, controls select the owner's latest Pair.
+
+Pending proposals are invalidated by changed calculation inputs. An accepted ordinary agreement remains a human agreement after a new observation; it never becomes skill evidence. Editing its content clears both confirmations. Reporting windows start no earlier than bilateral activation; incomplete windows do not produce temporal trends. A fresh `observe` starts a new source draft while retaining the last committed source for current calculations until new answers are finalized. Repeated knowledge/task items remain assisted.
+
 ## Product expansion — 2026-09-05
 
 The accepted product expansion adds owner entry/cohort/public pairing identity, two explicit PairInvite confirmations, three-block/three-question matching, independent Connection rounds, development runs, shared-life workspace and earned-only economy. These current contracts take precedence over earlier two-question/three-step descriptions below:

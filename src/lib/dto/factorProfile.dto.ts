@@ -7,6 +7,7 @@ import type {
 import { MVP_FACTOR_REGISTRY } from '@/domain/model/definitions/mvpDefinitions';
 import { fromStoredFactorValue, type StoredFactorValue, type StoredAggregationMetrics } from '@/models/factorEngineSchemas';
 import { MEASUREMENT_TESTS } from '@/domain/model/measurements/catalog';
+import type { OwnerAssessmentProfileDTO } from '@/lib/dto/assessment.dto';
 
 export type FactorProfileStatus =
   | 'AVAILABLE'
@@ -49,6 +50,7 @@ export type FactorSemanticCardDTO = {
 };
 
 export type ProfileSummaryDTO = {
+  assessments?: OwnerAssessmentProfileDTO;
   user: {
     id: string;
     name: string;

@@ -10,6 +10,7 @@ export const NOTIFICATION_TYPES = [
   'MATCH_LIKE_RESPONDED',
   'MATCH_CONNECTED',
   'MATCH_CONFIRMATION_REQUESTED',
+  'BETA_PAIR_REMINDER',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

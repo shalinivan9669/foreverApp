@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Types, type ClientSession, type FilterQuery } from 'mongoose';
 import { DomainError } from '@/domain/errors';
 import { connectToDatabase } from '@/lib/mongodb';
+import { refreshAssessmentReminderInbox } from './assessmentReminders.service';
 import { Pair, type PairType } from '@/models/Pair';
 import { PairActivity } from '@/models/PairActivity';
 import { WeeklyCycle, type WeeklyCycleType } from '@/models/WeeklyCycle';
@@ -176,6 +177,7 @@ export const notificationService = {
     limit?: number;
   }): Promise<{ items: NotificationDTO[]; nextCursor?: string; unreadCount: number }> {
     await connectToDatabase();
+    await refreshAssessmentReminderInbox(input.currentUserId);
     const limit = Math.min(MAX_LIMIT, Math.max(1, input.limit ?? DEFAULT_LIMIT));
     const cursor = decodeCursor(input.cursor);
     if (input.cursor && !cursor) {
@@ -222,6 +224,7 @@ export const notificationService = {
     now?: Date;
   }): Promise<NotificationDTO> {
     await connectToDatabase();
+    await refreshAssessmentReminderInbox(input.currentUserId);
     const notification = await Notification.findOneAndUpdate(
       {
         _id: input.notificationId,
