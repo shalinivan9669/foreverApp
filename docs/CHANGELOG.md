@@ -918,3 +918,8 @@ Date: 2026-09-10
 Summary:
 - Updated the existing full beta browser acceptance to the tactile interface: responsive accessible goal names, native mobile stage disclosure, explicit skip reasons, saved indicators and separate profile terms/values. Retained native zoom, keyboard, HTTP consistency, privacy and account-isolation assertions after the first PR #10 CI exposed outdated selectors.
 Files: scripts/beta-browser.mjs, scripts/beta-feed-browser.mjs, scripts/lib/beta-profile-browser.mjs, docs/UX_TACTILE_INTERFACE.md.
+
+Date: 2026-09-10
+Summary:
+- Moved questionnaire styles to direct root-layout imports after production HTTP verification found them absent from Vercel's emitted CSS despite a successful deployment. This keeps styles out of SSR-tested feature modules and makes all three files explicit Next.js dependencies.
+Files: src/app/layout.tsx, src/app/globals.css, scripts/beta-browser.mjs, scripts/registered-assessment-browser.mjs, docs/UX_TACTILE_INTERFACE.md, docs/evidence/tactile-ui-2026-09-10/css-bundling-browser-report.json.

@@ -1,4 +1,7 @@
 import './globals.css';
+import '../styles/questionnaire-ui.css';
+import '../styles/assessment-form.css';
+import '../styles/assessment-workspace.css';
 import type { ReactNode } from 'react';
 import { Cormorant_Infant, Hachi_Maru_Pop } from 'next/font/google';
 import { connection } from 'next/server';
