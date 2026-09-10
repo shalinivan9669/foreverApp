@@ -1,0 +1,116 @@
+.page {
+  max-width: 112rem;
+  padding-block: clamp(1rem, 2.3vw, 2.5rem);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: clamp(1.5rem, 2.5vw, 2.75rem);
+}
+
+.brand { display: flex; align-items: center; gap: 1rem; }
+.brand h1 { font-size: clamp(2.25rem, 3.4vw, 3.5rem); }
+.brand p { margin-top: .35rem; font-size: .9375rem; }
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex-shrink: 0;
+  border: 1px solid #d58e9f;
+  border-radius: 1.3rem;
+  background: #f6bdc9;
+  box-shadow: inset 0 2px 2px #ffe9ea, 0 4px 0 #ca8a9a, 0 8px 16px #9e536322;
+  color: #7d3555;
+  transform: rotate(-7deg);
+}
+
+.menu { display: grid; gap: clamp(1rem, 1.7vw, 1.75rem); align-items: stretch; }
+.sections { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(1rem, 1.7vw, 1.75rem); }
+
+.hero {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.5rem, 3vw, 3.25rem);
+  min-height: 26rem;
+  border-radius: 2rem;
+}
+.heroTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 2rem; }
+.todayLabel { font-size: 1rem; font-weight: 700; }
+.heroArt {
+  display: grid;
+  place-items: center;
+  width: clamp(5rem, 9vw, 8.5rem);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  color: #984669;
+  border: 1px solid #d88aa4;
+  border-radius: 35%;
+  background: linear-gradient(150deg, #ffe3e8, #eea6bc);
+  box-shadow: inset 0 3px 3px #fff3f3, inset -3px -5px 8px #cc789644, 0 8px 0 #cf8da5, 0 18px 25px #ab5a7740;
+  transform: rotate(10deg);
+}
+.heroArt svg { width: 50%; height: 50%; fill: #ffffff4d; stroke-width: 1.2; }
+.heroContent { position: relative; z-index: 1; margin-top: auto; }
+.pairStatus { display: inline-block; font-size: .875rem; font-weight: 600; margin-bottom: 1rem; }
+.heroLink { display: block; color: inherit; border-radius: 1rem; }
+.heroLink h2 { font-size: clamp(2rem, 3.3vw, 3.75rem); font-weight: 700; line-height: 1.08; max-width: 18ch; }
+.heroLink p { margin-top: 1rem; max-width: 46ch; font-size: 1rem; line-height: 1.65; }
+.heroAction { margin-top: 1.75rem; padding: .875rem 1.4rem; }
+.heroLink:active .heroAction { transform: translateY(3px); box-shadow: inset 0 2px 3px #54283f44; }
+
+.tile {
+  min-width: 0;
+  min-height: 14rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: clamp(1.25rem, 2vw, 2rem);
+  border-radius: 1.75rem;
+}
+.tileIcon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 1.15rem;
+  background: #ffffff70;
+  border: 1px solid #ffffffa8;
+  box-shadow: inset 0 2px 0 #ffffffad, 0 4px 0 #78415714, 0 8px 16px #78415712;
+}
+.tileCopy { margin-top: auto; }
+.tileCopy h2 { font-size: clamp(1.5rem, 2vw, 2.25rem); font-weight: 700; line-height: 1.12; }
+.tileCopy p { margin-top: .625rem; max-width: 32ch; font-size: 1rem; line-height: 1.5; }
+.openTile { position: absolute; right: 1.25rem; top: 1.1rem; font-size: 1.5rem; }
+.utilities { display: flex; flex-wrap: wrap; gap: .75rem; padding-block: 1.75rem .75rem; font-size: .875rem; }
+.moreTiles { display: grid; gap: 1.25rem; margin-top: 1.75rem; }
+.moreTiles .tile { min-height: 12rem; }
+
+@media (min-width: 36rem) {
+  .sections, .moreTiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 64rem) {
+  .menu { grid-template-columns: 1fr 1fr; }
+  .hero { min-height: 35rem; }
+  .sections { grid-template-rows: repeat(2, minmax(15rem, 1fr)); }
+}
+@media (max-width: 35.999rem) {
+  .brandMark { width: 2.75rem; height: 2.75rem; border-radius: 1rem; }
+  .brand { gap: .75rem; }
+  .brand p { font-size: .8125rem; }
+  .hero { min-height: 25rem; border-radius: 1.6rem; }
+  .heroTop { margin-bottom: 1.5rem; }
+  .tile { min-height: 10.5rem; padding: 1.25rem; }
+  .tileIcon { width: 2.75rem; height: 2.75rem; margin-bottom: 1rem; border-radius: .875rem; }
+  .tileCopy h2 { font-size: 1.75rem; }
+  .tileCopy p { max-width: 38ch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heroLink:active .heroAction { transform: none; }
+}

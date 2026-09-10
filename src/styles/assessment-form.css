@@ -1,0 +1,534 @@
+.app-assessment-form-page {
+  padding-block: 1.5rem 3rem;
+}
+
+.app-assessment-form-page > * + * {
+  margin-top: 1.25rem;
+}
+
+.app-assessment-form-page-title {
+  max-width: 30ch;
+  font-size: clamp(1.65rem, 1.2rem + 1.4vw, 2.4rem);
+  line-height: 1.2;
+}
+
+.app-assessment-form-about {
+  max-width: 76ch;
+  color: var(--app-muted);
+}
+
+.app-assessment-form-about summary,
+.app-assessment-form-skip-section summary,
+.app-assessment-form-review-item summary {
+  min-height: 2.75rem;
+  padding-block: 0.625rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.app-assessment-form-about summary > span,
+.app-assessment-form-skip-section summary > span {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 400;
+}
+
+.app-assessment-form-about-body {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  line-height: 1.65;
+}
+
+.app-assessment-form-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.app-assessment-form-desktop-stages {
+  display: none;
+}
+
+.app-assessment-form-mobile-stages > summary {
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+}
+
+.app-assessment-form-mobile-stages > summary > span {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: calc(100% - 1.5rem);
+}
+
+.app-assessment-form-stage-navigation {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1.25rem;
+}
+
+.app-assessment-form-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.app-assessment-form-progress-heading strong {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-assessment-form-progress {
+  appearance: none;
+  width: 100%;
+  height: 0.5rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 1rem;
+  color: #447766;
+  background: #e3d8d4;
+}
+
+.app-assessment-form-progress::-webkit-progress-bar {
+  border-radius: 1rem;
+  background: #e3d8d4;
+  box-shadow: inset 0 1px 2px #59334712;
+}
+
+.app-assessment-form-progress::-webkit-progress-value {
+  border-radius: 1rem;
+  background: #447766;
+}
+
+.app-assessment-form-progress::-moz-progress-bar {
+  border-radius: 1rem;
+  background: #447766;
+}
+
+.app-assessment-form-stage-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 54dvh;
+  margin: 0 -0.25rem;
+  padding: 0.25rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.app-assessment-form-stage-button {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.875rem;
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.app-assessment-form-stage-button:hover:not(:disabled) {
+  background: #ffffff8c;
+  border-color: var(--app-border);
+}
+
+.app-assessment-form-stage-button[aria-current="step"] {
+  background: #fffaf5;
+  border-color: #b77993;
+  box-shadow: 0 3px 0 #e4c6cf;
+}
+
+.app-assessment-form-stage-button:disabled {
+  opacity: 0.58;
+}
+
+.app-assessment-form-stage-number,
+.app-assessment-form-section-number {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  background: #efdee6;
+  color: #704458;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.app-assessment-form-stage-number[data-saved="true"] {
+  background: #dceee5;
+  color: #365f51;
+}
+
+.app-assessment-form-stage-title {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.app-assessment-form-stage-status {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--app-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.app-assessment-form-question-column {
+  min-width: 0;
+}
+
+.app-assessment-form-response-form.app-panel,
+.app-assessment-form-sheet.app-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: clamp(1.125rem, 3vw, 2.5rem);
+  border-radius: 1.75rem;
+  background: linear-gradient(155deg, #fffdf9 35%, #fff7f1 100%);
+  box-shadow: 0 6px 0 #e7c9c2, 0 20px 45px #69415812;
+}
+
+.app-assessment-form-sheet > p {
+  max-width: 68ch;
+  line-height: 1.65;
+}
+
+.app-assessment-form-question-header {
+  display: grid;
+  gap: 1rem;
+}
+
+.app-assessment-form-eyebrow {
+  color: #7e4f64;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.app-assessment-form-question-title {
+  max-width: 40ch;
+  font-family: var(--font-sans), sans-serif;
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.7rem);
+  font-weight: 700;
+  line-height: 1.35;
+  text-wrap: pretty;
+  outline-offset: 0.375rem;
+}
+
+.app-assessment-form-instructions {
+  max-width: 64ch;
+  font-size: 1.025rem;
+  line-height: 1.75;
+  white-space: pre-line;
+}
+
+.app-assessment-form-method-note {
+  color: var(--app-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.app-assessment-form-note {
+  display: grid;
+  gap: 0.625rem;
+  padding: 1.25rem;
+  line-height: 1.65;
+}
+
+.app-assessment-form-choice-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.app-assessment-form-choice-group > legend,
+.app-assessment-form-fact-field > legend {
+  max-width: 100%;
+  padding: 0;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.app-assessment-form-section-number {
+  margin-right: 0.65rem;
+  vertical-align: middle;
+}
+
+.app-assessment-form-choices {
+  display: grid;
+  gap: 0.875rem;
+  margin-top: 1rem;
+}
+
+.app-assessment-form-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid #d6bcbc;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #fffefa, #fff8f1);
+  box-shadow: 0 3px 0 #ead5ce, inset 0 1px 0 #fff;
+  cursor: pointer;
+  line-height: 1.6;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.app-assessment-form-choice > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-assessment-form-choice input[type="radio"] {
+  flex: 0 0 1.125rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.25rem;
+  accent-color: #437262;
+  cursor: inherit;
+}
+
+.app-assessment-form-choice:has(input:checked) {
+  border-color: #658f7b;
+  background: linear-gradient(180deg, #edf7ef, #e2efe4);
+  box-shadow: 0 2px 0 #afc9b7, inset 0 1px 0 #fff;
+}
+
+.app-assessment-form-choice:has(input:focus-visible) {
+  outline: 2px solid var(--app-ring);
+  outline-offset: 3px;
+}
+
+.app-assessment-form-choice:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.app-assessment-form-choice:active:not(:has(input:disabled)) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #d4bfb9;
+}
+
+.app-assessment-form-field-label {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.app-assessment-form-field-label input,
+.app-assessment-form-field-label select {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid #d6bcbc;
+  border-radius: 0.875rem;
+  background: #fffdf9;
+  box-shadow: inset 0 2px 4px #5933470a;
+}
+
+.app-assessment-form-fact-group {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.app-assessment-form-fact-group > h3 {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--app-border);
+  font-family: var(--font-sans), sans-serif;
+}
+
+.app-assessment-form-fact-field {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.app-assessment-form-fact-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.875rem;
+}
+
+.app-assessment-form-fact-choices > :last-child {
+  grid-column: 1 / -1;
+}
+
+.app-assessment-form-fact-choices .app-assessment-form-choice {
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.app-assessment-form-fact-choices input[type="radio"] {
+  margin-top: 0;
+}
+
+.app-assessment-form-skip-section {
+  border-top: 1px solid var(--app-border);
+  padding-top: 0.75rem;
+}
+
+.app-assessment-form-skip-choices {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.app-assessment-form-skip-choices .app-assessment-form-choice {
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.app-assessment-form-action-area {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid var(--app-border);
+  padding-top: 1.25rem;
+}
+
+.app-assessment-form-save-status {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--app-muted);
+  font-size: 0.875rem;
+}
+
+.app-assessment-form-status-dot {
+  flex: 0 0 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #9b8590;
+}
+
+.app-assessment-form-status-dot[data-state="dirty"] {
+  background: #a16827;
+}
+
+.app-assessment-form-status-dot[data-state="saved"] {
+  background: #447766;
+}
+
+.app-assessment-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+}
+
+.app-assessment-form-actions > :first-child {
+  flex: 1 1 100%;
+  min-height: 3.25rem;
+  justify-content: space-between;
+}
+
+.app-assessment-form-actions > :not(:first-child) {
+  flex: 1 1 auto;
+}
+
+.app-assessment-form-review-list {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.app-assessment-form-review-item {
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  background: #fffaf5;
+  padding: 0.625rem 1.125rem;
+}
+
+.app-assessment-form-review-item > :not(summary) {
+  margin-block: 0.875rem;
+  line-height: 1.65;
+}
+
+.app-assessment-form-source-settings {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  color: var(--app-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.app-assessment-form-source-settings > p {
+  max-width: 85ch;
+}
+
+@media (min-width: 36rem) {
+  .app-assessment-form-fact-choices {
+    grid-template-columns: minmax(5rem, 1fr) minmax(5rem, 1fr) minmax(10rem, 1.5fr);
+  }
+
+  .app-assessment-form-fact-choices > :last-child {
+    grid-column: auto;
+  }
+
+  .app-assessment-form-skip-choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .app-assessment-form-workspace {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    gap: 1.75rem;
+  }
+
+  .app-assessment-form-desktop-stages {
+    display: block;
+    position: sticky;
+    top: 1.5rem;
+  }
+
+  .app-assessment-form-mobile-stages {
+    display: none;
+  }
+}
+
+@media (hover: hover) {
+  .app-assessment-form-choice:hover:not(:has(input:disabled)) {
+    transform: translateY(-1px);
+    border-color: #a3778a;
+    box-shadow: 0 4px 0 #dfc5bc, 0 6px 14px #5933470a;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-assessment-form-choice,
+  .app-assessment-form-stage-button {
+    transition: none;
+  }
+
+  .app-assessment-form-choice:hover,
+  .app-assessment-form-choice:active {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 25rem) {
+  .app-assessment-form-response-form.app-panel {
+    padding-inline: .875rem;
+  }
+
+  .app-assessment-form-choice {
+    padding: .875rem .75rem;
+    gap: .625rem;
+  }
+}

@@ -905,3 +905,11 @@ Date: 2026-09-10
 Summary:
 - Updated both discovery browser-test selectors to the current registered-user settings label. The first main CI run passed application, access and main browser checks but stopped at the outdated discovery checkbox label; withdrawal and re-enabling remain covered by actual browser interactions.
 Files: scripts/beta-feed-browser.mjs, docs/CHANGELOG.md.
+
+Date: 2026-09-10
+Summary:
+- Restored the large main-menu tile and four primary navigation cards using the 70ad601 layout reference with the current Today/pair/matching guards.
+- Applied UI UX Pro Max guidance for tactile controls, readable forms, responsive topic cards, separate catalogue/result/practice views, and visible saved/selected/disabled states. Preserved published assessment wording, APIs and privacy semantics.
+- Improved legacy personal questionnaires and measurement forms, updated the existing registered-user browser acceptance for responsive stage navigation and an optional installed Chrome/Edge channel.
+- Documented scope, design decisions and isolated local verification in docs/UX_TACTILE_INTERFACE.md. No production dependencies, environment contract, DB schema, security model or allowlist changes.
+Files: src/app/main-menu/page.tsx, src/app/main-menu/menu.module.css, src/app/globals.css, src/features/assessments/AssessmentHubPage.tsx, src/features/assessments/AssessmentFormPage.tsx, src/features/assessments/AssessmentProfile.tsx, src/components/QuestionCard.tsx, src/app/questionnaire/[id]/page.tsx, src/features/measurements/MeasurementPages.tsx, src/styles/assessment-workspace.css, src/styles/assessment-form.css, src/styles/questionnaire-ui.css, scripts/registered-assessment-browser.mjs, docs/UX_TACTILE_INTERFACE.md, docs/INDEX.md

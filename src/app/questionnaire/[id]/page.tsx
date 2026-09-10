@@ -162,34 +162,60 @@ function PersonalQuestionnaireRunnerContent({ id }: { id?: string }) {
     );
   }
 
-  if (questionnaire.ownSubmission) return <main className="app-shell-compact app-page-stack py-4"><BackBar title={title} fallbackHref="/questionnaires" /><h1 className="text-xl font-semibold">Пройден: результат сохранён</h1><p>Ответы закрыты для повторной сдачи. Эта анкета — личная саморефлексия; измерительные характеристики доступны в отдельном каталоге.</p>{questionnaire.ownSubmission.version === questionnaire.version ? questionnaire.ownSubmission.answers.map((answer) => <p key={answer.questionId}>{questions.find((question) => question.id === answer.questionId)?.text.ru ?? answer.questionId}: вариант {answer.ui}</p>) : <p>Сохранена другая редакция. Её текст недоступен; новые формулировки не применяются к вашим прежним ответам.</p>}<Link href="/measurements" className="app-btn-primary">Измерительные анкеты</Link></main>;
+  if (questionnaire.ownSubmission) {
+    return (
+      <main className="app-shell-compact app-question-shell app-page-stack py-4">
+        <BackBar title={title} fallbackHref="/questionnaires" />
+        <header className="app-question-intro space-y-3">
+          <h1 className="app-page-title font-semibold">Пройден: результат сохранён</h1>
+          <p>Ответы закрыты для повторной сдачи. Эта анкета — личная саморефлексия; измерительные характеристики доступны в отдельном каталоге.</p>
+        </header>
+        <section className="app-question-card" aria-labelledby="saved-questionnaire-answers">
+          <h2 id="saved-questionnaire-answers" className="text-xl font-semibold">Ваши сохранённые ответы</h2>
+          {questionnaire.ownSubmission.version === questionnaire.version ? (
+            <dl className="mt-3">
+              {questionnaire.ownSubmission.answers.map((answer) => (
+                <div key={answer.questionId} className="app-measurement-saved-answer">
+                  <dt>{questions.find((question) => question.id === answer.questionId)?.text.ru ?? answer.questionId}</dt>
+                  <dd className="mt-2 font-semibold">Вариант {answer.ui}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : <p className="mt-3 leading-relaxed">Сохранена другая редакция. Её текст недоступен; новые формулировки не применяются к вашим прежним ответам.</p>}
+        </section>
+        <Link href="/measurements" className="app-btn-primary">Измерительные анкеты</Link>
+      </main>
+    );
+  }
 
   return (
-    <main className="app-shell-compact app-page-stack py-3 sm:py-5">
+    <main className="app-shell-compact app-question-shell app-page-stack py-3 sm:py-5">
       <BackBar title={title} fallbackHref="/questionnaires" />
 
-      <div>
+      <header className="app-question-intro">
         <h1 className="app-page-title font-semibold">{title}</h1>
-        <p className="app-muted mt-2">Личная саморефлексия. Последний ответ окончательно сохранит анкету и закроет повторное прохождение.</p>
-        <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-          <span className="app-muted">Вопрос {index + 1} из {questions.length}</span>
+        <p className="app-muted mt-3 text-sm">Личная саморефлексия. Последний ответ окончательно сохранит анкету и закроет повторное прохождение.</p>
+        <div className="mt-5 flex items-center justify-between gap-3 text-sm">
+          <span className="font-semibold">Вопрос {index + 1} из {questions.length}</span>
           <span className="font-semibold">{Math.round(((index + 1) / questions.length) * 100)}%</span>
         </div>
-        <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-black/10">
-          <div
-            className="h-full rounded-full bg-[var(--app-primary)] transition-[width]"
-            style={{ width: `${((index + 1) / questions.length) * 100}%` }}
-          />
-        </div>
-      </div>
+        <progress className="app-question-progress mt-3" value={index + 1} max={questions.length} aria-label="Текущий вопрос" />
+      </header>
 
       <div ref={questionRegionRef} tabIndex={-1} className="outline-none">
         <QuestionCard
           q={currentQuestion}
           selected={answersByQuestionId[currentQuestion.id]}
+          disabled={submitting}
           onAnswer={onAnswer}
         />
       </div>
+
+      <p className="app-muted px-1 text-sm leading-relaxed">
+        {index === questions.length - 1
+          ? 'Выберите ответ, чтобы окончательно сохранить анкету.'
+          : 'Выберите ответ — следующий вопрос откроется сразу.'}
+      </p>
 
       {submitting && <LoadingView compact label="Сохраняем ответ..." />}
       <ErrorView
