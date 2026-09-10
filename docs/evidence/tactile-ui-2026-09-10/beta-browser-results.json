@@ -1,0 +1,205 @@
+{
+  "version": "beta-browser-evidence-v1",
+  "runId": "tactile-pr10-beta-history-20260910-2",
+  "sourceIdentity": "tactile-pr10-ui-tests-local",
+  "startedAgainst": "http://vmeste-a.localhost:3106",
+  "playwright": "1.62.1",
+  "chromium": "151.0.7922.34",
+  "nativeScreenReader": "NOT_RUN",
+  "realOAuth": "NOT_RUN",
+  "records": [
+    {
+      "id": "browser-product-navigation",
+      "name": "existing profile links to beta topics and central settings link to private help without completed forms",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-mobile",
+      "name": "320px real browser has accessible goal and no horizontal page overflow",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-reduced-motion",
+      "name": "prefers-reduced-motion reduce in native media engine disables actual animation",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-native-zoom",
+      "name": "native Chrome tabs zoom at 200 and 400 percent reflows hub pair and direct controls without text overflow",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-current-conditional",
+      "name": "selected hypothetical criterion plus schedule is distinct from current and does not change owner actual",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-private-report",
+      "name": "closed report and absent report have identical peer rendering and own note stays private",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-shared-disagreement",
+      "name": "two independently shared reports retain request for change beside positive peer report",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-authored-agreement",
+      "name": "a revised authored future agreement requires two separate UI confirmations and preserves past occurrences and actual",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-pair-reflow",
+      "name": "pair readouts and selected controls fit 320px without horizontal text scroll",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-local-dates",
+      "name": "saved local midnight dates round trip across a positive UTC offset",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-time-error-focus",
+      "name": "ambiguous DST local time is rejected and keyboard focus moves to the error",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-complete-knowledge",
+      "name": "ordinary hub link native knowledge save review finalize renders K3 without replacing existing A",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-complete-application-profile",
+      "name": "native real episode answers finalize and existing owner profile renders bounded negative fraction unknown A dates and history from actual API",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-profile-private-provenance",
+      "name": "independent peer browser retains own profile and complete comparison without owner private negative fraction or source provenance",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-structured-keyboard",
+      "name": "all structured plan slots and changed-condition stage work without dragging",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-complete-task",
+      "name": "native structured choices finish every baseline and changed-condition stage then review finalize a separate D result",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-keyboard-option",
+      "name": "native radio can be selected and submitted from keyboard with heading focus",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-draft-resume",
+      "name": "server-confirmed draft survives actual browser reload",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-lost-response",
+      "name": "acknowledged database save with lost HTTP response retries same intent without duplicate answer",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-offline",
+      "name": "offline failure preserves unsent own response and announces uncertainty",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-review-focus",
+      "name": "review heading receives visible keyboard focus and incomplete work cannot be finalized",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-conflict-limit",
+      "name": "real concurrent revision conflict and injected HTTP rate limit preserve unsent choice without false saved or overwrite",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-decline",
+      "name": "declining the proposed module is persisted and does not lower actual profile",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-cross-tab-logout",
+      "name": "real logout UI on second same-origin tab synchronously invalidates first tab private form",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-same-origin-switch",
+      "name": "same cookie origin A logout B login rejects A draft and B mutation targets B",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-history",
+      "name": "real back and forward after account change never restores A response values",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-late-fetch",
+      "name": "A real HTTP response completed after B login is rejected; current owner is revalidated",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-native-bfcache",
+      "status": "NOT_RUN",
+      "name": "Native persisted pageshow with actor change",
+      "detail": "Browser performed normal history navigation; do not call this bfcache evidence",
+      "notRestoredReasons": {
+        "src": null,
+        "id": null,
+        "url": "http://vmeste-a.localhost:3106/assessments/support",
+        "name": null,
+        "reasons": [
+          {
+            "reason": "masked"
+          },
+          {
+            "reason": "response-cache-control-no-store"
+          },
+          {
+            "reason": "response-cache-control-no-store-with-js-network-request"
+          }
+        ],
+        "children": []
+      },
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-private-traces",
+      "name": "entered own answer note and support markers never enter observed console errors request URLs or session replay sinks",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    }
+  ]
+}

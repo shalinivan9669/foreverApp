@@ -913,3 +913,8 @@ Summary:
 - Improved legacy personal questionnaires and measurement forms, updated the existing registered-user browser acceptance for responsive stage navigation and an optional installed Chrome/Edge channel.
 - Documented scope, design decisions and isolated local verification in docs/UX_TACTILE_INTERFACE.md. No production dependencies, environment contract, DB schema, security model or allowlist changes.
 Files: src/app/main-menu/page.tsx, src/app/main-menu/menu.module.css, src/app/globals.css, src/features/assessments/AssessmentHubPage.tsx, src/features/assessments/AssessmentFormPage.tsx, src/features/assessments/AssessmentProfile.tsx, src/components/QuestionCard.tsx, src/app/questionnaire/[id]/page.tsx, src/features/measurements/MeasurementPages.tsx, src/styles/assessment-workspace.css, src/styles/assessment-form.css, src/styles/questionnaire-ui.css, scripts/registered-assessment-browser.mjs, docs/UX_TACTILE_INTERFACE.md, docs/INDEX.md
+
+Date: 2026-09-10
+Summary:
+- Updated the existing full beta browser acceptance to the tactile interface: responsive accessible goal names, native mobile stage disclosure, explicit skip reasons, saved indicators and separate profile terms/values. Retained native zoom, keyboard, HTTP consistency, privacy and account-isolation assertions after the first PR #10 CI exposed outdated selectors.
+Files: scripts/beta-browser.mjs, scripts/beta-feed-browser.mjs, scripts/lib/beta-profile-browser.mjs, docs/UX_TACTILE_INTERFACE.md.

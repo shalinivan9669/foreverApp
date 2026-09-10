@@ -34,7 +34,29 @@ const page = await context.newPage(); page.setDefaultTimeout(12000);
 page.on('dialog', dialog => dialog.accept());
 const records = [];
 const check = async (id, name, work) => { await work(); records.push({ id, name, status: 'PASSED', layer: 'CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB' }); process.stdout.write(`${JSON.stringify(records.at(-1))}\n`); };
-const settled = async target => { await target.getByRole('radio', { name: 'Для себя', exact: true }).waitFor({ state: 'visible' }); };
+const selfGoal = target => target.getByRole('radio', { name: /^Для себя(?:\s|$)/ });
+const settled = async target => { await selfGoal(target).waitFor({ state: 'visible' }); };
+const visibleStages = async target => {
+  await target.locator('.app-assessment-form-workspace').waitFor();
+  const mobile = target.locator('.app-assessment-form-mobile-stages');
+  if (await mobile.isVisible()) {
+    if (!await mobile.evaluate(node => node.open)) await mobile.locator(':scope > summary').click();
+    return mobile.getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+  }
+  return target.locator('.app-assessment-form-desktop-stages').getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+};
+const selectStage = async index => { await (await visibleStages(page)).locator('ol button').nth(index).click(); };
+const savedStage = async index => { await (await visibleStages(page)).locator('ol button').nth(index).getByText('Сохранено', { exact: true }).waitFor(); };
+const reviewButton = async () => (await visibleStages(page)).getByRole('button', { name: 'Проверить и завершить', exact: true });
+const savedCount = async count => {
+  await page.locator('.app-assessment-form-workspace').waitFor();
+  const mobile = page.locator('.app-assessment-form-mobile-stages');
+  if (await mobile.isVisible()) {
+    await mobile.locator(':scope > summary').getByText(new RegExp(`^Сохранено ${count} из \\d+ · открыть все этапы$`)).waitFor();
+  } else {
+    await page.locator('.app-assessment-form-desktop-stages').getByText(new RegExp(`^Сохранено: ${count} из \\d+ доступных этапов\\.$`)).waitFor();
+  }
+};
 const browserJson = (target, path) => target.evaluate(async url => { const response = await fetch(url, { cache: 'no-store' }); return { status: response.status, body: await response.json() }; }, path);
 const readRun = async (target, publicationId) => { const response = await browserJson(target, `/api/assessments/runs?publicationId=${publicationId}`); assert.equal(response.status, 200); return response.body.data; };
 const fetchRoute = route => route.fetch({ url: route.request().url().replace('vmeste-a.localhost', '127.0.0.1'), headers: { ...route.request().headers(), host: new URL(origin).host } });
@@ -56,13 +78,14 @@ try {
   await check('browser-mobile', '320px real browser has accessible goal and no horizontal page overflow', async () => {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.screenshot({ path: resolve(out, 'beta-hub-320.png'), fullPage: true });
-    await page.getByRole('radio', { name: 'Для себя', exact: true }).press('Tab');
+    await selfGoal(page).press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement?.tagName), 'BODY');
   });
   await check('browser-reduced-motion', 'prefers-reduced-motion reduce in native media engine disables actual animation', async () => {
     assert.equal(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches), true);
     assert.equal(await page.evaluate(() => [...document.querySelectorAll('main,main *')].every(node => getComputedStyle(node).animationName === 'none')), true);
   });
+  stage = 'native-zoom';
   await check('browser-native-zoom', 'native Chrome tabs zoom at 200 and 400 percent reflows hub pair and direct controls without text overflow', async () => {
     const temporary = await mkdtemp(resolve(tmpdir(), 'vmeste-beta-zoom-'));
     const extension = resolve(temporary, 'extension'); await mkdir(extension);
@@ -190,14 +213,14 @@ try {
   await runBetaProfileBrowser({ page, browser, browserJson, readRun, check, origin, login, watch });
   stage = 'task';
   await page.goto(`${origin}/assessments/forms/com-s04-task-beta`); await page.getByRole('button', { name: 'Начать', exact: true }).click();
-  await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').first().click(); await active();
+  await selectStage(0); await active();
   await check('browser-structured-keyboard', 'all structured plan slots and changed-condition stage work without dragging', async () => {
     const groups = page.locator('fieldset').filter({ has: page.locator('input[name^="slot-"]') });
     const slots = await groups.count(); assert.ok(slots > 1);
     for (let i = 0; i < slots; i++) await groups.nth(i).getByRole('radio').first().press('Space');
-    await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).press('Enter'); await page.getByText(/Сохранено: 1 из/).waitFor();
+    await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).press('Enter'); await savedCount(1);
     const value = await readRun(page, 'com-s04-task-beta'); assert.equal(value.answers[0].response.kind, 'STRUCTURED'); assert.equal(value.answers[0].phase, 'BASELINE');
-    await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').nth(1).click(); await active();
+    await selectStage(1); await active();
     assert.equal(await groups.count() > 1, true);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   });
@@ -205,15 +228,15 @@ try {
     const started = await readRun(page, 'com-s04-task-beta');
     for (let index = 1; index < started.items.length; index++) {
       const presentation = page.waitForResponse(response => response.url().endsWith('/api/assessments/runs') && response.request().method() === 'POST' && response.request().postDataJSON()?.action === 'present' && response.request().postDataJSON()?.itemId === started.items[index].id);
-      await page.getByRole('navigation', { name: 'Сохранённые этапы' }).locator('ol button').nth(index).click(); assert.equal((await presentation).status(), 200); await active();
+      await selectStage(index); assert.equal((await presentation).status(), 200); await active();
       await page.getByRole('heading', { name: started.items[index].title, exact: true }).waitFor();
       const groups = page.locator('fieldset').filter({ has: page.locator('input[name^="slot-"]') });
       const count = await groups.count(); assert.ok(count > 1);
       for (let slot = 0; slot < count; slot++) await groups.nth(slot).getByRole('radio').first().press('Space');
       await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).press('Enter');
-      await page.getByRole('navigation', { name: 'Сохранённые этапы' }).locator('ol button').nth(index).filter({ hasText: '· сохранено' }).waitFor();
+      await savedStage(index);
     }
-    await page.getByRole('button', { name: 'Проверить и завершить', exact: true }).press('Enter');
+    await (await reviewButton()).press('Enter');
     await page.getByRole('heading', { name: 'Проверка ответов', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Завершить и обновить личный результат', exact: true }).click();
     await page.getByRole('button', { name: 'Исправить это основание', exact: true }).waitFor();
@@ -222,26 +245,29 @@ try {
     assert.ok(completed.answers.every(answer => answer.response.kind === 'STRUCTURED')); assert.ok(started.items.some(item => item.id.endsWith('-changed')));
     const skill = completed.profile.snapshot.skills.find(value => value.skillId === 'COM.S04');
     assert.equal(skill.K.status, 'UNKNOWN'); assert.equal(skill.A.status, 'UNKNOWN'); assert.notEqual(skill.D.status, 'UNKNOWN');
-    await page.locator('[data-skill-id="COM.S04"]').getByText('Учебное выполнение', { exact: true }).waitFor();
+    await page.locator('[data-skill-id="COM.S04"]').getByRole('term').filter({ hasText: 'Учебное выполнение' }).waitFor();
   });
   await page.goto(`${origin}/assessments`); await settled(page);
   stage = 'knowledge';
-  await page.getByRole('link', { name: 'Конкретная просьба — понимание', exact: true }).click();
+  await page.getByRole('tab', { name: 'Анкеты', exact: true }).click();
+  const knowledgeLink = page.locator('#assessment-topics a[href="/assessments/forms/com-s02-knowledge-beta"]');
+  assert.ok((await knowledgeLink.innerText()).includes('Конкретная просьба — понимание'));
+  await knowledgeLink.click();
   await page.getByRole('button', { name: 'Начать', exact: true }).click();
-  await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').first().click(); await active();
+  await selectStage(0); await active();
   await check('browser-keyboard-option', 'native radio can be selected and submitted from keyboard with heading focus', async () => {
     assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'H2');
     const radio = page.getByRole('radio').first(); await radio.press('Space');
     assert.equal(await radio.isChecked(), true);
     await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).press('Enter');
-    await page.getByText(/Сохранено: 1 из/).waitFor();
+    await savedCount(1);
     assert.equal((await readRun(page, 'com-s02-knowledge-beta')).answers.length, 1);
   });
   await check('browser-draft-resume', 'server-confirmed draft survives actual browser reload', async () => {
-    await page.reload(); await page.getByText(/Сохранено: 1 из/).waitFor();
+    await page.reload(); await savedCount(1);
     assert.equal((await readRun(page, 'com-s02-knowledge-beta')).answers.length, 1);
   });
-  await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').nth(1).click(); await active();
+  await selectStage(1); await active();
   await page.getByRole('radio').first().check();
   await check('browser-lost-response', 'acknowledged database save with lost HTTP response retries same intent without duplicate answer', async () => {
     let discarded = false;
@@ -254,11 +280,11 @@ try {
     await page.getByRole('button', { name: 'Проверить сохранённое состояние', exact: true }).waitFor();
     assert.equal(discarded, true); assert.equal((await readRun(page, 'com-s02-knowledge-beta')).answers.length, 2);
     await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).click();
-    await page.getByText(/Сохранено: 2 из/).waitFor();
+    await savedCount(2);
     assert.equal((await readRun(page, 'com-s02-knowledge-beta')).answers.length, 2);
     await page.unroute('**/api/assessments/runs');
   });
-  await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').nth(2).click(); await active();
+  await selectStage(2); await active();
   await page.getByRole('radio').first().check();
   await check('browser-offline', 'offline failure preserves unsent own response and announces uncertainty', async () => {
     await context.setOffline(true);
@@ -267,16 +293,16 @@ try {
     assert.equal(await page.getByRole('radio').first().isChecked(), true);
     await context.setOffline(false);
     await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).click();
-    await page.getByText(/Сохранено: 3 из/).waitFor();
+    await savedCount(3);
   });
   await check('browser-review-focus', 'review heading receives visible keyboard focus and incomplete work cannot be finalized', async () => {
-    await page.getByRole('button', { name: 'Проверить и завершить', exact: true }).press('Enter');
+    await (await reviewButton()).press('Enter');
     const review = page.getByRole('heading', { name: 'Проверка ответов', exact: true }); await review.waitFor();
     assert.equal(await review.evaluate(node => node === document.activeElement), true);
     assert.equal(await page.getByRole('button', { name: 'Завершить и обновить личный результат', exact: true }).isDisabled(), true);
   });
   await check('browser-conflict-limit', 'real concurrent revision conflict and injected HTTP rate limit preserve unsent choice without false saved or overwrite', async () => {
-    await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').nth(2).click(); await active();
+    await selectStage(2); await active();
     await page.getByRole('radio').first().check();
     const previous = await readRun(page, 'com-s02-knowledge-beta');
     const advanced = await page.evaluate(async input => (await fetch('/api/assessments/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })).status,
@@ -289,7 +315,7 @@ try {
     assert.deepEqual((await readRun(page, 'com-s02-knowledge-beta')).answers, previous.answers);
     await page.getByRole('button', { name: 'Проверить сохранённое состояние', exact: true }).click();
     await page.getByRole('button', { name: 'Проверить сохранённое состояние', exact: true }).waitFor({ state: 'hidden' });
-    await page.getByRole('navigation', { name: 'Сохранённые этапы' }).getByRole('button').nth(2).click(); await active();
+    await selectStage(2); await active();
     await page.getByRole('radio').first().check();
     let limited = false;
     await page.route('**/api/assessments/runs', async route => {
@@ -307,6 +333,7 @@ try {
   });
   await check('browser-decline', 'declining the proposed module is persisted and does not lower actual profile', async () => {
     await page.goto(`${origin}/assessments`); await settled(page);
+    await page.getByRole('tab', { name: 'Анкеты', exact: true }).click();
     const before = (await browserJson(page, '/api/assessments/portfolio')).body.data;
     assert.ok(before.planner.publicationId);
     await page.getByRole('button', { name: 'Сейчас не хочу этот модуль', exact: true }).click();
@@ -314,7 +341,7 @@ try {
     const after = (await browserJson(page, '/api/assessments/portfolio')).body.data;
     assert.deepEqual(after.profile, before.profile);
     assert.notEqual(after.planner.publicationId, before.planner.publicationId);
-    await page.goto(`${origin}/assessments/forms/com-s02-knowledge-beta`); await page.getByText(/Сохранено: 3 из/).waitFor();
+    await page.goto(`${origin}/assessments/forms/com-s02-knowledge-beta`); await savedCount(3);
   });
   stage = 'same-origin';
   const oldRun = await readRun(page, 'com-s02-knowledge-beta');
@@ -385,12 +412,12 @@ try {
     assert.equal(delivered, true);
     await page.bringToFront(); await page.unroute('**/api/assessments/runs?*');
     await page.getByRole('button', { name: /^(Начать|Проверить сохранённое состояние)$/ }).waitFor();
-    assert.equal(await page.getByText(/Сохранено: 3 из/).count(), 0);
+    assert.equal(await page.getByText(/^Сохранено:? 3 из/).count(), 0);
     assert.equal(await page.getByRole('radio').count(), 0);
     const retry = page.getByRole('button', { name: 'Проверить сохранённое состояние', exact: true });
     if (await retry.isVisible()) await retry.click();
     await page.getByRole('button', { name: 'Начать', exact: true }).waitFor();
-    assert.equal(await page.getByText(/Сохранено: 3 из/).count(), 0);
+    assert.equal(await page.getByText(/^Сохранено:? 3 из/).count(), 0);
     assert.equal(await page.getByRole('radio').count(), 0);
     assert.equal((await readRun(page, 'com-s02-knowledge-beta')).status, 'NEW');
   });
