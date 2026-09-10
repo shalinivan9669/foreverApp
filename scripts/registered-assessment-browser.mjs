@@ -41,6 +41,11 @@ const waitSavedCount = async count => {
 const responsiveScreenshots = async name => {
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: width === 320 ? 760 : 1000 });
+    const desktopStages = page.locator('.app-assessment-form-desktop-stages');
+    if (await desktopStages.count()) {
+      assert.equal(await desktopStages.isVisible(), width >= 1024, `Desktop stages visibility must follow the ${width}px viewport`);
+      assert.equal(await page.locator('.app-assessment-form-mobile-stages').isVisible(), width < 1024, `Mobile stages visibility must follow the ${width}px viewport`);
+    }
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${name} fits the ${width}px viewport`);
     if (width === 320 || width === 1440) await page.screenshot({ path: resolve(out, `${name}-${width}.png`), fullPage: true });
   }
@@ -75,6 +80,7 @@ try {
   assert.equal(state.settings.discovery, false); assert.equal(state.settings.pairSharing, false);
   passed('self-service setup records the user choices while optional sharing stays off');
   await page.getByRole('link', { name: 'Перейти к анкетам', exact: true }).click(); await waitHub();
+  assert.equal(await page.locator('.aw-workspace').evaluate(node => getComputedStyle(node).display), 'grid', 'Questionnaire layout styles must reach the rendered page');
   const topicsTab = page.getByRole('tab', { name: 'Анкеты', exact: true });
   const practicesTab = page.getByRole('tab', { name: 'Практики', exact: true });
   await practicesTab.click();
@@ -96,6 +102,7 @@ try {
   await page.locator('a[href="/assessments/forms/com-s02-knowledge-beta"]').click();
   await page.getByRole('button', { name: 'Начать', exact: true }).click();
   await page.locator('.app-assessment-form-mobile-stages').waitFor();
+  assert.equal(await page.locator('.app-assessment-form-desktop-stages').evaluate(node => getComputedStyle(node).display), 'none', 'Desktop stages must be hidden at 320px');
   for (let index = 0; index < 4; index++) {
     const progress = await visibleStages();
     await progress.getByRole('button').nth(index).click();

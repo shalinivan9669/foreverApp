@@ -75,7 +75,8 @@ try {
     assert.equal(await page.getByRole('link', { name: 'Данные и аккаунт', exact: true }).isVisible(), true);
     await page.goto(`${origin}/assessments`); await settled(page);
   });
-  await check('browser-mobile', '320px real browser has accessible goal and no horizontal page overflow', async () => {
+  await check('browser-mobile', '320px real browser loads the questionnaire grid with accessible goal and no horizontal page overflow', async () => {
+    assert.equal(await page.locator('.aw-workspace').evaluate(node => getComputedStyle(node).display), 'grid', 'Questionnaire layout styles must reach the rendered page');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.screenshot({ path: resolve(out, 'beta-hub-320.png'), fullPage: true });
     await selfGoal(page).press('Tab');
@@ -215,6 +216,8 @@ try {
   await page.goto(`${origin}/assessments/forms/com-s04-task-beta`); await page.getByRole('button', { name: 'Начать', exact: true }).click();
   await selectStage(0); await active();
   await check('browser-structured-keyboard', 'all structured plan slots and changed-condition stage work without dragging', async () => {
+    assert.equal(await page.locator('.app-assessment-form-desktop-stages').evaluate(node => getComputedStyle(node).display), 'none', 'Desktop stages must be hidden at 320px');
+    assert.equal(await page.locator('.app-assessment-form-mobile-stages').isVisible(), true, 'Mobile stage navigation must remain available at 320px');
     const groups = page.locator('fieldset').filter({ has: page.locator('input[name^="slot-"]') });
     const slots = await groups.count(); assert.ok(slots > 1);
     for (let i = 0; i < slots; i++) await groups.nth(i).getByRole('radio').first().press('Space');

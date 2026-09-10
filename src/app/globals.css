@@ -1,7 +1,4 @@
 @import "tailwindcss";
-@import "../styles/questionnaire-ui.css";
-@import "../styles/assessment-form.css";
-@import "../styles/assessment-workspace.css";
 
 :root {
   color-scheme: light;
