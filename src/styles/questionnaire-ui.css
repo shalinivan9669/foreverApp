@@ -1,0 +1,307 @@
+.app-question-shell.app-shell-compact,
+.app-question-shell.app-shell-dashboard {
+  max-width: 50rem;
+}
+
+.app-question-intro,
+.app-question-card,
+.app-measurement-finish {
+  min-width: 0;
+  padding: clamp(1.125rem, 3vw, 2rem);
+  border: 1px solid var(--app-border);
+  border-radius: 1.75rem;
+  background: var(--app-surface-raised);
+  box-shadow: 0 5px 0 rgba(128, 73, 92, 0.1), 0 16px 32px rgba(128, 73, 92, 0.08);
+}
+
+.app-question-intro {
+  background: var(--app-surface-soft);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.75);
+}
+
+.app-question-intro p,
+.app-measurement-finish p {
+  max-width: 65ch;
+  line-height: 1.65;
+}
+
+.app-question-title {
+  max-width: 38ch;
+  color: var(--app-fg);
+  font-size: clamp(1.375rem, 2.6vw, 1.8rem);
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.app-question-options {
+  min-width: 0;
+  margin-top: 1.75rem;
+}
+
+.app-question-scale {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.4vw, 0.75rem);
+}
+
+.app-question-binary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.app-question-key,
+.app-measurement-choice {
+  min-width: 0;
+  min-height: 4rem;
+  border: 1px solid var(--app-border);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, var(--app-surface-raised), var(--app-surface-soft));
+  color: var(--app-fg);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.95), 0 4px 0 #d6b2b6;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.app-question-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.375rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.app-question-key-binary {
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+  font-size: 1.125rem;
+}
+
+.app-question-key[aria-pressed="true"],
+.app-measurement-choice[data-selected="true"] {
+  border-color: var(--app-primary);
+  background: #f9e2ed;
+  color: var(--app-primary-strong);
+  box-shadow: inset 0 0 0 1px var(--app-primary), 0 2px 0 #c596ac;
+  transform: translateY(2px);
+}
+
+.app-question-key:focus-visible,
+.app-measurement-choice:focus-within {
+  outline: 3px solid var(--app-ring);
+  outline-offset: 4px;
+}
+
+.app-question-key:active:not(:disabled),
+.app-measurement-fieldset:not(:disabled) .app-measurement-choice:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 3px rgba(128, 73, 92, 0.12), 0 1px 0 #d6b2b6;
+}
+
+.app-question-key:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
+.app-question-choice-mark {
+  display: grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.875rem;
+}
+
+.app-question-help {
+  margin-top: 1.125rem;
+  color: var(--app-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.app-question-progress {
+  width: 100%;
+  height: 0.625rem;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #e8cbd3;
+  color: var(--app-primary);
+}
+
+.app-question-progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #e8cbd3;
+}
+
+.app-question-progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--app-primary);
+}
+
+.app-question-progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--app-primary);
+}
+
+.app-measurement-form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.app-measurement-fieldset {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.app-measurement-legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.app-measurement-legend + * {
+  clear: both;
+}
+
+.app-measurement-number {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  margin-right: 0.625rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--app-surface-soft);
+  color: var(--app-primary-strong);
+  font-size: 0.875rem;
+  vertical-align: baseline;
+}
+
+.app-measurement-required {
+  display: block;
+  margin-top: 0.375rem;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.app-measurement-choices {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.app-measurement-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem;
+  line-height: 1.55;
+}
+
+.app-measurement-choice input,
+.app-measurement-consent input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  accent-color: var(--app-primary);
+}
+
+.app-measurement-fieldset:disabled .app-measurement-choice {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
+.app-measurement-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding-block: 1rem;
+  line-height: 1.65;
+}
+
+.app-measurement-consent + .app-measurement-consent {
+  border-top: 1px solid var(--app-border);
+}
+
+.app-measurement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+  margin-top: 1.25rem;
+}
+
+.app-measurement-actions > * {
+  min-height: 3.25rem;
+  flex: 1 1 13rem;
+  text-align: center;
+}
+
+.app-measurement-saved-answer {
+  padding-block: 1.125rem;
+  line-height: 1.6;
+}
+
+.app-measurement-saved-answer + .app-measurement-saved-answer {
+  border-top: 1px solid var(--app-border);
+}
+
+.app-measurement-catalog-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: 1.5rem;
+  background: var(--app-surface-raised);
+  box-shadow: 0 5px 0 rgba(128, 73, 92, 0.12), 0 10px 26px rgba(128, 73, 92, 0.07);
+}
+
+.app-measurement-catalog-card h3 {
+  font-size: 1.4rem;
+  line-height: 1.3;
+}
+
+.app-measurement-catalog-card > p {
+  line-height: 1.6;
+}
+
+.app-measurement-catalog-card > a {
+  margin-top: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-question-key:hover:not(:disabled),
+  .app-measurement-fieldset:not(:disabled) .app-measurement-choice:hover {
+    border-color: var(--app-primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-question-key,
+  .app-measurement-choice {
+    transition: none;
+    transform: none;
+  }
+
+  .app-question-key[aria-pressed="true"],
+  .app-question-key:active:not(:disabled),
+  .app-measurement-choice[data-selected="true"],
+  .app-measurement-fieldset:not(:disabled) .app-measurement-choice:active {
+    transform: none;
+  }
+}

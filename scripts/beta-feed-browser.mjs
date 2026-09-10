@@ -25,7 +25,16 @@ const json = async (target, path) => {
   const result = await target.evaluate(async url => { const response = await fetch(url, { cache: 'no-store' }); return { status: response.status, body: await response.json() }; }, path);
   assert.equal(result.status, 200); return result.body.data;
 };
-const settled = target => target.getByRole('radio', { name: 'Для себя', exact: true }).waitFor();
+const settled = target => target.getByRole('radio', { name: /^Для себя(?:\s|$)/ }).waitFor();
+const visibleStages = async target => {
+  await target.locator('.app-assessment-form-stage-navigation').first().waitFor({ state: 'attached' });
+  const mobile = target.locator('.app-assessment-form-mobile-stages');
+  if (await mobile.isVisible()) {
+    if (!await mobile.evaluate(node => node.open)) await mobile.locator(':scope > summary').click();
+    return mobile.getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+  }
+  return target.locator('.app-assessment-form-desktop-stages').getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+};
 const feed = target => target.getByRole('region', { name: 'Участники знакомств', exact: true });
 const visibleCard = async target => { await feed(target).getByRole('button', { name: 'Открыть сравнение и карточку', exact: true }).waitFor(); assert.equal(await feed(target).locator(':scope > article').count(), 1); };
 const openCard = async target => { await visibleCard(target); await target.getByRole('button', { name: 'Открыть сравнение и карточку', exact: true }).click(); await target.getByRole('heading', { name: 'Карточка и добровольный контакт', exact: true }).waitFor(); };
@@ -53,17 +62,19 @@ try {
     await page.getByLabel('Первый день', { exact: true }).fill(new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10));
     await page.getByLabel('Последний завершённый день', { exact: true }).fill(new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10));
     await page.getByRole('button', { name: 'Начать отдельную волну наблюдений', exact: true }).click();
-    const navigation = page.getByRole('navigation', { name: 'Сохранённые этапы', exact: true }); await navigation.waitFor();
+    await (await visibleStages(page)).waitFor();
     const run = await json(page, '/api/assessments/runs?publicationId=com-s04-application-beta');
     assert.equal(run.status, 'DRAFT'); assert.ok(run.items.length >= 3); assert.ok(run.items.every(item => item.available));
     for (let index = 0; index < run.items.length; index++) {
-      await navigation.locator('ol button').nth(index).click();
+      await (await visibleStages(page)).locator('ol button').nth(index).click();
       await page.getByRole('heading', { name: run.items[index].title, exact: true }).waitFor();
+      const missing = page.locator('.app-assessment-form-skip-section');
+      if (!await missing.evaluate(node => node.open)) await missing.locator(':scope > summary').click();
       await page.getByRole('radio', { name: index % 2 ? 'Нет такого опыта' : 'Не было подходящей возможности', exact: true }).check();
       await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).click();
-      await navigation.locator('ol button').nth(index).filter({ hasText: '· сохранено' }).waitFor();
+      await (await visibleStages(page)).locator('ol button').nth(index).getByText('Сохранено', { exact: true }).waitFor();
     }
-    await navigation.getByRole('button', { name: 'Проверить и завершить', exact: true }).click();
+    await (await visibleStages(page)).getByRole('button', { name: 'Проверить и завершить', exact: true }).click();
     await page.getByRole('heading', { name: 'Проверка ответов', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Завершить и обновить личный результат', exact: true }).click();
     await page.locator('[data-skill-id="COM.S04"]').waitFor();

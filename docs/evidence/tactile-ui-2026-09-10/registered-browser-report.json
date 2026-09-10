@@ -1,0 +1,47 @@
+{
+  "status": "PASSED",
+  "scope": "CHROMIUM_PRODUCTION_NEXT_HTTP_OWNED_MONGODB",
+  "playwright": "1.62.1",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.83"
+  },
+  "results": [
+    {
+      "name": "existing account enters the primary questionnaire route without a participant invitation",
+      "status": "PASSED"
+    },
+    {
+      "name": "self-service setup records the user choices while optional sharing stays off",
+      "status": "PASSED"
+    },
+    {
+      "name": "catalogue tabs support keyboard navigation and preserve local input",
+      "status": "PASSED"
+    },
+    {
+      "name": "all registered forms are visible at 320px and conditions are not asked again",
+      "status": "PASSED"
+    },
+    {
+      "name": "a saved first answer survives browser reload",
+      "status": "PASSED"
+    },
+    {
+      "name": "four-question form completes through real HTTP and keeps task/application tracks separate",
+      "status": "PASSED"
+    },
+    {
+      "name": "profile uses the same main route and an active account is not asked to reaccept conditions",
+      "status": "PASSED"
+    },
+    {
+      "name": "a second existing account independently joins without invitations and sees no first account answers",
+      "status": "PASSED"
+    },
+    {
+      "name": "browser raised no uncaught page errors",
+      "status": "PASSED"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "status": "PASSED",
+  "results": [
+    "tile press 4px",
+    "button press 3px",
+    "reduced motion disables movement",
+    "catalogue fits 5 widths",
+    "measurement starts and choice selects at390px"
+  ]
+}

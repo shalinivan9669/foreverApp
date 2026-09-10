@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "../styles/questionnaire-ui.css";
+@import "../styles/assessment-form.css";
+@import "../styles/assessment-workspace.css";
 
 :root {
   color-scheme: light;
@@ -132,6 +135,11 @@ textarea::placeholder {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+button:not(:disabled),
+summary {
+  cursor: pointer;
 }
 
 button,
@@ -331,7 +339,7 @@ a {
     linear-gradient(180deg, var(--app-surface-raised) 0%, var(--app-surface) 100%);
   border: 1px solid var(--app-border);
   border-radius: clamp(0.875rem, 0.65rem + 0.35vw, 1.25rem);
-  box-shadow: var(--app-shadow);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.86), 0 3px 0 #e4c9c3, 0 10px 24px rgba(128, 73, 92, 0.1);
   transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
@@ -406,7 +414,7 @@ a {
   display: inline-flex;
   min-width: 2.75rem;
   max-width: 100%;
-  min-height: 2.75rem;
+  min-height: 3rem;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
@@ -429,13 +437,13 @@ a {
   color: var(--app-primary-contrast);
   border: 1px solid #a94d76;
   border-radius: 0.625rem;
-  box-shadow: 0 8px 20px rgba(174, 73, 119, 0.3);
+  box-shadow: inset 0 1px 0 #d780a2, 0 4px 0 #64223f, 0 8px 16px rgba(174, 73, 119, 0.2);
 }
 
 .app-btn-primary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: linear-gradient(138deg, #983c67 0%, #8b2f59 52%, #752348 100%);
   transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(174, 73, 119, 0.36);
+  box-shadow: inset 0 1px 0 #d780a2, 0 5px 0 #64223f, 0 12px 20px rgba(174, 73, 119, 0.24);
 }
 
 .app-btn-secondary {
@@ -443,6 +451,7 @@ a {
   color: var(--app-fg);
   border: 1px solid #ebb8b8;
   border-radius: 0.625rem;
+  box-shadow: inset 0 2px 0 #fffaf3, 0 3px 0 #dfb5b5, 0 5px 10px #80495c0a;
 }
 
 .app-btn-secondary:hover:not(:disabled):not([aria-disabled="true"]) {
@@ -475,6 +484,14 @@ a {
   transform: translateY(-1px);
 }
 
+.app-btn-primary:active:not(:disabled):not([aria-disabled="true"]),
+.app-btn-secondary:active:not(:disabled):not([aria-disabled="true"]),
+.app-btn-danger:active:not(:disabled):not([aria-disabled="true"]),
+.app-btn-success:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 4px #54283f33, 0 1px 0 #80495c44;
+}
+
 .app-backbar {
   top: env(safe-area-inset-top);
   background:
@@ -485,7 +502,7 @@ a {
   box-shadow: 0 10px 26px rgba(144, 85, 92, 0.16);
 }
 
-:is(.app-btn-primary, .app-btn-secondary, .app-btn-danger, .app-btn-success):is(:active, [aria-pressed="true"], [aria-current="page"]):not(:disabled):not([aria-disabled="true"]) {
+:is(.app-btn-primary, .app-btn-secondary, .app-btn-danger, .app-btn-success):is([aria-pressed="true"], [aria-current="page"]):not(:disabled):not([aria-disabled="true"]) {
   box-shadow: inset 0 0 0 2px currentColor;
   transform: none;
 }
@@ -636,7 +653,7 @@ a {
   border-radius: clamp(1rem, 0.8rem + 0.4vw, 1.4rem);
   border: 1px solid var(--app-tile-border);
   color: #673a4d;
-  box-shadow: 0 14px 30px var(--app-tile-shadow);
+  box-shadow: inset 0 2px 1px #ffffffa8, 0 5px 0 var(--app-tile-border), 0 12px 24px var(--app-tile-shadow);
   transition:
     transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.34s cubic-bezier(0.22, 1, 0.36, 1),
@@ -726,14 +743,22 @@ a {
   transition: opacity 0.34s ease;
 }
 
-.app-tile:hover:not(:disabled):not([aria-disabled="true"]) {
+a.app-tile:hover:not([aria-disabled="true"]),
+button.app-tile:hover:not(:disabled):not([aria-disabled="true"]) {
   transform: translateY(-3px);
-  box-shadow: 0 22px 42px var(--app-tile-shadow-hover);
+  box-shadow: inset 0 2px 1px #ffffffa8, 0 8px 0 var(--app-tile-border), 0 18px 30px var(--app-tile-shadow-hover);
   border-color: var(--app-tile-border-hover);
 }
 
-.app-tile:hover:not(:disabled):not([aria-disabled="true"])::after {
+a.app-tile:hover:not([aria-disabled="true"])::after,
+button.app-tile:hover:not(:disabled):not([aria-disabled="true"])::after {
   opacity: 0.92;
+}
+
+a.app-tile:active:not([aria-disabled="true"]),
+button.app-tile:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(4px);
+  box-shadow: inset 0 2px 4px var(--app-tile-shadow), 0 1px 0 var(--app-tile-border), 0 4px 10px var(--app-tile-shadow);
 }
 
 .app-tile:focus-visible {

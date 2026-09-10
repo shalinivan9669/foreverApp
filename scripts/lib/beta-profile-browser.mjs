@@ -6,18 +6,29 @@ import assert from 'node:assert/strict';
 export async function runBetaProfileBrowser({ page, browser, browserJson, readRun, check, origin, login, watch }) {
   const knowledgeId = 'dom-s07-knowledge-beta', applicationId = 'com-s02-application-beta';
   const data = async (target, path) => { const result = await browserJson(target, path); assert.equal(result.status, 200); assert.equal(result.body.ok, true); return result.body.data; };
-  const settled = target => target.getByRole('radio', { name: 'Для себя', exact: true }).waitFor();
-  const navigation = () => page.getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+  const settled = target => target.getByRole('radio', { name: /^Для себя(?:\s|$)/ }).waitFor();
+  const navigation = async () => {
+    await page.locator('.app-assessment-form-stage-navigation').first().waitFor({ state: 'attached' });
+    const mobile = page.locator('.app-assessment-form-mobile-stages');
+    if (await mobile.isVisible()) {
+      if (!await mobile.evaluate(node => node.open)) await mobile.locator(':scope > summary').click();
+      return mobile.getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+    }
+    return page.locator('.app-assessment-form-desktop-stages').getByRole('navigation', { name: 'Сохранённые этапы', exact: true });
+  };
   const finish = async () => {
-    await navigation().getByRole('button', { name: 'Проверить и завершить', exact: true }).click();
+    await (await navigation()).getByRole('button', { name: 'Проверить и завершить', exact: true }).click();
     await page.getByRole('heading', { name: 'Проверка ответов', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Завершить и обновить личный результат', exact: true }).click();
     await page.getByRole('button', { name: 'Исправить это основание', exact: true }).waitFor();
   };
   const openFromHub = async publicationId => {
     await page.goto(`${origin}/assessments`); await settled(page);
+    await page.getByRole('tab', { name: 'Анкеты', exact: true }).click();
     const run = await readRun(page, publicationId);
-    await page.getByRole('link', { name: run.publication.title, exact: true }).click();
+    const formLink = page.locator(`#assessment-topics a[href="/assessments/forms/${encodeURIComponent(publicationId)}"]`);
+    await formLink.getByText(run.publication.title, { exact: true }).waitFor();
+    await formLink.click();
   };
   const readComparison = async target => {
     const result = await target.evaluate(async () => {
@@ -36,19 +47,19 @@ export async function runBetaProfileBrowser({ page, browser, browserJson, readRu
     assert.equal((await readRun(page, knowledgeId)).status, 'NEW'); assert.equal((await readRun(page, applicationId)).status, 'NEW');
 
     await check('browser-complete-knowledge', 'ordinary hub link native knowledge save review finalize renders K3 without replacing existing A', async () => {
-      await openFromHub(knowledgeId); await page.getByRole('button', { name: 'Начать', exact: true }).click(); await navigation().waitFor();
+      await openFromHub(knowledgeId); await page.getByRole('button', { name: 'Начать', exact: true }).click(); await (await navigation()).waitFor();
       const draft = await readRun(page, knowledgeId); assert.equal(draft.status, 'DRAFT'); assert.equal(draft.items.length, 4);
       for (let index = 0; index < draft.items.length; index++) {
-        await navigation().locator('ol button').nth(index).click();
+        await (await navigation()).locator('ol button').nth(index).click();
         await page.getByRole('heading', { name: draft.items[index].title, exact: true }).waitFor();
         await page.getByRole('group', { name: 'Выберите вариант', exact: true }).getByRole('radio').first().check();
         await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).click();
-        await navigation().locator('ol button').nth(index).filter({ hasText: '· сохранено' }).waitFor();
+        await (await navigation()).locator('ol button').nth(index).getByText('Сохранено', { exact: true }).waitFor();
       }
       await finish();
       const completed = await readRun(page, knowledgeId); assert.equal(completed.status, 'FINALIZED'); assert.equal(completed.answers.length, 4);
       const skill = completed.profile.snapshot.skills.find(skill => skill.skillId === 'DOM.S07'); assert.equal(skill.K.exactLevel, 3); assert.deepEqual(skill.A, ownerBefore.A);
-      const rendered = page.locator('[data-skill-id="DOM.S07"]'); await rendered.getByText('Понимание', { exact: true }).waitFor();
+      const rendered = page.locator('[data-skill-id="DOM.S07"]'); await rendered.locator('dl > div').first().getByRole('term').filter({ hasText: /^01\s*Понимание$/ }).waitFor();
       assert.equal(await rendered.locator('dl > div').first().getByText('Уровень 3', { exact: true }).isVisible(), true);
       await page.getByRole('link', { name: 'Темы, ответы и добровольные практики', exact: true }).click(); await settled(page);
       assert.ok((await data(page, '/api/assessments/portfolio')).planner.reasonCode);
@@ -59,10 +70,10 @@ export async function runBetaProfileBrowser({ page, browser, browserJson, readRu
       await openFromHub(applicationId);
       const day = offset => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
       await page.getByLabel('Первый день', { exact: true }).fill(day(-8)); await page.getByLabel('Последний завершённый день', { exact: true }).fill(day(-2));
-      await page.getByRole('button', { name: 'Начать отдельную волну наблюдений', exact: true }).click(); await navigation().waitFor();
+      await page.getByRole('button', { name: 'Начать отдельную волну наблюдений', exact: true }).click(); await (await navigation()).waitFor();
       const draft = await readRun(page, applicationId); assert.equal(draft.status, 'DRAFT'); assert.equal(draft.items.length, 4);
       for (let index = 0; index < draft.items.length; index++) {
-        await navigation().locator('ol button').nth(index).click(); await page.getByRole('heading', { name: draft.items[index].title, exact: true }).waitFor();
+        await (await navigation()).locator('ol button').nth(index).click(); await page.getByRole('heading', { name: draft.items[index].title, exact: true }).waitFor();
         const selection = page.getByRole('combobox', { name: 'Это отдельный эпизод или уже описанный?' });
         if (await selection.count()) await selection.selectOption('NEW');
         await page.getByLabel(/^Когда произошёл этот эпизод \(UTC\)/).fill(`${day(-7 + index)}T12:00`);
@@ -72,7 +83,7 @@ export async function runBetaProfileBrowser({ page, browser, browserJson, readRu
           const choice = fieldId === 'eligible' ? 'Да' : fieldId.startsWith('NEG.') ? index === 3 && fieldId.endsWith('.notCompleted') ? 'Не знаю / не помню' : 'Да' : 'Не знаю / не помню';
           await group.getByRole('radio', { name: choice, exact: true }).check();
         }
-        await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).click(); await navigation().locator('ol button').nth(index).filter({ hasText: '· сохранено' }).waitFor();
+        await page.getByRole('button', { name: 'Сохранить ответ', exact: true }).click(); await (await navigation()).locator('ol button').nth(index).getByText('Сохранено', { exact: true }).waitFor();
       }
       await finish();
       ownerCompleted = await readRun(page, applicationId); assert.equal(ownerCompleted.status, 'FINALIZED'); assert.ok(ownerCompleted.answers.every(answer => answer.response.kind === 'FACTS'));
@@ -83,7 +94,9 @@ export async function runBetaProfileBrowser({ page, browser, browserJson, readRu
       await page.goto(`${origin}/profile`);
       const rendered = page.locator('[data-skill-id="COM.S02"]'); await rendered.waitFor();
       await rendered.getByText('Частичные данные: уровень пока неизвестен', { exact: true }).waitFor();
-      await rendered.getByText('Невыполнение договорённости: от −4/4 до −3/4 описанных возможностей; часть исходов неизвестна.', { exact: true }).first().waitFor();
+      const negativeRow = rendered.locator('dl > div').filter({ has: page.getByText('Невыполнение договорённости', { exact: true }) });
+      await negativeRow.locator('dt').getByText('Невыполнение договорённости', { exact: true }).waitFor();
+      await negativeRow.locator('dd').getByText('от −4/4 до −3/4 описанных возможностей; часть исходов неизвестна.', { exact: true }).waitFor();
       assert.equal(await rendered.getByText('Уровень 0', { exact: true }).count(), 0);
       const formatted = value => new Date(value).toLocaleDateString('ru-RU', { timeZone: 'UTC' });
       await rendered.getByText(`Период применения: ${formatted(ownerCompleted.period.startsAt)} — ${formatted(new Date(Date.parse(ownerCompleted.period.endsAt) - 1).toISOString())} (UTC).`, { exact: true }).waitFor();

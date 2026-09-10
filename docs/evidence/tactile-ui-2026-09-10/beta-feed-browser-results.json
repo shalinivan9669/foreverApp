@@ -1,0 +1,48 @@
+{
+  "version": "beta-browser-evidence-v1",
+  "runId": "tactile-pr10-beta-feed-20260910-1",
+  "sourceIdentity": "tactile-pr10-ui-tests-local",
+  "startedAgainst": "http://vmeste-a.localhost:3126",
+  "playwright": "1.62.1",
+  "chromium": "151.0.7922.34",
+  "nativeScreenReader": "NOT_RUN",
+  "realOAuth": "NOT_RUN",
+  "records": [
+    {
+      "id": "browser-solo-unknown",
+      "name": "SOLO user completes actual COM application with no experience or opportunity and retains unknown A and private negative rates",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-feed-current",
+      "name": "real beta discovery renders one authorized current lane and opens actual two-direction comparison",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-feed-network",
+      "name": "failed real detail fetch shows retry with no cached contact and retry recovers authorized content",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-feed-empty",
+      "name": "withdrawing peer discovery produces real accessible empty state with conditions card inbox and settings choices",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-feed-account",
+      "name": "same-origin account switch clears old candidate contact draft before new actor can submit",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    },
+    {
+      "id": "browser-feed-contact",
+      "name": "voluntary LikeComposer submit is authored only by current B and reaches A inbox without automatic Pair",
+      "status": "PASSED",
+      "layer": "CHROMIUM_PRODUCTION_NEXT_HTTP_MONGODB"
+    }
+  ]
+}
